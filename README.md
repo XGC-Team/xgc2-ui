@@ -37,7 +37,7 @@ Production consumers install immutable npm tarballs attached to GitHub releases.
 ```json
 {
   "dependencies": {
-    "@xgc2/ui-react": "https://github.com/lxk36/xgc2-ui/releases/download/v0.2.0/xgc2-ui-react-0.2.0.tgz"
+    "@xgc2/ui-react": "https://github.com/lxk36/xgc2-ui/releases/download/v0.3.0/xgc2-ui-react-0.3.0.tgz"
   }
 }
 ```

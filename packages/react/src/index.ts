@@ -15,9 +15,10 @@ export type {
 } from './components/AudioCapture';
 export { Button } from './components/Button';
 export type { ButtonAppearance, ButtonProps, ButtonTone, ComponentSize } from './components/Button';
-export { FormField, SegmentedControl, Select } from './components/FormControls';
+export { FormField, FormGroup, SegmentedControl, Select } from './components/FormControls';
 export type {
   FormFieldProps,
+  FormGroupProps,
   SegmentedControlOption,
   SegmentedControlProps,
   SelectProps,

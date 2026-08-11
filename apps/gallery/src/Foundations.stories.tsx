@@ -4,6 +4,7 @@ import {
   AudioCaptureControl,
   Button,
   FormField,
+  FormGroup,
   Input,
   Modal,
   Panel,
@@ -103,14 +104,14 @@ function FormAndMediaExample() {
           <option value="en">English</option>
         </Select>
       </FormField>
-      <FormField label="Appearance">
+      <FormGroup label="Appearance">
         <SegmentedControl
           ariaLabel="Appearance"
           value={skin}
           options={[{ label: 'Light', value: 'light' }, { label: 'Dark', value: 'dark' }]}
           onValueChange={setSkin}
         />
-      </FormField>
+      </FormGroup>
       <Panel title="Audio input" padding="none">
         <AudioCaptureControl
           state={captureState}

@@ -73,6 +73,30 @@ export function FormField({
   );
 }
 
+export type FormGroupProps = HTMLAttributes<HTMLFieldSetElement> & {
+  error?: ReactNode;
+  hint?: ReactNode;
+  label: ReactNode;
+};
+
+export function FormGroup({
+  children,
+  className,
+  error,
+  hint,
+  label,
+  ...props
+}: FormGroupProps) {
+  return (
+    <fieldset {...props} className={classNames('xgc-form-field', 'xgc-form-group', className)} data-invalid={Boolean(error) || undefined}>
+      <legend className="xgc-form-field-label">{label}</legend>
+      {children}
+      {error ? <span className="xgc-form-field-error">{error}</span> : null}
+      {!error && hint ? <span className="xgc-form-field-hint">{hint}</span> : null}
+    </fieldset>
+  );
+}
+
 export type SegmentedControlOption = {
   disabled?: boolean;
   label: ReactNode;

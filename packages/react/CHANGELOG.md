@@ -1,5 +1,11 @@
 # @xgc2/ui-react
 
+## 0.3.0
+
+### Minor Changes
+
+- Add an accessible fieldset-based form group for segmented and compound controls.
+
 ## 0.2.0
 
 ### Minor Changes

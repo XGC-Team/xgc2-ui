@@ -24,6 +24,6 @@ import {
 
 `AudioWaveform` and `AudioCaptureControl` own reusable recording presentation only. The consuming product remains responsible for microphone permissions, transport, transcription, and capture state transitions.
 
-`FormField`, `Input`, `Select`, and `SegmentedControl` share one control geometry and accessible native semantics. `ProductBrand` gives every application the same topbar identity structure.
+`FormField`, `FormGroup`, `Input`, `Select`, and `SegmentedControl` share one control geometry and accessible native semantics. Use `FormGroup` for button groups and compound controls. `ProductBrand` gives every application the same topbar identity structure.
 
 React and React DOM are peer dependencies to guarantee that a consuming application owns the single React runtime.

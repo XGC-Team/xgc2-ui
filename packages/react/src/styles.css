@@ -260,6 +260,17 @@
   color: var(--color-text-faint);
 }
 
+.xgc-form-group {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.xgc-form-group > .xgc-form-field-label {
+  margin: 0 0 var(--space-5);
+  padding: 0;
+}
+
 .xgc-segmented-control {
   width: max-content;
   max-width: 100%;
