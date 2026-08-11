@@ -1,4 +1,5 @@
 @import '@xgc2/ui-tokens';
+@import '@xgc2/ui-tokens/base.css';
 
 .xgc-button {
   min-width: 0;
@@ -752,16 +753,11 @@
 }
 
 .xgc-topbar-leading,
-.xgc-topbar-center,
 .xgc-topbar-actions {
   min-width: 0;
   display: flex;
   align-items: center;
   gap: var(--space-8);
-}
-
-.xgc-topbar-center {
-  flex: 1 1 auto;
 }
 
 .xgc-topbar-actions {

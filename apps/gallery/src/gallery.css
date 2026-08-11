@@ -54,6 +54,23 @@ body {
   gap: var(--space-12);
 }
 
+.xgc-gallery-scroll-region {
+  width: min(520px, 100%);
+  height: 220px;
+  overflow: auto;
+  scrollbar-gutter: stable;
+  background: var(--color-bg-subtle);
+  border: var(--stroke-thin) solid var(--color-border);
+  border-radius: var(--radius-surface);
+}
+
+.xgc-gallery-scroll-row {
+  min-width: 680px;
+  padding: var(--space-10) var(--space-12);
+  color: var(--color-text-muted);
+  border-bottom: var(--stroke-thin) solid var(--color-border-muted);
+}
+
 @media (max-width: 720px) {
   .xgc-gallery-story {
     padding: var(--space-8);

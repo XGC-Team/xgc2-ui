@@ -173,15 +173,13 @@ export function SidebarNavItem({
 
 export type TopbarProps = Omit<HTMLAttributes<HTMLElement>, 'children'> & {
   actions?: ReactNode;
-  center?: ReactNode;
   leading?: ReactNode;
 };
 
-export function Topbar({ actions, center, className, leading, ...props }: TopbarProps) {
+export function Topbar({ actions, className, leading, ...props }: TopbarProps) {
   return (
     <header {...props} className={classNames('xgc-topbar', className)}>
       {leading ? <div className="xgc-topbar-leading">{leading}</div> : null}
-      {center ? <div className="xgc-topbar-center">{center}</div> : null}
       {actions ? <div className="xgc-topbar-actions">{actions}</div> : null}
     </header>
   );

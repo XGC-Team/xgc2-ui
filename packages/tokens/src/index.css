@@ -55,6 +55,11 @@
   --size-shell-chrome: 36px;
   --size-sidebar-expanded: 216px;
   --size-sidebar-collapsed: 44px;
+  --size-scrollbar: var(--space-8);
+  --size-scrollbar-thumb-min: var(--space-24);
+  --space-scrollbar-end: var(--space-4);
+  --stroke-scrollbar-inset: var(--space-2);
+  --radius-scrollbar: var(--radius-pill);
   --duration-quick: 120ms;
   --duration-fast: 160ms;
   --opacity-disabled: 0.45;
@@ -67,6 +72,15 @@
   --color-terminal-fg: #d7e0ea;
   --color-terminal-surface: #1a2430;
   --color-terminal-muted: #6b7d90;
+  --color-terminal-muted-hover: #8a9aab;
+  --color-terminal-muted-active: #a8b6c4;
+  --color-terminal-scrollbar-track: color-mix(in srgb, var(--color-terminal-surface) 78%, transparent);
+  --color-terminal-scrollbar-thumb: color-mix(in srgb, var(--color-terminal-muted) 82%, transparent);
+
+  --color-scrollbar-track: color-mix(in srgb, var(--color-bg-subtle) 72%, transparent);
+  --color-scrollbar-thumb: color-mix(in srgb, var(--color-border-strong) 78%, transparent);
+  --color-scrollbar-thumb-hover: var(--color-border-hover);
+  --color-scrollbar-thumb-active: var(--color-border-primary);
 }
 
 :root,

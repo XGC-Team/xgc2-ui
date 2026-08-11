@@ -27,7 +27,6 @@ function ShellExample() {
       collapsed={collapsed}
       brandLabel="XGC2"
       brandMark="X"
-      footer={<StatusBadge status="Running">Core ready</StatusBadge>}
       onCollapsedChange={setCollapsed}
     >
       <SidebarNav aria-label="Product navigation">
@@ -46,7 +45,6 @@ function ShellExample() {
   const topbar = (
     <Topbar
       leading={<strong>{page}</strong>}
-      center={<span>Target: local</span>}
       actions={<Button tone="primary" uiSize="compact">Run</Button>}
     />
   );

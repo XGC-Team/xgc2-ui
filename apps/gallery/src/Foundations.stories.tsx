@@ -100,7 +100,7 @@ function FormAndMediaExample() {
     <div className="xgc-gallery-form">
       <Topbar
         leading={<ProductBrand product="STT" mark="X" />}
-        actions={<StatusBadge status="Ready">Engine ready</StatusBadge>}
+        actions={<Button appearance="ghost" uiSize="compact">Settings</Button>}
       />
       <FormField label="Language">
         <Select value={language} onValueChange={setLanguage}>
@@ -156,5 +156,17 @@ export const DataDisplay: Story = {
       </Panel>
       <CodeBlock terminal label="Install" content="sudo apt-get update\nsudo apt-get install libxgc2-control" />
     </div>
+  ),
+};
+
+export const Scrollbars: Story = {
+  render: () => (
+    <Panel title="Global scrollbar" description="Inherited by every scrollable product surface.">
+      <div className="xgc-gallery-scroll-region" tabIndex={0}>
+        {Array.from({ length: 18 }, (_, index) => (
+          <div className="xgc-gallery-scroll-row" key={index}>Operator event {String(index + 1).padStart(2, '0')}</div>
+        ))}
+      </div>
+    </Panel>
   ),
 };
