@@ -42,11 +42,12 @@ describe('application shell', () => {
 
   it('declares document-flow mobile behavior and reusable split panes', () => {
     const { container } = render(
-      <AppShell mobileLayout="document">
+      <AppShell mobileBreakpoint="compact" mobileLayout="document">
         <ResponsiveSplit primary={<section>Packages</section>} secondary={<section>Client setup</section>} />
       </AppShell>,
     );
     expect(container.querySelector('.xgc-app-shell')).toHaveAttribute('data-mobile-layout', 'document');
+    expect(container.querySelector('.xgc-app-shell')).toHaveAttribute('data-mobile-breakpoint', 'compact');
     expect(container.querySelectorAll('.xgc-responsive-split-pane')).toHaveLength(2);
   });
 });

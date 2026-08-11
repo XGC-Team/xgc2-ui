@@ -1,5 +1,11 @@
 # @xgc2/ui-react
 
+## 0.7.1
+
+### Patch Changes
+
+- Let document-flow shells choose the shared mobile or compact breakpoint so dense two-pane operator workspaces can stack before their controls become cramped.
+
 ## 0.7.0
 
 ### Minor Changes

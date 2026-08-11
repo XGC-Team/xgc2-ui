@@ -10,6 +10,7 @@ export type AppShellProps = HTMLAttributes<HTMLDivElement> & {
   contentClassName?: string;
   contentPadding?: 'default' | 'none';
   height?: 'viewport' | 'parent';
+  mobileBreakpoint?: 'compact' | 'mobile';
   mobileLayout?: 'document' | 'fixed';
   sidebar?: ReactNode;
   topbar?: ReactNode;
@@ -21,6 +22,7 @@ export function AppShell({
   contentClassName,
   contentPadding = 'default',
   height = 'viewport',
+  mobileBreakpoint = 'mobile',
   mobileLayout = 'fixed',
   sidebar,
   topbar,
@@ -31,6 +33,7 @@ export function AppShell({
       {...props}
       className={classNames('xgc-app-shell', className)}
       data-height={height}
+      data-mobile-breakpoint={mobileBreakpoint}
       data-mobile-layout={mobileLayout}
       data-sidebar={sidebar ? 'present' : 'absent'}
     >
