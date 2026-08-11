@@ -1167,7 +1167,8 @@
 }
 
 @media (max-width: 820px) {
-  .xgc-responsive-split {
+  .xgc-responsive-split,
+  .xgc-responsive-split[data-ratio] {
     height: auto;
     grid-template-columns: minmax(0, 1fr);
   }

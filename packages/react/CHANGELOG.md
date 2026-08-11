@@ -1,5 +1,11 @@
 # @xgc2/ui-react
 
+## 0.7.2
+
+### Patch Changes
+
+- Ensure compact single-column rules override every desktop split ratio instead of allowing the ratio selector to compress the primary pane beside a fixed secondary pane.
+
 ## 0.7.1
 
 ### Patch Changes
