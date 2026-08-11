@@ -2,6 +2,8 @@
 
 Shared design tokens, React components, and application-shell primitives for XGC2 web products.
 
+The normative family-wide rules live in [DESIGN_CONTRACT.md](./DESIGN_CONTRACT.md). Product-specific CSS may not override those interaction and chrome conventions.
+
 ## Packages
 
 - `@xgc2/ui-tokens`: the single source of truth for light/dark color, spacing, type, elevation, and motion tokens.
