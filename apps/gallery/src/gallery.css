@@ -1,0 +1,59 @@
+html,
+body,
+#storybook-root {
+  min-height: 100%;
+}
+
+body {
+  background: var(--color-bg-app);
+}
+
+.xgc-gallery-story {
+  min-height: 100%;
+  padding: var(--space-20);
+  color: var(--color-text);
+  background: var(--color-bg-app);
+}
+
+.xgc-gallery-stack {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-10);
+}
+
+.xgc-gallery-form {
+  width: min(420px, 100%);
+  display: grid;
+  gap: var(--space-10);
+}
+
+.xgc-gallery-field {
+  display: grid;
+  gap: var(--space-6);
+  color: var(--color-text-muted);
+}
+
+.xgc-gallery-shell {
+  height: min(680px, calc(100dvh - var(--space-32) * 2));
+  overflow: hidden;
+  border: var(--stroke-thin) solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.xgc-gallery-content-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-12);
+}
+
+@media (max-width: 720px) {
+  .xgc-gallery-story {
+    padding: var(--space-8);
+  }
+
+  .xgc-gallery-content-grid {
+    grid-template-columns: 1fr;
+  }
+}

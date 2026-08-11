@@ -1,0 +1,36 @@
+name: Release UI packages
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+      - run: mkdir -p release-assets
+      - run: pnpm --filter @xgc2/ui-tokens pack --pack-destination release-assets
+      - run: pnpm --filter @xgc2/ui-react pack --pack-destination release-assets
+      - name: Publish immutable package assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            gh release upload "${GITHUB_REF_NAME}" release-assets/*.tgz --clobber
+          else
+            gh release create "${GITHUB_REF_NAME}" release-assets/*.tgz --verify-tag --generate-notes
+          fi
