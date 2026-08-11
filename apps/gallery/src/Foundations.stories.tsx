@@ -1,6 +1,19 @@
 import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { Button, Input, Modal, Panel, StatusBadge } from '@xgc2/ui-react';
+import {
+  AudioCaptureControl,
+  Button,
+  FormField,
+  Input,
+  Modal,
+  Panel,
+  ProductBrand,
+  SegmentedControl,
+  Select,
+  StatusBadge,
+  Topbar,
+  type AudioCaptureState,
+} from '@xgc2/ui-react';
 
 const meta = {
   title: 'Foundations/Components',
@@ -71,4 +84,46 @@ function ModalExample() {
 
 export const Dialog: Story = {
   render: () => <ModalExample />,
+};
+
+function FormAndMediaExample() {
+  const [language, setLanguage] = useState('zh');
+  const [skin, setSkin] = useState('light');
+  const [captureState, setCaptureState] = useState<AudioCaptureState>('idle');
+  return (
+    <div className="xgc-gallery-form">
+      <Topbar
+        leading={<ProductBrand product="STT" mark="X" />}
+        actions={<StatusBadge status="Ready">Engine ready</StatusBadge>}
+      />
+      <FormField label="Language">
+        <Select value={language} onValueChange={setLanguage}>
+          <option value="auto">Automatic</option>
+          <option value="zh">Chinese</option>
+          <option value="en">English</option>
+        </Select>
+      </FormField>
+      <FormField label="Appearance">
+        <SegmentedControl
+          ariaLabel="Appearance"
+          value={skin}
+          options={[{ label: 'Light', value: 'light' }, { label: 'Dark', value: 'dark' }]}
+          onValueChange={setSkin}
+        />
+      </FormField>
+      <Panel title="Audio input" padding="none">
+        <AudioCaptureControl
+          state={captureState}
+          actionLabel={captureState === 'recording' ? 'Stop recording' : 'Start recording'}
+          onAction={() => setCaptureState(captureState === 'recording' ? 'idle' : 'recording')}
+          onCancel={() => setCaptureState('idle')}
+          waveformLabel="Audio input activity"
+        />
+      </Panel>
+    </div>
+  );
+}
+
+export const FormsAndAudio: Story = {
+  render: () => <FormAndMediaExample />,
 };

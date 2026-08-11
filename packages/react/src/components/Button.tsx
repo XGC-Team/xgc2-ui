@@ -2,7 +2,7 @@ import { forwardRef, type ButtonHTMLAttributes } from 'react';
 import { classNames } from '../utils';
 
 export type ButtonTone = 'default' | 'primary' | 'danger' | 'success';
-export type ButtonAppearance = 'default' | 'ghost';
+export type ButtonAppearance = 'default' | 'ghost' | 'solid';
 export type ComponentSize = 'default' | 'compact';
 
 export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {

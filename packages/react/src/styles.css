@@ -69,6 +69,18 @@
   border-color: var(--color-border-success);
 }
 
+.xgc-button[data-appearance='solid'][data-tone='danger'] {
+  color: var(--color-text-inverse);
+  background: var(--color-danger);
+  border-color: color-mix(in srgb, var(--color-danger) 82%, #000000);
+}
+
+.xgc-button[data-appearance='solid'][data-tone='success'] {
+  color: var(--color-text-inverse);
+  background: var(--color-success);
+  border-color: color-mix(in srgb, var(--color-success) 82%, #000000);
+}
+
 .xgc-button[data-appearance='ghost'] {
   background: transparent;
   border-color: transparent;
@@ -152,6 +164,137 @@
 .xgc-input-unit {
   font-size: var(--font-base);
   white-space: nowrap;
+}
+
+.xgc-select {
+  min-width: 0;
+  height: var(--size-control-default);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  color: var(--color-text);
+  background: var(--color-bg-control);
+  border: var(--stroke-thin) solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  transition:
+    background-color var(--duration-quick) ease,
+    border-color var(--duration-quick) ease;
+}
+
+.xgc-select[data-size='compact'] {
+  height: var(--size-control-compact);
+}
+
+.xgc-select:hover:not([data-disabled='true']) {
+  background: var(--color-bg-control-hover);
+  border-color: var(--color-border-hover);
+}
+
+.xgc-select:focus-within {
+  outline: var(--stroke-strong) solid var(--color-border-focus);
+  outline-offset: var(--space-2);
+}
+
+.xgc-select[data-invalid='true'] {
+  border-color: var(--color-border-danger);
+}
+
+.xgc-select[data-disabled='true'] {
+  cursor: not-allowed;
+  opacity: var(--opacity-disabled);
+}
+
+.xgc-select > select {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  grid-area: 1 / 1 / 2 / 3;
+  padding: 0 var(--space-32) 0 var(--space-10);
+  color: inherit;
+  appearance: none;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  cursor: pointer;
+}
+
+.xgc-select > select:disabled {
+  cursor: not-allowed;
+}
+
+.xgc-select-indicator {
+  z-index: 1;
+  grid-area: 1 / 2;
+  padding-right: var(--space-9);
+  color: var(--color-text-faint);
+  pointer-events: none;
+}
+
+.xgc-form-field {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-5);
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+}
+
+.xgc-form-field-label {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  font-weight: var(--weight-medium);
+}
+
+.xgc-form-field-required,
+.xgc-form-field-error {
+  color: var(--color-danger);
+}
+
+.xgc-form-field-hint,
+.xgc-form-field-error {
+  font-size: var(--font-sm);
+  line-height: var(--line-height-ui);
+}
+
+.xgc-form-field-hint {
+  color: var(--color-text-faint);
+}
+
+.xgc-segmented-control {
+  width: max-content;
+  max-width: 100%;
+  display: inline-flex;
+  overflow: hidden;
+  padding: var(--space-2);
+  background: var(--color-bg-subtle);
+  border: var(--stroke-thin) solid var(--color-border);
+  border-radius: var(--radius-control);
+}
+
+.xgc-segmented-control > button {
+  min-width: var(--size-sidebar-collapsed);
+  height: var(--size-control-compact);
+  padding: 0 var(--space-9);
+  color: var(--color-text-muted);
+  background: transparent;
+  border: 0;
+  border-radius: calc(var(--radius-control) - var(--space-2));
+  cursor: pointer;
+}
+
+.xgc-segmented-control > button:hover:not(:disabled) {
+  color: var(--color-text-strong);
+}
+
+.xgc-segmented-control > button[aria-pressed='true'] {
+  color: var(--color-text-strong);
+  background: var(--color-bg-active);
+  box-shadow: 0 0 0 var(--stroke-thin) var(--color-border-strong);
+}
+
+.xgc-segmented-control > button:disabled {
+  cursor: not-allowed;
+  opacity: var(--opacity-disabled);
 }
 
 .xgc-panel {
@@ -318,6 +461,75 @@
   border-color: color-mix(in srgb, var(--color-danger) 42%, var(--color-border));
 }
 
+.xgc-audio-capture {
+  min-width: 0;
+  display: grid;
+  justify-items: center;
+  gap: var(--space-14);
+  padding: var(--space-24) var(--space-18);
+}
+
+.xgc-audio-waveform {
+  width: min(280px, 86%);
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  overflow: hidden;
+  color: var(--color-text-faint);
+}
+
+.xgc-audio-waveform > span {
+  width: var(--space-3);
+  height: var(--xgc-wave-height);
+  min-height: var(--space-4);
+  flex: 1 1 var(--space-3);
+  max-width: var(--space-5);
+  background: currentColor;
+  border-radius: var(--radius-pill);
+  opacity: 0.62;
+  transform: scaleY(0.34);
+  transform-origin: center;
+}
+
+.xgc-audio-waveform[data-active='true'] {
+  color: var(--color-danger);
+}
+
+.xgc-audio-waveform[data-active='true'] > span {
+  opacity: 0.88;
+  animation: xgc-waveform-pulse 740ms ease-in-out infinite alternate;
+  animation-delay: var(--xgc-wave-delay);
+}
+
+.xgc-audio-capture-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-8);
+}
+
+.xgc-audio-capture-primary {
+  min-width: 132px;
+  height: 34px;
+  font-weight: var(--weight-strong);
+}
+
+.xgc-audio-capture-error {
+  width: calc(100% + var(--space-18) * 2);
+  margin: 0 calc(var(--space-18) * -1) calc(var(--space-24) * -1);
+  padding: var(--space-9) var(--space-12);
+  color: var(--color-danger);
+  border-top: var(--stroke-thin) solid var(--color-border);
+}
+
+@keyframes xgc-waveform-pulse {
+  0% { transform: scaleY(0.24); }
+  55% { transform: scaleY(1); }
+  100% { transform: scaleY(0.48); }
+}
+
 .xgc-app-shell {
   --xgc-shell-ui-font-size: var(--font-base);
   min-width: 0;
@@ -398,6 +610,43 @@
 .xgc-topbar-actions {
   margin-left: auto;
   justify-content: flex-end;
+}
+
+.xgc-product-brand {
+  min-width: 0;
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-7);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.xgc-product-brand-mark {
+  width: var(--space-20);
+  height: var(--space-20);
+  display: grid;
+  place-items: center;
+  align-self: center;
+  color: var(--color-text-inverse);
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-sm);
+  font-weight: var(--weight-bold);
+}
+
+.xgc-product-brand-organization {
+  overflow: hidden;
+  color: var(--color-text-strong);
+  font-size: var(--font-lg);
+  text-overflow: ellipsis;
+}
+
+.xgc-product-brand-name {
+  overflow: hidden;
+  color: var(--color-text-faint);
+  font-size: var(--font-sm);
+  font-weight: var(--weight-strong);
+  text-overflow: ellipsis;
 }
 
 .xgc-app-sidebar {

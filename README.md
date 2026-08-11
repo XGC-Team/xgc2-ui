@@ -27,7 +27,7 @@ The gallery runs on `http://127.0.0.1:6006` by default.
 
 ```tsx
 import '@xgc2/ui-react/styles.css';
-import { Button, Input, Panel } from '@xgc2/ui-react';
+import { AudioCaptureControl, Button, FormField, Panel, Select } from '@xgc2/ui-react';
 ```
 
 Applications must set `data-skin="dark"` or `data-skin="light"` on the root HTML element. The default is dark for compatibility with the GCS.
@@ -37,9 +37,11 @@ Production consumers install immutable npm tarballs attached to GitHub releases.
 ```json
 {
   "dependencies": {
-    "@xgc2/ui-react": "https://github.com/lxk36/xgc2-ui/releases/download/v0.1.0/xgc2-ui-react-0.1.0.tgz"
+    "@xgc2/ui-react": "https://github.com/lxk36/xgc2-ui/releases/download/v0.2.0/xgc2-ui-react-0.2.0.tgz"
   }
 }
 ```
 
 The React package inlines the token contract into its published stylesheet, so consumers do not need registry access to resolve a transitive token package.
+
+Reusable coverage includes application shell, collapsible sidebar, topbar and product identity, panels, buttons, inputs, selects, labeled fields, segmented controls, modals, status badges, and audio waveform/capture presentation. Product repositories keep routing, transport, device access, and domain state.
