@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { AppShell, AppSidebar, SidebarNav, SidebarNavItem, Topbar } from './AppShell';
+import { AppShell, AppSidebar, ResponsiveSplit, SidebarNav, SidebarNavItem, Topbar } from './AppShell';
 
 describe('application shell', () => {
   it('composes sidebar, topbar, and content without owning routing', () => {
@@ -38,5 +38,15 @@ describe('application shell', () => {
     render(<AppSidebar brandLabel="XGC" brandMark="X">Navigation</AppSidebar>);
     fireEvent.click(screen.getByRole('button', { name: 'Collapse navigation' }));
     expect(screen.getByRole('button', { name: 'Expand navigation' })).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('declares document-flow mobile behavior and reusable split panes', () => {
+    const { container } = render(
+      <AppShell mobileLayout="document">
+        <ResponsiveSplit primary={<section>Packages</section>} secondary={<section>Client setup</section>} />
+      </AppShell>,
+    );
+    expect(container.querySelector('.xgc-app-shell')).toHaveAttribute('data-mobile-layout', 'document');
+    expect(container.querySelectorAll('.xgc-responsive-split-pane')).toHaveLength(2);
   });
 });

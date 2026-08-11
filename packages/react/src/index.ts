@@ -1,12 +1,14 @@
 import './styles.css';
 
-export { AppShell, AppSidebar, SidebarNav, SidebarNavItem, Topbar } from './components/AppShell';
+export { AppShell, AppSidebar, ResponsiveSplit, SidebarNav, SidebarNavItem, Topbar } from './components/AppShell';
 export type {
   AppShellProps,
   AppSidebarProps,
+  ResponsiveSplitProps,
   SidebarNavItemProps,
   TopbarProps,
 } from './components/AppShell';
+export { XGC_BREAKPOINTS, XGC_MEDIA_QUERIES, useMediaQuery, useViewportMode } from './hooks/useMediaQuery';
 export { AudioCaptureControl, AudioWaveform } from './components/AudioCapture';
 export type {
   AudioCaptureControlProps,
@@ -21,10 +23,15 @@ export type {
   ButtonTone,
   ComponentSize,
 } from './components/Button';
-export { CodeBlock, DataTable, StatCard, Toolbar } from './components/DataDisplay';
+export { CodeBlock, DataTable, SortableDataTable, StatCard, Toolbar } from './components/DataDisplay';
 export type {
   CodeBlockProps,
+  DataTableColumn,
   DataTableProps,
+  DataTableSelection,
+  DataTableSort,
+  DataTableSortDirection,
+  SortableDataTableProps,
   StatCardProps,
   ToolbarProps,
 } from './components/DataDisplay';

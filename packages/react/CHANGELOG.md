@@ -1,5 +1,11 @@
 # @xgc2/ui-react
 
+## 0.7.0
+
+### Minor Changes
+
+- Fix panel headers and their action controls to semantic shared-token heights. Extend the compact copyable CodeBlock treatment with safe, theme-aware shell and JSON syntax highlighting. Add a generic sortable, selectable DataTable with accessible sort state, partial selection, and select-all behavior. Add shared responsive split panes, fixed/mobile-document shell modes, breakpoint constants, and media-query hooks. Apply restrained shared surface gradients across shell, panels, and controls.
+
 ## 0.6.0
 
 ### Minor Changes

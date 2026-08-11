@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { CodeBlock, DataTable, StatCard, Toolbar } from './DataDisplay';
+import { CodeBlock, DataTable, SortableDataTable, StatCard, Toolbar } from './DataDisplay';
 
 describe('data display primitives', () => {
   afterEach(() => vi.restoreAllMocks());
@@ -28,9 +28,61 @@ describe('data display primitives', () => {
     expect(writeText).toHaveBeenCalledWith('sudo apt-get update');
   });
 
+  it('renders safe shared syntax tokens without changing copied content', () => {
+    const { container } = render(
+      <CodeBlock terminal label="Install" language="shell" content={'sudo apt-get install "$PACKAGE" # install'} />,
+    );
+    expect(container.querySelectorAll('.xgc-syntax-keyword')).toHaveLength(3);
+    expect(container.querySelector('.xgc-syntax-string')).toHaveTextContent('"$PACKAGE"');
+    expect(container.querySelector('.xgc-syntax-comment')).toHaveTextContent('# install');
+    expect(screen.getByText(/sudo/).closest('code')).toHaveTextContent('sudo apt-get install "$PACKAGE" # install');
+  });
+
   it('renders statistic and toolbar content', () => {
     render(<><StatCard label="Packages" value="42" detail="focal" /><Toolbar>Filters</Toolbar></>);
     expect(screen.getByText('42')).toBeInTheDocument();
     expect(screen.getByText('Filters')).toBeInTheDocument();
+  });
+
+  it('sorts rows and exposes the active direction to assistive technology', () => {
+    render(
+      <SortableDataTable
+        columns={[{ id: 'version', header: 'Version', sortable: true, sortValue: (row) => row.version, cell: (row) => row.version }]}
+        defaultSort={{ columnId: 'version', direction: 'ascending' }}
+        rowKey={(row) => row.id}
+        rows={[{ id: 'b', version: '1.10.0' }, { id: 'a', version: '1.2.0' }]}
+      />,
+    );
+    expect(screen.getAllByRole('row')[1]).toHaveTextContent('1.2.0');
+    const header = screen.getByRole('columnheader', { name: /version/i });
+    expect(header).toHaveAttribute('aria-sort', 'ascending');
+    fireEvent.click(screen.getByRole('button', { name: 'Sort by Version' }));
+    expect(header).toHaveAttribute('aria-sort', 'descending');
+    expect(screen.getAllByRole('row')[1]).toHaveTextContent('1.10.0');
+  });
+
+  it('supports select-all, partial selection, and row selection as one shared behavior', () => {
+    const onChange = vi.fn();
+    const { rerender } = render(
+      <SortableDataTable
+        columns={[{ id: 'name', header: 'Package', cell: (row) => row.name }]}
+        rowKey={(row) => row.id}
+        rows={[{ id: 'a', name: 'alpha' }, { id: 'b', name: 'beta' }]}
+        selection={{ selectedRowKeys: new Set(), onChange }}
+      />,
+    );
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select all rows' }));
+    expect(onChange).toHaveBeenCalledWith(new Set(['a', 'b']));
+
+    rerender(
+      <SortableDataTable
+        columns={[{ id: 'name', header: 'Package', cell: (row) => row.name }]}
+        rowKey={(row) => row.id}
+        rows={[{ id: 'a', name: 'alpha' }, { id: 'b', name: 'beta' }]}
+        selection={{ selectedRowKeys: new Set(['a']), onChange }}
+      />,
+    );
+    expect(screen.getByRole('checkbox', { name: 'Select all rows' })).toHaveProperty('indeterminate', true);
+    expect(screen.getByRole('row', { name: /alpha/i })).toHaveAttribute('data-selected', 'true');
   });
 });

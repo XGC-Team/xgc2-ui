@@ -1,5 +1,11 @@
 # @xgc2/ui-tokens
 
+## 0.4.0
+
+### Minor Changes
+
+- Add semantic panel-header control sizing and theme-aware syntax-highlight colors. Panel chrome now fixes both header and action heights entirely through shared tokens. Rebuild both appearance modes around restrained surface hierarchy, low-saturation dark semantics, and subtle shared material gradients.
+
 ## 0.3.0
 
 ### Minor Changes

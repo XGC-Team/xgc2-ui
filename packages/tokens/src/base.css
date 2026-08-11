@@ -11,7 +11,7 @@ body {
 
 body {
   color: var(--color-text);
-  background: var(--color-bg-app);
+  background: var(--background-app, var(--color-bg-app));
   font-family: var(--font-sans);
   font-size: var(--font-base);
 }

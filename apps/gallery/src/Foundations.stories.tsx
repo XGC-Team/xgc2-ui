@@ -5,7 +5,6 @@ import {
   Button,
   ButtonLink,
   CodeBlock,
-  DataTable,
   FormField,
   FormGroup,
   Input,
@@ -14,6 +13,7 @@ import {
   ProductBrand,
   SegmentedControl,
   Select,
+  SortableDataTable,
   StatCard,
   StatusBadge,
   Tabs,
@@ -157,14 +157,19 @@ export const DataDisplay: Story = {
         <Button>Refresh</Button>
       </Toolbar>
       <Panel title="Packages" padding="none">
-        <DataTable>
-          <table>
-            <thead><tr><th>Package</th><th>Version</th><th>Actions</th></tr></thead>
-            <tbody><tr><td>libxgc2-control</td><td>1.4.0</td><td><ButtonLink href="#">Download</ButtonLink></td></tr></tbody>
-          </table>
-        </DataTable>
+        <SortableDataTable
+          columns={[
+            { id: 'package', header: 'Package', sortable: true, sortValue: (row) => row.name, cell: (row) => row.name },
+            { id: 'version', header: 'Version', sortable: true, sortValue: (row) => row.version, cell: (row) => row.version },
+            { id: 'actions', header: 'Actions', cell: () => <ButtonLink href="#">Download</ButtonLink> },
+          ]}
+          defaultSort={{ columnId: 'package', direction: 'ascending' }}
+          rowKey={(row) => row.name}
+          rows={[{ name: 'libxgc2-control', version: '1.4.0' }]}
+          selection={{ selectedRowKeys: new Set(), onChange: () => undefined }}
+        />
       </Panel>
-      <CodeBlock terminal label="Install" content="sudo apt-get update\nsudo apt-get install libxgc2-control" />
+      <CodeBlock terminal label="Install" language="shell" content="sudo apt-get update\nsudo apt-get install libxgc2-control" />
     </div>
   ),
 };

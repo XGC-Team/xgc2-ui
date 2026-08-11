@@ -10,6 +10,7 @@ export type AppShellProps = HTMLAttributes<HTMLDivElement> & {
   contentClassName?: string;
   contentPadding?: 'default' | 'none';
   height?: 'viewport' | 'parent';
+  mobileLayout?: 'document' | 'fixed';
   sidebar?: ReactNode;
   topbar?: ReactNode;
 };
@@ -20,6 +21,7 @@ export function AppShell({
   contentClassName,
   contentPadding = 'default',
   height = 'viewport',
+  mobileLayout = 'fixed',
   sidebar,
   topbar,
   ...props
@@ -29,6 +31,7 @@ export function AppShell({
       {...props}
       className={classNames('xgc-app-shell', className)}
       data-height={height}
+      data-mobile-layout={mobileLayout}
       data-sidebar={sidebar ? 'present' : 'absent'}
     >
       {sidebar}
@@ -41,6 +44,27 @@ export function AppShell({
           {children}
         </main>
       </div>
+    </div>
+  );
+}
+
+export type ResponsiveSplitProps = HTMLAttributes<HTMLDivElement> & {
+  primary: ReactNode;
+  ratio?: 'balanced' | 'primary' | 'secondary';
+  secondary: ReactNode;
+};
+
+export function ResponsiveSplit({
+  className,
+  primary,
+  ratio = 'primary',
+  secondary,
+  ...props
+}: ResponsiveSplitProps) {
+  return (
+    <div {...props} className={classNames('xgc-responsive-split', className)} data-ratio={ratio}>
+      <div className="xgc-responsive-split-pane">{primary}</div>
+      <div className="xgc-responsive-split-pane">{secondary}</div>
     </div>
   );
 }
