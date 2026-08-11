@@ -1,5 +1,11 @@
 # @xgc2/ui-react
 
+## 0.4.0
+
+### Minor Changes
+
+- Add shared button links, toolbars, statistic cards, data-table containers, and copyable code blocks.
+
 ## 0.3.0
 
 ### Minor Changes

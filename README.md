@@ -37,11 +37,11 @@ Production consumers install immutable npm tarballs attached to GitHub releases.
 ```json
 {
   "dependencies": {
-    "@xgc2/ui-react": "https://github.com/lxk36/xgc2-ui/releases/download/v0.3.0/xgc2-ui-react-0.3.0.tgz"
+    "@xgc2/ui-react": "https://github.com/lxk36/xgc2-ui/releases/download/v0.4.0/xgc2-ui-react-0.4.0.tgz"
   }
 }
 ```
 
 The React package inlines the token contract into its published stylesheet, so consumers do not need registry access to resolve a transitive token package.
 
-Reusable coverage includes application shell, collapsible sidebar, topbar and product identity, panels, buttons, inputs, selects, labeled fields, segmented controls, modals, status badges, and audio waveform/capture presentation. Product repositories keep routing, transport, device access, and domain state.
+Reusable coverage includes application shell, collapsible sidebar, topbar and product identity, panels, buttons and button links, inputs, selects, labeled fields, segmented controls, modals, status badges, statistics, toolbars, data tables, code blocks, and audio waveform/capture presentation. Product repositories keep routing, transport, device access, and domain state.

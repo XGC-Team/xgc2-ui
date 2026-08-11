@@ -3,6 +3,9 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import {
   AudioCaptureControl,
   Button,
+  ButtonLink,
+  CodeBlock,
+  DataTable,
   FormField,
   FormGroup,
   Input,
@@ -11,7 +14,9 @@ import {
   ProductBrand,
   SegmentedControl,
   Select,
+  StatCard,
   StatusBadge,
+  Toolbar,
   Topbar,
   type AudioCaptureState,
 } from '@xgc2/ui-react';
@@ -127,4 +132,29 @@ function FormAndMediaExample() {
 
 export const FormsAndAudio: Story = {
   render: () => <FormAndMediaExample />,
+};
+
+export const DataDisplay: Story = {
+  render: () => (
+    <div className="xgc-gallery-data">
+      <div className="xgc-gallery-content-grid">
+        <StatCard label="Packages" value="42" detail="focal, noble" />
+        <StatCard label="Repository size" value="1.8 GB" detail="128 files" />
+      </div>
+      <Toolbar>
+        <Input type="search" placeholder="Search packages" />
+        <Select aria-label="Distribution" defaultValue="focal"><option>focal</option><option>noble</option></Select>
+        <Button>Refresh</Button>
+      </Toolbar>
+      <Panel title="Packages" padding="none">
+        <DataTable>
+          <table>
+            <thead><tr><th>Package</th><th>Version</th><th>Actions</th></tr></thead>
+            <tbody><tr><td>libxgc2-control</td><td>1.4.0</td><td><ButtonLink href="#">Download</ButtonLink></td></tr></tbody>
+          </table>
+        </DataTable>
+      </Panel>
+      <CodeBlock terminal label="Install" content="sudo apt-get update\nsudo apt-get install libxgc2-control" />
+    </div>
+  ),
 };

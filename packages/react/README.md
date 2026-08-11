@@ -26,4 +26,6 @@ import {
 
 `FormField`, `FormGroup`, `Input`, `Select`, and `SegmentedControl` share one control geometry and accessible native semantics. Use `FormGroup` for button groups and compound controls. `ProductBrand` gives every application the same topbar identity structure.
 
+`Toolbar`, `StatCard`, `DataTable`, and `CodeBlock` cover recurring operational data layouts while leaving data fetching and table structure to consumers. `ButtonLink` gives native navigation links the same geometry as actions.
+
 React and React DOM are peer dependencies to guarantee that a consuming application owns the single React runtime.

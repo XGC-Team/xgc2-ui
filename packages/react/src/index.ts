@@ -13,8 +13,21 @@ export type {
   AudioCaptureState,
   AudioWaveformProps,
 } from './components/AudioCapture';
-export { Button } from './components/Button';
-export type { ButtonAppearance, ButtonProps, ButtonTone, ComponentSize } from './components/Button';
+export { Button, ButtonLink } from './components/Button';
+export type {
+  ButtonAppearance,
+  ButtonLinkProps,
+  ButtonProps,
+  ButtonTone,
+  ComponentSize,
+} from './components/Button';
+export { CodeBlock, DataTable, StatCard, Toolbar } from './components/DataDisplay';
+export type {
+  CodeBlockProps,
+  DataTableProps,
+  StatCardProps,
+  ToolbarProps,
+} from './components/DataDisplay';
 export { FormField, FormGroup, SegmentedControl, Select } from './components/FormControls';
 export type {
   FormFieldProps,
