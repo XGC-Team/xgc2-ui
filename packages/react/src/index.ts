@@ -46,3 +46,5 @@ export { ProductBrand } from './components/ProductBrand';
 export type { ProductBrandProps } from './components/ProductBrand';
 export { StatusBadge } from './components/StatusBadge';
 export type { StatusBadgeProps, StatusTone } from './components/StatusBadge';
+export { Tabs } from './components/Tabs';
+export type { TabOption, TabsProps } from './components/Tabs';

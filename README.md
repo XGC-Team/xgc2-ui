@@ -37,14 +37,14 @@ Production consumers install immutable npm tarballs attached to GitHub releases.
 ```json
 {
   "dependencies": {
-    "@xgc2/ui-react": "https://github.com/lxk36/xgc2-ui/releases/download/v0.5.0/xgc2-ui-react-0.5.0.tgz"
+    "@xgc2/ui-react": "https://github.com/lxk36/xgc2-ui/releases/download/v0.6.0/xgc2-ui-react-0.6.0.tgz"
   }
 }
 ```
 
 The React package inlines the token contract into its published stylesheet, so consumers do not need registry access to resolve a transitive token package.
 
-Reusable coverage includes application shell, collapsible sidebar, topbar and product identity, panels, buttons and button links, inputs, selects, labeled fields, segmented controls, modals, status badges, statistics, toolbars, data tables, code blocks, audio waveform/capture presentation, and the global XGC2 scrollbar treatment. Product repositories keep routing, transport, device access, and domain state.
+Reusable coverage includes application shell, collapsible sidebar, topbar and product identity, panels, buttons and button links, inputs, selects, labeled fields, segmented controls, semantic tabs, modals, status badges, statistics, toolbars, data tables, code blocks, audio waveform/capture presentation, and the global XGC2 scrollbar treatment. Product repositories keep routing, transport, device access, and domain state.
 
 ## Selection-state policy
 
@@ -53,3 +53,5 @@ Left-side accent bars are prohibited across the XGC2 UI family. Components must 
 ## Topbar policy
 
 Every topbar has exactly one product title on the left and only high-value interactive controls on the right. Center copy, subtitles, helper descriptions, and decorative healthy-state pills such as Ready or Online are prohibited. Diagnostic status belongs beside the content it describes and should appear only when it helps the operator make a decision; normal health does not need a badge.
+
+Page chrome and first-level panel chrome use `--size-header-page` and `--size-header-panel`; the panel value is the compact 34px XGC2 experiment-panel baseline. Code labels and Copy actions use `--size-header-code` as quiet in-surface metadata, never a visually dominant nested topbar.

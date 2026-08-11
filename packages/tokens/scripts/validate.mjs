@@ -11,6 +11,10 @@ const requiredTokens = [
   '--space-8',
   '--radius-control',
   '--size-control-default',
+  '--size-control-navigation',
+  '--size-header-page',
+  '--size-header-panel',
+  '--size-header-code',
   '--size-scrollbar',
   '--size-scrollbar-thumb-min',
   '--stroke-scrollbar-inset',
@@ -19,6 +23,7 @@ const requiredTokens = [
   '--color-scrollbar-thumb',
   '--color-scrollbar-thumb-hover',
   '--color-scrollbar-thumb-active',
+  '--background-panel-header',
 ];
 
 const missing = requiredTokens.filter((token) => !css.includes(`${token}:`));

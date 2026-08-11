@@ -52,7 +52,11 @@
   --stroke-strong: 2px;
   --size-control-compact: 26px;
   --size-control-default: 30px;
-  --size-shell-chrome: 36px;
+  --size-control-navigation: 28px;
+  --size-header-page: 36px;
+  --size-header-panel: 34px;
+  --size-header-code: 24px;
+  --size-shell-chrome: var(--size-header-page);
   --size-sidebar-expanded: 216px;
   --size-sidebar-collapsed: 44px;
   --size-scrollbar: var(--space-8);
@@ -81,6 +85,11 @@
   --color-scrollbar-thumb: color-mix(in srgb, var(--color-border-strong) 78%, transparent);
   --color-scrollbar-thumb-hover: var(--color-border-hover);
   --color-scrollbar-thumb-active: var(--color-border-primary);
+  --background-panel-header: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-bg-surface-hover) 58%, var(--color-bg-chrome)),
+    var(--color-bg-chrome)
+  );
 }
 
 :root,

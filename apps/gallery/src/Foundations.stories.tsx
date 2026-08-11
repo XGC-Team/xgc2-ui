@@ -16,6 +16,7 @@ import {
   Select,
   StatCard,
   StatusBadge,
+  Tabs,
   Toolbar,
   Topbar,
   type AudioCaptureState,
@@ -96,6 +97,7 @@ function FormAndMediaExample() {
   const [language, setLanguage] = useState('zh');
   const [skin, setSkin] = useState('light');
   const [captureState, setCaptureState] = useState<AudioCaptureState>('idle');
+  const [view, setView] = useState('live');
   return (
     <div className="xgc-gallery-form">
       <Topbar
@@ -115,6 +117,14 @@ function FormAndMediaExample() {
           value={skin}
           options={[{ label: 'Light', value: 'light' }, { label: 'Dark', value: 'dark' }]}
           onValueChange={setSkin}
+        />
+      </FormGroup>
+      <FormGroup label="View">
+        <Tabs
+          ariaLabel="Transcription view"
+          value={view}
+          options={[{ label: 'Live', value: 'live' }, { label: 'History', value: 'history' }]}
+          onValueChange={setView}
         />
       </FormGroup>
       <Panel title="Audio input" padding="none">

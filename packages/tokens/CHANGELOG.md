@@ -1,5 +1,11 @@
 # @xgc2/ui-tokens
 
+## 0.3.0
+
+### Minor Changes
+
+- Add explicit page, panel, and code metadata header tokens. Align first-level panels to the compact 34px XGC2 experiment-panel chrome and replace the prominent CodeBlock header with a quiet, space-efficient metadata and copy row. Add shared semantic Tabs with keyboard navigation and complete-background selection styling.
+
 ## 0.2.0
 
 ### Minor Changes
