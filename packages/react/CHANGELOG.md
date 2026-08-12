@@ -1,5 +1,11 @@
 # @xgc2/ui-react
 
+## 0.10.1
+
+### Patch Changes
+
+- Build workflow declarations before typechecking fresh workspace consumers.
+
 ## 0.10.0
 
 ### Minor Changes
