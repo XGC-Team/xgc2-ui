@@ -1,5 +1,11 @@
 # @xgc2/ui-react
 
+## 0.9.0
+
+### Minor Changes
+
+- Add the shared portaled SelectMenu and extend SegmentedControl with tab semantics, icons, stable selectors, and keyboard navigation.
+
 ## 0.8.0
 
 ### Minor Changes

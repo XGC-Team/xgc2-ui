@@ -19,6 +19,7 @@ import {
   ResponsiveGrid,
   SegmentedControl,
   Select,
+  SelectMenu,
   SortableDataTable,
   StatCard,
   Stack,
@@ -103,6 +104,7 @@ export const Dialog: Story = {
 
 function FormAndMediaExample() {
   const [language, setLanguage] = useState('zh');
+  const [target, setTarget] = useState('lab');
   const [skin, setSkin] = useState('light');
   const [captureState, setCaptureState] = useState<AudioCaptureState>('idle');
   const [view, setView] = useState('live');
@@ -118,6 +120,18 @@ function FormAndMediaExample() {
           <option value="zh">Chinese</option>
           <option value="en">English</option>
         </Select>
+      </FormField>
+      <FormField label="Execution target">
+        <SelectMenu
+          ariaLabel="Execution target"
+          fill
+          onValueChange={setTarget}
+          options={[
+            { group: 'Local', label: 'Development lab', value: 'lab' },
+            { group: 'Remote', label: 'Robot A', value: 'robot-a' },
+          ]}
+          value={target}
+        />
       </FormField>
       <FormGroup label="Appearance">
         <SegmentedControl

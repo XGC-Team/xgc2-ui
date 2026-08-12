@@ -110,6 +110,31 @@ describe('form controls', () => {
     expect(onValueChange).toHaveBeenCalledWith('dark');
   });
 
+  it('supports tab semantics, icons, stable selectors, and arrow navigation', () => {
+    const onValueChange = vi.fn();
+    render(
+      <SegmentedControl
+        ariaLabel="View"
+        asTabs
+        dataXgcRole="view-switcher"
+        onValueChange={onValueChange}
+        optionDataXgcRole="view-tab"
+        options={[
+          { icon: <svg data-testid="grid-icon" />, label: 'Grid', value: 'grid' },
+          { label: 'List', value: 'list' },
+        ]}
+        value="grid"
+      />,
+    );
+
+    const tabs = screen.getByRole('tablist', { name: 'View' });
+    expect(tabs).toHaveClass('xgc-tabs', 'xgc-segmented-control');
+    expect(screen.getByRole('tab', { name: 'Grid' })).toHaveAttribute('data-xgc-role', 'view-tab');
+    expect(screen.getByTestId('grid-icon').parentElement).toHaveClass('xgc-tab-icon');
+    fireEvent.keyDown(tabs, { key: 'ArrowRight' });
+    expect(onValueChange).toHaveBeenCalledWith('list');
+  });
+
   it('associates grouped descriptions and errors', () => {
     render(
       <FormGroup description="Select every supported capability" error="Choose one" label="Capabilities" required>

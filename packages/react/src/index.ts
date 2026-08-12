@@ -81,6 +81,8 @@ export type {
   ProgressBarSize,
   ProgressBarTone,
 } from './components/ProgressBar';
+export { SelectMenu } from './components/SelectMenu';
+export type { SelectMenuOption, SelectMenuProps } from './components/SelectMenu';
 export { StatusBadge, StatusText } from './components/StatusBadge';
 export type { StatusBadgeProps, StatusTextProps, StatusTone } from './components/StatusBadge';
 export { DescriptionItem, DescriptionList, ResourceMeter, SettingRow, SettingsList } from './components/StructuredData';

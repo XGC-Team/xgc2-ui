@@ -5,6 +5,7 @@ import {
   useId,
   type HTMLAttributes,
   type InputHTMLAttributes,
+  type KeyboardEvent,
   type ReactElement,
   type ReactNode,
   type SelectHTMLAttributes,
@@ -156,39 +157,100 @@ export function FormGroup({
 }
 
 export type SegmentedControlOption = {
+  ariaControls?: string;
+  dataXgcId?: string;
   disabled?: boolean;
+  icon?: ReactNode;
+  id?: string;
   label: ReactNode;
   value: string;
 };
 
 export type SegmentedControlProps = Omit<HTMLAttributes<HTMLDivElement>, 'onChange'> & {
   ariaLabel: string;
+  asTabs?: boolean;
+  dataXgcId?: string;
+  dataXgcRole?: string;
   onValueChange: (value: string) => void;
+  optionClassName?: string;
+  optionDataXgcRole?: string;
   options: readonly SegmentedControlOption[];
+  size?: ComponentSize;
   value: string;
+  variant?: 'contained' | 'underline';
 };
 
 export function SegmentedControl({
   ariaLabel,
+  asTabs = false,
   className,
+  dataXgcId,
+  dataXgcRole,
   onValueChange,
+  optionClassName,
+  optionDataXgcRole,
   options,
+  size = 'default',
   value,
+  variant = 'contained',
   ...props
 }: SegmentedControlProps) {
+  const moveFocus = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    const enabled = options.filter((option) => !option.disabled);
+    if (!enabled.length) return;
+    const current = Math.max(0, enabled.findIndex((option) => option.value === value));
+    const nextIndex = event.key === 'Home'
+      ? 0
+      : event.key === 'End'
+        ? enabled.length - 1
+        : (current + (event.key === 'ArrowRight' ? 1 : -1) + enabled.length) % enabled.length;
+    const next = enabled[nextIndex];
+    if (!next) return;
+    event.preventDefault();
+    onValueChange(next.value);
+    Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('button:not(:disabled)'))
+      .find((button) => button.dataset.value === next.value)
+      ?.focus();
+  };
+
   return (
-    <div {...props} className={classNames('xgc-segmented-control', className)} role="group" aria-label={ariaLabel}>
-      {options.map((option) => (
-        <button
-          key={option.value}
-          type="button"
-          disabled={option.disabled}
-          aria-pressed={option.value === value}
-          onClick={() => onValueChange(option.value)}
-        >
-          {option.label}
-        </button>
-      ))}
+    <div
+      {...props}
+      aria-label={ariaLabel}
+      className={classNames('xgc-tabs', 'xgc-segmented-control', className)}
+      data-size={size}
+      data-variant={variant}
+      data-xgc-id={dataXgcId}
+      data-xgc-role={dataXgcRole}
+      onKeyDown={moveFocus}
+      role={asTabs ? 'tablist' : 'group'}
+    >
+      {options.map((option) => {
+        const active = option.value === value;
+        return (
+          <button
+            aria-pressed={asTabs ? undefined : active}
+            aria-selected={asTabs ? active : undefined}
+            aria-controls={asTabs ? option.ariaControls : undefined}
+            className={classNames('xgc-tab', optionClassName)}
+            data-value={option.value}
+            data-xgc-active={active || undefined}
+            data-xgc-id={option.dataXgcId ?? option.value}
+            data-xgc-role={optionDataXgcRole}
+            disabled={option.disabled}
+            id={option.id}
+            key={option.value}
+            onClick={() => onValueChange(option.value)}
+            role={asTabs ? 'tab' : undefined}
+            tabIndex={asTabs ? (active ? 0 : -1) : undefined}
+            type="button"
+          >
+            {option.icon ? <span className="xgc-tab-icon" aria-hidden="true">{option.icon}</span> : null}
+            <span>{option.label}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }

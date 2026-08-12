@@ -48,6 +48,7 @@ This document is normative for every XGC2 web frontend. Product CSS may lay out 
 - Buttons, links styled as actions, text inputs, textareas, selects, checkboxes, switches, field labels, field groups, action rows, and tooltips use the corresponding shared React primitive. Product adapters may preserve a route's public props and stable `data-xgc-*` selectors, but must not own another visual skin.
 - Control height, padding, typography, radius, focus treatment, and interactive states come from shared tokens and component CSS. Domain CSS may arrange controls in a page; it must not duplicate their base appearance.
 - `Checkbox` and `Switch` are different semantics and different visuals. A normal `input[type="checkbox"]` remains a checkbox; global selectors must never paint every checkbox as a switch.
+- Use native `Select` for simple form choices. Use shared `SelectMenu` when an operator choice needs grouped options, icons, a portaled popup, or viewport-aware placement; products must not fork its listbox keyboard and positioning behavior.
 - Tooltips use the shared portaled implementation so they are not clipped by panels and drawers. They must remain optional supporting information, dismiss on scroll or Escape, and never be required to understand a control's primary label.
 
 ## Scrolling
