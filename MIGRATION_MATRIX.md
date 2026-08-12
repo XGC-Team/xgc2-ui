@@ -29,11 +29,11 @@ If a pattern appears in two products, or in several XGC2 operations pages, it is
 | XGC2 `ConfigDrawer`, confirmation and dialog queue | `Drawer`, `ConfirmationDialog`, `useConfirmationDialog` | Implemented |
 | XGC2 Audit/Task Logs composition | `LogTablePage` | Implemented |
 | XGC2 waveform/recording presentation | Data-driven `AudioWaveform`, `AudioCaptureControl`; silence never animates | Implemented |
-| XGC2 Automation spatial editor | Separate `@xgc2/ui-workflow`: `WorkflowCanvas`, viewport/grid/pan/zoom/selection/drop foundation, canvas/node/edge toolbars, and `WorkflowStickyNote` | Canvas, navigation, sticky notes, and element toolbars implemented; generic domain-neutral node/edge shells next |
+| XGC2 Automation spatial editor | Separate `@xgc2/ui-workflow`: `WorkflowCanvas`, viewport/grid/pan/zoom/selection/drop foundation, canvas/node/edge toolbars, and `WorkflowStickyNote` | Implemented; domain-specific node/edge bodies intentionally remain in each product while their spatial interaction and chrome stay shared |
 | XGC2 `CommonUI` settings/info/resource rows | `SettingsList`, `SettingRow`, `DescriptionList`, `DescriptionItem`, `ResourceMeter` | Implemented |
 | XGC2 panel view switches, collapsible configuration and workflow state cards | `PanelViewSwitcher`, `ConfigSection`, `WorkflowStatusCard` | Implemented |
 | XGC2 `ListPage` folders, tags, protected drag/drop and resource lists | `ListPage` family; products retain resource data and actions only | Implemented |
-| XGC2 terminal output, live logs and command stream viewers | Consolidate text-stream viewport and follow-tail behavior | Pending extraction |
+| XGC2 terminal output, live logs and command stream viewers | Shared `CodeBlock` / `ScrollRegion` cover static text and scrolling; terminal transport, ANSI rendering and follow-tail lifecycle remain product-local until another consumer proves the same behavior | Intentional product boundary; no duplicated cross-product primitive remains to extract in this release |
 
 ## Product adoption
 
@@ -44,10 +44,10 @@ If a pattern appears in two products, or in several XGC2 operations pages, it is
 | Agent Hub | React; shared shell/topbar/tabs/controls/feedback and Markdown/tool-output `CodeBlock` are in use; redundant passive header counts and local interactive primitives are removed | Immutable `0.11.0` release pinned; product tests, types, build and remote-main integration passed |
 | Research OS | React; shared shell/sidebar/topbar/theme controls/forms/feedback/structured data and optional workflow canvas are in use; mobile forces the shared sidebar into its compact rail instead of squeezing content | Keep research-domain cards and graph semantics local; promote a pattern only after a second product proves it reusable |
 | STT Service | React; shared shell/topbar/controls/feedback/table/code/structured-data/progress/audio capture are adopted; `waveformLevels` now comes directly from the same PCM stream sent for transcription and inactive stale samples collapse to a baseline | Immutable `0.11.0` release pinned; product tests, types, build and remote-main integration passed |
-| XGC2 Lichtblick | Existing React 18 application with its own upstream MUI theme package | Add an XGC2 token/theme bridge at the application boundary; do not fork every upstream MUI control into shared UI |
-| Media Edge player | Small embedded HTML/CSS/JS operator page | Move to the lightweight embedded React build and consume shared tokens/controls |
-| Camera intrinsic/extrinsic tools | Two small embedded HTML/CSS/JS calibration pages | Consolidate into one lightweight React calibration entry with shared form/layout/feedback primitives |
-| Gazebo camera tool | Small embedded HTML/CSS/JS calibration page | Reuse the calibration React entry and keep only simulator transport/domain code local |
+| XGC2 Lichtblick | Existing React 18 application retains its upstream MUI theme boundary; the XGC2-owned initial-layout selector consumes shared `ChoiceCardGroup` | Intentional upstream boundary: bridge XGC2-owned surfaces only; do not fork the upstream control system |
+| Media Edge player | Embedded React player consumes `AppShell`, `Topbar`, `ProductBrand`, `SegmentedControl`, `Panel`, `StatusText`, `Button`, shared themes/tokens and scrollbars; generated JS/CSS remain Go-embedded | Immutable `0.11.0` release pinned; deterministic rebuild/drift gate, Go tests/race/vet, package compliance and desktop/mobile light/dark browser verification passed |
+| Camera intrinsic/extrinsic tools | Native XGC2 React workspaces share calibration layouts and the main product's shared controls, overlays, feedback and workflow execution shell | Completed in XGC2; calibration math, image interaction and typed transport correctly remain domain-local |
+| Gazebo camera tool | Native XGC2 React workspace composes the shared product shell and calibration dialog while retaining simulator transport and camera-domain behavior | Completed in XGC2; no separate static frontend remains to migrate |
 
 ## Release discipline
 
