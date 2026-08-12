@@ -37,7 +37,7 @@ If a pattern appears in two products, or in several XGC2 operations pages, it is
 
 | Product | Current state | Next migration gate |
 | --- | --- | --- |
-| XGC2 GCS | React; shared package installed; progress, feedback, drawer, log-table, settings/info rows and resource meters now use thin compatibility adapters over the release candidate; visual-policy cleanup underway | Migrate forms/tooltips and remaining Host/Container/Operations/Automation/Terminal layouts, verify 8787 + 5173 together, then pin the final immutable package release |
+| XGC2 GCS | React; shared package installed; progress, feedback, drawer, log-table, settings/info rows, resource meters, forms and tooltips now use thin compatibility adapters over the release candidate; visual-policy cleanup underway | Migrate remaining buttons/inputs/select menus/tabs and Host/Container/Operations/Automation/Terminal layouts, verify 8787 + 5173 together, then pin the final immutable package release |
 | APT Repository | React; shared shell/topbar/tabs/table/select-all/code block/theme/scrollbars in use | Consume the final package, verify Dashboard/Admin one-screen desktop and mobile document behavior, commit/push, then verify CI/CD deployment |
 | Agent Hub | Migrated from Vue to React; shared shell and Markdown `CodeBlock` in use | Consume final status/topbar/layout APIs and delete compatibility CSS |
 | STT Service | React; shared package upgraded; waveform is driven by the same real PCM frames sent to transcription, with silence rendered as a stable baseline | Consume final status/topbar/form/layout APIs, delete compatibility CSS and pin the final immutable release |

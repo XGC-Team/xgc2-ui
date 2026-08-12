@@ -1,8 +1,20 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { Checkbox, FormActions, FormField, FormGroup, SegmentedControl, Select, Switch, Textarea } from './FormControls';
+import { Input } from './Input';
 
 describe('form controls', () => {
+  it('keeps stable composite metadata on the input container', () => {
+    const { container } = render(
+      <Input aria-label="Distance" unit="m" containerProps={{ 'data-xgc-role': 'distance-field' }} />,
+    );
+
+    const control = container.querySelector('[data-xgc-role="distance-field"]');
+    expect(control).toHaveClass('xgc-input');
+    expect(control).toHaveAttribute('data-unit', 'true');
+    expect(control?.querySelector('.xgc-input-unit')).toHaveTextContent('m');
+  });
+
   it('connects a nested select with its field label', () => {
     const onValueChange = vi.fn();
     render(
@@ -62,6 +74,16 @@ describe('form controls', () => {
     expect(input).toHaveAttribute('aria-invalid', 'true');
     expect(input.getAttribute('aria-describedby')?.split(' ')).toHaveLength(2);
     expect(screen.getByRole('alert')).toHaveTextContent('Required');
+  });
+
+  it('keeps required field metadata on the composite root', () => {
+    const { container } = render(
+      <FormField label="Name" required>
+        <input />
+      </FormField>,
+    );
+
+    expect(container.querySelector('.xgc-form-field')).toHaveAttribute('data-required', 'true');
   });
 
   it('keeps form status and actions in a shared action row', () => {

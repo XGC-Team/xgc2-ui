@@ -3,19 +3,20 @@
 
 .xgc-button {
   min-width: 0;
-  height: var(--size-control-default);
+  height: var(--xgc-control-height, var(--size-control-default));
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: var(--space-6);
-  padding: 0 var(--space-11);
-  color: var(--color-text-muted);
-  background: var(--background-control, var(--color-bg-control));
-  border: var(--stroke-thin) solid var(--color-border-strong);
-  border-radius: var(--radius-control);
+  padding: var(--xgc-control-button-padding, var(--xgc-control-button-padding-block, 0) var(--xgc-control-button-padding-inline, var(--space-11)));
+  color: var(--xgc-control-color, var(--color-text-muted));
+  background: var(--xgc-control-background, var(--background-control, var(--color-bg-control)));
+  border: var(--stroke-thin) solid var(--xgc-control-border-color, var(--color-border-strong));
+  border-radius: var(--xgc-control-border-radius, var(--radius-control));
+  box-shadow: var(--xgc-control-shadow, none);
   cursor: pointer;
   font: inherit;
-  font-size: var(--font-base);
+  font-size: var(--xgc-control-font-size, var(--font-base));
   line-height: var(--line-height-none);
   text-decoration: none;
   transition:
@@ -25,25 +26,25 @@
 }
 
 .xgc-button[data-size='compact'] {
-  height: var(--size-control-compact);
-  padding-inline: var(--space-9);
+  height: var(--xgc-control-height, var(--size-control-compact));
+  padding: var(--xgc-control-button-padding, var(--xgc-control-button-padding-block, 0) var(--xgc-control-button-padding-inline, var(--space-9)));
 }
 
 .xgc-button[data-icon-only='true'] {
-  width: var(--size-control-default);
-  min-width: var(--size-control-default);
+  width: var(--xgc-control-height, var(--size-control-default));
+  min-width: var(--xgc-control-height, var(--size-control-default));
   padding: 0;
 }
 
 .xgc-button[data-icon-only='true'][data-size='compact'] {
-  width: var(--size-control-compact);
-  min-width: var(--size-control-compact);
+  width: var(--xgc-control-height, var(--size-control-compact));
+  min-width: var(--xgc-control-height, var(--size-control-compact));
 }
 
 .xgc-button:hover:not(:disabled) {
-  color: var(--color-text-strong);
-  background: var(--color-bg-control-hover);
-  border-color: var(--color-border-hover);
+  color: var(--xgc-control-hover-color, var(--color-text-strong));
+  background: var(--xgc-control-hover-background, var(--color-bg-control-hover));
+  border-color: var(--xgc-control-hover-border-color, var(--color-border-hover));
 }
 
 .xgc-button[data-tone='primary'] {
@@ -103,28 +104,29 @@
 
 .xgc-input {
   min-width: 0;
-  height: var(--size-control-default);
+  height: var(--xgc-control-height, var(--size-control-default));
   display: inline-flex;
   align-items: center;
   gap: var(--space-6);
-  padding: 0 var(--space-10);
-  color: var(--color-text-muted);
-  background: var(--background-control, var(--color-bg-control));
-  border: var(--stroke-thin) solid var(--color-border-strong);
-  border-radius: var(--radius-control);
+  padding: 0 var(--xgc-control-input-padding-inline, var(--space-10));
+  color: var(--xgc-control-color, var(--color-text-muted));
+  background: var(--xgc-control-background, var(--background-control, var(--color-bg-control)));
+  border: var(--stroke-thin) solid var(--xgc-control-border-color, var(--color-border-strong));
+  border-radius: var(--xgc-control-border-radius, var(--radius-control));
+  box-shadow: var(--xgc-control-shadow, none);
   transition:
     background-color var(--duration-quick) ease,
     border-color var(--duration-quick) ease;
 }
 
 .xgc-input[data-size='compact'] {
-  height: var(--size-control-compact);
-  padding-inline: var(--space-8);
+  height: var(--xgc-control-height, var(--size-control-compact));
+  padding-inline: var(--xgc-control-input-padding-inline, var(--space-8));
 }
 
 .xgc-input:hover:not([data-disabled='true']) {
-  background: var(--color-bg-control-hover);
-  border-color: var(--color-border-hover);
+  background: var(--xgc-control-hover-background, var(--color-bg-control-hover));
+  border-color: var(--xgc-control-hover-border-color, var(--color-border-hover));
 }
 
 .xgc-input[data-invalid='true'] {
@@ -403,7 +405,7 @@
   appearance: none;
   background:
     radial-gradient(
-      circle at var(--space-switch-knob-inset) 50%,
+      circle at center,
       var(--color-text-faint) 0 calc(var(--size-switch-knob) / 2 - 0.5px),
       transparent calc(var(--size-switch-knob) / 2)
     ),

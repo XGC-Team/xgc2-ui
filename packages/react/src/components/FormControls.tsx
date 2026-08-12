@@ -96,7 +96,12 @@ export function FormField({
     })
     : children;
   const field = (
-    <div {...props} className={classNames('xgc-form-field', className)} data-invalid={Boolean(error) || undefined}>
+    <div
+      {...props}
+      className={classNames('xgc-form-field', className)}
+      data-invalid={Boolean(error) || undefined}
+      data-required={required || undefined}
+    >
       <label className="xgc-form-field-label" htmlFor={controlId}>
         {label}
         {required ? <span className="xgc-form-field-required" aria-hidden="true">*</span> : null}
@@ -268,6 +273,7 @@ function BooleanControl({
   const control = layout === 'field' ? (
     <div
       className={classNames('xgc-boolean-control', className)}
+      data-xgc-control={role === 'switch' ? 'switch' : 'checkbox'}
       data-disabled={disabled || undefined}
       data-layout="field"
       data-xgc-id={dataXgcId}
@@ -282,6 +288,7 @@ function BooleanControl({
   ) : (
     <label
       className={classNames('xgc-boolean-control', className)}
+      data-xgc-control={role === 'switch' ? 'switch' : 'checkbox'}
       data-disabled={disabled || undefined}
       data-layout="inline"
       data-xgc-id={dataXgcId}

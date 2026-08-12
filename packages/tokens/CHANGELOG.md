@@ -1,5 +1,11 @@
 # @xgc2/ui-tokens
 
+## 0.4.1
+
+### Patch Changes
+
+- Expand the shared operator component set, preserve stable composite control metadata, and consolidate form, tooltip, and control styling for product migrations.
+
 ## 0.4.0
 
 ### Minor Changes

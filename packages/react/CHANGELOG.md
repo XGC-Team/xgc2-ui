@@ -1,5 +1,11 @@
 # @xgc2/ui-react
 
+## 0.8.0
+
+### Minor Changes
+
+- Expand the shared operator component set, preserve stable composite control metadata, and consolidate form, tooltip, and control styling for product migrations.
+
 ## 0.7.2
 
 ### Patch Changes

@@ -1,8 +1,13 @@
-import { forwardRef, type InputHTMLAttributes, type ReactNode } from 'react';
+import { forwardRef, type HTMLAttributes, type InputHTMLAttributes, type ReactNode } from 'react';
 import type { ComponentSize } from './Button';
 import { classNames } from '../utils';
 
+type DataAttributes = {
+  [key: `data-${string}`]: boolean | number | string | undefined;
+};
+
 export type InputProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'size'> & {
+  containerProps?: Omit<HTMLAttributes<HTMLSpanElement>, 'className'> & DataAttributes;
   icon?: ReactNode;
   onValueChange?: (value: string) => void;
   uiSize?: ComponentSize;
@@ -11,6 +16,7 @@ export type InputProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'size'> & {
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(function Input({
   className,
+  containerProps,
   disabled,
   icon,
   onChange,
@@ -23,11 +29,13 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input({
   const inactive = disabled || readOnly;
   return (
     <span
+      {...containerProps}
       className={classNames('xgc-input', className)}
       data-disabled={disabled || undefined}
       data-invalid={props['aria-invalid'] === true || props['aria-invalid'] === 'true' || undefined}
       data-readonly={readOnly || undefined}
       data-size={uiSize}
+      data-unit={unit ? true : undefined}
     >
       {icon ? <span className="xgc-input-icon">{icon}</span> : null}
       <input
