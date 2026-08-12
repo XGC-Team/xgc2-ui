@@ -63,8 +63,6 @@ export type FormFieldProps = Omit<HTMLAttributes<HTMLDivElement>, 'children'> & 
   description?: ReactNode;
   error?: ReactNode;
   htmlFor?: string;
-  /** @deprecated Use description. */
-  hint?: ReactNode;
   label: ReactNode;
   required?: boolean;
   tooltip?: ReactNode;
@@ -77,7 +75,6 @@ export function FormField({
   description,
   error,
   htmlFor,
-  hint,
   label,
   required = false,
   tooltip,
@@ -86,7 +83,7 @@ export function FormField({
 }: FormFieldProps) {
   const generatedId = useId();
   const controlId = children.props.id ?? htmlFor ?? `${generatedId}-control`;
-  const supportingCopy = description ?? hint;
+  const supportingCopy = description;
   const descriptionId = supportingCopy ? `${generatedId}-description` : undefined;
   const errorId = error ? `${generatedId}-error` : undefined;
   const control = isValidElement<DescribedControlProps>(children)
@@ -118,7 +115,6 @@ export function FormField({
 export type FormGroupProps = HTMLAttributes<HTMLFieldSetElement> & {
   description?: ReactNode;
   error?: ReactNode;
-  hint?: ReactNode;
   label: ReactNode;
   required?: boolean;
 };
@@ -128,13 +124,12 @@ export function FormGroup({
   className,
   description,
   error,
-  hint,
   label,
   required = false,
   ...props
 }: FormGroupProps) {
   const generatedId = useId();
-  const supportingCopy = description ?? hint;
+  const supportingCopy = description;
   const descriptionId = supportingCopy ? `${generatedId}-description` : undefined;
   const errorId = error ? `${generatedId}-error` : undefined;
   return (

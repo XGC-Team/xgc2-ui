@@ -29,6 +29,7 @@ If a pattern appears in two products, or in several XGC2 operations pages, it is
 | XGC2 `ConfigDrawer`, confirmation and dialog queue | `Drawer`, `ConfirmationDialog`, `useConfirmationDialog` | Implemented |
 | XGC2 Audit/Task Logs composition | `LogTablePage` | Implemented |
 | XGC2 waveform/recording presentation | Data-driven `AudioWaveform`, `AudioCaptureControl`; silence never animates | Implemented |
+| XGC2 Automation spatial editor | Separate `@xgc2/ui-workflow`: `WorkflowCanvas`, viewport/grid/pan/zoom/selection/drop foundation, canvas/node/edge toolbars, and `WorkflowStickyNote` | Canvas, navigation, sticky notes, and element toolbars implemented; generic domain-neutral node/edge shells next |
 | XGC2 `CommonUI` settings/info/resource rows | `SettingsList`, `SettingRow`, `DescriptionList`, `DescriptionItem`, `ResourceMeter` | Implemented |
 | XGC2 `ListPage` folders, tags, drag/reorder and resource lists | Separate generic list shell from domain behavior | Pending design audit |
 | XGC2 terminal output, live logs and command stream viewers | Consolidate text-stream viewport and follow-tail behavior | Pending extraction |
@@ -37,10 +38,10 @@ If a pattern appears in two products, or in several XGC2 operations pages, it is
 
 | Product | Current state | Next migration gate |
 | --- | --- | --- |
-| XGC2 GCS | React; shared package installed; progress, feedback, drawer, log-table, settings/info rows, resource meters, forms, tooltips, buttons, text controls, portaled select menus and segmented tabs now use thin compatibility adapters over the release candidate; visual-policy cleanup underway | Migrate remaining hand-authored tab groups and Host/Container/Operations/Automation/Terminal layouts, verify 8787 + 5173 together, then pin the final immutable package release |
+| XGC2 GCS | React; shared package installed; duplicate presentation for progress, feedback, drawer, log-table, settings/info rows, resource meters, forms, tooltips, controls and tabs has been removed; Automation consumes the shared canvas, sticky note, and element toolbar | Extract only genuinely domain-neutral node/edge shells plus remaining Host/Container/Operations/Automation/Terminal layouts, verify 8787 + 5173 together, then pin immutable package releases |
 | APT Repository | React; shared shell/topbar/tabs/table/select-all/code block/theme/scrollbars in use | Consume the final package, verify Dashboard/Admin one-screen desktop and mobile document behavior, commit/push, then verify CI/CD deployment |
-| Agent Hub | Migrated from Vue to React; shared shell and Markdown `CodeBlock` in use | Consume final status/topbar/layout APIs and delete compatibility CSS |
-| STT Service | React; shared package upgraded; waveform is driven by the same real PCM frames sent to transcription, with silence rendered as a stable baseline | Consume final status/topbar/form/layout APIs, delete compatibility CSS and pin the final immutable release |
+| Agent Hub | Migrated from Vue to React; shared shell and Markdown `CodeBlock` in use | Consume the single status/topbar/layout APIs and remove duplicate product presentation CSS |
+| STT Service | React; shared package upgraded; waveform is driven by the same real PCM frames sent to transcription, with silence rendered as a stable baseline | Consume the single status/topbar/form/layout APIs, remove duplicate product presentation CSS, and pin the immutable release |
 | XGC2 Lichtblick | Existing React 18 application with its own upstream MUI theme package | Add an XGC2 token/theme bridge at the application boundary; do not fork every upstream MUI control into shared UI |
 | Media Edge player | Small embedded HTML/CSS/JS operator page | Move to the lightweight embedded React build and consume shared tokens/controls |
 | Camera intrinsic/extrinsic tools | Two small embedded HTML/CSS/JS calibration pages | Consolidate into one lightweight React calibration entry with shared form/layout/feedback primitives |

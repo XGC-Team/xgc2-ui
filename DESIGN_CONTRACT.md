@@ -45,7 +45,7 @@ This document is normative for every XGC2 web frontend. Product CSS may lay out 
 
 ## Forms and controls
 
-- Buttons, links styled as actions, text inputs, textareas, selects, checkboxes, switches, field labels, field groups, action rows, and tooltips use the corresponding shared React primitive. Product adapters may preserve a route's public props and stable `data-xgc-*` selectors, but must not own another visual skin.
+- Buttons, links styled as actions, text inputs, textareas, selects, checkboxes, switches, field labels, field groups, action rows, and tooltips use the corresponding shared React primitive. Products may add domain composition and stable `data-xgc-*` metadata, but may not retain duplicate presentation components or migration-only API wrappers.
 - Control height, padding, typography, radius, focus treatment, and interactive states come from shared tokens and component CSS. Domain CSS may arrange controls in a page; it must not duplicate their base appearance.
 - `Checkbox` and `Switch` are different semantics and different visuals. A normal `input[type="checkbox"]` remains a checkbox; global selectors must never paint every checkbox as a switch.
 - Use native `Select` for simple form choices. Use shared `SelectMenu` when an operator choice needs grouped options, icons, a portaled popup, or viewport-aware placement; products must not fork its listbox keyboard and positioning behavior.
@@ -63,6 +63,13 @@ This document is normative for every XGC2 web frontend. Product CSS may lay out 
 - Sortable lists use the shared `SortableDataTable`, including its sort indicators, `aria-sort` state, keyboard-operable buttons, stable value comparison, empty state, and internal scroll container.
 - Selectable tables use the shared `selection` contract. The first header cell provides select-all and partial-selection state; selected rows use a complete background and enclosing border.
 - Audit, task, and runtime log views use `LogTablePage` when they need the standard search/filter/refresh/table/pagination composition. Its data region scrolls internally while the toolbar and pagination remain visible.
+
+## Spatial workflow surfaces
+
+- Workflow, topology, orchestration, and other node/edge editors use the optional `@xgc2/ui-workflow` package. The shared package owns viewport sizing, grid, pan/zoom defaults, box and multi-selection behavior, drop-coordinate conversion, empty overlay, and the floating canvas toolbar.
+- Products own domain node schemas, validation, execution semantics, persistence, permissions, and API calls. These concepts must not leak into the shared canvas API.
+- Canvas actions use `WorkflowCanvasToolbar`; node and edge actions use `WorkflowNodeToolbar` or `WorkflowElementToolbar`. Products may supply action icons, wording, and business callbacks but must not create a second toolbar skin, reimplement event isolation, or scatter viewport constants through route CSS.
+- Lightweight authoring notes use `WorkflowStickyNote`. Products may persist note data in their own schema, but selection, resizing, editing, keyboard completion, deletion, and the note skin remain shared behavior.
 
 ## Feedback and progress
 

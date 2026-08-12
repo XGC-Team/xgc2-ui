@@ -1,7 +1,7 @@
 import type { HTMLAttributes, ReactNode } from 'react';
 import { classNames } from '../utils';
 import { Button } from './Button';
-import type { StatusTone } from './StatusBadge';
+import type { StatusTone } from './StatusText';
 
 export type NoticeProps = HTMLAttributes<HTMLDivElement> & {
   actions?: ReactNode;

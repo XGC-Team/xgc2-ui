@@ -8,6 +8,7 @@ The normative family-wide rules live in [DESIGN_CONTRACT.md](./DESIGN_CONTRACT.m
 
 - `@xgc2/ui-tokens`: the single source of truth for light/dark color, spacing, type, elevation, and motion tokens.
 - `@xgc2/ui-react`: framework components and application-shell layout. React and React DOM are peer dependencies.
+- `@xgc2/ui-workflow`: optional spatial workflow/topology canvas foundation. It keeps React Flow out of frontends that only need ordinary controls.
 - `@xgc2/ui-gallery`: a private Storybook application used for documentation and visual review.
 
 ## Boundaries
@@ -32,7 +33,7 @@ import '@xgc2/ui-react/styles.css';
 import { AudioCaptureControl, Button, FormField, Panel, Select } from '@xgc2/ui-react';
 ```
 
-Applications must set `data-skin="dark"` or `data-skin="light"` on the root HTML element. The default is dark for compatibility with the GCS.
+Applications must set `data-skin="dark"` or `data-skin="light"` on the root HTML element. The workspace intentionally defaults to dark when no skin has been selected.
 
 Production consumers install immutable npm tarballs attached to GitHub releases. Relative `file:` dependencies and direct imports from this repository are intentionally unsupported.
 
@@ -53,6 +54,7 @@ Reusable coverage includes:
 - Data: statistics, toolbars, pagination, sortable/selectable tables with select-all, and a dense log-table page with its own scroll region.
 - Layout: stack, inline, responsive grid, scroll region, fixed operator workspace, section header, panels, responsive split panes, application shell, collapsible sidebar, and single-title topbar.
 - Overlays and media: modal, queued confirmation, dirty-state-aware right drawer, waveform, and audio capture presentation.
+- Spatial editors: an optional workflow package owning canvas viewport defaults, grid, pan/zoom, selection, drag/drop coordinate conversion, empty state, canvas and element toolbars, and editable sticky notes.
 
 Product repositories keep routing, transport, device access, permissions, and domain state. Product-local wrappers should disappear once all required behavior exists here; they must not become a second visual system.
 

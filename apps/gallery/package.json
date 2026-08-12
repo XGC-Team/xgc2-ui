@@ -11,6 +11,8 @@
   "dependencies": {
     "@xgc2/ui-react": "workspace:*",
     "@xgc2/ui-tokens": "workspace:*",
+    "@xgc2/ui-workflow": "workspace:*",
+    "@xyflow/react": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:"
   },

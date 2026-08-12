@@ -48,7 +48,3 @@ export function StatusText({ children, className, status, tone, ...props }: Stat
     </span>
   );
 }
-
-/** @deprecated Use StatusText. Kept as a source-compatible plain-text alias. */
-export const StatusBadge = StatusText;
-export type StatusBadgeProps = StatusTextProps;

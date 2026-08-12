@@ -1,5 +1,11 @@
 # @xgc2/ui-react
 
+## 0.10.0
+
+### Minor Changes
+
+- Add the shared spatial workflow canvas package and remove deprecated React compatibility APIs.
+
 ## 0.9.0
 
 ### Minor Changes

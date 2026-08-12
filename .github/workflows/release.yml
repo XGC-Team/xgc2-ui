@@ -25,6 +25,7 @@ jobs:
       - run: mkdir -p release-assets
       - run: pnpm --filter @xgc2/ui-tokens pack --pack-destination release-assets
       - run: pnpm --filter @xgc2/ui-react pack --pack-destination release-assets
+      - run: pnpm --filter @xgc2/ui-workflow pack --pack-destination release-assets
       - name: Publish immutable package assets
         env:
           GH_TOKEN: ${{ github.token }}

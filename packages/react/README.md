@@ -27,9 +27,9 @@ import {
 
 `FormField`, `FormGroup`, `Input`, `Textarea`, `Select`, `Checkbox`, `Switch`, `SegmentedControl`, and `Tabs` share one control geometry and accessible semantics. Use `FormGroup` for button groups and compound controls. `Tabs` owns the tablist/tab roles, arrow-key navigation, compact density, and complete-background selection treatment.
 
-`Topbar` deliberately exposes `title`, optional navigation, and actions: put one product title on the left and only high-value interactive controls on the right. It does not accept center content, subtitles, helper copy, or decorative healthy-state badges such as Ready/Online. Put diagnostic status in the relevant content surface, and render it only when it informs an operator decision. The legacy `leading` prop exists only for staged consumer migration.
+`Topbar` deliberately exposes `brand` or `title`, optional navigation, and actions: put one product identity on the left and only high-value interactive controls on the right. It does not accept center content, subtitles, helper copy, or decorative healthy-state labels such as Ready/Online. Put diagnostic status in the relevant content surface, and render it only when it informs an operator decision.
 
-`StatusText` renders decision-relevant state as compact, undecorated text. It intentionally has no filled background, enclosing border, capsule radius, or decorative dot. `StatusBadge` remains only as a source-compatible alias and uses the same plain presentation.
+`StatusText` renders decision-relevant state as compact, undecorated text. It intentionally has no filled background, enclosing border, capsule radius, or decorative dot.
 
 `Toolbar`, `StatCard`, `DataTable`, `Pagination`, `LogTablePage`, structured information rows, settings rows, resource meters, and `CodeBlock` cover recurring operational data layouts while leaving data fetching and mutations to consumers. `ButtonLink` gives native navigation links the same geometry as actions.
 

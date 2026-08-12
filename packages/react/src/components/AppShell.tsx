@@ -200,21 +200,20 @@ export function SidebarNavItem({
 
 export type TopbarProps = Omit<HTMLAttributes<HTMLElement>, 'children' | 'title'> & {
   actions?: ReactNode;
-  /** @deprecated Use title and navigation. Removed after consumer migration. */
-  leading?: ReactNode;
+  brand?: ReactNode;
   navigation?: ReactNode;
   title?: ReactNode;
 };
 
-export function Topbar({ actions, className, leading, navigation, title, ...props }: TopbarProps) {
+export function Topbar({ actions, brand, className, navigation, title, ...props }: TopbarProps) {
   return (
     <header {...props} className={classNames('xgc-topbar', className)}>
-      {title ? (
+      {brand || title ? (
         <div className="xgc-topbar-leading">
           {navigation ? <div className="xgc-topbar-navigation">{navigation}</div> : null}
-          <h1 className="xgc-topbar-title">{title}</h1>
+          {brand ?? <h1 className="xgc-topbar-title">{title}</h1>}
         </div>
-      ) : leading ? <div className="xgc-topbar-leading">{leading}</div> : null}
+      ) : null}
       {actions ? <div className="xgc-topbar-actions">{actions}</div> : null}
     </header>
   );

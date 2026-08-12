@@ -84,3 +84,8 @@ body {
     grid-template-columns: 1fr;
   }
 }
+.xgc-gallery-workflow-canvas {
+  width: 100vw;
+  height: 100vh;
+  min-height: 420px;
+}

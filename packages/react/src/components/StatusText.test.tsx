@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { StatusBadge, StatusText } from './StatusBadge';
+import { StatusText } from './StatusText';
 
 describe('StatusText', () => {
   it('maps known statuses to semantic tones', () => {
@@ -11,10 +11,8 @@ describe('StatusText', () => {
     expect(status.childElementCount).toBe(0);
   });
 
-  it('keeps the former badge API as the same undecorated text primitive', () => {
-    render(<StatusBadge status="custom" tone="danger" />);
-    const status = screen.getByText('custom');
-    expect(status).toHaveAttribute('data-tone', 'danger');
-    expect(status).toHaveClass('xgc-status-text');
+  it('allows an explicit semantic tone for domain-specific states', () => {
+    render(<StatusText status="custom" tone="danger" />);
+    expect(screen.getByText('custom')).toHaveAttribute('data-tone', 'danger');
   });
 });

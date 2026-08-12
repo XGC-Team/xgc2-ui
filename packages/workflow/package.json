@@ -1,7 +1,7 @@
 {
-  "name": "@xgc2/ui-react",
-  "version": "0.10.0",
-  "description": "Shared React components and application shell for XGC2 products",
+  "name": "@xgc2/ui-workflow",
+  "version": "0.1.0",
+  "description": "Reusable spatial workflow canvas foundation for XGC2 frontends",
   "type": "module",
   "sideEffects": ["*.css"],
   "files": ["dist"],
@@ -22,17 +22,20 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "peerDependencies": {
+    "@xgc2/ui-react": ">=0.8 <1",
+    "@xyflow/react": ">=12.9 <13",
     "react": ">=19 <20",
     "react-dom": ">=19 <20"
   },
   "devDependencies": {
-    "@xgc2/ui-tokens": "workspace:^",
     "@testing-library/jest-dom": "6.9.1",
     "@testing-library/react": "16.3.2",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
+    "@xgc2/ui-react": "workspace:^",
+    "@xyflow/react": "catalog:",
     "jsdom": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
