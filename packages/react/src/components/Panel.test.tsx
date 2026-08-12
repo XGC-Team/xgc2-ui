@@ -8,4 +8,10 @@ describe('Panel', () => {
     const panel = screen.getByRole('region', { name: 'Runtime status' });
     expect(panel).toHaveTextContent('Ready');
   });
+
+  it('keeps helper copy out of the fixed panel header', () => {
+    const { container } = render(<Panel title="Packages" description="Repository package list">Content</Panel>);
+    expect(container.querySelector('.xgc-panel-header')).not.toHaveTextContent('Repository package list');
+    expect(container.querySelector('.xgc-panel-body')).toHaveTextContent('Repository package list');
+  });
 });

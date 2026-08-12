@@ -46,7 +46,15 @@ Production consumers install immutable npm tarballs attached to GitHub releases.
 
 The React package inlines the token contract into its published stylesheet, so consumers do not need registry access to resolve a transitive token package.
 
-Reusable coverage includes application shell, collapsible sidebar, topbar and product identity, panels, buttons and button links, inputs, selects, labeled fields, segmented controls, semantic tabs, modals, status badges, statistics, toolbars, data tables, code blocks, audio waveform/capture presentation, and the global XGC2 scrollbar treatment. Product repositories keep routing, transport, device access, and domain state.
+Reusable coverage includes:
+
+- Foundation: theme and material tokens, spacing and type scales, header/control heights, responsive breakpoints, and the global XGC2 scrollbar treatment.
+- Controls: buttons and links, inputs, textarea, selects, labeled fields/groups, checkbox, switch, segmented controls, semantic tabs, plain status text, notices, empty states, progress, and theme-aware highlighted code.
+- Data: statistics, toolbars, pagination, sortable/selectable tables with select-all, and a dense log-table page with its own scroll region.
+- Layout: stack, inline, responsive grid, scroll region, fixed operator workspace, section header, panels, responsive split panes, application shell, collapsible sidebar, and single-title topbar.
+- Overlays and media: modal, queued confirmation, dirty-state-aware right drawer, waveform, and audio capture presentation.
+
+Product repositories keep routing, transport, device access, permissions, and domain state. Product-local wrappers should disappear once all required behavior exists here; they must not become a second visual system.
 
 ## Selection-state policy
 
@@ -55,5 +63,7 @@ Left-side accent bars are prohibited across the XGC2 UI family. Components must 
 ## Topbar policy
 
 Every topbar has exactly one product title on the left and only high-value interactive controls on the right. Center copy, subtitles, helper descriptions, and decorative healthy-state pills such as Ready or Online are prohibited. Diagnostic status belongs beside the content it describes and should appear only when it helps the operator make a decision; normal health does not need a badge.
+
+Status is plain text, not decoration. Use shared `StatusText` without a capsule, filled background, rounded enclosing border, or decorative dot. Wording is mandatory; restrained semantic text color is only a secondary cue.
 
 Page chrome and first-level panel chrome use `--size-header-page` and `--size-header-panel`; the panel value is the compact 34px XGC2 experiment-panel baseline. Code labels and Copy actions use `--size-header-code` as quiet in-surface metadata, never a visually dominant nested topbar.

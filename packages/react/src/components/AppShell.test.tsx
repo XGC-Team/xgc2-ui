@@ -13,7 +13,7 @@ describe('application shell', () => {
             </SidebarNav>
           </AppSidebar>
         )}
-        topbar={<Topbar leading="Home" actions="Actions" />}
+        topbar={<Topbar title="Home" actions="Actions" />}
       >
         Page content
       </AppShell>,
@@ -21,6 +21,7 @@ describe('application shell', () => {
     expect(screen.getByRole('navigation', { name: 'Primary' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Home' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('main')).toHaveTextContent('Page content');
+    expect(screen.getByRole('heading', { level: 1, name: 'Home' })).toBeInTheDocument();
   });
 
   it('supports controlled sidebar collapse', () => {

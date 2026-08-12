@@ -7,7 +7,7 @@ import {
   Panel,
   SidebarNav,
   SidebarNavItem,
-  StatusBadge,
+  StatusText,
   Topbar,
 } from '@xgc2/ui-react';
 
@@ -44,7 +44,7 @@ function ShellExample() {
   );
   const topbar = (
     <Topbar
-      leading={<strong>{page}</strong>}
+      title={page}
       actions={<Button tone="primary" uiSize="compact">Run</Button>}
     />
   );
@@ -54,7 +54,7 @@ function ShellExample() {
       <AppShell height="parent" sidebar={sidebar} topbar={topbar}>
         <div className="xgc-gallery-content-grid">
           <Panel title="Runtime">Shared shell content</Panel>
-          <Panel title="Status"><StatusBadge status="Running" /></Panel>
+          <Panel title="Status"><StatusText status="Running" /></Panel>
         </div>
       </AppShell>
     </div>

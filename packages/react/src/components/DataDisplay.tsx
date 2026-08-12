@@ -10,6 +10,7 @@ import {
 } from 'react';
 import { classNames } from '../utils';
 import { Button } from './Button';
+import { Select } from './FormControls';
 
 export type ToolbarProps = HTMLAttributes<HTMLDivElement>;
 
@@ -248,6 +249,83 @@ export function SortableDataTable<Row>({
         </tbody>
       </table>
     </DataTable>
+  );
+}
+
+export type PaginationLabels = {
+  next: string;
+  page: string;
+  pageSizeSuffix: string;
+  previous: string;
+  rowsPerPage: string;
+  total: string;
+};
+
+export type PaginationProps = Omit<HTMLAttributes<HTMLElement>, 'onChange'> & {
+  labels?: Partial<PaginationLabels>;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (pageSize: number) => void;
+  page: number;
+  pageSize: number;
+  pageSizeOptions?: readonly number[];
+  total: number;
+};
+
+const defaultPaginationLabels: PaginationLabels = {
+  next: 'Next page',
+  page: 'Page',
+  pageSizeSuffix: '',
+  previous: 'Previous page',
+  rowsPerPage: 'Rows per page',
+  total: 'Total',
+};
+
+export function Pagination({
+  className,
+  labels,
+  onPageChange,
+  onPageSizeChange,
+  page,
+  pageSize,
+  pageSizeOptions = [20, 50, 100],
+  total,
+  ...props
+}: PaginationProps) {
+  const copy = { ...defaultPaginationLabels, ...labels };
+  const safePageSize = Number.isFinite(pageSize) && pageSize > 0 ? pageSize : pageSizeOptions[0] ?? 20;
+  const totalPages = Math.max(1, Math.ceil(Math.max(0, total) / safePageSize));
+  const currentPage = Math.max(1, Math.min(page, totalPages));
+  return (
+    <footer {...props} className={classNames('xgc-pagination', className)}>
+      <span className="xgc-pagination-total">{copy.total} {Math.max(0, total)}</span>
+      <Select
+        aria-label={copy.rowsPerPage}
+        uiSize="compact"
+        value={String(safePageSize)}
+        onValueChange={(value) => onPageSizeChange(Number(value))}
+      >
+        {pageSizeOptions.map((size) => (
+          <option key={size} value={size}>{size}{copy.pageSizeSuffix ? ` ${copy.pageSizeSuffix}` : ''}</option>
+        ))}
+      </Select>
+      <Button
+        appearance="ghost"
+        iconOnly
+        uiSize="compact"
+        aria-label={copy.previous}
+        disabled={currentPage <= 1}
+        onClick={() => onPageChange(currentPage - 1)}
+      ><span aria-hidden="true">‹</span></Button>
+      <strong aria-label={`${copy.page} ${currentPage} / ${totalPages}`}>{currentPage} / {totalPages}</strong>
+      <Button
+        appearance="ghost"
+        iconOnly
+        uiSize="compact"
+        aria-label={copy.next}
+        disabled={currentPage >= totalPages}
+        onClick={() => onPageChange(currentPage + 1)}
+      ><span aria-hidden="true">›</span></Button>
+    </footer>
   );
 }
 

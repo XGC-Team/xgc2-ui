@@ -4,18 +4,26 @@ import {
   AudioCaptureControl,
   Button,
   ButtonLink,
+  Checkbox,
   CodeBlock,
+  Drawer,
+  EmptyState,
   FormField,
   FormGroup,
   Input,
+  Inline,
+  LogTablePage,
   Modal,
   Panel,
-  ProductBrand,
+  ProgressBar,
+  ResponsiveGrid,
   SegmentedControl,
   Select,
   SortableDataTable,
   StatCard,
-  StatusBadge,
+  Stack,
+  StatusText,
+  Switch,
   Tabs,
   Toolbar,
   Topbar,
@@ -45,10 +53,10 @@ export const Controls: Story = {
         <Input placeholder="robot-01" unit="ID" />
       </label>
       <div className="xgc-gallery-stack">
-        <StatusBadge status="Running" />
-        <StatusBadge status="Waiting" />
-        <StatusBadge status="Failed" />
-        <StatusBadge status="Custom" />
+        <StatusText status="Running" />
+        <StatusText status="Waiting" />
+        <StatusText status="Failed" />
+        <StatusText status="Custom" />
       </div>
     </div>
   ),
@@ -101,7 +109,7 @@ function FormAndMediaExample() {
   return (
     <div className="xgc-gallery-form">
       <Topbar
-        leading={<ProductBrand product="STT" mark="X" />}
+        title="XGC2 STT"
         actions={<Button appearance="ghost" uiSize="compact">Settings</Button>}
       />
       <FormField label="Language">
@@ -119,6 +127,8 @@ function FormAndMediaExample() {
           onValueChange={setSkin}
         />
       </FormGroup>
+      <Checkbox label="Include timestamps" checked onCheckedChange={() => undefined} />
+      <Switch label="Live updates" checked onCheckedChange={() => undefined} />
       <FormGroup label="View">
         <Tabs
           ariaLabel="Transcription view"
@@ -133,6 +143,7 @@ function FormAndMediaExample() {
           actionLabel={captureState === 'recording' ? 'Stop recording' : 'Start recording'}
           onAction={() => setCaptureState(captureState === 'recording' ? 'idle' : 'recording')}
           onCancel={() => setCaptureState('idle')}
+          waveformLevels={captureState === 'recording' ? [0.04, 0.08, 0.16, 0.28, 0.42, 0.31, 0.18, 0.1] : []}
           waveformLabel="Audio input activity"
         />
       </Panel>
@@ -183,5 +194,67 @@ export const Scrollbars: Story = {
         ))}
       </div>
     </Panel>
+  ),
+};
+
+function OverlayExample() {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Button onClick={() => setOpen(true)}>Open settings</Button>
+      <Drawer
+        dirty
+        discardChanges={['Language: Chinese → English']}
+        footer={({ requestClose }) => <Button onClick={requestClose}>Cancel</Button>}
+        onClose={() => setOpen(false)}
+        open={open}
+        title="Speech settings"
+      >
+        <FormField label="Language"><Select defaultValue="en"><option value="en">English</option></Select></FormField>
+      </Drawer>
+    </>
+  );
+}
+
+export const LayoutFeedbackAndProgress: Story = {
+  render: () => (
+    <Stack gap="comfortable">
+      <ResponsiveGrid>
+        <Panel title="Transfer">
+          <Stack gap="compact">
+            <Inline justify="between"><span>Package upload</span><StatusText status="Running" /></Inline>
+            <ProgressBar label="Package upload" max={100} percent={62} value={62} />
+          </Stack>
+        </Panel>
+        <EmptyState appearance="plain" title="No pending jobs" />
+      </ResponsiveGrid>
+      <OverlayExample />
+    </Stack>
+  ),
+};
+
+export const OperationsLogTable: Story = {
+  render: () => (
+    <div className="xgc-gallery-log-page">
+      <LogTablePage
+        columns={[
+          { id: 'time', title: 'Time', width: 'narrow', render: (row) => row.time },
+          { id: 'message', title: 'Message', width: 'wide', render: (row) => row.message },
+        ]}
+        getRowId={(row) => row.id}
+        onPage={() => undefined}
+        onPageSize={() => undefined}
+        onRefresh={() => undefined}
+        page={1}
+        pageSize={20}
+        rows={[
+          { id: '1', time: '10:42:12', message: 'Repository metadata refreshed' },
+          { id: '2', time: '10:42:19', message: 'Worker connected' },
+        ]}
+        search={{ onChange: () => undefined, placeholder: 'Filter logs', value: '' }}
+        title="Runtime logs"
+        total={2}
+      />
+    </div>
   ),
 };

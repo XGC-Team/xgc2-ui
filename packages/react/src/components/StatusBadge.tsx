@@ -30,17 +30,17 @@ const toneByStatus: Record<string, StatusTone> = {
   warning: 'warning',
 };
 
-export type StatusBadgeProps = HTMLAttributes<HTMLSpanElement> & {
+export type StatusTextProps = HTMLAttributes<HTMLSpanElement> & {
   status: string;
   tone?: StatusTone;
 };
 
-export function StatusBadge({ children, className, status, tone, ...props }: StatusBadgeProps) {
+export function StatusText({ children, className, status, tone, ...props }: StatusTextProps) {
   const normalizedStatus = status.trim().toLowerCase();
   return (
     <span
       {...props}
-      className={classNames('xgc-status-badge', className)}
+      className={classNames('xgc-status-text', className)}
       data-status={normalizedStatus}
       data-tone={tone ?? toneByStatus[normalizedStatus] ?? 'neutral'}
     >
@@ -48,3 +48,7 @@ export function StatusBadge({ children, className, status, tone, ...props }: Sta
     </span>
   );
 }
+
+/** @deprecated Use StatusText. Kept as a source-compatible plain-text alias. */
+export const StatusBadge = StatusText;
+export type StatusBadgeProps = StatusTextProps;

@@ -64,7 +64,13 @@ export function useDialogFocus({
     const dialog = dialogRef.current;
     if (!dialog) return undefined;
     const trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const preferred = dialog.querySelector<HTMLElement>('[autofocus], [data-dialog-initial-focus]');
+    const preferred = dialog.querySelector<HTMLElement>([
+      '[autofocus]',
+      '[data-dialog-initial-focus]',
+      '.xgc-drawer-body input:not(:disabled)',
+      '.xgc-drawer-body select:not(:disabled)',
+      '.xgc-drawer-body textarea:not(:disabled)',
+    ].join(','));
     (preferred ?? focusableElements(dialog)[0] ?? dialog).focus();
     return () => {
       if (trigger?.isConnected) trigger.focus();
@@ -76,5 +82,8 @@ export function useDialogFocus({
 
 function focusableElements(dialog: HTMLElement) {
   return Array.from(dialog.querySelectorAll<HTMLElement>(focusableSelector))
-    .filter((element) => element.getAttribute('aria-hidden') !== 'true');
+    .filter((element) => element.getAttribute('aria-hidden') !== 'true')
+    .sort((left, right) => (
+      left.compareDocumentPosition(right) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1
+    ));
 }

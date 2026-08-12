@@ -25,16 +25,18 @@ export function Panel({
       aria-labelledby={title ? titleId : props['aria-labelledby']}
       data-padding={padding}
     >
-      {title || description || actions ? (
+      {title || actions ? (
         <header className="xgc-panel-header">
           <div className="xgc-panel-heading">
             {title ? <h2 id={titleId}>{title}</h2> : null}
-            {description ? <p>{description}</p> : null}
           </div>
           {actions ? <div className="xgc-panel-actions">{actions}</div> : null}
         </header>
       ) : null}
-      <div className="xgc-panel-body">{children}</div>
+      <div className="xgc-panel-body">
+        {description ? <p className="xgc-panel-description">{description}</p> : null}
+        {children}
+      </div>
     </section>
   );
 }

@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { CodeBlock, DataTable, SortableDataTable, StatCard, Toolbar } from './DataDisplay';
+import { CodeBlock, DataTable, Pagination, SortableDataTable, StatCard, Toolbar } from './DataDisplay';
 
 describe('data display primitives', () => {
   afterEach(() => vi.restoreAllMocks());
@@ -84,5 +84,28 @@ describe('data display primitives', () => {
     );
     expect(screen.getByRole('checkbox', { name: 'Select all rows' })).toHaveProperty('indeterminate', true);
     expect(screen.getByRole('row', { name: /alpha/i })).toHaveAttribute('data-selected', 'true');
+  });
+
+  it('clamps pagination and delegates page and page-size changes', () => {
+    const onPageChange = vi.fn();
+    const onPageSizeChange = vi.fn();
+    render(
+      <Pagination
+        labels={{ pageSizeSuffix: '条/页', total: '总计' }}
+        page={9}
+        pageSize={20}
+        total={43}
+        onPageChange={onPageChange}
+        onPageSizeChange={onPageSizeChange}
+      />,
+    );
+    expect(screen.getByLabelText('Page 3 / 3')).toHaveTextContent('3 / 3');
+    expect(screen.getByRole('option', { name: '20 条/页' })).toBeInTheDocument();
+    expect(screen.getByText('总计 43')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Next page' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Previous page' }));
+    expect(onPageChange).toHaveBeenCalledWith(2);
+    fireEvent.change(screen.getByRole('combobox', { name: 'Rows per page' }), { target: { value: '50' } });
+    expect(onPageSizeChange).toHaveBeenCalledWith(50);
   });
 });
