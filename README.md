@@ -50,9 +50,9 @@ The React package inlines the token contract into its published stylesheet, so c
 Reusable coverage includes:
 
 - Foundation: theme and material tokens, spacing and type scales, header/control heights, responsive breakpoints, and the global XGC2 scrollbar treatment.
-- Controls: buttons and links, inputs, textarea, selects, labeled fields/groups, checkbox, switch, segmented controls, semantic tabs, plain status text, notices, empty states, progress, and theme-aware highlighted code.
+- Controls: buttons and links, inputs, textarea, selects, labeled fields/groups, checkbox, switch, segmented controls, semantic tabs, editable/reorderable workspace tabs, plain status text, notices, empty states, progress, and theme-aware highlighted code.
 - Data: statistics, toolbars, pagination, sortable/selectable tables with select-all, and a dense log-table page with its own scroll region.
-- Layout: stack, inline, responsive grid, scroll region, fixed operator workspace, section header, panels, responsive split panes, application shell, collapsible sidebar, and single-title topbar.
+- Layout: stack, inline, responsive grid, scroll region, fixed operator workspace, section header, panels, responsive split panes, application shell, collapsible sidebar, single-title topbar, breadcrumbs, and internally scrolling resource catalogs.
 - Overlays and media: modal, queued confirmation, dirty-state-aware right drawer, waveform, and audio capture presentation.
 - Spatial editors: an optional workflow package owning canvas viewport defaults, grid, pan/zoom, selection, drag/drop coordinate conversion, empty state, canvas and element toolbars, and editable sticky notes.
 

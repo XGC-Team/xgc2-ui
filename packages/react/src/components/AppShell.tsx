@@ -1,10 +1,16 @@
 import {
   useState,
+  type AnchorHTMLAttributes,
+  type ButtonHTMLAttributes,
   type HTMLAttributes,
   type MouseEvent,
   type ReactNode,
 } from 'react';
 import { classNames } from '../utils';
+
+type DataAttributes = {
+  [key: `data-${string}`]: boolean | number | string | undefined;
+};
 
 export type AppShellProps = HTMLAttributes<HTMLDivElement> & {
   contentClassName?: string;
@@ -12,8 +18,10 @@ export type AppShellProps = HTMLAttributes<HTMLDivElement> & {
   height?: 'viewport' | 'parent';
   mobileBreakpoint?: 'compact' | 'mobile';
   mobileLayout?: 'document' | 'fixed';
+  overlays?: ReactNode;
   sidebar?: ReactNode;
   topbar?: ReactNode;
+  workspaceClassName?: string;
 };
 
 export function AppShell({
@@ -24,8 +32,10 @@ export function AppShell({
   height = 'viewport',
   mobileBreakpoint = 'mobile',
   mobileLayout = 'fixed',
+  overlays,
   sidebar,
   topbar,
+  workspaceClassName,
   ...props
 }: AppShellProps) {
   return (
@@ -38,7 +48,7 @@ export function AppShell({
       data-sidebar={sidebar ? 'present' : 'absent'}
     >
       {sidebar}
-      <div className="xgc-app-workspace">
+      <div className={classNames('xgc-app-workspace', workspaceClassName)}>
         {topbar}
         <main
           className={classNames('xgc-app-content', contentClassName)}
@@ -47,6 +57,7 @@ export function AppShell({
           {children}
         </main>
       </div>
+      {overlays ? <div className="xgc-app-overlays">{overlays}</div> : null}
     </div>
   );
 }
@@ -82,7 +93,9 @@ export type AppSidebarProps = Omit<HTMLAttributes<HTMLElement>, 'children'> & {
   defaultCollapsed?: boolean;
   expandLabel?: string;
   footer?: ReactNode;
+  footerProps?: HTMLAttributes<HTMLDivElement>;
   onCollapsedChange?: (collapsed: boolean) => void;
+  toggleProps?: Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'aria-expanded' | 'children' | 'onClick' | 'type'> & DataAttributes;
 };
 
 export function AppSidebar({
@@ -95,7 +108,9 @@ export function AppSidebar({
   defaultCollapsed = false,
   expandLabel = 'Expand navigation',
   footer,
+  footerProps,
   onCollapsedChange,
+  toggleProps,
   ...props
 }: AppSidebarProps) {
   const [internalCollapsed, setInternalCollapsed] = useState(defaultCollapsed);
@@ -104,6 +119,7 @@ export function AppSidebar({
     if (collapsed === undefined) setInternalCollapsed(next);
     onCollapsedChange?.(next);
   };
+  const { className: toggleClassName, ...sidebarToggleProps } = toggleProps ?? {};
 
   return (
     <aside
@@ -113,7 +129,8 @@ export function AppSidebar({
     >
       <div className="xgc-sidebar-brand">
         <button
-          className="xgc-sidebar-toggle"
+          {...sidebarToggleProps}
+          className={classNames('xgc-sidebar-toggle', toggleClassName)}
           type="button"
           aria-label={isCollapsed ? expandLabel : collapseLabel}
           aria-expanded={!isCollapsed}
@@ -125,7 +142,14 @@ export function AppSidebar({
         </button>
       </div>
       <div className="xgc-sidebar-body">{children}</div>
-      {footer ? <div className="xgc-sidebar-footer">{footer}</div> : null}
+      {footer ? (
+        <div
+          {...footerProps}
+          className={classNames('xgc-sidebar-footer', footerProps?.className)}
+        >
+          {footer}
+        </div>
+      ) : null}
     </aside>
   );
 }
@@ -137,21 +161,33 @@ export function SidebarNav({ className, ...props }: HTMLAttributes<HTMLElement>)
 export type SidebarNavItemProps = {
   active?: boolean;
   badge?: ReactNode;
+  buttonProps?: Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children' | 'disabled' | 'onClick' | 'type'>;
+  className?: string;
+  dataAttributes?: DataAttributes;
+  depth?: 0 | 1;
   disabled?: boolean;
   href?: string;
   icon?: ReactNode;
   label: ReactNode;
+  linkProps?: Omit<AnchorHTMLAttributes<HTMLAnchorElement>, 'children' | 'href' | 'onClick'>;
   onSelect?: () => void;
+  size?: 'compact' | 'default';
 };
 
 export function SidebarNavItem({
   active = false,
   badge,
+  buttonProps,
+  className,
+  dataAttributes,
+  depth = 0,
   disabled = false,
   href,
   icon,
   label,
+  linkProps,
   onSelect,
+  size = 'default',
 }: SidebarNavItemProps) {
   const content = (
     <>
@@ -162,14 +198,18 @@ export function SidebarNavItem({
   );
   const commonProps = {
     'aria-current': active ? 'page' as const : undefined,
-    className: 'xgc-sidebar-nav-item',
+    className: classNames('xgc-sidebar-nav-item', className),
     'data-active': active || undefined,
+    'data-depth': depth,
+    'data-size': size,
     title: typeof label === 'string' ? label : undefined,
   };
 
   if (href) {
     return (
       <a
+        {...linkProps}
+        {...dataAttributes}
         {...commonProps}
         href={disabled ? undefined : href}
         aria-disabled={disabled || undefined}
@@ -188,6 +228,8 @@ export function SidebarNavItem({
 
   return (
     <button
+      {...buttonProps}
+      {...dataAttributes}
       {...commonProps}
       type="button"
       disabled={disabled}
@@ -208,7 +250,7 @@ export type TopbarProps = Omit<HTMLAttributes<HTMLElement>, 'children' | 'title'
 export function Topbar({ actions, brand, className, navigation, title, ...props }: TopbarProps) {
   return (
     <header {...props} className={classNames('xgc-topbar', className)}>
-      {brand || title ? (
+      {brand || title || navigation ? (
         <div className="xgc-topbar-leading">
           {navigation ? <div className="xgc-topbar-navigation">{navigation}</div> : null}
           {brand ?? <h1 className="xgc-topbar-title">{title}</h1>}

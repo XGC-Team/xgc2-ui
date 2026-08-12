@@ -41,13 +41,16 @@ This document is normative for every XGC2 web frontend. Product CSS may lay out 
 - Left-edge accent bars are prohibited for selection, active state, severity, dialogs, notifications, and controls.
 - This includes left borders, pseudo-element stripes, and inset left-edge shadows.
 - Use a complete background, enclosing border, and text/icon color for selected state.
-- Tab switching uses the shared `Tabs` primitive and its tablist/tab semantics, arrow-key behavior, density, and full-background selection treatment.
+- Simple view switching uses the shared `Tabs` or `SegmentedControl` primitive and its tablist/tab semantics, arrow-key behavior, density, and full-background selection treatment.
+- Persistent work areas that can be renamed, closed, created, or reordered use `WorkspaceTabs`. Products supply item data and domain callbacks but do not duplicate its drag/drop, keyboard navigation, inline editing, internal scrolling, or selection skin.
+- Resource directories use the `ListPage` family for the persistent search/action rail, internal scroll region, folders, rows, metadata, empty states, and protected drag/drop. Products provide data and business actions; they do not restyle selected rows with a left stripe or turn metadata/counts into filled pills.
 
 ## Forms and controls
 
-- Buttons, links styled as actions, text inputs, textareas, selects, checkboxes, switches, field labels, field groups, action rows, and tooltips use the corresponding shared React primitive. Products may add domain composition and stable `data-xgc-*` metadata, but may not retain duplicate presentation components or migration-only API wrappers.
+- Buttons, links styled as actions, text inputs, textareas, selects, checkboxes, switches, color fields, preview choice cards, field labels, field groups, action rows, and tooltips use the corresponding shared React primitive. Products may add domain composition and stable `data-xgc-*` metadata, but may not retain duplicate presentation components or migration-only API wrappers.
 - Control height, padding, typography, radius, focus treatment, and interactive states come from shared tokens and component CSS. Domain CSS may arrange controls in a page; it must not duplicate their base appearance.
 - `Checkbox` and `Switch` are different semantics and different visuals. A normal `input[type="checkbox"]` remains a checkbox; global selectors must never paint every checkbox as a switch.
+- Color fields use `ColorControl`; the native picker, validated hex draft, and palette remain theme-consistent. Preview choices use `ChoiceCardGroup`, including radiogroup semantics and arrow-key movement; products provide preview content without rebuilding selection chrome.
 - Use native `Select` for simple form choices. Use shared `SelectMenu` when an operator choice needs grouped options, icons, a portaled popup, or viewport-aware placement; products must not fork its listbox keyboard and positioning behavior.
 - Tooltips use the shared portaled implementation so they are not clipped by panels and drawers. They must remain optional supporting information, dismiss on scroll or Escape, and never be required to understand a control's primary label.
 

@@ -25,13 +25,13 @@ import {
 
 `AudioWaveform` and `AudioCaptureControl` own reusable recording presentation only. Consumers pass normalized levels derived from the audio samples actually being captured; absent samples render a quiet baseline and never a synthetic recording animation. The consuming product remains responsible for microphone permissions, transport, transcription, and capture state transitions.
 
-`FormField`, `FormGroup`, `Input`, `Textarea`, `Select`, `Checkbox`, `Switch`, `SegmentedControl`, and `Tabs` share one control geometry and accessible semantics. Use `FormGroup` for button groups and compound controls. `Tabs` owns the tablist/tab roles, arrow-key navigation, compact density, and complete-background selection treatment.
+`FormField`, `FormGroup`, `Input`, `Textarea`, `Select`, `Checkbox`, `Switch`, `ColorControl`, `ChoiceCardGroup`, `SegmentedControl`, and `Tabs` share one control geometry and accessible semantics. `ColorControl` owns the themed native picker, validated hex draft, and common palette. `ChoiceCardGroup` is the keyboard-operable radio pattern for options that need a visual preview; selection always uses a complete enclosing surface, never a left stripe. Use `FormGroup` for button groups and compound controls. `Tabs` owns the tablist/tab roles, arrow-key navigation, compact density, and complete-background selection treatment.
 
 `Topbar` deliberately exposes `brand` or `title`, optional navigation, and actions: put one product identity on the left and only high-value interactive controls on the right. It does not accept center content, subtitles, helper copy, or decorative healthy-state labels such as Ready/Online. Put diagnostic status in the relevant content surface, and render it only when it informs an operator decision.
 
 `StatusText` renders decision-relevant state as compact, undecorated text. It intentionally has no filled background, enclosing border, capsule radius, or decorative dot.
 
-`Toolbar`, `StatCard`, `DataTable`, `Pagination`, `LogTablePage`, structured information rows, settings rows, resource meters, and `CodeBlock` cover recurring operational data layouts while leaving data fetching and mutations to consumers. `ButtonLink` gives native navigation links the same geometry as actions.
+`Toolbar`, `StatCard`, `DataTable`, `Pagination`, `LogTablePage`, `ListPage`, `ConfigSection`, `PanelViewSwitcher`, `WorkflowStatusCard`, structured information rows, settings rows, resource meters, and `CodeBlock` cover recurring operational data layouts while leaving data fetching and mutations to consumers. `Breadcrumbs` owns compact hierarchy navigation, while `ButtonLink` gives native navigation links the same geometry as actions.
 
 `Stack`, `Inline`, `ResponsiveGrid`, `ScrollRegion`, `OperatorWorkspace`, and `SectionHeader` own common spacing and fixed-workspace behavior. `Drawer` owns the right-side overlay, fixed header, internally scrolling body, mobile width, focus behavior, and optional dirty-data confirmation. Consumers provide domain form contents and save behavior.
 

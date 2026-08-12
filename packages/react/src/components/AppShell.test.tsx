@@ -6,6 +6,7 @@ describe('application shell', () => {
   it('composes sidebar, topbar, and content without owning routing', () => {
     render(
       <AppShell
+        overlays={<div data-testid="overlay">Overlay</div>}
         sidebar={(
           <AppSidebar brandLabel="XGC" brandMark="X">
             <SidebarNav aria-label="Primary">
@@ -21,6 +22,7 @@ describe('application shell', () => {
     expect(screen.getByRole('navigation', { name: 'Primary' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Home' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('main')).toHaveTextContent('Page content');
+    expect(screen.getByTestId('overlay')).toHaveTextContent('Overlay');
     expect(screen.getByRole('heading', { level: 1, name: 'Home' })).toBeInTheDocument();
   });
 
@@ -39,6 +41,27 @@ describe('application shell', () => {
     render(<AppSidebar brandLabel="XGC" brandMark="X">Navigation</AppSidebar>);
     fireEvent.click(screen.getByRole('button', { name: 'Collapse navigation' }));
     expect(screen.getByRole('button', { name: 'Expand navigation' })).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('forwards shell affordance props and allows navigation-only topbars', () => {
+    const onFocus = vi.fn();
+    render(
+      <>
+        <AppSidebar
+          brandLabel="XGC"
+          brandMark="X"
+          toggleProps={{ 'data-testid': 'shell-toggle' }}
+        >
+          <SidebarNavItem buttonProps={{ onFocus }} className="product-route" label="Operations" />
+        </AppSidebar>
+        <Topbar navigation={<nav aria-label="Breadcrumbs">Home / Operations</nav>} />
+      </>,
+    );
+    expect(screen.getByTestId('shell-toggle')).toHaveClass('xgc-sidebar-toggle');
+    fireEvent.focus(screen.getByRole('button', { name: 'Operations' }));
+    expect(onFocus).toHaveBeenCalledOnce();
+    expect(screen.getByRole('button', { name: 'Operations' })).toHaveClass('product-route');
+    expect(screen.getByRole('navigation', { name: 'Breadcrumbs' })).toBeInTheDocument();
   });
 
   it('declares document-flow mobile behavior and reusable split panes', () => {

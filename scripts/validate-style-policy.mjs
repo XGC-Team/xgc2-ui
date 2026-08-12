@@ -16,6 +16,11 @@ const decoratedState = [
   { property: /^border-radius$/i, allowed: /^(?:0|0px|none|inherit|initial|unset)$/i, label: 'rounded state shape' },
   { property: /^box-shadow$/i, allowed: /^(?:none|inherit|initial|unset)$/i, label: 'state shadow or marker' },
 ];
+// A workflow card is a full operational control surface that also contains
+// plain status text. Neutral surface chrome is allowed; semantic state must
+// never tint or decorate that enclosing card.
+const neutralStateContainers = new Set(['.xgc-workflow-status-card']);
+const semanticStateMaterial = /(?:success|danger|warning|accent|primary|selected|error)/i;
 
 async function collect(directory) {
   const entries = await readdir(new URL(`${directory}/`, root), { withFileTypes: true });
@@ -44,11 +49,18 @@ for (const file of (await Promise.all(roots.map(collect))).flat()) {
   for (const rule of content.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
     const selector = rule[1].trim();
     if (!stateSelector.test(selector) || /empty-state/i.test(selector)) continue;
+    const neutralStateContainer = neutralStateContainers.has(selector);
     for (const declaration of rule[2].split(';')) {
       const separator = declaration.indexOf(':');
       if (separator < 0) continue;
       const property = declaration.slice(0, separator).trim();
       const value = declaration.slice(separator + 1).trim();
+      if (neutralStateContainer) {
+        if (/^(?:background|background-color|border|box-shadow)$/i.test(property) && semanticStateMaterial.test(value)) {
+          violations.push(`${relative('.', file)}: semantic state material in neutral container ${selector}`);
+        }
+        continue;
+      }
       for (const policy of decoratedState) {
         if (policy.property.test(property) && !policy.allowed.test(value)) {
           violations.push(`${relative('.', file)}: ${policy.label} in ${selector}`);

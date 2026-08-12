@@ -1,5 +1,18 @@
 # @xgc2/ui-tokens
 
+## 0.5.0
+
+### Minor Changes
+
+- Industrialize the shared XGC2 frontend foundation with reusable application
+  shell, navigation, workspace tabs, breadcrumbs, list-page, configuration,
+  choice-card, color, workflow-status, modal/drawer, audio-capture, and sortable
+  data-table capabilities. Standardize responsive operator layouts, real PCM
+  waveforms, compact syntax-highlighted code blocks, global scrollbars, panel
+  geometry, selection surfaces, and refined light/dark materials while enforcing
+  the family-wide ban on left accent bars, status dots, pills, and decorative
+  healthy-state chrome.
+
 ## 0.4.1
 
 ### Patch Changes

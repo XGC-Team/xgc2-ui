@@ -20,6 +20,11 @@ describe('audio capture presentation', () => {
     expect([...container.querySelectorAll<HTMLElement>('.xgc-audio-waveform > span')].map(
       (bar) => bar.style.getPropertyValue('--xgc-wave-height'),
     )).toEqual(['6%', '53%', '100%']);
+
+    rerender(<AudioWaveform active={false} barCount={3} levels={[0, 0.5, 1]} />);
+    expect([...container.querySelectorAll<HTMLElement>('.xgc-audio-waveform > span')].map(
+      (bar) => bar.style.getPropertyValue('--xgc-wave-height'),
+    )).toEqual(['6%', '6%', '6%']);
   });
 
   it('maps capture state to shared actions without owning recording behavior', () => {

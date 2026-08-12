@@ -61,6 +61,25 @@ describe('data display primitives', () => {
     expect(screen.getAllByRole('row')[1]).toHaveTextContent('1.10.0');
   });
 
+  it('forwards semantic cell metadata without requiring consumer-owned table markup', () => {
+    const { container } = render(
+      <SortableDataTable
+        columns={[{
+          id: 'name',
+          header: 'Package',
+          cell: (row) => row.name,
+          cellProps: (row) => ({ className: 'package-cell', title: row.id }),
+        }]}
+        rowKey={(row) => row.id}
+        rows={[{ id: 'alpha-id', name: 'alpha' }]}
+      />,
+    );
+    const cell = screen.getByRole('cell', { name: 'alpha' });
+    expect(cell).toHaveClass('package-cell');
+    expect(cell).toHaveAttribute('title', 'alpha-id');
+    expect(container.querySelectorAll('table')).toHaveLength(1);
+  });
+
   it('supports select-all, partial selection, and row selection as one shared behavior', () => {
     const onChange = vi.fn();
     const { rerender } = render(
@@ -84,6 +103,35 @@ describe('data display primitives', () => {
     );
     expect(screen.getByRole('checkbox', { name: 'Select all rows' })).toHaveProperty('indeterminate', true);
     expect(screen.getByRole('row', { name: /alpha/i })).toHaveAttribute('data-selected', 'true');
+  });
+
+  it('disables bulk and row selection together and does not bubble checkbox clicks into rows', () => {
+    const onChange = vi.fn();
+    const onRowClick = vi.fn();
+    const { rerender } = render(
+      <SortableDataTable
+        columns={[{ id: 'name', header: 'Package', cell: (row) => row.name }]}
+        getRowProps={() => ({ onClick: onRowClick })}
+        rowKey={(row) => row.id}
+        rows={[{ id: 'a', name: 'alpha' }]}
+        selection={{ disabled: true, selectedRowKeys: new Set(), onChange }}
+      />,
+    );
+    expect(screen.getByRole('checkbox', { name: 'Select all rows' })).toBeDisabled();
+    expect(screen.getByRole('checkbox', { name: 'Select row a' })).toBeDisabled();
+
+    rerender(
+      <SortableDataTable
+        columns={[{ id: 'name', header: 'Package', cell: (row) => row.name }]}
+        getRowProps={() => ({ onClick: onRowClick })}
+        rowKey={(row) => row.id}
+        rows={[{ id: 'a', name: 'alpha' }]}
+        selection={{ selectedRowKeys: new Set(), onChange }}
+      />,
+    );
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select row a' }));
+    expect(onChange).toHaveBeenCalledWith(new Set(['a']));
+    expect(onRowClick).not.toHaveBeenCalled();
   });
 
   it('clamps pagination and delegates page and page-size changes', () => {

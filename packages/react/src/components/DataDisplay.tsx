@@ -61,9 +61,18 @@ export type DataTableSort = {
   direction: DataTableSortDirection;
 };
 
+export type DataTableDataAttributes = {
+  [key: `data-${string}`]: string | number | boolean | undefined;
+};
+
+export type DataTableCellProps = HTMLAttributes<HTMLTableCellElement> & DataTableDataAttributes;
+export type DataTableRowProps = HTMLAttributes<HTMLTableRowElement> & DataTableDataAttributes;
+export type DataTableTableProps = TableHTMLAttributes<HTMLTableElement> & DataTableDataAttributes;
+
 export type DataTableColumn<Row> = {
   cell: (row: Row) => ReactNode;
   className?: string;
+  cellProps?: DataTableCellProps | ((row: Row) => DataTableCellProps);
   header: ReactNode;
   headerClassName?: string;
   id: string;
@@ -73,6 +82,7 @@ export type DataTableColumn<Row> = {
 };
 
 export type DataTableSelection<Row> = {
+  disabled?: boolean;
   getRowLabel?: (row: Row) => string;
   onChange: (selectedRowKeys: Set<string>) => void;
   rowHeaderLabel?: string;
@@ -82,22 +92,32 @@ export type DataTableSelection<Row> = {
 export type SortableDataTableProps<Row> = Omit<DataTableProps, 'children' | 'empty'> & {
   columns: readonly DataTableColumn<Row>[];
   defaultSort?: DataTableSort;
-  getRowProps?: (row: Row) => HTMLAttributes<HTMLTableRowElement>;
+  getRowProps?: (row: Row) => DataTableRowProps;
   manualSort?: boolean;
   onSortChange?: (sort: DataTableSort) => void;
   rowKey: (row: Row) => string;
   rows: readonly Row[];
   selection?: DataTableSelection<Row>;
   sort?: DataTableSort;
-  tableProps?: TableHTMLAttributes<HTMLTableElement>;
+  tableProps?: DataTableTableProps;
 };
 
-function DataTableCheckbox({ indeterminate = false, ...props }: InputHTMLAttributes<HTMLInputElement> & { indeterminate?: boolean }) {
+function DataTableCheckbox({ indeterminate = false, onClick, ...props }: InputHTMLAttributes<HTMLInputElement> & { indeterminate?: boolean }) {
   const ref = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (ref.current) ref.current.indeterminate = indeterminate;
   }, [indeterminate]);
-  return <input {...props} ref={ref} type="checkbox" />;
+  return (
+    <input
+      {...props}
+      ref={ref}
+      type="checkbox"
+      onClick={(event) => {
+        event.stopPropagation();
+        onClick?.(event);
+      }}
+    />
+  );
 }
 
 function compareDataTableValues(
@@ -182,6 +202,7 @@ export function SortableDataTable<Row>({
                 <DataTableCheckbox
                   aria-label={selection.rowHeaderLabel ?? 'Select all rows'}
                   checked={allSelected}
+                  disabled={selection.disabled}
                   indeterminate={someSelected}
                   onChange={toggleAll}
                 />
@@ -231,6 +252,7 @@ export function SortableDataTable<Row>({
                     <DataTableCheckbox
                       aria-label={selection.getRowLabel?.(row) ?? `Select row ${key}`}
                       checked={selected}
+                      disabled={selection.disabled}
                       onChange={() => {
                         const next = new Set(selection.selectedRowKeys);
                         if (selected) next.delete(key);
@@ -241,7 +263,20 @@ export function SortableDataTable<Row>({
                   </td>
                 ) : null}
                 {columns.map((column) => (
-                  <td className={column.className} key={column.id}>{column.cell(row)}</td>
+                  (() => {
+                    const cellProps = typeof column.cellProps === 'function'
+                      ? column.cellProps(row)
+                      : column.cellProps;
+                    return (
+                      <td
+                        {...cellProps}
+                        className={classNames(column.className, cellProps?.className)}
+                        key={column.id}
+                      >
+                        {column.cell(row)}
+                      </td>
+                    );
+                  })()
                 ))}
               </tr>
             );

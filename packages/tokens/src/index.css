@@ -34,6 +34,9 @@
   --weight-semibold: 600;
   --weight-strong: 650;
   --weight-bold: 700;
+  --xgc-tracking-label: 0.03em;
+  --xgc-tracking-wide: 0.04em;
+  --xgc-tracking-wider: 0.05em;
   --line-height-none: 1;
   --line-height-tight: 1.2;
   --line-height-ui: 1.35;

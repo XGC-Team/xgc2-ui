@@ -18,7 +18,7 @@ export function AudioWaveform({
   ...props
 }: AudioWaveformProps) {
   const safeCount = Math.max(3, Math.min(64, Math.round(barCount)));
-  const visibleLevels = resampleLevels(levels, safeCount);
+  const visibleLevels = resampleLevels(active ? levels : [], safeCount);
   const peak = Math.max(0, ...visibleLevels);
   return (
     <div

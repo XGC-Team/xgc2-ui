@@ -5,7 +5,10 @@ import {
   Button,
   ButtonLink,
   Checkbox,
+  ChoiceCardGroup,
   CodeBlock,
+  ColorControl,
+  ConfigSection,
   Drawer,
   EmptyState,
   FormField,
@@ -28,6 +31,7 @@ import {
   Tabs,
   Toolbar,
   Topbar,
+  WorkspaceTabs,
   type AudioCaptureState,
 } from '@xgc2/ui-react';
 
@@ -167,6 +171,71 @@ function FormAndMediaExample() {
 
 export const FormsAndAudio: Story = {
   render: () => <FormAndMediaExample />,
+};
+
+function RichControlsExample() {
+  const [color, setColor] = useState('#315fdc');
+  const [layout, setLayout] = useState('single');
+  return (
+    <div className="xgc-gallery-form">
+      <FormField label="Marker color">
+        <ColorControl ariaLabel="Marker color" onChange={setColor} value={color} />
+      </FormField>
+      <FormGroup label="Initial layout">
+        <ChoiceCardGroup
+          ariaLabel="Initial layout"
+          onValueChange={setLayout}
+          options={[
+            { value: 'single', label: 'Single', content: <span>One workspace</span> },
+            { value: 'split', label: 'Split', content: <span>Two workspaces</span> },
+          ]}
+          value={layout}
+        />
+      </FormGroup>
+      <ConfigSection title="Advanced settings">
+        <FormField label="Namespace"><Input value="/robot" readOnly /></FormField>
+      </ConfigSection>
+    </div>
+  );
+}
+
+export const RichControls: Story = {
+  render: () => <RichControlsExample />,
+};
+
+function WorkspaceTabsExample() {
+  const [tabs, setTabs] = useState([
+    { id: 'gcs', label: 'GCS' },
+    { id: 'operations', label: 'Operations' },
+    { id: 'analysis', label: 'Analysis' },
+  ]);
+  const [active, setActive] = useState('gcs');
+  return (
+    <WorkspaceTabs
+      ariaLabel="Experiment dashboards"
+      createLabel="Add dashboard"
+      deleteLabel={(item) => `Delete dashboard ${item.label}`}
+      items={tabs}
+      onCreate={() => {
+        const id = `dashboard-${tabs.length + 1}`;
+        setTabs((current) => [...current, { id, label: `Dashboard ${current.length + 1}` }]);
+        setActive(id);
+      }}
+      onDelete={(id) => {
+        const next = tabs.filter((item) => item.id !== id);
+        setTabs(next);
+        if (active === id && next[0]) setActive(next[0].id);
+      }}
+      onRename={(id, label) => setTabs((current) => current.map((item) => item.id === id ? { ...item, label } : item))}
+      onReorder={(orderedIds) => setTabs(orderedIds.map((id) => tabs.find((item) => item.id === id)!))}
+      onValueChange={setActive}
+      value={active}
+    />
+  );
+}
+
+export const EditableWorkspaceTabs: Story = {
+  render: () => <div className="xgc-gallery-form"><WorkspaceTabsExample /></div>,
 };
 
 export const DataDisplay: Story = {
