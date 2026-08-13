@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { Button } from './Button';
 import { Modal } from './Modal';
@@ -39,5 +39,28 @@ describe('Modal', () => {
     close.focus();
     fireEvent.keyDown(close, { key: 'Tab', shiftKey: true });
     expect(document.activeElement).toBe(confirm);
+  });
+
+  it('does not dismiss when a nested control consumes Escape', async () => {
+    const onClose = vi.fn();
+    render(
+      <Modal title="Edit parameters" onClose={onClose}>
+        <button onKeyDown={(event) => event.preventDefault()} type="button">Nested control</button>
+      </Modal>,
+    );
+
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Nested control' }), { key: 'Escape' });
+    await act(async () => { await Promise.resolve(); });
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole('dialog', { name: 'Edit parameters' })).toBeInTheDocument();
+  });
+
+  it('does not dismiss for Escape while an IME composition is active', async () => {
+    const onClose = vi.fn();
+    render(<Modal title="Edit parameters" onClose={onClose}><input aria-label="Parameter" /></Modal>);
+
+    fireEvent.keyDown(screen.getByRole('textbox', { name: 'Parameter' }), { isComposing: true, key: 'Escape' });
+    await act(async () => { await Promise.resolve(); });
+    expect(onClose).not.toHaveBeenCalled();
   });
 });

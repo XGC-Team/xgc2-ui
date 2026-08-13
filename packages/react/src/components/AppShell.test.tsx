@@ -1,7 +1,8 @@
 import { StrictMode, useState } from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AppShell, AppSidebar, ResponsiveSplit, SidebarNav, SidebarNavItem, Topbar } from './AppShell';
+import { Popover } from './Popover';
 import { XGC_MEDIA_QUERIES } from '../hooks/useMediaQuery';
 
 const originalMatchMedia = window.matchMedia;
@@ -229,6 +230,41 @@ describe('application shell', () => {
     expect(close).toHaveFocus();
     fireEvent.keyDown(close, { key: 'Tab', shiftKey: true });
     expect(last).toHaveFocus();
+  });
+
+  it('dismisses a portaled child before its mobile navigation drawer', async () => {
+    useMobileViewport();
+    function MobileNavigation() {
+      const [drawerOpen, setDrawerOpen] = useState(true);
+      const [popoverOpen, setPopoverOpen] = useState(true);
+      return (
+        <AppSidebar
+          brandLabel="XGC"
+          brandMark="X"
+          mobileMode="drawer"
+          mobileOpen={drawerOpen}
+          onMobileOpenChange={setDrawerOpen}
+        >
+          <Popover
+            ariaLabel="Navigation actions"
+            onOpenChange={setPopoverOpen}
+            open={popoverOpen}
+            trigger={<button type="button">More navigation</button>}
+          >
+            <button type="button">Inside navigation actions</button>
+          </Popover>
+        </AppSidebar>
+      );
+    }
+    render(<MobileNavigation />);
+
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Inside navigation actions' }), { key: 'Escape' });
+    await act(async () => { await Promise.resolve(); });
+    expect(screen.queryByRole('dialog', { name: 'Navigation actions' })).not.toBeInTheDocument();
+    expect(screen.getByRole('complementary')).toHaveAttribute('data-mobile-open', 'true');
+
+    fireEvent.keyDown(screen.getByRole('complementary'), { key: 'Escape' });
+    await waitFor(() => expect(screen.getByRole('complementary', { hidden: true })).toHaveAttribute('inert'));
   });
 
   it('cancels stale opening focus when the drawer closes immediately', async () => {

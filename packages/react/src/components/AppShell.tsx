@@ -10,6 +10,7 @@ import {
 } from 'react';
 import { classNames } from '../utils';
 import { XGC_MEDIA_QUERIES, useMediaQuery } from '../hooks/useMediaQuery';
+import { isInsideOwnedOverlay, OverlayOwner, useOverlayStack } from './OverlayStack';
 
 type DataAttributes = {
   [key: `data-${string}`]: boolean | number | string | undefined;
@@ -140,6 +141,11 @@ export function AppSidebar({
   const isMobileDrawerClosed = isMobileDrawer && !mobileOpen;
   const isCollapsed = collapsed ?? internalCollapsed;
   const visuallyCollapsed = isCollapsed && !(mobileMode === 'drawer' && mobileOpen);
+  const overlay = useOverlayStack({
+    close: () => onMobileOpenChange?.(false),
+    open: isMobileDrawerOpen,
+    rootRef: sidebarRef,
+  });
   const setCollapsed = (next: boolean) => {
     if (collapsed === undefined) setInternalCollapsed(next);
     onCollapsedChange?.(next);
@@ -199,11 +205,11 @@ export function AppSidebar({
           onKeyDown?.(event);
           if (event.defaultPrevented || !isMobileDrawerOpen) return;
           if (event.key === 'Escape') {
-            event.preventDefault();
-            onMobileOpenChange?.(false);
+            overlay.closeTopOverlay(event);
             return;
           }
           if (event.key !== 'Tab') return;
+          if (isInsideOwnedOverlay(document.activeElement, overlay.overlayId)) return;
           const focusable = focusableElements(sidebarRef.current);
           if (!focusable.length) {
             event.preventDefault();
@@ -218,33 +224,35 @@ export function AppSidebar({
           }
         }}
       >
-      <div className="xgc-sidebar-brand">
-        <button
-          {...sidebarToggleProps}
-          ref={sidebarToggleRef}
-          className={classNames('xgc-sidebar-toggle', toggleClassName)}
-          type="button"
-          aria-label={mobileMode === 'drawer' && mobileOpen ? mobileDismissLabel : isCollapsed ? expandLabel : collapseLabel}
-          aria-expanded={mobileMode === 'drawer' && mobileOpen ? true : !isCollapsed}
-          onClick={() => {
-            if (mobileMode === 'drawer' && mobileOpen) onMobileOpenChange?.(false);
-            else setCollapsed(!isCollapsed);
-          }}
-        >
-          <span className="xgc-sidebar-brand-mark" aria-hidden="true">{brandMark}</span>
-          <span className="xgc-sidebar-brand-label" aria-hidden={visuallyCollapsed}>{brandLabel}</span>
-          <span className="xgc-sidebar-collapse-indicator" aria-hidden="true">‹</span>
-        </button>
-      </div>
-      <div className="xgc-sidebar-body">{children}</div>
-      {footer ? (
-        <div
-          {...footerProps}
-          className={classNames('xgc-sidebar-footer', footerProps?.className)}
-        >
-          {footer}
-        </div>
-      ) : null}
+        <OverlayOwner id={overlay.overlayId}>
+          <div className="xgc-sidebar-brand">
+            <button
+              {...sidebarToggleProps}
+              ref={sidebarToggleRef}
+              className={classNames('xgc-sidebar-toggle', toggleClassName)}
+              type="button"
+              aria-label={mobileMode === 'drawer' && mobileOpen ? mobileDismissLabel : isCollapsed ? expandLabel : collapseLabel}
+              aria-expanded={mobileMode === 'drawer' && mobileOpen ? true : !isCollapsed}
+              onClick={() => {
+                if (mobileMode === 'drawer' && mobileOpen) onMobileOpenChange?.(false);
+                else setCollapsed(!isCollapsed);
+              }}
+            >
+              <span className="xgc-sidebar-brand-mark" aria-hidden="true">{brandMark}</span>
+              <span className="xgc-sidebar-brand-label" aria-hidden={visuallyCollapsed}>{brandLabel}</span>
+              <span className="xgc-sidebar-collapse-indicator" aria-hidden="true">‹</span>
+            </button>
+          </div>
+          <div className="xgc-sidebar-body">{children}</div>
+          {footer ? (
+            <div
+              {...footerProps}
+              className={classNames('xgc-sidebar-footer', footerProps?.className)}
+            >
+              {footer}
+            </div>
+          ) : null}
+        </OverlayOwner>
       </aside>
       {mobileMode === 'drawer' ? (
         <button

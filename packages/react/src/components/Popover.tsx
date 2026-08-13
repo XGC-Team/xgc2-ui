@@ -16,6 +16,7 @@ import {
 import { createPortal } from 'react-dom';
 import { classNames } from '../utils';
 import { Button, type ButtonProps, type ButtonTone } from './Button';
+import { OverlayOwner, useOverlayStack } from './OverlayStack';
 
 const POPOVER_GAP = 6;
 const POPOVER_VIEWPORT_MARGIN = 8;
@@ -76,6 +77,7 @@ export function Popover({
     onOpenChange(false);
     anchorRef.current?.querySelector<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')?.focus();
   };
+  const overlay = useOverlayStack({ close: closeAndRestoreFocus, open, rootRef: surfaceRef });
 
   useEffect(() => {
     if (previousOpen.current && !open) {
@@ -92,16 +94,9 @@ export function Popover({
       if (target instanceof Element && target.closest('[data-xgc-overlay-root="true"]')) return;
       onOpenChange(false);
     };
-    const closeFromEscape = (event: globalThis.KeyboardEvent) => {
-      if (event.key !== 'Escape') return;
-      event.preventDefault();
-      closeAndRestoreFocus();
-    };
     document.addEventListener('mousedown', closeFromOutside);
-    document.addEventListener('keydown', closeFromEscape);
     return () => {
       document.removeEventListener('mousedown', closeFromOutside);
-      document.removeEventListener('keydown', closeFromEscape);
     };
   }, [open, onOpenChange]);
 
@@ -184,18 +179,28 @@ export function Popover({
       data-xgc-placement={placement}
       data-xgc-role={dataXgcRole}
       id={popoverId}
+      onKeyDown={(event) => {
+        surfaceProps?.onKeyDown?.(event);
+        overlay.closeTopOverlay(event);
+      }}
       ref={surfaceRef}
       role={role}
       style={{ ...position, ...surfaceProps?.style }}
     >
-      {children}
+      <OverlayOwner id={overlay.overlayId}>{children}</OverlayOwner>
     </div>,
     document.body,
   ) : null;
 
   return (
     <>
-      <span className="xgc-popover-anchor" ref={anchorRef}>{triggerElement}</span>
+      <span
+        className="xgc-popover-anchor"
+        onKeyDown={(event) => {
+          if (open) overlay.closeTopOverlay(event);
+        }}
+        ref={anchorRef}
+      >{triggerElement}</span>
       {surface}
     </>
   );

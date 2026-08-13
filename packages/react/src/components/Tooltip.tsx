@@ -11,6 +11,7 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { classNames } from '../utils';
+import { useOverlayStack } from './OverlayStack';
 
 let keyboardIntent = false;
 let listenersBound = false;
@@ -62,6 +63,11 @@ export function Tooltip({
     showTimer.current = undefined;
     hideTimer.current = undefined;
   }, []);
+  const dismiss = useCallback(() => {
+    clearTimers();
+    setOpen(false);
+  }, [clearTimers]);
+  const overlay = useOverlayStack({ close: dismiss, open, rootRef: tooltipRef });
   const scheduleShow = useCallback(() => {
     if (!active) return;
     if (hideTimer.current !== undefined) clearTimeout(hideTimer.current);
@@ -121,6 +127,9 @@ export function Tooltip({
         data-xgc-tooltip-trigger="true"
         onBlurCapture={blur}
         onFocusCapture={focus}
+        onKeyDown={(event) => {
+          if (open) overlay.closeTopOverlay(event);
+        }}
         onMouseEnter={scheduleShow}
         onMouseLeave={scheduleHide}
         onPointerEnter={scheduleShow}

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useDialogFocus } from '../hooks/useDialogFocus';
 import { classNames } from '../utils';
 import { Button } from './Button';
+import { OverlayOwner, useOverlayStack } from './OverlayStack';
 
 export type ModalProps = {
   actions?: ReactNode;
@@ -50,7 +51,8 @@ export function Modal({
   const dialogRef = useRef<HTMLElement>(null);
   const titleId = useId();
   const descriptionId = useId();
-  const onKeyDown = useDialogFocus({ dialogRef, dismissible, onClose, open });
+  const overlay = useOverlayStack({ close: onClose, dismissible, open, rootRef: dialogRef });
+  const onKeyDown = useDialogFocus({ dialogId: overlay.overlayId, dialogRef, dismissible, open });
 
   if (!open) return null;
   const modal = (
@@ -76,25 +78,27 @@ export function Modal({
         onKeyDown={onKeyDown}
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <header className="xgc-modal-header">
-          <div>
-            <strong id={titleId}>{title}</strong>
-            {description ? <p id={descriptionId}>{description}</p> : null}
-          </div>
-          {dismissible ? (
-            <Button
-              appearance="ghost"
-              iconOnly
-              uiSize="compact"
-              aria-label={closeLabel}
-              onClick={onClose}
-            >
-              <span className="xgc-modal-close-icon" aria-hidden="true">×</span>
-            </Button>
-          ) : null}
-        </header>
-        <div className="xgc-modal-body">{children}</div>
-        {actions ? <footer className="xgc-modal-actions">{actions}</footer> : null}
+        <OverlayOwner id={overlay.overlayId}>
+          <header className="xgc-modal-header">
+            <div>
+              <strong id={titleId}>{title}</strong>
+              {description ? <p id={descriptionId}>{description}</p> : null}
+            </div>
+            {dismissible ? (
+              <Button
+                appearance="ghost"
+                iconOnly
+                uiSize="compact"
+                aria-label={closeLabel}
+                onClick={onClose}
+              >
+                <span className="xgc-modal-close-icon" aria-hidden="true">×</span>
+              </Button>
+            ) : null}
+          </header>
+          <div className="xgc-modal-body">{children}</div>
+          {actions ? <footer className="xgc-modal-actions">{actions}</footer> : null}
+        </OverlayOwner>
       </section>
     </div>
   );

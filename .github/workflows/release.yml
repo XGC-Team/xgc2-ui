@@ -13,6 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
           run_install: false
@@ -22,10 +24,22 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
-      - run: mkdir -p release-assets
-      - run: pnpm --filter @xgc2/ui-tokens pack --pack-destination release-assets
-      - run: pnpm --filter @xgc2/ui-react pack --pack-destination release-assets
-      - run: pnpm --filter @xgc2/ui-workflow pack --pack-destination release-assets
+      - name: Pack only packages changed since the preceding immutable release
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+          previous_tag="$(git describe --tags --abbrev=0 "${GITHUB_REF_NAME}^" 2>/dev/null || true)"
+          for package in tokens react workflow; do
+            if [[ -n "${previous_tag}" ]] && git diff --quiet "${previous_tag}" "${GITHUB_REF_NAME}" -- "packages/${package}"; then
+              echo "reusing unchanged @xgc2/ui-${package} from ${previous_tag}"
+              continue
+            fi
+            pnpm --filter "@xgc2/ui-${package}" pack --pack-destination release-assets
+          done
+          if ! compgen -G 'release-assets/*.tgz' >/dev/null; then
+            echo "release has no changed package assets" >&2
+            exit 1
+          fi
       - name: Reject an existing release or asset namespace
         env:
           GH_TOKEN: ${{ github.token }}
@@ -55,7 +69,10 @@ jobs:
           for package in tokens react workflow; do
             name="$(node -p "require('./packages/${package}/package.json').name.replace(/^@/, '').replace('/', '-')")"
             version="$(node -p "require('./packages/${package}/package.json').version")"
-            expected_assets+=("${name}-${version}.tgz")
+            asset="${name}-${version}.tgz"
+            if [[ -f "release-assets/${asset}" ]]; then
+              expected_assets+=("${asset}")
+            fi
           done
           mapfile -t built_assets < <(find release-assets -maxdepth 1 -type f -printf '%f\n' | sort)
           mapfile -t expected_assets < <(printf '%s\n' "${expected_assets[@]}" | sort)

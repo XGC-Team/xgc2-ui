@@ -1,10 +1,10 @@
 import {
   useCallback,
   useEffect,
-  useRef,
   type KeyboardEvent as ReactKeyboardEvent,
   type RefObject,
 } from 'react';
+import { isInsideOwnedOverlay, useOverlayEscapeHandler } from '../components/OverlayStack';
 
 const focusableSelector = [
   'button:not(:disabled)',
@@ -18,28 +18,26 @@ const focusableSelector = [
 
 export function useDialogFocus({
   dialogRef,
+  dialogId,
   dismissible,
-  onClose,
   open,
 }: {
   dialogRef: RefObject<HTMLElement | null>;
+  dialogId?: string;
   dismissible: boolean;
-  onClose: () => void;
   open: boolean;
 }) {
-  const onCloseRef = useRef(onClose);
-  const dismissibleRef = useRef(dismissible);
-  onCloseRef.current = onClose;
-  dismissibleRef.current = dismissible;
+  const closeTopOverlay = useOverlayEscapeHandler();
 
   const onKeyDown = useCallback((event: ReactKeyboardEvent<HTMLElement>) => {
     const dialog = dialogRef.current;
     if (!dialog || event.nativeEvent.isComposing) return;
-    if (event.key === 'Escape' && dismissibleRef.current) {
-      event.preventDefault();
-      onCloseRef.current();
+    if (event.key === 'Escape' && dismissible) {
+      if (event.defaultPrevented) return;
+      closeTopOverlay(event);
       return;
     }
+    if (event.defaultPrevented) return;
     if (event.key !== 'Tab') return;
 
     const focusable = focusableElements(dialog);
@@ -50,14 +48,17 @@ export function useDialogFocus({
       dialog.focus();
       return;
     }
-    if (event.shiftKey && (document.activeElement === first || !dialog.contains(document.activeElement))) {
+    const activeElement = document.activeElement;
+    if (isInsideOwnedOverlay(activeElement, dialogId)) return;
+    const focusOwned = dialog.contains(activeElement);
+    if (event.shiftKey && (activeElement === first || !focusOwned)) {
       event.preventDefault();
       last.focus();
-    } else if (!event.shiftKey && (document.activeElement === last || !dialog.contains(document.activeElement))) {
+    } else if (!event.shiftKey && (activeElement === last || !focusOwned)) {
       event.preventDefault();
       first.focus();
     }
-  }, [dialogRef]);
+  }, [closeTopOverlay, dialogId, dialogRef, dismissible]);
 
   useEffect(() => {
     if (!open || typeof document === 'undefined') return undefined;

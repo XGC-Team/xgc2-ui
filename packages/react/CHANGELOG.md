@@ -1,5 +1,20 @@
 # @xgc2/ui-react
 
+## 0.14.1
+
+### Patch Changes
+
+- Arbitrate Escape through one topmost overlay stack for SelectMenu, Popover,
+  Tooltip, Modal, Drawer, and the mobile AppSidebar. Each key press dismisses
+  only the innermost dismissible layer, restores its trigger, respects consumed
+  and IME events, and leaves nondismissible owners in place.
+- Let dialog focus containment recognize its portaled overlay descendants, so
+  native Tab traversal is not intercepted by the parent Modal or Drawer.
+- Extend the cross-product gate to executable entry-HTML scripts and inline
+  handlers, including optional/window document access, and reject absolute
+  component dimensions laundered through spacing arithmetic or unknown custom
+  properties while preserving relative and genuine semantic-size layouts.
+
 ## 0.14.0
 
 ### Major corrective release

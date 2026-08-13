@@ -15,18 +15,47 @@ import {
 test('requires semantic tokens for component dimensions and interaction geometry', () => {
   const fixture = `
     .swatch { width: var(--space-xl); height: var(--size-color-swatch); }
+    .oversized { min-width: calc(var(--space-lg) * 12 + 2px); max-height: calc(4 * var(--space-xl)); }
+    .bounded { width: min(100%, calc(var(--space-lg) * 52)); height: max(var(--size-control-default), calc(var(--space-xl) * 3)); }
+    .nested { max-inline-size: calc(100% - min(var(--space-xl), calc(var(--space-lg) * 2))); }
     .toolbar { --xgc-control-height: calc(var(--size-control-default) + var(--space-sm)); }
+    .meter { --xgc-meter-track-height: calc(var(--space-xs) * 2); }
+    .typography { --xgc-tracking-offset: var(--space-xs); }
     .node { --xgc-node-handle-size: var(--space-md); }
     .node::after { inset: calc(-1 * var(--space-sm)); }
     .viewport { max-width: calc(100vw - var(--space-page-padding) * 2); }
+    .workspace { height: calc(100dvh - var(--space-xl) * 2); }
+    .panel { width: calc(var(--size-shell-sidebar) + var(--space-lg)); }
+    .role { inline-size: calc(var(--xgc-control-height) + var(--space-lg)); }
+    .responsive { width: min(calc(100% - var(--space-lg)), calc(100vw - var(--space-xl))); }
+    .sized { min-height: clamp(var(--size-control-compact), calc(100dvh - var(--space-lg)), var(--size-panel-min)); }
     .layout { --space-panel-padding: var(--space-lg); padding: var(--space-panel-padding); }
   `;
 
   assert.deepEqual(semanticGeometryViolations(fixture), [
     'width uses spacing rhythm as geometry',
+    'min-width uses spacing rhythm as geometry',
+    'max-height uses spacing rhythm as geometry',
+    'height uses spacing rhythm as geometry',
+    'max-inline-size uses spacing rhythm as geometry',
     '--xgc-control-height derives geometry from spacing rhythm',
+    '--xgc-meter-track-height derives geometry from spacing rhythm',
     '--xgc-node-handle-size derives geometry from spacing rhythm',
     'inset derives a hit target from spacing rhythm',
+  ]);
+});
+
+test('does not let arbitrary variables launder spacing-derived geometry', () => {
+  const fixture = `
+    .legacy { width: calc(var(--legacy-width) + var(--space-lg)); }
+    .relative-legacy { max-width: calc(100% - var(--legacy-width) + var(--space-lg)); }
+    .sized { height: calc(var(--size-control-default) + var(--space-sm)); }
+    .role { inline-size: calc(var(--xgc-control-height) + var(--space-sm)); }
+  `;
+
+  assert.deepEqual(semanticGeometryViolations(fixture), [
+    'width uses spacing rhythm as geometry',
+    'max-width uses spacing rhythm as geometry',
   ]);
 });
 
@@ -151,13 +180,57 @@ test('rejects product-owned document skin mutation and theme persistence', () =>
   ]);
 });
 
+test('scans executable HTML while ignoring static skin markup and inert scripts', () => {
+  const safeFixture = `<!doctype html>
+    <html data-skin="light">
+      <script type="application/json">
+        {"example":"document.documentElement.dataset.skin = 'dark'"}
+      </script>
+      <script type=text/template>document.documentElement.dataset.skin = 'dark'</script>
+      <script type="module" src="/src/main.tsx"></script>
+      <script src="/skin-example.js">document.documentElement.dataset.skin = 'dark'</script>
+      <script data-src="documentation">const harmless = true;</script>
+    </html>`;
+  assert.deepEqual(skinLifecycleViolations(safeFixture, { sourceType: 'html' }), []);
+
+  assert.deepEqual(skinLifecycleViolations(`
+    <script data-src="documentation">document.documentElement.dataset.skin = 'dark'</script>
+  `, { sourceType: 'html' }), ['direct documentElement skin dataset access']);
+
+  const unsafeFixture = `<!doctype html>
+    <html data-skin="light">
+      <script>
+        const skin = localStorage.getItem('xgc.skin');
+        document.documentElement.dataset.skin = skin;
+      </script>
+    </html>`;
+  assert.deepEqual(skinLifecycleViolations(unsafeFixture, { sourceType: 'html' }), [
+    'direct documentElement skin dataset access',
+    'direct localStorage getItem for skin/theme key xgc.skin',
+  ]);
+
+  const bypassFixture = `<!doctype html>
+    <body onload="window.document?.documentElement?.setAttribute('data-skin', 'dark')">
+      <button onclick="document?.documentElement?.removeAttribute('data-skin')">Reset</button>
+      <script type=text/javascript>
+        window.document.documentElement.dataset['skin'] = 'dark';
+      </script>
+    </body>`;
+  assert.deepEqual(skinLifecycleViolations(bypassFixture, { sourceType: 'html' }), [
+    'direct documentElement skin dataset access',
+    'direct documentElement data-skin mutation',
+  ]);
+});
+
 test('production source filter excludes tests and stories without hiding application modules', () => {
   assert.equal(isProductProductionSource('src/App.tsx'), true);
+  assert.equal(isProductProductionSource('index.html'), true);
   assert.equal(isProductProductionSource('src/theme.test.ts'), false);
   assert.equal(isProductProductionSource('src/theme.spec.tsx'), false);
   assert.equal(isProductProductionSource('src/__tests__/theme.ts'), false);
   assert.equal(isProductProductionSource('src/tests/theme.tsx'), false);
   assert.equal(isProductProductionSource('src/Theme.stories.tsx'), false);
+  assert.equal(isProductProductionSource('theme.test.html'), false);
   assert.equal(isProductProductionSource('src/theme.css'), false);
 });
 

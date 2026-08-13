@@ -23,12 +23,14 @@ This document is normative for every XGC2 web frontend. Product CSS may lay out 
 - The spacing vocabulary is deliberately finite: `2xs`, `xs`, `sm`, `md`, `lg`, `xl`, `2xl`, and `3xl`, plus a small set of semantic layout roles such as `--space-panel-padding`. Numeric names such as `--space-7` are prohibited. A token must express a reusable scale step or design decision; it must never be a new name for one product's historical pixel value.
 - The same rule applies to type, radius, elevation, opacity, icon size, and breakpoints: extend a bounded shared scale only when several components need a stable role. Spacing tokens express rhythm and must never supply width, height, diameter, handle, hit-target, or reserved component geometry. Reusable component dimensions use finite semantic `--size-*` roles. SVG coordinates, charts, calibration geometry, and domain simulation dimensions remain honest local numbers rather than fake design tokens.
 - Products consume shared token values but may not redefine them. Product custom properties must describe genuine domain semantics, not compatibility aliases for shared values.
+- Width and height declarations must not construct an absolute component size from spacing tokens and raw arithmetic. Relative layout calculations based on percentages, viewport/container units, or a genuine `--size-*` role remain valid composition.
 - Shared controls expose only five product-level geometry hooks: `--xgc-control-button-padding`, `--xgc-control-button-padding-block`, `--xgc-control-button-padding-inline`, `--xgc-control-height`, and `--xgc-control-input-padding-inline`. Product definitions of any other `--xgc-control-*` property are appearance forks and fail the cross-product style gate.
 - Repeated local pixel values for page padding, panel gaps, toolbars, grid columns, chrome heights, and responsive shell behavior are technical debt.
 - Use `Stack`, `Inline`, and `ResponsiveGrid` for ordinary composition; use `OperatorWorkspace` and `ScrollRegion` for fixed operations pages. A product may add domain layout constraints, but must not redefine shared spacing rhythm.
 - Use `SectionHeader` for a quiet content-level heading and `Panel` for a framed first-level surface. Helper copy belongs in the body, not beside the title in fixed chrome.
 - Toolbar controls use a single shared density. A panel action must not become as tall as its panel header.
 - Drawers use `Drawer`: one title and critical actions in the fixed header, independently scrolling body content, optional footer, mobile full width, focus containment, and a shared dirty-data confirmation path.
+- Select menus, popovers, tooltips, modals, drawers, and mobile navigation share one topmost overlay stack. Escape dismisses exactly one innermost dismissible layer, consumed or IME events dismiss nothing, and a nondismissible layer blocks underlying dismissal. Portaled descendants inherit logical ownership so a parent focus trap never cancels their native Tab traversal.
 
 ## Status
 
@@ -48,6 +50,7 @@ This document is normative for every XGC2 web frontend. Product CSS may lay out 
 - App, chrome, surface, control, and panel-header materials come from shared `--background-*` tokens. Their gradients and top-light sheen remain subtle; products must not add decorative accent glows or competing background effects.
 - Light surfaces use a warm porcelain hierarchy: a quiet grey-beige workbench under a clean, subtly shaded panel material. Dark surfaces use graphite luminance and shadow for depth. Neither skin may separate every panel with a bright outline; borders stay subordinate to material and elevation.
 - Blue-grey is not a neutral foundation color. App, chrome, sidebar, surface, control, border, text, terminal, and neutral chart tokens are guarded against blue-biased values; saturated color is reserved for real data, syntax, focus, and decision-relevant semantics.
+- Product entry HTML may declare a static fallback `data-skin`, but executable inline scripts must not read or write skin persistence or mutate `documentElement`; `initializeSkin` and `useSkin` remain the single lifecycle authority.
 
 ## Conversation and agent interaction
 
