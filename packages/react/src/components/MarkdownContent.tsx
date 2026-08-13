@@ -48,16 +48,32 @@ function markdownHtml(source: string): string {
     }
   };
   const splitTableRow = (row: string) => row.trim().replace(/^\||\|$/g, '').split('|').map((cell) => cell.trim());
+  const isDividerCell = (cell: string) => /^:?-{3,}:?$/.test(cell);
   const flushTable = () => {
     if (!tableRows.length) return;
-    const [heading = '', divider, ...body] = tableRows;
-    const hasHeading = Boolean(divider && /^\|?[\s:|-]+\|?$/.test(divider));
-    const rows = hasHeading ? body : tableRows.slice(1);
+    const rows = tableRows.map((source) => ({ source, cells: splitTableRow(source) }));
+    const columnCount = rows[0]?.cells.length ?? 0;
+    const divider = rows[1];
+    const hasHeading = Boolean(divider && divider.cells.length === columnCount && divider.cells.every(isDividerCell));
+    const malformedDivider = Boolean(divider?.cells.some(isDividerCell) && !hasHeading);
+    const dataRows = hasHeading ? rows.filter((_row, index) => index !== 1) : rows;
+    const validStructure = rows.length >= 2
+      && columnCount >= 2
+      && !malformedDivider
+      && dataRows.every((row) => row.cells.length === columnCount);
+
+    if (!validStructure) {
+      output.push(...tableRows.map((row) => `<p>${inlineMarkdown(row)}</p>`));
+      tableRows = [];
+      return;
+    }
+
     output.push('<table>');
     if (hasHeading) {
-      output.push(`<thead><tr>${splitTableRow(heading).map((cell) => `<th>${inlineMarkdown(cell)}</th>`).join('')}</tr></thead>`);
+      output.push(`<thead><tr>${rows[0]!.cells.map((cell) => `<th>${inlineMarkdown(cell)}</th>`).join('')}</tr></thead>`);
     }
-    output.push(`<tbody>${rows.map((row) => `<tr>${splitTableRow(row).map((cell) => `<td>${inlineMarkdown(cell)}</td>`).join('')}</tr>`).join('')}</tbody></table>`);
+    const body = hasHeading ? rows.slice(2) : rows;
+    output.push(`<tbody>${body.map((row) => `<tr>${row.cells.map((cell) => `<td>${inlineMarkdown(cell)}</td>`).join('')}</tr>`).join('')}</tbody></table>`);
     tableRows = [];
   };
 

@@ -16,6 +16,7 @@ describe('SelectableList', () => {
     fireEvent.keyDown(options[0]!, { key: 'ArrowDown' });
     expect(selectSecond).toHaveBeenCalledOnce();
     expect(options[1]).toHaveFocus();
+    expect(options.map((option) => option.tabIndex)).toEqual([-1, 0]);
   });
 
   it('keeps an unselected list reachable with one roving tab stop', () => {
@@ -28,5 +29,33 @@ describe('SelectableList', () => {
     const options = screen.getAllByRole('option');
     expect(options[0]).toHaveAttribute('tabindex', '0');
     expect(options[1]).toHaveAttribute('tabindex', '-1');
+  });
+
+  it('normalizes conflicting selection and explicit tab indexes to one enabled tab stop', () => {
+    render(
+      <SelectableList aria-label="Conflicting documents">
+        <SelectableListItem disabled selected tabIndex={0} title="Disabled selected" />
+        <SelectableListItem selected title="Selected one" />
+        <SelectableListItem selected title="Selected two" />
+        <SelectableListItem tabIndex={0} title="Explicit enabled" />
+        <SelectableListItem tabIndex={0} title="Second explicit enabled" />
+      </SelectableList>,
+    );
+
+    const options = screen.getAllByRole('option');
+    expect(options.map((option) => option.tabIndex)).toEqual([-1, -1, -1, 0, -1]);
+  });
+
+  it('never promotes a disabled explicit tab stop and falls back to the first enabled option', () => {
+    render(
+      <SelectableList aria-label="Fail-safe documents">
+        <SelectableListItem disabled tabIndex={0} title="Disabled explicit" />
+        <SelectableListItem title="Enabled fallback" />
+        <SelectableListItem title="Another option" />
+      </SelectableList>,
+    );
+
+    const options = screen.getAllByRole('option');
+    expect(options.map((option) => option.tabIndex)).toEqual([-1, 0, -1]);
   });
 });

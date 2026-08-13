@@ -47,7 +47,7 @@ describe('data display primitives', () => {
     const onSelect = vi.fn();
     render(<><StatCard label="Packages" value="42" detail="focal" /><StatCardButton label="Failures" value="2" onClick={onSelect} /><Toolbar>Filters</Toolbar></>);
     expect(screen.getByText('42')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /Failures2/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Failures 2' }));
     expect(onSelect).toHaveBeenCalledOnce();
     expect(screen.getByText('Filters')).toBeInTheDocument();
   });

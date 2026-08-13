@@ -1,4 +1,6 @@
 import {
+  useEffect,
+  useRef,
   useState,
   type AnchorHTMLAttributes,
   type ButtonHTMLAttributes,
@@ -7,6 +9,7 @@ import {
   type ReactNode,
 } from 'react';
 import { classNames } from '../utils';
+import { XGC_MEDIA_QUERIES, useMediaQuery } from '../hooks/useMediaQuery';
 
 type DataAttributes = {
   [key: `data-${string}`]: boolean | number | string | undefined;
@@ -117,11 +120,20 @@ export function AppSidebar({
   mobileMode = 'rail',
   mobileOpen = false,
   onCollapsedChange,
+  onKeyDown,
   onMobileOpenChange,
   toggleProps,
   ...props
 }: AppSidebarProps) {
   const [internalCollapsed, setInternalCollapsed] = useState(defaultCollapsed);
+  const sidebarRef = useRef<HTMLElement>(null);
+  const sidebarToggleRef = useRef<HTMLButtonElement>(null);
+  const mobileOpenTriggerRef = useRef<HTMLElement | null>(null);
+  const wasMobileOpenRef = useRef(false);
+  const mobileViewport = useMediaQuery(XGC_MEDIA_QUERIES.mobile);
+  const isMobileDrawer = mobileMode === 'drawer' && mobileViewport;
+  const isMobileDrawerOpen = isMobileDrawer && mobileOpen;
+  const isMobileDrawerClosed = isMobileDrawer && !mobileOpen;
   const isCollapsed = collapsed ?? internalCollapsed;
   const visuallyCollapsed = isCollapsed && !(mobileMode === 'drawer' && mobileOpen);
   const setCollapsed = (next: boolean) => {
@@ -130,18 +142,62 @@ export function AppSidebar({
   };
   const { className: toggleClassName, ...sidebarToggleProps } = toggleProps ?? {};
 
+  useEffect(() => {
+    const wasOpen = wasMobileOpenRef.current;
+    if (isMobileDrawerOpen && !wasOpen) {
+      const activeElement = document.activeElement;
+      if (activeElement instanceof HTMLElement && !sidebarRef.current?.contains(activeElement)) {
+        mobileOpenTriggerRef.current = activeElement;
+      }
+      queueMicrotask(() => sidebarToggleRef.current?.focus());
+    } else if (!isMobileDrawerOpen && wasOpen) {
+      const trigger = mobileOpenTriggerRef.current;
+      mobileOpenTriggerRef.current = null;
+      queueMicrotask(() => trigger?.focus());
+    }
+    wasMobileOpenRef.current = isMobileDrawerOpen;
+  }, [isMobileDrawerOpen]);
+
+  useEffect(() => () => mobileOpenTriggerRef.current?.focus(), []);
+
   return (
     <>
       <aside
         {...props}
+        ref={sidebarRef}
+        aria-hidden={isMobileDrawerClosed || undefined}
         className={classNames('xgc-app-sidebar', className)}
         data-collapsed={visuallyCollapsed || undefined}
         data-mobile-mode={mobileMode}
         data-mobile-open={mobileMode === 'drawer' && mobileOpen || undefined}
+        inert={isMobileDrawerClosed || undefined}
+        onKeyDown={(event) => {
+          onKeyDown?.(event);
+          if (event.defaultPrevented || !isMobileDrawerOpen) return;
+          if (event.key === 'Escape') {
+            event.preventDefault();
+            onMobileOpenChange?.(false);
+            return;
+          }
+          if (event.key !== 'Tab') return;
+          const focusable = focusableElements(sidebarRef.current);
+          if (!focusable.length) {
+            event.preventDefault();
+            return;
+          }
+          const activeIndex = focusable.indexOf(document.activeElement as HTMLElement);
+          const movingBeforeStart = event.shiftKey && activeIndex <= 0;
+          const movingAfterEnd = !event.shiftKey && activeIndex === focusable.length - 1;
+          if (movingBeforeStart || movingAfterEnd || activeIndex === -1) {
+            event.preventDefault();
+            focusable[movingBeforeStart ? focusable.length - 1 : 0]?.focus();
+          }
+        }}
       >
       <div className="xgc-sidebar-brand">
         <button
           {...sidebarToggleProps}
+          ref={sidebarToggleRef}
           className={classNames('xgc-sidebar-toggle', toggleClassName)}
           type="button"
           aria-label={mobileMode === 'drawer' && mobileOpen ? mobileDismissLabel : isCollapsed ? expandLabel : collapseLabel}
@@ -171,6 +227,7 @@ export function AppSidebar({
           aria-label={mobileDismissLabel}
           className="xgc-sidebar-backdrop"
           data-open={mobileOpen || undefined}
+          hidden={!mobileOpen}
           onClick={() => onMobileOpenChange?.(false)}
           type="button"
         />
@@ -179,6 +236,23 @@ export function AppSidebar({
   );
 }
 
+const FOCUSABLE_SELECTOR = [
+  'a[href]',
+  'button:not(:disabled)',
+  'input:not(:disabled)',
+  'select:not(:disabled)',
+  'textarea:not(:disabled)',
+  '[tabindex]:not([tabindex="-1"])',
+  '[contenteditable="true"]',
+].join(',');
+
+function focusableElements(container: HTMLElement | null): HTMLElement[] {
+  return container
+    ? [...container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)].filter((element) => (
+      !element.closest('[hidden], [aria-hidden="true"], [inert]')
+    ))
+    : [];
+}
 export function SidebarNav({ className, ...props }: HTMLAttributes<HTMLElement>) {
   return <nav {...props} className={classNames('xgc-sidebar-nav', className)} />;
 }

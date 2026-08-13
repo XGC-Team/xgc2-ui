@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -40,10 +41,20 @@ export function StatCard({ className, detail, label, value, ...props }: StatCard
 
 /** Clickable statistic with the same surface contract and native button semantics. */
 export function StatCardButton({ className, detail, label, value, ...props }: StatCardButtonProps) {
+  const generatedId = useId();
+  const ariaLabel = props['aria-label'];
+  const ariaLabelledBy = props['aria-labelledby'];
+  const labelId = `${generatedId}-label`;
+  const valueId = `${generatedId}-value`;
   return (
-    <button {...props} className={classNames('xgc-stat-card xgc-stat-card-button', className)} type="button">
-      <span className="xgc-stat-card-label">{label}</span>
-      <strong className="xgc-stat-card-value">{value}</strong>
+    <button
+      {...props}
+      aria-labelledby={ariaLabel || ariaLabelledBy ? ariaLabelledBy : `${labelId} ${valueId}`}
+      className={classNames('xgc-stat-card xgc-stat-card-button', className)}
+      type="button"
+    >
+      <span className="xgc-stat-card-label" id={labelId}>{label}</span>
+      <strong className="xgc-stat-card-value" id={valueId}>{value}</strong>
       {detail ? <span className="xgc-stat-card-detail">{detail}</span> : null}
     </button>
   );

@@ -10,23 +10,19 @@ export function SelectableList({
   'aria-label': ariaLabel,
   children,
   className,
+  onFocusCapture,
   onKeyDown,
   orientation = 'vertical',
   ...props
 }: SelectableListProps) {
   const items = Children.toArray(children);
   const options = items.filter(isSelectableListItem);
-  const hasTabStop = options.some((option) => (
-    option.props.tabIndex === 0 || (option.props.selected && !option.props.disabled)
-  ));
-  let assignedFallback = false;
+  const tabStop = options.find((option) => !option.props.disabled && option.props.tabIndex === 0)
+    ?? options.find((option) => !option.props.disabled && option.props.selected)
+    ?? options.find((option) => !option.props.disabled);
   const rovingChildren = items.map((child) => {
     if (!isSelectableListItem(child)) return child;
-    const explicit = child.props.tabIndex;
-    const selected = Boolean(child.props.selected && !child.props.disabled);
-    const fallback = !hasTabStop && !assignedFallback && !child.props.disabled;
-    if (fallback) assignedFallback = true;
-    return cloneElement(child, { tabIndex: explicit ?? (selected || fallback ? 0 : -1) });
+    return cloneElement(child, { tabIndex: child === tabStop ? 0 : -1 });
   });
 
   const moveFocus = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -45,6 +41,7 @@ export function SelectableList({
     else if (event.key === 'End') next = options.length - 1;
     else return;
     event.preventDefault();
+    setRovingTabStop(options, options[next]);
     options[next]?.focus();
     options[next]?.click();
   };
@@ -56,6 +53,16 @@ export function SelectableList({
       aria-orientation={orientation}
       className={classNames('xgc-selectable-list', className)}
       data-orientation={orientation}
+      onFocusCapture={(event) => {
+        onFocusCapture?.(event);
+        if (event.defaultPrevented) return;
+        const target = event.target as HTMLElement;
+        if (target.getAttribute('role') !== 'option' || target.matches(':disabled')) return;
+        setRovingTabStop(
+          [...event.currentTarget.querySelectorAll<HTMLElement>('[role="option"]')],
+          target,
+        );
+      }}
       onKeyDown={moveFocus}
       role="listbox"
     >
@@ -90,7 +97,7 @@ export function SelectableListItem({
       aria-selected={selected}
       className={classNames('xgc-selectable-list-item', className)}
       role="option"
-      tabIndex={tabIndex ?? (selected ? 0 : -1)}
+      tabIndex={props.disabled ? -1 : tabIndex ?? (selected ? 0 : -1)}
       type="button"
     >
       {leading ? <span className="xgc-selectable-list-leading" aria-hidden="true">{leading}</span> : null}
@@ -106,4 +113,8 @@ export function SelectableListItem({
 
 function isSelectableListItem(node: ReactNode): node is ReactElement<SelectableListItemProps> {
   return isValidElement<SelectableListItemProps>(node) && node.type === SelectableListItem;
+}
+
+function setRovingTabStop(options: HTMLElement[], active: HTMLElement | undefined) {
+  for (const option of options) option.tabIndex = option === active && !option.matches(':disabled') ? 0 : -1;
 }

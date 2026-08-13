@@ -1,6 +1,30 @@
-import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { useState } from 'react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AppShell, AppSidebar, ResponsiveSplit, SidebarNav, SidebarNavItem, Topbar } from './AppShell';
+import { XGC_MEDIA_QUERIES } from '../hooks/useMediaQuery';
+
+const originalMatchMedia = window.matchMedia;
+
+afterEach(() => {
+  Object.defineProperty(window, 'matchMedia', { configurable: true, value: originalMatchMedia });
+});
+
+function useMobileViewport() {
+  Object.defineProperty(window, 'matchMedia', {
+    configurable: true,
+    value: vi.fn().mockImplementation(() => ({
+      matches: true,
+      media: XGC_MEDIA_QUERIES.mobile,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  });
+}
 
 describe('application shell', () => {
   it('composes sidebar, topbar, and content without owning routing', () => {
@@ -103,5 +127,65 @@ describe('application shell', () => {
 
     expect(container.querySelector('.xgc-app-shell')).toHaveAttribute('data-mobile-breakpoint', 'mobile');
     expect(container.querySelector('.xgc-app-sidebar')).toHaveAttribute('data-mobile-mode', 'drawer');
+  });
+
+  it('makes a closed mobile drawer inert and restores its external trigger after Escape', async () => {
+    useMobileViewport();
+
+    function MobileNavigation() {
+      const [open, setOpen] = useState(false);
+      return (
+        <>
+          <button onClick={() => setOpen(true)} type="button">Open navigation</button>
+          <AppSidebar
+            brandLabel="XGC"
+            brandMark="X"
+            mobileMode="drawer"
+            mobileOpen={open}
+            onMobileOpenChange={setOpen}
+          >
+            <a href="/operations">Operations</a>
+          </AppSidebar>
+        </>
+      );
+    }
+
+    render(<MobileNavigation />);
+    const trigger = screen.getByRole('button', { name: 'Open navigation' });
+    const closedDrawer = screen.getByRole('complementary', { hidden: true });
+    expect(closedDrawer).toHaveAttribute('aria-hidden', 'true');
+    expect(closedDrawer).toHaveAttribute('inert');
+    expect(screen.queryByRole('link', { name: 'Operations' })).not.toBeInTheDocument();
+
+    trigger.focus();
+    fireEvent.click(trigger);
+    const openDrawer = screen.getByRole('complementary');
+    await waitFor(() => expect(screen.getAllByRole('button', { name: 'Close navigation' })[0]).toHaveFocus());
+    expect(openDrawer).not.toHaveAttribute('aria-hidden');
+    expect(openDrawer).not.toHaveAttribute('inert');
+
+    fireEvent.keyDown(openDrawer, { key: 'Escape' });
+    await waitFor(() => expect(trigger).toHaveFocus());
+    expect(screen.getByRole('complementary', { hidden: true })).toHaveAttribute('inert');
+  });
+
+  it('traps sequential focus inside an open mobile drawer', async () => {
+    useMobileViewport();
+    render(
+      <AppSidebar brandLabel="XGC" brandMark="X" mobileMode="drawer" mobileOpen>
+        <button type="button">Last action</button>
+      </AppSidebar>,
+    );
+
+    const drawer = screen.getByRole('complementary');
+    const close = screen.getAllByRole('button', { name: 'Close navigation' })[0]!;
+    const last = screen.getByRole('button', { name: 'Last action' });
+    await waitFor(() => expect(close).toHaveFocus());
+
+    last.focus();
+    fireEvent.keyDown(last, { key: 'Tab' });
+    expect(close).toHaveFocus();
+    fireEvent.keyDown(close, { key: 'Tab', shiftKey: true });
+    expect(last).toHaveFocus();
   });
 });
