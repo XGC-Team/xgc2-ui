@@ -178,6 +178,7 @@ export function AppSidebar({
     return () => {
       focusMountedRef.current = false;
       focusEpochRef.current += 1;
+      wasMobileOpenRef.current = false;
       mobileOpenTriggerRef.current?.focus();
       mobileOpenTriggerRef.current = null;
     };

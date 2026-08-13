@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { StrictMode, useState } from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AppShell, AppSidebar, ResponsiveSplit, SidebarNav, SidebarNavItem, Topbar } from './AppShell';
@@ -27,6 +27,48 @@ function useMobileViewport() {
 }
 
 describe('application shell', () => {
+  it('focuses an initially open mobile drawer under StrictMode effect replay', async () => {
+    useMobileViewport();
+    render(
+      <StrictMode>
+        <AppSidebar brandLabel="XGC" brandMark="X" mobileMode="drawer" mobileOpen>
+          Navigation
+        </AppSidebar>
+      </StrictMode>,
+    );
+
+    await waitFor(() => expect(screen.getAllByRole('button', { name: 'Close navigation' })[0]).toHaveFocus());
+  });
+
+  it('restores and recaptures focus when a StrictMode drawer closes and reopens', async () => {
+    useMobileViewport();
+    function MobileNavigation() {
+      const [open, setOpen] = useState(false);
+      return (
+        <>
+          <button onClick={() => setOpen(true)} type="button">Open strict navigation</button>
+          <AppSidebar brandLabel="XGC" brandMark="X" mobileMode="drawer" mobileOpen={open} onMobileOpenChange={setOpen}>
+            Navigation
+          </AppSidebar>
+        </>
+      );
+    }
+    render(<StrictMode><MobileNavigation /></StrictMode>);
+    const trigger = screen.getByRole('button', { name: 'Open strict navigation' });
+
+    trigger.focus();
+    fireEvent.click(trigger);
+    let drawer = screen.getByRole('complementary');
+    await waitFor(() => expect(screen.getAllByRole('button', { name: 'Close navigation' })[0]).toHaveFocus());
+    fireEvent.keyDown(drawer, { key: 'Escape' });
+    await waitFor(() => expect(trigger).toHaveFocus());
+
+    fireEvent.click(trigger);
+    drawer = screen.getByRole('complementary');
+    await waitFor(() => expect(screen.getAllByRole('button', { name: 'Close navigation' })[0]).toHaveFocus());
+    expect(drawer).not.toHaveAttribute('inert');
+  });
+
   it('composes sidebar, topbar, and content without owning routing', () => {
     render(
       <AppShell
