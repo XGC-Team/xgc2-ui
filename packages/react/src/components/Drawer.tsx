@@ -4,6 +4,7 @@ import { useConfirmationDialog } from '../hooks/useConfirmationDialog';
 import { useDialogFocus } from '../hooks/useDialogFocus';
 import { classNames } from '../utils';
 import { Button, type ButtonProps } from './Button';
+import { OverlayOwner, useOverlayStack } from './OverlayStack';
 
 export type DrawerActionHelpers = {
   dirty: boolean;
@@ -124,7 +125,8 @@ export function Drawer({
     onClose,
   ]);
 
-  const onKeyDown = useDialogFocus({ dialogRef: drawerRef, dismissible, onClose: requestClose, open });
+  const overlay = useOverlayStack({ close: requestClose, dismissible, open, rootRef: drawerRef });
+  const onKeyDown = useDialogFocus({ dialogId: overlay.overlayId, dialogRef: drawerRef, dismissible, open });
   if (!open || typeof document === 'undefined') return null;
   const helpers = { dirty, requestClose };
   const resolvedActions = typeof actions === 'function' ? actions(helpers) : actions;
@@ -157,30 +159,32 @@ export function Drawer({
           role="dialog"
           tabIndex={-1}
         >
-          {!hideHeader ? (
-            <header className={classNames('xgc-drawer-header', headerClassName)}>
-              <strong id={titleId}>{title}</strong>
-              <div className={classNames('xgc-drawer-actions', actionsClassName)}>
-                {resolvedActions}
-                {showClose ? (
-                  <Button
-                    {...closeButtonProps}
-                    appearance={closeButtonProps?.appearance ?? 'ghost'}
-                    aria-label={closeLabel}
-                    disabled={!dismissible || closeButtonProps?.disabled}
-                    iconOnly
-                    onClick={requestClose}
-                    uiSize={closeButtonProps?.uiSize ?? 'compact'}
-                  >×</Button>
-                ) : null}
-              </div>
-            </header>
-          ) : null}
-          <div className={classNames('xgc-drawer-body', bodyClassName)}>
-            {description ? <div className="xgc-drawer-description" id={descriptionId}>{description}</div> : null}
-            {resolvedChildren}
-          </div>
-          {resolvedFooter ? <footer className={classNames('xgc-drawer-footer', footerClassName)}>{resolvedFooter}</footer> : null}
+          <OverlayOwner id={overlay.overlayId}>
+            {!hideHeader ? (
+              <header className={classNames('xgc-drawer-header', headerClassName)}>
+                <strong id={titleId}>{title}</strong>
+                <div className={classNames('xgc-drawer-actions', actionsClassName)}>
+                  {resolvedActions}
+                  {showClose ? (
+                    <Button
+                      {...closeButtonProps}
+                      appearance={closeButtonProps?.appearance ?? 'ghost'}
+                      aria-label={closeLabel}
+                      disabled={!dismissible || closeButtonProps?.disabled}
+                      iconOnly
+                      onClick={requestClose}
+                      uiSize={closeButtonProps?.uiSize ?? 'compact'}
+                    >×</Button>
+                  ) : null}
+                </div>
+              </header>
+            ) : null}
+            <div className={classNames('xgc-drawer-body', bodyClassName)}>
+              {description ? <div className="xgc-drawer-description" id={descriptionId}>{description}</div> : null}
+              {resolvedChildren}
+            </div>
+            {resolvedFooter ? <footer className={classNames('xgc-drawer-footer', footerClassName)}>{resolvedFooter}</footer> : null}
+          </OverlayOwner>
         </aside>
       </div>
       {confirmation.dialog}

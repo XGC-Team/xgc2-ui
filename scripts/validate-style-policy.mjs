@@ -1,5 +1,5 @@
 import { readdir, readFile } from 'node:fs/promises';
-import { extname, join, relative } from 'node:path';
+import { dirname, extname, join, relative } from 'node:path';
 import {
   edgeMarkerViolations,
   forbiddenControlAppearanceDefinitions,
@@ -49,6 +49,13 @@ async function collectProductSources(directory) {
     }
   }
   return files;
+}
+
+async function collectProductEntryHtml(directory) {
+  const entries = await readdir(new URL(`${dirname(directory)}/`, root), { withFileTypes: true });
+  return entries
+    .filter((entry) => entry.isFile() && isProductProductionSource(entry.name) && /\.html?$/i.test(entry.name))
+    .map((entry) => join(dirname(directory), entry.name));
 }
 
 const violations = [];
@@ -159,9 +166,14 @@ for (const directory of productStyleRoots) {
 
 for (const directory of productStyleRoots) {
   try {
-    for (const file of await collectProductSources(directory)) {
+    const files = [
+      ...await collectProductSources(directory),
+      ...await collectProductEntryHtml(directory),
+    ];
+    for (const file of files) {
       const content = await readFile(new URL(file, root), 'utf8');
-      for (const violation of skinLifecycleViolations(content)) {
+      const sourceType = /\.html?$/i.test(file) ? 'html' : 'script';
+      for (const violation of skinLifecycleViolations(content, { sourceType })) {
         violations.push(`${relative('.', file)}: ${violation}; use initializeSkin/useSkin from @xgc2/ui-react`);
       }
     }

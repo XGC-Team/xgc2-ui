@@ -1,8 +1,9 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import type { AriaAttributes, CSSProperties, ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import type { ComponentSize } from './Button';
 import { classNames } from '../utils';
+import { useOverlayStack } from './OverlayStack';
 
 export type SelectMenuOption = {
   disabled?: boolean;
@@ -69,6 +70,11 @@ export function SelectMenu({
   const menuId = useId();
   const selected = options.find((option) => option.value === value);
   const optionGroups = groupSelectOptions(options);
+  const closeAndRestoreFocus = useCallback(() => {
+    setOpen(false);
+    triggerRef.current?.focus();
+  }, []);
+  const overlay = useOverlayStack({ close: closeAndRestoreFocus, open, rootRef: menuRef });
 
   useEffect(() => {
     if (!open) return;
@@ -137,10 +143,6 @@ export function SelectMenu({
   }, [menuAlign, menuPlacement, open, options.length, value]);
 
   const isInsideSurface = (node: Node | null) => Boolean(node && (rootRef.current?.contains(node) || menuRef.current?.contains(node)));
-  const closeAndRestoreFocus = () => {
-    setOpen(false);
-    triggerRef.current?.focus();
-  };
   const openMenu = () => {
     if (disabled || open) return;
     setOpen(true);
@@ -164,8 +166,7 @@ export function SelectMenu({
       id={menuId}
       onKeyDown={(event) => {
         if (event.key === 'Escape') {
-          event.preventDefault();
-          closeAndRestoreFocus();
+          overlay.closeTopOverlay(event);
         } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
           event.preventDefault();
           moveOptionFocus(event.key === 'ArrowDown' ? 1 : -1);
@@ -256,8 +257,7 @@ export function SelectMenu({
             event.preventDefault();
             openMenu();
           } else if (event.key === 'Escape' && open) {
-            event.preventDefault();
-            closeAndRestoreFocus();
+            overlay.closeTopOverlay(event);
           }
         }}
         ref={triggerRef}

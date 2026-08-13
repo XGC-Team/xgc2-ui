@@ -47,6 +47,12 @@ anchored-overlay interactions. `FormSection`, `InputActionControl`,
 `Vector3Control`, `TextPromptDialog`, and `useTextPromptDialog` own recurring
 form composition. Products supply domain data and actions without copying the
 keyboard, portal, placement, focus, theme, or geometry behavior.
+Nested overlays share one topmost stack: the innermost open SelectMenu,
+Popover, Tooltip, Modal, Drawer, or mobile AppSidebar consumes Escape first and
+restores its trigger where applicable. A later Escape may dismiss its owner;
+nondismissible layers block dismissal without making portaled descendants lose
+their focus ownership. Modal and Drawer focus containment leaves native Tab
+traversal inside those owned portals intact.
 
 `AppSidebar` drawer mode becomes inert and hidden from assistive technology
 when closed on the generated mobile breakpoint. While open, Escape dismisses

@@ -120,11 +120,26 @@ const THEME_STORAGE_KEY_IDENTIFIER = /(?:skin|theme).*key|key.*(?:skin|theme)/i;
  * Products consume the shared skin lifecycle. Direct document mutation and
  * theme-key persistence belong to ui-react's initializeSkin/useSkin contract.
  */
-export function skinLifecycleViolations(source) {
-  const code = sourceWithoutComments(source);
+export function skinLifecycleViolations(source, { sourceType = 'script' } = {}) {
+  const executableSource = sourceType === 'html'
+    ? [
+      ...[...source.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi)]
+        .filter((match) => {
+          if (/(?:^|\s)src\s*=/i.test(match[1])) return false;
+          const type = match[1].match(/(?:^|\s)type\s*=\s*(?:(['"])(.*?)\1|([^\s>]+))/i);
+          const value = (type?.[2] ?? type?.[3] ?? '').trim().toLowerCase();
+          return !value || value === 'module' || /^(?:application|text)\/(?:java|ecma)script(?:;|$)/.test(value);
+        })
+        .map((match) => match[2]),
+      ...[...source.matchAll(/\son[a-z]+\s*=\s*(?:(['"])([\s\S]*?)\1|([^\s>]+))/gi)]
+        .map((match) => match[2] ?? match[3] ?? ''),
+    ].join('\n')
+    : source;
+  const code = sourceWithoutComments(executableSource);
   const structure = sourceStructure(code);
   const violations = [];
-  const documentElement = String.raw`document\s*\.\s*documentElement`;
+  const propertyAccess = String.raw`(?:\?\s*\.\s*|\.\s*)`;
+  const documentElement = String.raw`(?:window\s*${propertyAccess})?document\s*${propertyAccess}documentElement`;
 
   const hasExecutableMatch = (pattern) => {
     for (const match of code.matchAll(pattern)) {
@@ -133,10 +148,10 @@ export function skinLifecycleViolations(source) {
     return false;
   };
 
-  if (hasExecutableMatch(new RegExp(String.raw`\b${documentElement}\s*\.\s*dataset\s*(?:\.\s*skin\b|\[\s*['"]skin['"]\s*\])`, 'g'))) {
+  if (hasExecutableMatch(new RegExp(String.raw`\b${documentElement}\s*${propertyAccess}dataset\s*(?:${propertyAccess}skin\b|\[\s*['"]skin['"]\s*\])`, 'g'))) {
     violations.push('direct documentElement skin dataset access');
   }
-  if (hasExecutableMatch(new RegExp(String.raw`\b${documentElement}\s*\.\s*setAttribute\s*\(\s*['"\`]data-skin['"\`]`, 'g'))) {
+  if (hasExecutableMatch(new RegExp(String.raw`\b${documentElement}\s*${propertyAccess}(?:setAttribute|removeAttribute)\s*\(\s*['"\`]data-skin['"\`]`, 'g'))) {
     violations.push('direct documentElement data-skin mutation');
   }
 
@@ -163,9 +178,9 @@ export function skinLifecycleViolations(source) {
 /** Test and story sources are not shipped product lifecycle implementations. */
 export function isProductProductionSource(file) {
   const normalized = file.replaceAll('\\', '/');
-  if (!/\.(?:[cm]?[jt]sx?)$/i.test(normalized) || /\.d\.ts$/i.test(normalized)) return false;
+  if (!/\.(?:html?|[cm]?[jt]sx?)$/i.test(normalized) || /\.d\.ts$/i.test(normalized)) return false;
   if (/(?:^|\/)(?:__tests__|tests?|__mocks__)(?:\/|$)/i.test(normalized)) return false;
-  return !/\.(?:test|spec|stories|story)\.[cm]?[jt]sx?$/i.test(normalized);
+  return !/\.(?:test|spec|stories|story)\.(?:html?|[cm]?[jt]sx?)$/i.test(normalized);
 }
 
 const MOTION_SHORTHAND = /^(?:animation|transition)$/i;
@@ -200,7 +215,71 @@ export function rawFoundationValueViolations(css) {
 }
 
 const GEOMETRY_PROPERTY = /^(?:(?:min-|max-)?(?:width|height|inline-size|block-size))$/i;
-const GEOMETRY_TOKEN = /(?:size|width|height|handle|reserve)/i;
+const GEOMETRY_TOKEN = /(?:size|width|height|handle|reserve|(?:^|[-_])track(?:$|[-_]))/i;
+const RELATIVE_LAYOUT_BASIS = /(?:^|[^\w.-])(?:\d+(?:\.\d*)?|\.\d+)(?:%|[dls]?v[wh]|vmin|vmax|cq[whib]|cqmin|cqmax)\b/i;
+const KNOWN_GEOMETRY_ROLE_TOKENS = new Set(['--xgc-control-height']);
+
+function isGenuineGeometryVariable(variable) {
+  return variable.startsWith('--size-') || KNOWN_GEOMETRY_ROLE_TOKENS.has(variable);
+}
+
+function isSpacingOnlyAbsoluteGeometry(expression) {
+  if (!/var\(\s*--space-[\w-]+/i.test(expression)) return false;
+  const variables = [...expression.matchAll(/var\(\s*(--[\w-]+)/gi)].map((match) => match[1]);
+  if (variables.some((variable) => !variable.startsWith('--space-') && !isGenuineGeometryVariable(variable))) return true;
+  if (RELATIVE_LAYOUT_BASIS.test(expression)) return false;
+  if (variables.some(isGenuineGeometryVariable)) return false;
+
+  const residual = expression
+    .replace(/\s*!important\s*$/i, '')
+    .replace(/var\(\s*--space-[\w-]+(?:\s*,\s*[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[a-z]+)?)?\s*\)/gi, '')
+    .replace(/\b(?:calc|min|max|clamp)\s*(?=\()/gi, '')
+    .replace(/[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[a-z]+)?/gi, '')
+    .replace(/[\s()+*/,.\-]/g, '');
+  return residual.length === 0;
+}
+
+function splitFunctionArguments(content) {
+  const argumentsList = [];
+  let cursor = 0;
+  let depth = 0;
+  for (let index = 0; index < content.length; index += 1) {
+    if (content[index] === '(') depth += 1;
+    else if (content[index] === ')') depth -= 1;
+    else if (content[index] === ',' && depth === 0) {
+      argumentsList.push(content.slice(cursor, index));
+      cursor = index + 1;
+    }
+  }
+  argumentsList.push(content.slice(cursor));
+  return argumentsList;
+}
+
+function hasSpacingOnlyAbsoluteBranch(expression) {
+  if (isSpacingOnlyAbsoluteGeometry(expression)) return true;
+
+  for (let index = 0; index < expression.length; index += 1) {
+    const functionMatch = expression.slice(index).match(/^([a-zA-Z][\w-]*)\s*\(/);
+    if (!functionMatch) continue;
+    const functionName = functionMatch[1].toLowerCase();
+    const openIndex = index + functionMatch[0].lastIndexOf('(');
+    let depth = 1;
+    let closeIndex = openIndex + 1;
+    for (; closeIndex < expression.length && depth > 0; closeIndex += 1) {
+      if (expression[closeIndex] === '(') depth += 1;
+      else if (expression[closeIndex] === ')') depth -= 1;
+    }
+    if (depth !== 0) return false;
+    const content = expression.slice(openIndex + 1, closeIndex - 1);
+    if (['min', 'max', 'clamp'].includes(functionName)
+      && splitFunctionArguments(content).some((branch) => isSpacingOnlyAbsoluteGeometry(branch))) {
+      return true;
+    }
+    if (hasSpacingOnlyAbsoluteBranch(content)) return true;
+    index = closeIndex - 1;
+  }
+  return false;
+}
 
 /** Spacing rhythm may position content, but it cannot masquerade as component geometry. */
 export function semanticGeometryViolations(css) {
@@ -209,7 +288,7 @@ export function semanticGeometryViolations(css) {
   for (const match of source.matchAll(/([\w-]+)\s*:\s*([^;{}]+)(?:;|(?=\}))/g)) {
     const property = match[1];
     const value = match[2].trim();
-    if (GEOMETRY_PROPERTY.test(property) && /^var\(--space-[^)]+\)$/.test(value)) {
+    if (GEOMETRY_PROPERTY.test(property) && hasSpacingOnlyAbsoluteBranch(value)) {
       violations.push(`${property} uses spacing rhythm as geometry`);
     }
     if (property.startsWith('--')
