@@ -3059,6 +3059,10 @@ button.xgc-stat-card:disabled {
 }
 
 @media (max-width: 720px) {
+  .xgc-app-shell:has(> .xgc-app-sidebar[data-mobile-mode='drawer']) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .xgc-app-shell[data-mobile-layout='document'][data-mobile-breakpoint='mobile'] {
     height: auto;
     min-height: 100dvh;

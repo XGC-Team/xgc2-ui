@@ -90,4 +90,18 @@ describe('application shell', () => {
     fireEvent.click(screen.getAllByRole('button', { name: 'Close navigation' })[1]!);
     expect(onMobileOpenChange).toHaveBeenCalledWith(false);
   });
+
+  it('lets a drawer sidebar leave the mobile shell as a single content column', () => {
+    const { container } = render(
+      <AppShell
+        mobileLayout="document"
+        sidebar={<AppSidebar brandLabel="XGC" brandMark="X" mobileMode="drawer">Navigation</AppSidebar>}
+      >
+        Page content
+      </AppShell>,
+    );
+
+    expect(container.querySelector('.xgc-app-shell')).toHaveAttribute('data-mobile-breakpoint', 'mobile');
+    expect(container.querySelector('.xgc-app-sidebar')).toHaveAttribute('data-mobile-mode', 'drawer');
+  });
 });

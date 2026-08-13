@@ -1,5 +1,14 @@
 # @xgc2/ui-react
 
+## 0.13.1
+
+### Patch Changes
+
+- Collapse the application shell to a single content column below the mobile
+  breakpoint when its sidebar is configured as a drawer. This prevents an
+  off-canvas drawer from retaining an implicit grid track and compressing
+  narrow operator pages.
+
 ## 0.13.0
 
 ### Minor Changes
