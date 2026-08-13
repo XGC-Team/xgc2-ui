@@ -17,6 +17,17 @@ export function forbiddenControlAppearanceDefinitions(css) {
     .filter((token) => !PRODUCT_CONTROL_GEOMETRY_HOOKS.has(token));
 }
 
+/** Product CSS composes shared components through its own class hooks only. */
+export function sharedSelectorViolations(css, sharedClasses) {
+  const source = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  return [...new Set(
+    [...source.matchAll(/\.([a-zA-Z_][a-zA-Z0-9_-]*)/g)]
+      .map((match) => match[1])
+      .filter((className) => sharedClasses.has(className))
+      .map((className) => `shared selector .${className}`),
+  )];
+}
+
 const MOTION_SHORTHAND = /^(?:animation|transition)$/i;
 const MOTION_DURATION = /^(?:animation|transition)-duration$/i;
 const MOTION_EASING = /^(?:animation|transition)-timing-function$/i;

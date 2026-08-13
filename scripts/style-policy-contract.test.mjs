@@ -5,6 +5,7 @@ import {
   edgeMarkerViolations,
   forbiddenControlAppearanceDefinitions,
   rawFoundationValueViolations,
+  sharedSelectorViolations,
   statusVisualContractViolations,
 } from './style-policy-contract.mjs';
 
@@ -72,6 +73,19 @@ test('rejects product control appearance forks', () => {
     '--xgc-control-border-color',
     '--xgc-control-border-radius',
     '--xgc-control-hover-color',
+  ]);
+});
+
+test('rejects product CSS that reaches into shared component classes', () => {
+  const fixture = `
+    .product-panel > .xgc-panel-body { min-height: 0; }
+    .product-actions .xgc-button { width: 100%; }
+    .product-owned-panel { min-height: 0; }
+  `;
+
+  assert.deepEqual(sharedSelectorViolations(fixture, new Set(['xgc-panel-body', 'xgc-button'])), [
+    'shared selector .xgc-panel-body',
+    'shared selector .xgc-button',
   ]);
 });
 

@@ -4,6 +4,7 @@ import {
   edgeMarkerViolations,
   forbiddenControlAppearanceDefinitions,
   rawFoundationValueViolations,
+  sharedSelectorViolations,
   statusVisualContractViolations,
 } from './style-policy-contract.mjs';
 
@@ -71,9 +72,20 @@ const productStyleRoots = [
   '../../../platforms/research-os/web/src',
   '../../../platforms/agent-hub/web/src',
   '../../../platforms/apt-repo/web/src',
+  // A coordinator may validate a clean STT handoff worktree without moving
+  // another owner's active checkout.
+  process.env.XGC2_STYLE_POLICY_STT_ROOT ?? '../../../platforms/stt-service/web/src',
+  '../../common/media-edge/web/src',
+  '../../ros1/perception/camera-calibration/web-src/src',
+  '../../ros1/simulator/gazebo-sim/camera/web-src/src',
 ];
 const sharedOwnedTokens = new Set(
   cssSources.flatMap(({ content }) => [...content.matchAll(/(--[a-zA-Z0-9_-]+)\s*:/g)].map((match) => match[1])),
+);
+const sharedOwnedClasses = new Set(
+  cssSources.flatMap(({ content }) => [...content.matchAll(/\.([a-zA-Z_][a-zA-Z0-9_-]*)/g)]
+    .map((match) => match[1])
+    .filter((className) => className.startsWith('xgc-'))),
 );
 for (const directory of productStyleRoots) {
   try {
@@ -97,6 +109,9 @@ for (const directory of productStyleRoots) {
       }
       for (const violation of rawFoundationValueViolations(declarations)) {
         violations.push(`${relative('.', file)}: ${violation}`);
+      }
+      for (const violation of sharedSelectorViolations(declarations, sharedOwnedClasses)) {
+        violations.push(`${relative('.', file)}: ${violation}; compose through a product-owned class or component API`);
       }
       for (const match of declarations.matchAll(/(--[a-zA-Z0-9_-]+)\s*:/g)) {
         const token = match[1];
