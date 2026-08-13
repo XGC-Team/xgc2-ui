@@ -34,6 +34,19 @@ body {
   gap: var(--space-lg);
 }
 
+.xgc-gallery-table-panel {
+  height: 300px;
+}
+
+.xgc-gallery-data-display {
+  grid-template-rows: auto auto minmax(0, 300px) auto;
+}
+
+.xgc-gallery-table-panel .xgc-data-table {
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
 .xgc-gallery-field {
   display: grid;
   gap: var(--space-sm);

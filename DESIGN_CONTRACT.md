@@ -95,7 +95,7 @@ This document is normative for every XGC2 web frontend. Product CSS may lay out 
 
 ## Data tables
 
-- Sortable lists use the shared `SortableDataTable`, including its sort indicators, `aria-sort` state, keyboard-operable buttons, stable value comparison, empty state, and internal scroll container.
+- Sortable lists use the shared `SortableDataTable`, including its sort indicators, `aria-sort` state, keyboard-operable buttons, stable value comparison, and empty state. Bounded list panels use `bodyScroll`, which keeps the header outside the vertical row viewport while one horizontal viewport keeps header and data columns aligned.
 - Selectable tables use the shared `selection` contract. The first header cell provides select-all and partial-selection state; selected rows use a complete background and enclosing border.
 - Audit, task, and runtime log views use `LogTablePage` when they need the standard search/filter/refresh/table/pagination composition. Its data region scrolls internally while the toolbar and pagination remain visible.
 

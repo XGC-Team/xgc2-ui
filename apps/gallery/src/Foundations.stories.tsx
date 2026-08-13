@@ -318,7 +318,7 @@ export const EditableWorkspaceTabs: Story = {
 
 export const DataDisplay: Story = {
   render: () => (
-    <div className="xgc-gallery-data">
+    <div className="xgc-gallery-data xgc-gallery-data-display">
       <div className="xgc-gallery-content-grid">
         <StatCard label="Packages" value="42" detail="focal, noble" />
         <StatCard label="Repository size" value="1.8 GB" detail="128 files" />
@@ -328,8 +328,9 @@ export const DataDisplay: Story = {
         <Select aria-label="Distribution" defaultValue="focal"><option>focal</option><option>noble</option></Select>
         <Button>Refresh</Button>
       </Toolbar>
-      <Panel title="Packages" padding="none">
+      <Panel bodyLayout="column" className="xgc-gallery-table-panel" fill title="Packages" padding="none">
         <SortableDataTable
+          bodyScroll
           columns={[
             { id: 'package', header: 'Package', sortable: true, sortValue: (row) => row.name, cell: (row) => row.name },
             { id: 'version', header: 'Version', sortable: true, sortValue: (row) => row.version, cell: (row) => row.version },
@@ -337,7 +338,10 @@ export const DataDisplay: Story = {
           ]}
           defaultSort={{ columnId: 'package', direction: 'ascending' }}
           rowKey={(row) => row.name}
-          rows={[{ name: 'libxgc2-control', version: '1.4.0' }]}
+          rows={Array.from({ length: 12 }, (_, index) => ({
+            name: `libxgc2-control-${index + 1}`,
+            version: `1.4.${index}`,
+          }))}
           selection={{ selectedRowKeys: new Set(), onChange: () => undefined }}
         />
       </Panel>

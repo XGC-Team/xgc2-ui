@@ -2414,6 +2414,49 @@ button.xgc-stat-card:disabled {
   font-size: var(--font-base);
 }
 
+.xgc-data-table[data-body-scroll='true'] {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-gutter: auto;
+}
+
+.xgc-data-table[data-body-scroll='true'] > table {
+  min-height: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.xgc-data-table[data-body-scroll='true'] > table > thead {
+  width: 100%;
+  flex: 0 0 auto;
+  display: table;
+  table-layout: fixed;
+}
+
+.xgc-data-table[data-body-scroll='true'] > table > tbody {
+  min-height: 0;
+  flex: 1 1 auto;
+  display: block;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.xgc-data-table[data-body-scroll='true'] > table > tbody > tr {
+  width: 100%;
+  display: table;
+  table-layout: fixed;
+}
+
+.xgc-data-table[data-body-scroll='true'] > table > tbody:focus-visible {
+  outline: var(--stroke-strong) solid var(--color-border-focus);
+  outline-offset: calc(-1 * var(--stroke-strong));
+}
+
 .xgc-data-table th,
 .xgc-data-table td {
   padding: var(--space-md) var(--space-lg);
