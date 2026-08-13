@@ -3,15 +3,17 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const root = new URL('../', import.meta.url);
-const packages = await Promise.all(['tokens', 'react', 'workflow'].map(async (name) => (
+const packages = await Promise.all(['tokens', 'react', 'workflow', 'policy'].map(async (name) => (
   JSON.parse(await readFile(new URL(`packages/${name}/package.json`, root), 'utf8'))
 )));
 const workflow = await readFile(new URL('.github/workflows/release.yml', root), 'utf8');
+const policyWorkflow = await readFile(new URL('.github/workflows/release-policy.yml', root), 'utf8');
 
 test('publishes only new package assets and refuses mutable release state', () => {
-  assert.deepEqual(packages.map((manifest) => manifest.version), ['0.8.0', '0.14.1', '0.3.0']);
+  assert.deepEqual(packages.map((manifest) => manifest.version), ['0.8.0', '0.14.1', '0.3.0', '0.14.1']);
   const reactCompatibilityFloor = packages[1].version.split('.').slice(0, 2).join('.');
   assert.match(packages[2].peerDependencies['@xgc2/ui-react'], new RegExp(`>=${reactCompatibilityFloor}\\s`));
+  assert.equal(packages[3].peerDependencies['@xgc2/ui-react'], packages[1].version);
   assert.doesNotMatch(workflow, /--clobber|release\s+upload/);
   assert.match(workflow, /TAG_CREATED:\s*\$\{\{ github\.event\.created \}\}/);
   assert.match(workflow, /RUN_ATTEMPT:\s*\$\{\{ github\.run_attempt \}\}/);
@@ -27,9 +29,18 @@ test('publishes only new package assets and refuses mutable release state', () =
 });
 
 test('pins every release action to an immutable full commit', () => {
-  const actionReferences = [...workflow.matchAll(/^\s*-\s+uses:\s*([^\s#]+)/gm)].map((match) => match[1]);
+  const actionReferences = [...`${workflow}\n${policyWorkflow}`.matchAll(/^\s*-\s+uses:\s*([^\s#]+)/gm)].map((match) => match[1]);
   assert.ok(actionReferences.length > 0, 'release workflow must declare its actions');
   for (const reference of actionReferences) {
     assert.match(reference, /^[^@\s]+@[0-9a-f]{40}$/, `floating release action: ${reference}`);
   }
+});
+
+test('publishes policy under a separate immutable tag namespace', () => {
+  assert.match(policyWorkflow, /tags:\s*\n\s*- 'policy-v\*'/);
+  assert.match(policyWorkflow, /TAG_CREATED:\s*\$\{\{ github\.event\.created \}\}/);
+  assert.match(policyWorkflow, /RUN_ATTEMPT:\s*\$\{\{ github\.run_attempt \}\}/);
+  assert.match(policyWorkflow, /xgc2-ui-policy-\$\{version\}\.tgz/);
+  assert.match(policyWorkflow, /gh release create/);
+  assert.doesNotMatch(policyWorkflow, /--clobber|release\s+upload/);
 });

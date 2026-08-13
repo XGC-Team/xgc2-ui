@@ -11,6 +11,7 @@ The current remote-default-branch rollout is tracked in [MIGRATION_MATRIX.md](./
 - `@xgc2/ui-tokens`: the single source of truth for light/dark color, spacing, type, elevation, and motion tokens.
 - `@xgc2/ui-react`: framework components and application-shell layout. React and React DOM are peer dependencies.
 - `@xgc2/ui-workflow`: optional spatial workflow/topology canvas foundation. It keeps React Flow out of frontends that only need ordinary controls.
+- `@xgc2/ui-policy`: version-locked, fail-closed consumer CI for the shared visual and interaction contract.
 - `@xgc2/ui-gallery`: a private Storybook application used for documentation and visual review.
 
 ## Boundaries
@@ -48,6 +49,14 @@ Production consumers install immutable npm tarballs attached to GitHub releases.
 ```
 
 The React package inlines the token contract into its published stylesheet, so consumers do not need registry access to resolve a transitive token package.
+
+Every consumer installs the matching policy package and runs it against its
+real product source. Missing paths and empty scans are errors; the CLI reports
+the exact number of CSS and production script/HTML files checked.
+
+```bash
+xgc2-style-policy --root src --html index.html
+```
 
 Reusable coverage includes:
 

@@ -94,6 +94,12 @@ importers:
         specifier: 'catalog:'
         version: 7.3.6(@types/node@22.20.1)(yaml@2.9.0)
 
+  packages/policy:
+    devDependencies:
+      '@xgc2/ui-react':
+        specifier: workspace:^
+        version: link:../react
+
   packages/react:
     devDependencies:
       '@testing-library/jest-dom':
