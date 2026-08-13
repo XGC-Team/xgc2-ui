@@ -1,5 +1,16 @@
 # @xgc2/ui-workflow
 
+## 0.2.1
+
+### Patch Changes
+
+- Align neutral workflow canvas and node materials with the rebuilt graphite and
+  paper-gray shared themes.
+- Use the shared finite easing contract for canvas interactions and require the
+  React 0.13 material/status foundation.
+- Updated dependencies
+  - @xgc2/ui-react@0.13.0
+
 ## 0.2.0
 
 ### Minor Changes

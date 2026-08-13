@@ -1,6 +1,11 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { extname, join, relative } from 'node:path';
-import { forbiddenControlAppearanceDefinitions } from './style-policy-contract.mjs';
+import {
+  edgeMarkerViolations,
+  forbiddenControlAppearanceDefinitions,
+  rawFoundationValueViolations,
+  statusVisualContractViolations,
+} from './style-policy-contract.mjs';
 
 const root = new URL('../', import.meta.url);
 const roots = ['packages', 'apps'];
@@ -9,19 +14,6 @@ const forbidden = [
   { pattern: /\bborder-inline-start\s*:/i, label: 'inline-start border' },
   { pattern: /\bbox-shadow\s*:\s*inset\s+(?!0(?:px)?\s+0(?:px)?\s+0(?:px)?\b)[^;]+\s0(?:px)?\s0(?:px)?(?:\s|;)/i, label: 'inset edge shadow' },
 ];
-
-const stateSelector = /(?:^|[.\[#:_-])(?:status|state|ready|online|health|badge|pill|led|dot)(?:$|[.\]#:_="'-])/i;
-const decoratedState = [
-  { property: /^(?:background|background-color)$/i, allowed: /^(?:none|transparent|inherit|initial|unset)$/i, label: 'filled state background' },
-  { property: /^border(?:-(?:block|inline)(?:-(?:start|end))?|-(?:top|right|bottom|left))?$/i, allowed: /^(?:0|0px|none|transparent|inherit|initial|unset)$/i, label: 'enclosing state border' },
-  { property: /^border-radius$/i, allowed: /^(?:0|0px|none|inherit|initial|unset)$/i, label: 'rounded state shape' },
-  { property: /^box-shadow$/i, allowed: /^(?:none|inherit|initial|unset)$/i, label: 'state shadow or marker' },
-];
-// A workflow card is a full operational control surface that also contains
-// plain status text. Neutral surface chrome is allowed; semantic state must
-// never tint or decorate that enclosing card.
-const neutralStateContainers = new Set(['.xgc-workflow-status-card']);
-const semanticStateMaterial = /(?:success|danger|warning|accent|primary|selected|error)/i;
 
 async function collect(directory) {
   const entries = await readdir(new URL(`${directory}/`, root), { withFileTypes: true });
@@ -53,27 +45,11 @@ for (const file of cssFiles) {
       violations.push(`${relative('.', file)}: prohibited ${label}`);
     }
   }
-  for (const rule of content.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
-    const selector = rule[1].trim();
-    if (!stateSelector.test(selector) || /empty-state/i.test(selector)) continue;
-    const neutralStateContainer = neutralStateContainers.has(selector);
-    for (const declaration of rule[2].split(';')) {
-      const separator = declaration.indexOf(':');
-      if (separator < 0) continue;
-      const property = declaration.slice(0, separator).trim();
-      const value = declaration.slice(separator + 1).trim();
-      if (neutralStateContainer) {
-        if (/^(?:background|background-color|border|box-shadow)$/i.test(property) && semanticStateMaterial.test(value)) {
-          violations.push(`${relative('.', file)}: semantic state material in neutral container ${selector}`);
-        }
-        continue;
-      }
-      for (const policy of decoratedState) {
-        if (policy.property.test(property) && !policy.allowed.test(value)) {
-          violations.push(`${relative('.', file)}: ${policy.label} in ${selector}`);
-        }
-      }
-    }
+  for (const violation of statusVisualContractViolations(content)) {
+    violations.push(`${relative('.', file)}: ${violation}`);
+  }
+  for (const violation of rawFoundationValueViolations(content)) {
+    violations.push(`${relative('.', file)}: ${violation}`);
   }
 }
 
@@ -94,6 +70,7 @@ const productStyleRoots = [
   '../../xgc2/xgc2/web/src',
   '../../../platforms/research-os/web/src',
   '../../../platforms/agent-hub/web/src',
+  '../../../platforms/apt-repo/web/src',
 ];
 const sharedOwnedTokens = new Set(
   cssSources.flatMap(({ content }) => [...content.matchAll(/(--[a-zA-Z0-9_-]+)\s*:/g)].map((match) => match[1])),
@@ -112,6 +89,15 @@ for (const directory of productStyleRoots) {
       for (const token of forbiddenControlAppearanceDefinitions(declarations)) {
         violations.push(`${relative('.', file)}: product control appearance override ${token}`);
       }
+      for (const violation of statusVisualContractViolations(declarations)) {
+        violations.push(`${relative('.', file)}: ${violation}`);
+      }
+      for (const violation of edgeMarkerViolations(declarations)) {
+        violations.push(`${relative('.', file)}: ${violation}`);
+      }
+      for (const violation of rawFoundationValueViolations(declarations)) {
+        violations.push(`${relative('.', file)}: ${violation}`);
+      }
       for (const match of declarations.matchAll(/(--[a-zA-Z0-9_-]+)\s*:/g)) {
         const token = match[1];
         if (!token.startsWith('--xgc-') && sharedOwnedTokens.has(token)) {
@@ -119,6 +105,9 @@ for (const directory of productStyleRoots) {
         }
         if (token.startsWith('--color-automation-')) {
           violations.push(`${relative('.', file)}: product defines parallel workflow palette ${token}`);
+        }
+        if (/^--(?:duration|easing|opacity)-/.test(token)) {
+          violations.push(`${relative('.', file)}: product defines parallel motion/opacity token ${token}`);
         }
       }
     }

@@ -387,6 +387,7 @@ export type CodeBlockProps = Omit<HTMLAttributes<HTMLElement>, 'children'> & {
   label?: ReactNode;
   language?: 'bash' | 'json' | 'shell' | 'text';
   terminal?: boolean;
+  viewport?: 'compact' | 'default';
 };
 
 type SyntaxKind = 'comment' | 'keyword' | 'number' | 'string' | 'variable';
@@ -435,6 +436,7 @@ export function CodeBlock({
   label,
   language = 'text',
   terminal = false,
+  viewport = 'default',
   ...props
 }: CodeBlockProps) {
   const [copied, setCopied] = useState(false);
@@ -449,6 +451,7 @@ export function CodeBlock({
       {...props}
       className={classNames('xgc-code-block', className)}
       data-terminal={terminal || undefined}
+      data-viewport={viewport}
     >
       {label || copyable ? (
         <header className="xgc-code-block-header">

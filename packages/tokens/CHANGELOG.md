@@ -1,5 +1,16 @@
 # @xgc2/ui-tokens
 
+## 0.7.0
+
+### Minor Changes
+
+- Rebuild both theme palettes around hue-neutral surface, border, text, shadow,
+  scrollbar, code, and terminal materials, with measured contrast and restrained
+  warm interaction accents instead of the withdrawn blue-gray foundation.
+- Add finite semantic motion, easing, opacity, panel material, and bounded code
+  viewport roles. Validation now enforces contrast and rejects blue-biased
+  foundation colors and history-shaped numeric aliases.
+
 ## 0.6.0
 
 ### Minor Changes

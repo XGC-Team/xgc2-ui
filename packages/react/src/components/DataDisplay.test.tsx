@@ -38,6 +38,11 @@ describe('data display primitives', () => {
     expect(screen.getByText(/sudo/).closest('code')).toHaveTextContent('sudo apt-get install "$PACKAGE" # install');
   });
 
+  it('owns bounded code viewport density without product CSS reaching into the pre element', () => {
+    const { container } = render(<CodeBlock viewport="compact" content="one\ntwo\nthree" />);
+    expect(container.querySelector('.xgc-code-block')).toHaveAttribute('data-viewport', 'compact');
+  });
+
   it('renders statistic and toolbar content', () => {
     const onSelect = vi.fn();
     render(<><StatCard label="Packages" value="42" detail="focal" /><StatCardButton label="Failures" value="2" onClick={onSelect} /><Toolbar>Filters</Toolbar></>);

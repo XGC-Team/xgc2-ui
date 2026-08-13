@@ -10,10 +10,13 @@ This document is normative for every XGC2 web frontend. Product CSS may lay out 
 
 ## Page and panel chrome
 
+- `AppShell` is the common spatial frame: a collapsible navigation rail on the left, one fixed-height topbar above the work area, and the product workspace in the remaining viewport. Products may omit a region, but must not create a second shell skin.
 - A page topbar uses `--size-header-page` and contains exactly one product title on the left.
 - The right side contains only high-value interactive controls. Center copy, subtitles, helper descriptions, and decorative content are prohibited.
 - A first-level panel header has the fixed height `--size-header-panel`, based on the compact 34px XGC2 experiment panel. Its interactive actions use `--size-control-panel-header`; products must not size panel chrome or its controls locally.
-- A code label and Copy action use the shared `CodeBlock` and its quiet `--size-header-code` metadata row (the compact GPG-fingerprint treatment). A code block must not look like it owns another panel topbar. Executable snippets declare `language` so shared, theme-aware syntax tokens can highlight them safely.
+- The workspace canvas uses the shared `--background-app` material in both skins. Ordinary and composable panels use the shared `--background-surface`, `--background-panel-header`, and `--shadow-card` material stack, so static pages and drag/resizable dashboards have the same visual depth.
+- Draggable and resizable dashboard surfaces use `WorkspacePanel`. It owns the same narrow header material, optional title and critical actions, selected/editing treatment, a `min-height: 0` fill body, and explicit internal scrolling. Products must not redraw its header or surface skin; domain-specific body layout may use the documented slot classes passed by the wrapper.
+- A code label and Copy action use the shared `CodeBlock` and its quiet `--size-header-code` metadata row (the compact GPG-fingerprint treatment). A code block must not look like it owns another panel topbar. Executable snippets declare `language` so shared, theme-aware syntax tokens can highlight them safely. One-screen command collections use `viewport="compact"`; products must not pierce the shared `pre` element to invent another height.
 
 ## Spacing and layout
 
@@ -33,12 +36,32 @@ This document is normative for every XGC2 web frontend. Product CSS may lay out 
 - Show status only when it changes an operator decision. Put it beside the content or action it describes, not in the page topbar.
 - Errors and degraded states remain visible in the relevant content surface and use accessible text, not color alone.
 - Render compact state labels with the shared `StatusText` primitive as undecorated text. Status capsules, filled backgrounds, enclosing rounded borders, and decorative status dots are prohibited.
-- Semantic text color may reinforce meaning, but the wording carries the state and normal/completed states stay visually quiet.
+- This prohibition also covers status chips, badges, LEDs, lamps, glowing dots, halos, text shadows, and semantic fill on an enclosing card. Renaming one of those shapes does not create an exception.
+- `connected`, `online`, `ready`, `healthy`, `succeeded`, `completed`, and `cancelled` are quiet states. They use the normal text hierarchy unless a product can name a concrete operator decision that requires additional emphasis.
+- `created`, `pending`, `queued`, `waiting`, `starting`, `restarting`, `running`, `stopping`, `loading`, and other ordinary lifecycle states use neutral or restrained informational text. Warning is reserved for decision-relevant conditions such as blocked, degraded, paused, stale, or unavailable; failures use danger text. The wording always carries the state and never relies on color alone.
+- Use `Notice` for a bounded explanation and recovery action. Its enclosing surface remains neutral in every tone; only its heading text may reinforce severity. Use `EmptyState` for absence, never as a fake health indicator.
+- Domain instruments may use real measured visualizations (battery level, radio strength, progress, maps, graphs). Those visuals must describe measured data rather than substitute an ornamental status light.
 
 ## Appearance
 
 - Light and dark modes share semantic roles but not mechanically inverted values. Dark mode dims the workspace, raises forward surfaces by restrained luminance, and reduces chromatic saturation so operator data remains dominant.
 - App, chrome, surface, control, and panel-header materials come from shared `--background-*` tokens. Their gradients and top-light sheen remain subtle; products must not add decorative accent glows or competing background effects.
+- Light surfaces use a warm porcelain hierarchy: a quiet grey-beige workbench under a clean, subtly shaded panel material. Dark surfaces use graphite luminance and shadow for depth. Neither skin may separate every panel with a bright outline; borders stay subordinate to material and elevation.
+- Blue-grey is not a neutral foundation color. App, chrome, sidebar, surface, control, border, text, terminal, and neutral chart tokens are guarded against blue-biased values; saturated color is reserved for real data, syntax, focus, and decision-relevant semantics.
+
+## Conversation and agent interaction
+
+- Human/agent timelines use `ConversationRegion`; messages use `ConversationMessage`; prompt entry uses `ConversationComposer`; tool calls, decisions, and bounded agent work use `AgentActivity`. Research or future products reuse the same contract rather than recreating a chat skin.
+- The shared foundation owns live-log roles, internal scrolling, speaker alignment, author/time placement, textarea and action geometry, Enter-to-send, Shift+Enter newline, IME safety, activity disclosure, and reduced-motion behavior. Products own transport, domain data, permissions, and follow-tail policy.
+- Agent messages are quiet document-like content. Operator messages may use one complete neutral control surface. Avatars are unframed identity affordances, never colored discs that imply health or connection.
+- `AgentActivity` always uses one neutral surface. A tool, request, or decision may show `StatusText`, but status must never tint, glow, animate, stripe, or otherwise change the enclosing material.
+- Composer errors use accessible text; supporting constraints remain neutral text. Connection, readiness, completion, and cancellation are not decorative composer or header ornaments.
+
+## Motion and opacity
+
+- Shared interaction motion uses the finite `--duration-quick`, `--duration-fast`, and `--duration-deliberate` scale with `--easing-standard`, `--easing-enter`, or `--easing-exit`. Products must not mint tokens for historical millisecond values or add ornamental pulsing, bouncing, shimmer, or glow.
+- Every shared motion path has a `prefers-reduced-motion` equivalent. Continuous animation is reserved for honest measured activity or a progress operation whose wording also communicates what is happening; it must never impersonate connectivity, voice level, health, or readiness.
+- Opacity uses the bounded shared roles (`hidden`, `subdued`, `disabled`, `deemphasized`, `secondary`, `full`). Domain rendering may use local alpha for charts, video overlays, robot instruments, and spatial data, but ordinary controls and layout surfaces may not introduce arbitrary opacity values.
 
 ## Selection and navigation
 
@@ -81,6 +104,12 @@ This document is normative for every XGC2 web frontend. Product CSS may lay out 
 - Node implementations compose `WorkflowNodeSurface`. The shared surface owns neutral padding, focus/selection rings, handle affordances, and stable metadata slots; products own node content and domain state without rebuilding its shell or encoding status as a stripe or dot.
 - The two-skin selection palette belongs to `@xgc2/ui-tokens`; the finite abstract tone palette belongs to `@xgc2/ui-workflow`. Products map domain categories to shared tones and reuse global semantic colors for execution meaning. Product skins must not mirror either palette, leak domain taxonomy into shared token names, or keep synonymous `--color-automation-*` aliases.
 - Lightweight authoring notes use `WorkflowStickyNote`. Products may persist note data in their own schema, but selection, resizing, editing, keyboard completion, deletion, and the note skin remain shared behavior.
+
+## Composable panel workspaces
+
+- Dashboard and whiteboard-style panel layouts use `ComposableWorkspace` with `WorkspacePanel`. `ComposableWorkspace` owns item identity, finite column and breakpoint policy, the optional low-contrast editing grid, per-item constraints, drag/resize handles, placeholder surface, and the layout-commit boundary. A product injects its layout-engine adapter; the shared React package does not force React Grid Layout or another third-party engine onto every consumer.
+- Products own panel manifests, domain content, permissions, target routing, specialized height normalization, and persistence. Saved resource schemas and plugin registries never enter the shared component API.
+- Grid editing uses a quiet full-area grid and enclosing focus/selection treatment. Accent stripes, status dots, status-color panel fills, animated glows, and product-specific panel-header gradients remain prohibited.
 
 ## Feedback and progress
 

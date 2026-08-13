@@ -3,12 +3,17 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import {
   AudioCaptureControl,
   ActionMenu,
+  AgentActivity,
   Button,
   ButtonLink,
   Checkbox,
   ChoiceCardGroup,
   CodeBlock,
   ColorControl,
+  ComposableWorkspace,
+  ConversationComposer,
+  ConversationMessage,
+  ConversationRegion,
   ConfigSection,
   Disclosure,
   Drawer,
@@ -23,6 +28,7 @@ import {
   LogTablePage,
   Modal,
   MarkdownContent,
+  Notice,
   Panel,
   ProgressBar,
   ResponsiveGrid,
@@ -40,6 +46,7 @@ import {
   Toolbar,
   Topbar,
   Vector3Control,
+  WorkspacePanel,
   WorkspaceTabs,
   type AudioCaptureState,
 } from '@xgc2/ui-react';
@@ -86,6 +93,49 @@ export const Surface: Story = {
       Runtime content remains owned by the consuming product.
     </Panel>
   ),
+};
+
+type WorkspaceGalleryItem = {
+  id: string;
+  title: string;
+  position: { x: number; y: number; w: number; h: number };
+};
+
+function ComposableWorkspaceExample() {
+  const items: WorkspaceGalleryItem[] = [
+    { id: 'telemetry', title: 'Telemetry', position: { x: 0, y: 0, w: 7, h: 3 } },
+    { id: 'camera', title: 'Camera', position: { x: 7, y: 0, w: 5, h: 3 } },
+  ];
+  return (
+    <div className="xgc-gallery-workspace">
+      <ComposableWorkspace
+        columns={12}
+        editing
+        gap={[8, 8]}
+        grid="editing"
+        getConstraints={() => ({ minW: 3, minH: 2 })}
+        getItemId={(item) => item.id}
+        getPosition={(item) => item.position}
+        items={items}
+        onLayoutCommit={() => undefined}
+        renderItem={(item) => (
+          <WorkspacePanel
+            actions={<Button appearance="ghost" uiSize="compact">Configure</Button>}
+            editing
+            title={item.title}
+          >
+            <div className="xgc-gallery-workspace-panel-body">Product-owned content</div>
+          </WorkspacePanel>
+        )}
+        renderLayout={({ children, className }) => <div className={className}>{children}</div>}
+        rowHeight={40}
+      />
+    </div>
+  );
+}
+
+export const ComposablePanelWorkspace: Story = {
+  render: () => <ComposableWorkspaceExample />,
 };
 
 function ModalExample() {
@@ -367,6 +417,60 @@ export const LayoutFeedbackAndProgress: Story = {
       <OverlayExample />
     </Stack>
   ),
+};
+
+export const StatusAndFeedbackContract: Story = {
+  render: () => (
+    <div className="xgc-gallery-data">
+      <Panel title="Runtime state" description="State is text; normal operation stays quiet.">
+        <Stack gap="compact">
+          <Inline gap="comfortable"><span>Connection</span><StatusText status="connected">Connected</StatusText></Inline>
+          <Inline gap="comfortable"><span>Execution</span><StatusText status="running">Running</StatusText></Inline>
+          <Inline gap="comfortable"><span>Execution</span><StatusText status="succeeded">Completed</StatusText></Inline>
+          <Inline gap="comfortable"><span>Execution</span><StatusText status="cancelled">Cancelled</StatusText></Inline>
+          <Inline gap="comfortable"><span>Connection</span><StatusText status="disconnected">Disconnected</StatusText></Inline>
+          <Inline gap="comfortable"><span>Execution</span><StatusText status="failed">Failed</StatusText></Inline>
+        </Stack>
+      </Panel>
+      <Notice heading="Package upload failed" tone="danger" actions={<Button uiSize="compact">Retry</Button>}>
+        The signing service rejected the package. Review the error before retrying.
+      </Notice>
+      <EmptyState
+        appearance="plain"
+        title="No interrupted runs"
+        description="Only states that need an operator decision appear here."
+      />
+    </div>
+  ),
+};
+
+function ConversationExample() {
+  const [draft, setDraft] = useState('');
+  return (
+    <Panel bodyLayout="column" fill padding="none" title="Agent conversation">
+      <ConversationRegion label="Agent conversation">
+        <ConversationMessage speaker="operator" timestamp="10:42"><p>Inspect the failed deployment.</p></ConversationMessage>
+        <ConversationMessage author="Codex" speaker="agent" timestamp="10:42">
+          <MarkdownContent density="compact" emptyContent="" source="I found one failing health check. I’m reading its log now." />
+        </ConversationMessage>
+        <AgentActivity collapsible defaultOpen status="running" statusLabel="Running" title="Read deployment log">
+          <CodeBlock content="GET /health -> 503\nupstream connection refused" language="text" />
+        </AgentActivity>
+      </ConversationRegion>
+      <ConversationComposer
+        label="Agent task input"
+        onSubmitMessage={() => setDraft('')}
+        onValueChange={setDraft}
+        placeholder="Message the agent"
+        submitLabel="Send"
+        value={draft}
+      />
+    </Panel>
+  );
+}
+
+export const ConversationAndAgentActivity: Story = {
+  render: () => <div className="xgc-gallery-conversation"><ConversationExample /></div>,
 };
 
 export const OperationsLogTable: Story = {

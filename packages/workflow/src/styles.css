@@ -93,7 +93,7 @@
   border: var(--stroke-thin) solid var(--color-border-strong);
   border-radius: var(--radius-floating);
   box-shadow: var(--shadow-popover);
-  animation: xgc-workflow-toolbar-enter var(--duration-quick) ease-out;
+  animation: xgc-workflow-toolbar-enter var(--duration-quick) var(--easing-enter);
 }
 
 .xgc-workflow-element-toolbar > .xgc-button {
@@ -111,9 +111,9 @@
   border-radius: var(--radius-surface);
   box-shadow: var(--shadow-card);
   transition:
-    background-color var(--duration-quick) ease,
-    border-color var(--duration-quick) ease,
-    box-shadow var(--duration-quick) ease;
+    background-color var(--duration-quick) var(--easing-standard),
+    border-color var(--duration-quick) var(--easing-standard),
+    box-shadow var(--duration-quick) var(--easing-standard);
 }
 
 .xgc-workflow-node-surface:hover {

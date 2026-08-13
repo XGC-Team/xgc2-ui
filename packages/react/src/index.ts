@@ -31,6 +31,16 @@ export { ChoiceCardGroup } from './components/ChoiceCardGroup';
 export type { ChoiceCardGroupProps, ChoiceCardOption } from './components/ChoiceCardGroup';
 export { ColorControl, normalizeHex, XGC_COLOR_CONTROL_PRESETS } from './components/ColorControl';
 export type { ColorControlProps } from './components/ColorControl';
+export { AgentActivity, ConversationComposer, ConversationMessage, ConversationRegion } from './components/Conversation';
+export type {
+  AgentActivityProps,
+  ConversationComposerProps,
+  ConversationDensity,
+  ConversationMessageDensity,
+  ConversationMessageProps,
+  ConversationRegionProps,
+  ConversationSpeaker,
+} from './components/Conversation';
 export { FormSection, FormSectionSpan, InputActionControl, Vector3Control } from './components/CompoundControls';
 export type {
   FormSectionProps,
@@ -114,6 +124,23 @@ export { Modal } from './components/Modal';
 export type { ModalProps } from './components/Modal';
 export { Panel } from './components/Panel';
 export type { PanelProps } from './components/Panel';
+export {
+  WorkspacePanel,
+  WORKSPACE_PANEL_DRAG_CANCEL_SELECTOR,
+  WORKSPACE_PANEL_DRAG_HANDLE_SELECTOR,
+  WORKSPACE_PANEL_HEADER_HEIGHT_PX,
+} from './components/WorkspacePanel';
+export type { WorkspacePanelProps } from './components/WorkspacePanel';
+export { ComposableWorkspace, clampWorkspacePosition, resolveWorkspaceBreakpoint } from './components/ComposableWorkspace';
+export type {
+  ComposableWorkspaceAdapterProps,
+  ComposableWorkspaceProps,
+  WorkspaceBreakpoint,
+  WorkspaceLayoutConstraints,
+  WorkspaceLayoutItem,
+  WorkspaceLayoutPosition,
+  WorkspaceResizeHandle,
+} from './components/ComposableWorkspace';
 export { PanelViewSwitcher } from './components/PanelViewSwitcher';
 export type {
   PanelViewAppearance,

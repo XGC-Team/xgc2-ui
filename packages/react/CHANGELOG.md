@@ -1,5 +1,21 @@
 # @xgc2/ui-react
 
+## 0.13.0
+
+### Minor Changes
+
+- Replace the withdrawn cool blue-gray foundation with a neutral graphite night
+  material and a warm paper-gray light material. Keep semantic feedback and
+  small data accents legible without tinting application surfaces.
+- Add shared human/agent conversation regions, messages, composers, and neutral
+  activity disclosures with accessible live-log, keyboard, IME, and reduced-
+  motion behavior.
+- Add engine-neutral composable workspaces and 34px workspace panels for fixed
+  or drag/resizable operator layouts, including finite breakpoints, constraints,
+  editing grids, selection, placeholder, and commit contracts.
+- Make lifecycle status presentation a plain-text shared contract and add a
+  compact bounded code viewport for one-screen command collections.
+
 ## 0.12.0
 
 ### Minor Changes

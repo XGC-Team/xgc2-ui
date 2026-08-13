@@ -11,6 +11,13 @@ describe('feedback primitives', () => {
     expect(onDismiss).toHaveBeenCalledOnce();
   });
 
+  it('keeps semantic feedback in text without injecting a badge, LED, or dot', () => {
+    const { container } = render(<Notice tone="success" heading="Upload complete">The signed package is available.</Notice>);
+    expect(screen.getByRole('status')).toHaveTextContent('Upload complete');
+    expect(container.querySelector('[class*="dot"], [class*="badge"], [class*="pill"], [class*="led"]')).toBeNull();
+    expect(container.querySelector('.xgc-notice')).toHaveAttribute('data-tone', 'success');
+  });
+
   it('renders quiet empty states without decorative status markers', () => {
     const { container } = render(<EmptyState appearance="plain" fill title="No logs" description="Run a task to collect logs." />);
     expect(screen.getByText('No logs')).toBeInTheDocument();
