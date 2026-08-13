@@ -5,6 +5,8 @@ import {
   forbiddenControlAppearanceDefinitions,
   rawFoundationValueViolations,
   sharedSelectorViolations,
+  isProductProductionSource,
+  skinLifecycleViolations,
   statusVisualContractViolations,
 } from './style-policy-contract.mjs';
 
@@ -26,6 +28,22 @@ async function collect(directory) {
         files.push(...await collect(path));
       }
     } else if (extname(entry.name) === '.css') {
+      files.push(path);
+    }
+  }
+  return files;
+}
+
+async function collectProductSources(directory) {
+  const entries = await readdir(new URL(`${directory}/`, root), { withFileTypes: true });
+  const files = [];
+  for (const entry of entries) {
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) {
+      if (!['dist', 'node_modules', 'storybook-static'].includes(entry.name)) {
+        files.push(...await collectProductSources(path));
+      }
+    } else if (isProductProductionSource(path)) {
       files.push(path);
     }
   }
@@ -68,7 +86,7 @@ for (const [label, pattern, expected] of boundedTokenFamilies) {
 }
 
 const productStyleRoots = [
-  '../../xgc2/xgc2/web/src',
+  process.env.XGC2_STYLE_POLICY_XGC_ROOT ?? '../../xgc2/xgc2/web/src',
   '../../../platforms/research-os/web/src',
   '../../../platforms/agent-hub/web/src',
   '../../../platforms/apt-repo/web/src',
@@ -124,6 +142,20 @@ for (const directory of productStyleRoots) {
         if (/^--(?:duration|easing|opacity)-/.test(token)) {
           violations.push(`${relative('.', file)}: product defines parallel motion/opacity token ${token}`);
         }
+      }
+    }
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
+  }
+}
+
+
+for (const directory of productStyleRoots) {
+  try {
+    for (const file of await collectProductSources(directory)) {
+      const content = await readFile(new URL(file, root), 'utf8');
+      for (const violation of skinLifecycleViolations(content)) {
+        violations.push(`${relative('.', file)}: ${violation}; use initializeSkin/useSkin from @xgc2/ui-react`);
       }
     }
   } catch (error) {

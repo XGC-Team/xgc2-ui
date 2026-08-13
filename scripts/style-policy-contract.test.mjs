@@ -6,6 +6,8 @@ import {
   forbiddenControlAppearanceDefinitions,
   rawFoundationValueViolations,
   sharedSelectorViolations,
+  isProductProductionSource,
+  skinLifecycleViolations,
   statusVisualContractViolations,
 } from './style-policy-contract.mjs';
 
@@ -87,6 +89,57 @@ test('rejects product CSS that reaches into shared component classes', () => {
     'shared selector .xgc-panel-body',
     'shared selector .xgc-button',
   ]);
+});
+
+test('allows shared skin lifecycle APIs and unrelated product persistence', () => {
+  const fixture = `
+    initializeSkin({ storageKey: 'xgc2-product.skin' });
+    const [skin, setSkin] = useSkin({ storageKey: SKIN_STORAGE_KEY });
+    localStorage.getItem('xgc2-stt.endpoint');
+    window.localStorage.setItem(SECTION_STORAGE_KEY, value);
+    widget.dataset.skin = previewSkin;
+    document.body.dataset.domainTheme = domainTheme;
+    // document.documentElement.dataset.skin = 'dark';
+    /* window.localStorage.setItem('xgc2-product.theme', 'dark'); */
+    const documentation = "document.documentElement.dataset.skin = 'dark'";
+    const example = "localStorage.setItem('xgc2-product.theme', 'dark')";
+  `;
+
+  assert.deepEqual(skinLifecycleViolations(fixture), []);
+});
+
+test('rejects product-owned document skin mutation and theme persistence', () => {
+  const fixture = `
+    document.documentElement.dataset.skin = skin;
+    delete document.documentElement.dataset['skin'];
+    document.documentElement.setAttribute('data-skin', nextSkin);
+    localStorage.getItem('xgc2-product.skin');
+    window.localStorage.setItem("xgc2-product.theme", nextSkin);
+    localStorage.removeItem(SKIN_STORAGE_KEY);
+    localStorage.getItem(settings.themeKey);
+    const preferenceKey = 'xgc2-product.skin';
+    localStorage.getItem(preferenceKey);
+  `;
+
+  assert.deepEqual(skinLifecycleViolations(fixture), [
+    'direct documentElement skin dataset access',
+    'direct documentElement data-skin mutation',
+    'direct localStorage getItem for skin/theme key xgc2-product.skin',
+    'direct localStorage setItem for skin/theme key xgc2-product.theme',
+    'direct localStorage removeItem for skin/theme key SKIN_STORAGE_KEY',
+    'direct localStorage getItem for skin/theme key settings.themeKey',
+    'direct localStorage getItem for skin/theme key preferenceKey',
+  ]);
+});
+
+test('production source filter excludes tests and stories without hiding application modules', () => {
+  assert.equal(isProductProductionSource('src/App.tsx'), true);
+  assert.equal(isProductProductionSource('src/theme.test.ts'), false);
+  assert.equal(isProductProductionSource('src/theme.spec.tsx'), false);
+  assert.equal(isProductProductionSource('src/__tests__/theme.ts'), false);
+  assert.equal(isProductProductionSource('src/tests/theme.tsx'), false);
+  assert.equal(isProductProductionSource('src/Theme.stories.tsx'), false);
+  assert.equal(isProductProductionSource('src/theme.css'), false);
 });
 
 test('allows plain status text and neutral structured feedback', () => {

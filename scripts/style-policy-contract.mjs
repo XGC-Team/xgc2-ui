@@ -28,6 +28,146 @@ export function sharedSelectorViolations(css, sharedClasses) {
   )];
 }
 
+function sourceWithoutComments(source) {
+  let result = '';
+  let state = 'code';
+  let escaped = false;
+  for (let index = 0; index < source.length; index += 1) {
+    const character = source[index];
+    const next = source[index + 1];
+    if (state === 'line-comment') {
+      if (character === '\n') {
+        state = 'code';
+        result += character;
+      } else {
+        result += ' ';
+      }
+      continue;
+    }
+    if (state === 'block-comment') {
+      if (character === '*' && next === '/') {
+        result += '  ';
+        index += 1;
+        state = 'code';
+      } else {
+        result += character === '\n' ? '\n' : ' ';
+      }
+      continue;
+    }
+    if (state === 'code') {
+      if (character === '/' && next === '/') {
+        result += '  ';
+        index += 1;
+        state = 'line-comment';
+        continue;
+      }
+      if (character === '/' && next === '*') {
+        result += '  ';
+        index += 1;
+        state = 'block-comment';
+        continue;
+      }
+      if (character === "'") state = 'single-quote';
+      else if (character === '"') state = 'double-quote';
+      else if (character === '`') state = 'template';
+      result += character;
+      continue;
+    }
+    result += character;
+    if (escaped) {
+      escaped = false;
+    } else if (character === '\\') {
+      escaped = true;
+    } else if (
+      (state === 'single-quote' && character === "'")
+      || (state === 'double-quote' && character === '"')
+      || (state === 'template' && character === '`')
+    ) {
+      state = 'code';
+    }
+  }
+  return result;
+}
+
+function sourceStructure(source) {
+  let result = '';
+  let quote = '';
+  let escaped = false;
+  for (const character of source) {
+    if (!quote) {
+      if (character === "'" || character === '"' || character === '`') quote = character;
+      result += character;
+    } else if (escaped) {
+      result += character === '\n' ? '\n' : ' ';
+      escaped = false;
+    } else if (character === '\\') {
+      result += ' ';
+      escaped = true;
+    } else if (character === quote) {
+      result += character;
+      quote = '';
+    } else {
+      result += character === '\n' ? '\n' : ' ';
+    }
+  }
+  return result;
+}
+
+const THEME_STORAGE_KEY_LITERAL = /(?:^|[._:-])(?:skin|theme)(?:$|[._:-])/i;
+const THEME_STORAGE_KEY_IDENTIFIER = /(?:skin|theme).*key|key.*(?:skin|theme)/i;
+
+/**
+ * Products consume the shared skin lifecycle. Direct document mutation and
+ * theme-key persistence belong to ui-react's initializeSkin/useSkin contract.
+ */
+export function skinLifecycleViolations(source) {
+  const code = sourceWithoutComments(source);
+  const structure = sourceStructure(code);
+  const violations = [];
+  const documentElement = String.raw`document\s*\.\s*documentElement`;
+
+  const hasExecutableMatch = (pattern) => {
+    for (const match of code.matchAll(pattern)) {
+      if (structure[match.index] !== ' ') return true;
+    }
+    return false;
+  };
+
+  if (hasExecutableMatch(new RegExp(String.raw`\b${documentElement}\s*\.\s*dataset\s*(?:\.\s*skin\b|\[\s*['"]skin['"]\s*\])`, 'g'))) {
+    violations.push('direct documentElement skin dataset access');
+  }
+  if (hasExecutableMatch(new RegExp(String.raw`\b${documentElement}\s*\.\s*setAttribute\s*\(\s*['"\`]data-skin['"\`]`, 'g'))) {
+    violations.push('direct documentElement data-skin mutation');
+  }
+
+  const declaredThemeKeys = new Set();
+  for (const match of code.matchAll(/\b(?:const|let|var)\s+([a-zA-Z_$][\w$]*)\s*=\s*(['"`])((?:\\.|(?!\2)[^\\])*)\2/g)) {
+    if (structure[match.index] !== ' ' && THEME_STORAGE_KEY_LITERAL.test(match[3])) declaredThemeKeys.add(match[1]);
+  }
+
+  const storageCall = /\b(?:window\s*\.\s*)?localStorage\s*\.\s*(getItem|setItem|removeItem)\s*\(\s*(?:('(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*"|`(?:\\.|[^`\\])*`)|([a-zA-Z_$][\w$]*(?:\s*\.\s*[a-zA-Z_$][\w$]*)*))/g;
+  for (const match of code.matchAll(storageCall)) {
+    if (structure[match.index] === ' ') continue;
+    const literal = match[2];
+    const identifier = match[3];
+    const key = literal ? literal.slice(1, -1) : identifier?.replace(/\s+/g, '') ?? '';
+    const isThemeKey = literal
+      ? THEME_STORAGE_KEY_LITERAL.test(key)
+      : THEME_STORAGE_KEY_IDENTIFIER.test(key) || declaredThemeKeys.has(key);
+    if (isThemeKey) violations.push(`direct localStorage ${match[1]} for skin/theme key ${key}`);
+  }
+
+  return [...new Set(violations)];
+}
+
+/** Test and story sources are not shipped product lifecycle implementations. */
+export function isProductProductionSource(file) {
+  const normalized = file.replaceAll('\\', '/');
+  if (!/\.(?:[cm]?[jt]sx?)$/i.test(normalized) || /\.d\.ts$/i.test(normalized)) return false;
+  if (/(?:^|\/)(?:__tests__|tests?|__mocks__)(?:\/|$)/i.test(normalized)) return false;
+  return !/\.(?:test|spec|stories|story)\.[cm]?[jt]sx?$/i.test(normalized);
+}
+
 const MOTION_SHORTHAND = /^(?:animation|transition)$/i;
 const MOTION_DURATION = /^(?:animation|transition)-duration$/i;
 const MOTION_EASING = /^(?:animation|transition)-timing-function$/i;
