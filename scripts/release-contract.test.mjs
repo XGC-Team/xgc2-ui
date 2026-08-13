@@ -9,6 +9,10 @@ const packages = await Promise.all(['tokens', 'react', 'workflow', 'policy'].map
 const workflow = await readFile(new URL('.github/workflows/release.yml', root), 'utf8');
 const policyWorkflow = await readFile(new URL('.github/workflows/release-policy.yml', root), 'utf8');
 const ciWorkflow = await readFile(new URL('.github/workflows/ci.yml', root), 'utf8');
+const readme = await readFile(new URL('README.md', root), 'utf8');
+const tokensChangelog = await readFile(new URL('packages/tokens/CHANGELOG.md', root), 'utf8');
+const reactChangelog = await readFile(new URL('packages/react/CHANGELOG.md', root), 'utf8');
+const workflowChangelog = await readFile(new URL('packages/workflow/CHANGELOG.md', root), 'utf8');
 
 const workflowSources = new Map([
   ['CI', ciWorkflow],
@@ -21,12 +25,37 @@ const node24ActionPins = new Map([
   ['pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86', 'v6'],
 ]);
 
-test('publishes only new package assets and refuses mutable release state', () => {
-  assert.deepEqual(packages.map((manifest) => manifest.version), ['0.8.0', '0.15.2', '0.3.1', '0.15.2']);
+function currentChangelogVersion(source, name) {
+  const match = source.match(/^## (\d+\.\d+\.\d+)$/m);
+  assert.ok(match, `${name} changelog must start with a semver release heading`);
+  return match[1];
+}
+
+test('keeps the prepared package family internally coherent', () => {
+  for (const manifest of packages) {
+    assert.match(manifest.version, /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/, `${manifest.name} must use a stable semver version`);
+  }
   const reactCompatibilityFloor = packages[1].version.split('.').slice(0, 2).join('.');
-  assert.match(packages[2].peerDependencies['@xgc2/ui-react'], new RegExp(`>=${reactCompatibilityFloor}\\s`));
+  assert.equal(packages[2].peerDependencies['@xgc2/ui-react'], `>=${reactCompatibilityFloor} <1`);
+  assert.equal(packages[3].version, packages[1].version);
   assert.equal(packages[3].peerDependencies['@xgc2/ui-react'], packages[1].version);
+  assert.equal(currentChangelogVersion(tokensChangelog, packages[0].name), packages[0].version);
+  assert.equal(currentChangelogVersion(reactChangelog, packages[1].name), packages[1].version);
+  assert.equal(currentChangelogVersion(workflowChangelog, packages[2].name), packages[2].version);
+  assert.match(
+    readme,
+    new RegExp(`https://github\\.com/XGC-Team/xgc2-ui/releases/download/v${packages[1].version.replaceAll('.', '\\.')}\/xgc2-ui-react-${packages[1].version.replaceAll('.', '\\.')}\\.tgz`),
+  );
+});
+
+test('publishes only new package assets and refuses mutable release state', () => {
   assert.doesNotMatch(workflow, /--clobber|release\s+upload/);
+  assert.doesNotMatch(workflow, /git describe/);
+  assert.match(workflow, /releases\?per_page=100/);
+  assert.match(workflow, /\^v\[0-9\]/);
+  assert.match(workflow, /changed since .* without a version bump/);
+  assert.match(workflow, /\(exclude\)packages\/\$\{package\}\/CHANGELOG\.md/);
+  assert.match(workflow, /git cat-file -e "\$\{GITHUB_REF_NAME\}\^\{tag\}"/);
   assert.match(workflow, /TAG_CREATED:\s*\$\{\{ github\.event\.created \}\}/);
   assert.match(workflow, /RUN_ATTEMPT:\s*\$\{\{ github\.run_attempt \}\}/);
   assert.match(workflow, /"\$\{RUN_ATTEMPT\}" != "1"/);
@@ -36,7 +65,7 @@ test('publishes only new package assets and refuses mutable release state', () =
   assert.match(workflow, /tag .* does not match package version/);
   assert.match(workflow, /require\('\.\/packages\/\$\{package\}\/package\.json'\)\.version/);
   assert.match(workflow, /fetch-depth:\s*0/);
-  assert.match(workflow, /git diff --quiet "\$\{previous_tag\}" "\$\{GITHUB_REF_NAME\}" -- "packages\/\$\{package\}"/);
+  assert.match(workflow, /git diff --quiet "\$\{previous_tag\}" "\$\{GITHUB_REF_NAME\}" --/);
   assert.match(workflow, /release has no changed package assets/);
 });
 
@@ -66,6 +95,14 @@ test('publishes policy under a separate immutable tag namespace', () => {
   assert.match(policyWorkflow, /TAG_CREATED:\s*\$\{\{ github\.event\.created \}\}/);
   assert.match(policyWorkflow, /RUN_ATTEMPT:\s*\$\{\{ github\.run_attempt \}\}/);
   assert.match(policyWorkflow, /xgc2-ui-policy-\$\{version\}\.tgz/);
+  assert.match(policyWorkflow, /git cat-file -e "\$\{GITHUB_REF_NAME\}\^\{tag\}"/);
   assert.match(policyWorkflow, /gh release create/);
   assert.doesNotMatch(policyWorkflow, /--clobber|release\s+upload/);
+});
+
+test('CI rejects package drift against the latest successful release families', () => {
+  assert.match(ciWorkflow, /fetch-depth:\s*0/);
+  assert.match(ciWorkflow, /\^v\[0-9\]/);
+  assert.match(ciWorkflow, /\^policy-v\[0-9\]/);
+  assert.match(ciWorkflow, /validate-release-delta\.mjs --package-base/);
 });

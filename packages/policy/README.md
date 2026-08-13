@@ -2,7 +2,10 @@
 
 This package is the executable design contract for XGC2 product frontends. It
 is intentionally fail-closed and version-locked to `@xgc2/ui-react` so a clean
-consumer checkout runs the same rules as the shared library repository.
+consumer checkout runs the same rules as the shared library repository. The
+exact peer is deliberate: the packaged ownership manifest is generated from
+that React version's selectors and tokens, so a semver range would silently
+apply stale ownership data to a different visual contract.
 
 ```json
 {

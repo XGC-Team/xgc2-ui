@@ -1,5 +1,13 @@
 # @xgc2/ui-workflow
 
+## 0.3.1
+
+### Patch Changes
+
+- Raise the shared React compatibility floor to 0.15 so the workflow package
+  can accompany the speech-client family without reusing the immutable 0.3.0
+  asset namespace.
+
 ## 0.3.0
 
 ### Major corrective release
