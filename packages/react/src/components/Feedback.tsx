@@ -56,6 +56,7 @@ export type EmptyStateProps = Omit<HTMLAttributes<HTMLElement>, 'title'> & {
   as?: 'div' | 'section';
   description?: ReactNode;
   density?: 'default' | 'compact';
+  fill?: boolean;
   icon?: ReactNode;
   title: ReactNode;
 };
@@ -67,6 +68,7 @@ export function EmptyState({
   className,
   description,
   density = 'default',
+  fill = false,
   icon,
   title,
   ...props
@@ -78,6 +80,7 @@ export function EmptyState({
       className={classNames('xgc-empty-state', className)}
       data-appearance={appearance}
       data-density={density}
+      data-fill={fill || undefined}
     >
       {icon ? <div className="xgc-empty-state-icon" aria-hidden="true">{icon}</div> : null}
       <strong className="xgc-empty-state-title">{title}</strong>

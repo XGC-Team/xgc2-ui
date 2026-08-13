@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import {
   AudioCaptureControl,
+  ActionMenu,
   Button,
   ButtonLink,
   Checkbox,
@@ -9,20 +10,27 @@ import {
   CodeBlock,
   ColorControl,
   ConfigSection,
+  Disclosure,
   Drawer,
   EmptyState,
   FormField,
   FormGroup,
+  FormSection,
+  FormSectionSpan,
   Input,
+  InputActionControl,
   Inline,
   LogTablePage,
   Modal,
+  MarkdownContent,
   Panel,
   ProgressBar,
   ResponsiveGrid,
   SegmentedControl,
   Select,
   SelectMenu,
+  SelectableList,
+  SelectableListItem,
   SortableDataTable,
   StatCard,
   Stack,
@@ -31,6 +39,7 @@ import {
   Tabs,
   Toolbar,
   Topbar,
+  Vector3Control,
   WorkspaceTabs,
   type AudioCaptureState,
 } from '@xgc2/ui-react';
@@ -195,6 +204,25 @@ function RichControlsExample() {
       <ConfigSection title="Advanced settings">
         <FormField label="Namespace"><Input value="/robot" readOnly /></FormField>
       </ConfigSection>
+      <FormSection title="World pose">
+        <FormField label="Position">
+          <Vector3Control
+            axes={[
+              { label: 'X', value: 0 },
+              { label: 'Y', value: 0 },
+              { label: 'Z', value: 1 },
+            ]}
+            onValueChange={() => undefined}
+            unit="m"
+          />
+        </FormField>
+        <FormField label="World file">
+          <InputActionControl actionLabel="Browse" onAction={() => undefined} value="/worlds/empty.world" />
+        </FormField>
+        <FormSectionSpan>
+          <Disclosure summary="Advanced launch settings">Product-owned fields belong here.</Disclosure>
+        </FormSectionSpan>
+      </FormSection>
     </div>
   );
 }
@@ -266,6 +294,31 @@ export const DataDisplay: Story = {
       <CodeBlock terminal label="Install" language="shell" content="sudo apt-get update\nsudo apt-get install libxgc2-control" />
     </div>
   ),
+};
+
+function SharedContentExample() {
+  const [selected, setSelected] = useState('one');
+  return (
+    <div className="xgc-gallery-data">
+      <SelectableList aria-label="Documents">
+        <SelectableListItem onClick={() => setSelected('one')} selected={selected === 'one'} title="Control paper" description="Markdown" />
+        <SelectableListItem onClick={() => setSelected('two')} selected={selected === 'two'} title="Experiment notes" description="Markdown" />
+      </SelectableList>
+      <ActionMenu
+        ariaLabel="Document actions"
+        items={[
+          { id: 'copy', label: 'Copy link', onSelect: () => undefined },
+          { id: 'delete', label: 'Delete', onSelect: () => undefined, tone: 'danger' },
+        ]}
+        trigger="⋯"
+      />
+      <MarkdownContent source={'## Evidence\n\nUse the shared code surface:\n\n```bash\nsudo apt-get update\n```'} />
+    </div>
+  );
+}
+
+export const SharedContent: Story = {
+  render: () => <SharedContentExample />,
 };
 
 export const Scrollbars: Story = {

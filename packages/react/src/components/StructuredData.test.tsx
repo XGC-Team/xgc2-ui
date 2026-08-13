@@ -13,13 +13,17 @@ import {
 describe('structured operational data', () => {
   it('uses native description-list semantics and a consistent empty value', () => {
     const { container } = render(
-      <DescriptionList>
+      <DescriptionList columns={2} density="compact" orientation="vertical" wrapValues>
         <DescriptionItem label="Hostname" value="robot-01" />
         <DescriptionItem label="Kernel" value="" />
       </DescriptionList>,
     );
     expect(container.querySelectorAll('dt')).toHaveLength(2);
     expect(container.querySelectorAll('dd')).toHaveLength(2);
+    expect(container.querySelector('dl')).toHaveAttribute('data-columns', '2');
+    expect(container.querySelector('dl')).toHaveAttribute('data-density', 'compact');
+    expect(container.querySelector('dl')).toHaveAttribute('data-orientation', 'vertical');
+    expect(container.querySelector('dl')).toHaveAttribute('data-wrap-values', 'true');
     expect(screen.getByText('—')).toBeInTheDocument();
   });
 

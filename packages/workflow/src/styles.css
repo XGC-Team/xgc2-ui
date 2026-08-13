@@ -1,5 +1,37 @@
 @import '@xyflow/react/dist/style.css';
 
+/*
+ * One bounded, low-interference visual tone palette for every consumer.
+ * Products map domain categories to these abstract tones; taxonomy and
+ * execution semantics stay outside the foundation package.
+ */
+:root,
+:root[data-skin='dark'] {
+  --color-workflow-tone-amber: #c9a66b;
+  --color-workflow-tone-green: #78ad87;
+  --color-workflow-tone-cyan: #6fa9b8;
+  --color-workflow-tone-orange: #c88762;
+  --color-workflow-tone-purple: #a98cc4;
+  --color-workflow-tone-blue: #779cc7;
+  --color-workflow-tone-red: #c77d82;
+  --color-workflow-tone-teal: #69a99b;
+  --color-workflow-tone-indigo: #8c91c8;
+  --color-workflow-tone-pink: #bd86a4;
+}
+
+:root[data-skin='light'] {
+  --color-workflow-tone-amber: #8a651f;
+  --color-workflow-tone-green: #39784a;
+  --color-workflow-tone-cyan: #256f83;
+  --color-workflow-tone-orange: #9a4f2f;
+  --color-workflow-tone-purple: #704c91;
+  --color-workflow-tone-blue: #38689a;
+  --color-workflow-tone-red: #a13c43;
+  --color-workflow-tone-teal: #2b7568;
+  --color-workflow-tone-indigo: #545b9c;
+  --color-workflow-tone-pink: #8e496c;
+}
+
 .xgc-workflow-canvas {
   position: relative;
   isolation: isolate;
@@ -26,7 +58,7 @@
   inset: 0;
   display: grid;
   place-items: center;
-  padding: var(--space-24);
+  padding: var(--space-2xl);
   color: var(--color-text-muted);
   font-size: var(--font-base);
   text-align: center;
@@ -36,16 +68,16 @@
 .xgc-workflow-canvas-toolbar {
   position: absolute;
   z-index: var(--z-canvas-controls);
-  top: var(--xgc-workflow-toolbar-inset, var(--space-16));
-  right: var(--xgc-workflow-toolbar-inset, var(--space-16));
+  top: var(--xgc-workflow-toolbar-inset, var(--space-xl));
+  right: var(--xgc-workflow-toolbar-inset, var(--space-xl));
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--xgc-workflow-toolbar-gap, var(--space-12));
+  gap: var(--xgc-workflow-toolbar-gap, var(--space-lg));
 }
 
 .xgc-workflow-canvas-toolbar > .xgc-button {
-  --xgc-control-height: var(--xgc-workflow-toolbar-control-size, calc(var(--size-control-default) + var(--space-6)));
+  --xgc-control-height: var(--xgc-workflow-toolbar-control-size, calc(var(--size-control-default) + var(--space-sm)));
   --xgc-control-background: var(--color-bg-surface);
   --xgc-control-border-color: var(--color-border);
   --xgc-control-border-radius: var(--radius-surface);
@@ -54,8 +86,8 @@
 .xgc-workflow-element-toolbar {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3);
+  gap: var(--space-xs);
+  padding: var(--space-xs);
   color: var(--color-text);
   background: var(--color-bg-surface);
   border: var(--stroke-thin) solid var(--color-border-strong);
@@ -65,7 +97,78 @@
 }
 
 .xgc-workflow-element-toolbar > .xgc-button {
-  --xgc-control-height: calc(var(--size-control-compact) + var(--space-2));
+  --xgc-control-height: calc(var(--size-control-compact) + var(--space-2xs));
+}
+
+.xgc-workflow-node-surface {
+  --xgc-workflow-node-handle-size: var(--space-md);
+  position: relative;
+  min-width: var(--size-grid-column-compact);
+  min-height: 0;
+  color: var(--color-text);
+  background: var(--color-bg-surface);
+  border: var(--stroke-thin) solid var(--color-border);
+  border-radius: var(--radius-surface);
+  box-shadow: var(--shadow-card);
+  transition:
+    background-color var(--duration-quick) ease,
+    border-color var(--duration-quick) ease,
+    box-shadow var(--duration-quick) ease;
+}
+
+.xgc-workflow-node-surface:hover {
+  background: var(--color-bg-surface-hover);
+  border-color: color-mix(in srgb, var(--color-accent) 42%, var(--color-border-strong));
+}
+
+.xgc-workflow-node-surface[data-selected='true'] {
+  border-color: var(--color-border-primary);
+  box-shadow: var(--shadow-selection-ring), var(--shadow-card);
+}
+
+.xgc-workflow-node-surface:focus-visible {
+  border-color: var(--color-border-focus);
+  outline: 0;
+  box-shadow: var(--shadow-selection-ring), var(--shadow-card);
+}
+
+.xgc-workflow-node-surface-handles { display: contents; }
+
+.xgc-workflow-node-surface-content {
+  min-width: 0;
+  min-height: 0;
+  padding: var(--space-panel-padding);
+  overflow: hidden;
+  border-radius: inherit;
+}
+
+.xgc-workflow-node-surface[data-padding='none'] > .xgc-workflow-node-surface-content { padding: 0; }
+
+.xgc-workflow-node-surface .react-flow__handle {
+  width: var(--xgc-workflow-node-handle-size);
+  height: var(--xgc-workflow-node-handle-size);
+  box-sizing: border-box;
+  background: var(--color-bg-control);
+  border: var(--stroke-thin) solid var(--color-border-strong);
+  border-radius: var(--radius-xs);
+  cursor: crosshair;
+}
+
+.xgc-workflow-node-surface .react-flow__handle::after {
+  content: '';
+  position: absolute;
+  inset: calc(-1 * var(--space-sm));
+  border-radius: var(--radius-sm);
+}
+
+.xgc-workflow-node-surface .react-flow__handle-left {
+  left: 0;
+  transform: translate(-50%, -50%);
+}
+
+.xgc-workflow-node-surface .react-flow__handle-right {
+  right: 0;
+  transform: translate(50%, -50%);
 }
 
 @keyframes xgc-workflow-toolbar-enter {
@@ -96,8 +199,8 @@
   height: 100%;
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-  padding: var(--space-14);
+  gap: var(--space-xs);
+  padding: var(--space-xl);
   overflow: auto;
   font-size: var(--font-base);
   line-height: var(--line-height-relaxed);
@@ -105,16 +208,16 @@
   user-select: none;
 }
 
-.xgc-workflow-sticky-note-heading { display: block; color: var(--color-text-heading); line-height: var(--line-height-snug); }
-.xgc-workflow-sticky-note-heading[data-level='1'] { font-size: var(--font-3xl); }
-.xgc-workflow-sticky-note-heading[data-level='2'] { font-size: var(--font-2xl); }
-.xgc-workflow-sticky-note-heading[data-level='3'] { font-size: var(--font-xl); }
+.xgc-workflow-sticky-note-heading { display: block; color: var(--color-text-heading); line-height: var(--line-height-tight); }
+.xgc-workflow-sticky-note-heading[data-level='1'] { font-size: var(--font-2xl); }
+.xgc-workflow-sticky-note-heading[data-level='2'] { font-size: var(--font-xl); }
+.xgc-workflow-sticky-note-heading[data-level='3'] { font-size: var(--font-lg); }
 
 .xgc-workflow-sticky-note-editor {
   width: 100%;
   height: 100%;
   min-height: 0;
-  padding: var(--space-14);
+  padding: var(--space-xl);
   resize: none;
   background: transparent;
   border: 0;
@@ -132,6 +235,6 @@
   --xgc-control-hover-color: var(--color-danger);
   position: absolute;
   z-index: var(--z-overlay-local);
-  top: var(--space-7);
-  right: var(--space-7);
+  top: var(--space-md);
+  right: var(--space-md);
 }

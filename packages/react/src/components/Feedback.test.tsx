@@ -12,8 +12,9 @@ describe('feedback primitives', () => {
   });
 
   it('renders quiet empty states without decorative status markers', () => {
-    const { container } = render(<EmptyState appearance="plain" title="No logs" description="Run a task to collect logs." />);
+    const { container } = render(<EmptyState appearance="plain" fill title="No logs" description="Run a task to collect logs." />);
     expect(screen.getByText('No logs')).toBeInTheDocument();
     expect(container.querySelector('[class*="dot"], [class*="badge"], [class*="pill"]')).toBeNull();
+    expect(container.querySelector('.xgc-empty-state')).toHaveAttribute('data-fill', 'true');
   });
 });

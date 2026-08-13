@@ -1,6 +1,6 @@
 {
   "name": "@xgc2/ui-workflow",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Reusable spatial workflow canvas foundation for XGC2 frontends",
   "type": "module",
   "sideEffects": ["*.css"],
@@ -22,7 +22,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "peerDependencies": {
-    "@xgc2/ui-react": ">=0.8 <1",
+    "@xgc2/ui-react": ">=0.12 <1",
     "@xyflow/react": ">=12.9 <13",
     "react": ">=19 <20",
     "react-dom": ">=19 <20"

@@ -3,16 +3,22 @@ import { classNames } from '../utils';
 
 export type PanelProps = Omit<HTMLAttributes<HTMLElement>, 'title'> & {
   actions?: ReactNode;
+  bodyLayout?: 'block' | 'column';
+  bodyScroll?: boolean;
   description?: ReactNode;
+  fill?: boolean;
   padding?: 'default' | 'none';
   title?: ReactNode;
 };
 
 export function Panel({
   actions,
+  bodyLayout = 'block',
+  bodyScroll = false,
   children,
   className,
   description,
+  fill = false,
   padding = 'default',
   title,
   ...props
@@ -23,6 +29,7 @@ export function Panel({
       {...props}
       className={classNames('xgc-panel', className)}
       aria-labelledby={title ? titleId : props['aria-labelledby']}
+      data-fill={fill || undefined}
       data-padding={padding}
     >
       {title || actions ? (
@@ -33,7 +40,11 @@ export function Panel({
           {actions ? <div className="xgc-panel-actions">{actions}</div> : null}
         </header>
       ) : null}
-      <div className="xgc-panel-body">
+      <div
+        className="xgc-panel-body"
+        data-layout={bodyLayout}
+        data-scroll={bodyScroll || undefined}
+      >
         {description ? <p className="xgc-panel-description">{description}</p> : null}
         {children}
       </div>

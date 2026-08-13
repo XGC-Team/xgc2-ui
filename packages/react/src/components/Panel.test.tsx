@@ -14,4 +14,11 @@ describe('Panel', () => {
     expect(container.querySelector('.xgc-panel-header')).not.toHaveTextContent('Repository package list');
     expect(container.querySelector('.xgc-panel-body')).toHaveTextContent('Repository package list');
   });
+
+  it('owns fill, scrolling, and column body layout without consumer CSS piercing', () => {
+    const { container } = render(<Panel fill bodyLayout="column" bodyScroll>Content</Panel>);
+    expect(container.querySelector('.xgc-panel')).toHaveAttribute('data-fill', 'true');
+    expect(container.querySelector('.xgc-panel-body')).toHaveAttribute('data-layout', 'column');
+    expect(container.querySelector('.xgc-panel-body')).toHaveAttribute('data-scroll', 'true');
+  });
 });

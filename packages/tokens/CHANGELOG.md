@@ -1,5 +1,16 @@
 # @xgc2/ui-tokens
 
+## 0.6.0
+
+### Minor Changes
+
+- Replace the history-shaped numeric spacing vocabulary with eight bounded
+  semantic steps and a small set of stable layout roles. Complete the shared
+  light/dark color, material, type, opacity, elevation, icon, and responsive
+  contracts; strengthen validation so products cannot revive numeric spacing or
+  redefine shared theme decisions. Move the high-visibility selection palette
+  and enclosing halo out of product skins and into the shared two-skin contract.
+
 ## 0.5.0
 
 ### Minor Changes

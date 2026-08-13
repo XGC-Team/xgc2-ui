@@ -1,6 +1,6 @@
 {
   "name": "@xgc2/ui-tokens",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Shared XGC2 design tokens and theme contract",
   "type": "module",
   "sideEffects": ["*.css"],

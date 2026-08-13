@@ -92,9 +92,15 @@ textarea {
   font: inherit;
 }
 
+input::placeholder,
+textarea::placeholder {
+  color: var(--color-text-faint);
+  opacity: var(--opacity-full);
+}
+
 :where(button, input, select, textarea, a):focus-visible {
   outline: var(--stroke-strong) solid var(--color-border-focus);
-  outline-offset: var(--space-2);
+  outline-offset: var(--space-2xs);
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -1,5 +1,15 @@
 # @xgc2/ui-react
 
+## 0.12.0
+
+### Minor Changes
+
+- Add selectable lists, sanitized Markdown, disclosures, notice regions, form
+  sections, input actions, three-axis controls, text prompts, popovers, action
+  menus, responsive mobile drawers, bounded workspace layouts, and shared skin
+  initialization/persistence. Align every component with the finite semantic
+  token scale and one refined light/dark theme contract.
+
 ## 0.11.0
 
 ### Minor Changes

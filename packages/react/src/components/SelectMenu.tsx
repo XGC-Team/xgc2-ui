@@ -159,6 +159,7 @@ export function SelectMenu({
       className="xgc-select-menu"
       data-xgc-menu-align={menuAlign}
       data-xgc-menu-placement={resolvedPlacement}
+      data-xgc-overlay-root="true"
       data-xgc-portaled="true"
       id={menuId}
       onKeyDown={(event) => {

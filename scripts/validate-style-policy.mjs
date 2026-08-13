@@ -1,7 +1,8 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { extname, join, relative } from 'node:path';
+import { forbiddenControlAppearanceDefinitions } from './style-policy-contract.mjs';
 
-const root = new URL('..', import.meta.url);
+const root = new URL('../', import.meta.url);
 const roots = ['packages', 'apps'];
 const forbidden = [
   { pattern: /\bborder-left\s*:/i, label: 'left border' },
@@ -39,8 +40,14 @@ async function collect(directory) {
 }
 
 const violations = [];
-for (const file of (await Promise.all(roots.map(collect))).flat()) {
+const cssFiles = (await Promise.all(roots.map(collect))).flat();
+const cssSources = [];
+for (const file of cssFiles) {
   const content = await readFile(new URL(file, root), 'utf8');
+  cssSources.push({ file, content });
+  for (const match of content.matchAll(/--space-\d+\b/g)) {
+    violations.push(`${relative('.', file)}: numeric spacing token ${match[0]}`);
+  }
   for (const { pattern, label } of forbidden) {
     if (pattern.test(content)) {
       violations.push(`${relative('.', file)}: prohibited ${label}`);
@@ -66,6 +73,71 @@ for (const file of (await Promise.all(roots.map(collect))).flat()) {
           violations.push(`${relative('.', file)}: ${policy.label} in ${selector}`);
         }
       }
+    }
+  }
+}
+
+const tokenSource = cssSources.find(({ file }) => file === 'packages/tokens/src/index.css')?.content ?? '';
+const boundedTokenFamilies = [
+  ['font size', /--font-(?:xs|sm|md|base|lg|xl|2xl)\s*:/g, 7],
+  ['line height', /--line-height-(?:none|tight|normal|relaxed|control)\s*:/g, 5],
+  ['tracking', /--tracking-(?:label|caps)\s*:/g, 2],
+  ['radius', /--radius-(?:xs|sm|md|lg|xl)\s*:/g, 5],
+  ['icon size', /--size-icon-(?:xs|sm|default|lg|xl)\s*:/g, 5],
+];
+for (const [label, pattern, expected] of boundedTokenFamilies) {
+  const count = [...tokenSource.matchAll(pattern)].length;
+  if (count !== expected) violations.push(`packages/tokens/src/index.css: ${label} scale drifted (${count}/${expected})`);
+}
+
+const productStyleRoots = [
+  '../../xgc2/xgc2/web/src',
+  '../../../platforms/research-os/web/src',
+  '../../../platforms/agent-hub/web/src',
+];
+const sharedOwnedTokens = new Set(
+  cssSources.flatMap(({ content }) => [...content.matchAll(/(--[a-zA-Z0-9_-]+)\s*:/g)].map((match) => match[1])),
+);
+for (const directory of productStyleRoots) {
+  try {
+    for (const file of await collect(directory)) {
+      const content = await readFile(new URL(file, root), 'utf8');
+      const declarations = content.replace(/\/\*[\s\S]*?\*\//g, '');
+      for (const match of declarations.matchAll(/--space-\d+\b/g)) {
+        violations.push(`${relative('.', file)}: numeric spacing token ${match[0]}`);
+      }
+      for (const match of declarations.matchAll(/--(?:font-(?:2xs|3xl|4xl)|line-height-(?:snug|ui|readable)|tracking-(?:tight|wide|wider|condensed))\b/g)) {
+        violations.push(`${relative('.', file)}: retired dense token ${match[0]}`);
+      }
+      for (const token of forbiddenControlAppearanceDefinitions(declarations)) {
+        violations.push(`${relative('.', file)}: product control appearance override ${token}`);
+      }
+      for (const match of declarations.matchAll(/(--[a-zA-Z0-9_-]+)\s*:/g)) {
+        const token = match[1];
+        if (!token.startsWith('--xgc-') && sharedOwnedTokens.has(token)) {
+          violations.push(`${relative('.', file)}: product redefines shared theme token ${token}`);
+        }
+        if (token.startsWith('--color-automation-')) {
+          violations.push(`${relative('.', file)}: product defines parallel workflow palette ${token}`);
+        }
+      }
+    }
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
+  }
+}
+
+const tokenDefinitions = new Set(
+  cssSources.flatMap(({ content }) => [...content.matchAll(/(--[a-zA-Z0-9_-]+)\s*:/g)].map((match) => match[1])),
+);
+for (const { file, content } of cssSources) {
+  for (const match of content.matchAll(/var\((--[a-zA-Z0-9_-]+)/g)) {
+    const token = match[1];
+    // Shared components may define internal --xgc-* variables or expose a
+    // deliberately finite public hook. Product definitions are independently
+    // checked above; do not treat this reference exception as product authority.
+    if (!token.startsWith('--xgc-') && !tokenDefinitions.has(token)) {
+      violations.push(`${relative('.', file)}: undefined shared token ${token}`);
     }
   }
 }

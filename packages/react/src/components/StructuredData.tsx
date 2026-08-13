@@ -2,10 +2,31 @@ import type { HTMLAttributes, ReactNode } from 'react';
 import { classNames } from '../utils';
 import { ProgressBar, type ProgressBarTone } from './ProgressBar';
 
-export type DescriptionListProps = HTMLAttributes<HTMLDListElement>;
+export type DescriptionListProps = HTMLAttributes<HTMLDListElement> & {
+  columns?: 1 | 2 | 3 | 4;
+  density?: 'compact' | 'default';
+  orientation?: 'horizontal' | 'vertical';
+  wrapValues?: boolean;
+};
 
-export function DescriptionList({ className, ...props }: DescriptionListProps) {
-  return <dl {...props} className={classNames('xgc-description-list', className)} />;
+export function DescriptionList({
+  className,
+  columns = 1,
+  density = 'default',
+  orientation = 'horizontal',
+  wrapValues = false,
+  ...props
+}: DescriptionListProps) {
+  return (
+    <dl
+      {...props}
+      className={classNames('xgc-description-list', className)}
+      data-columns={columns}
+      data-density={density}
+      data-orientation={orientation}
+      data-wrap-values={wrapValues || undefined}
+    />
+  );
 }
 
 export type DescriptionItemProps = Omit<HTMLAttributes<HTMLDivElement>, 'children'> & {

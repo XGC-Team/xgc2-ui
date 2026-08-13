@@ -94,7 +94,11 @@ export type AppSidebarProps = Omit<HTMLAttributes<HTMLElement>, 'children'> & {
   expandLabel?: string;
   footer?: ReactNode;
   footerProps?: HTMLAttributes<HTMLDivElement>;
+  mobileDismissLabel?: string;
+  mobileMode?: 'drawer' | 'rail';
+  mobileOpen?: boolean;
   onCollapsedChange?: (collapsed: boolean) => void;
+  onMobileOpenChange?: (open: boolean) => void;
   toggleProps?: Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'aria-expanded' | 'children' | 'onClick' | 'type'> & DataAttributes;
 };
 
@@ -109,12 +113,17 @@ export function AppSidebar({
   expandLabel = 'Expand navigation',
   footer,
   footerProps,
+  mobileDismissLabel = 'Close navigation',
+  mobileMode = 'rail',
+  mobileOpen = false,
   onCollapsedChange,
+  onMobileOpenChange,
   toggleProps,
   ...props
 }: AppSidebarProps) {
   const [internalCollapsed, setInternalCollapsed] = useState(defaultCollapsed);
   const isCollapsed = collapsed ?? internalCollapsed;
+  const visuallyCollapsed = isCollapsed && !(mobileMode === 'drawer' && mobileOpen);
   const setCollapsed = (next: boolean) => {
     if (collapsed === undefined) setInternalCollapsed(next);
     onCollapsedChange?.(next);
@@ -122,22 +131,28 @@ export function AppSidebar({
   const { className: toggleClassName, ...sidebarToggleProps } = toggleProps ?? {};
 
   return (
-    <aside
-      {...props}
-      className={classNames('xgc-app-sidebar', className)}
-      data-collapsed={isCollapsed || undefined}
-    >
+    <>
+      <aside
+        {...props}
+        className={classNames('xgc-app-sidebar', className)}
+        data-collapsed={visuallyCollapsed || undefined}
+        data-mobile-mode={mobileMode}
+        data-mobile-open={mobileMode === 'drawer' && mobileOpen || undefined}
+      >
       <div className="xgc-sidebar-brand">
         <button
           {...sidebarToggleProps}
           className={classNames('xgc-sidebar-toggle', toggleClassName)}
           type="button"
-          aria-label={isCollapsed ? expandLabel : collapseLabel}
-          aria-expanded={!isCollapsed}
-          onClick={() => setCollapsed(!isCollapsed)}
+          aria-label={mobileMode === 'drawer' && mobileOpen ? mobileDismissLabel : isCollapsed ? expandLabel : collapseLabel}
+          aria-expanded={mobileMode === 'drawer' && mobileOpen ? true : !isCollapsed}
+          onClick={() => {
+            if (mobileMode === 'drawer' && mobileOpen) onMobileOpenChange?.(false);
+            else setCollapsed(!isCollapsed);
+          }}
         >
           <span className="xgc-sidebar-brand-mark" aria-hidden="true">{brandMark}</span>
-          <span className="xgc-sidebar-brand-label" aria-hidden={isCollapsed}>{brandLabel}</span>
+          <span className="xgc-sidebar-brand-label" aria-hidden={visuallyCollapsed}>{brandLabel}</span>
           <span className="xgc-sidebar-collapse-indicator" aria-hidden="true">‹</span>
         </button>
       </div>
@@ -150,7 +165,17 @@ export function AppSidebar({
           {footer}
         </div>
       ) : null}
-    </aside>
+      </aside>
+      {mobileMode === 'drawer' ? (
+        <button
+          aria-label={mobileDismissLabel}
+          className="xgc-sidebar-backdrop"
+          data-open={mobileOpen || undefined}
+          onClick={() => onMobileOpenChange?.(false)}
+          type="button"
+        />
+      ) : null}
+    </>
   );
 }
 

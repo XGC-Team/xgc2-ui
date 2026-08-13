@@ -9,6 +9,8 @@ export type {
   TopbarProps,
 } from './components/AppShell';
 export { XGC_BREAKPOINTS, XGC_MEDIA_QUERIES, useMediaQuery, useViewportMode } from './hooks/useMediaQuery';
+export { initializeSkin, readStoredSkin, useSkin } from './hooks/useSkin';
+export type { SkinStorageOptions, XGCSkin } from './hooks/useSkin';
 export { AudioCaptureControl, AudioWaveform } from './components/AudioCapture';
 export type {
   AudioCaptureControlProps,
@@ -29,7 +31,15 @@ export { ChoiceCardGroup } from './components/ChoiceCardGroup';
 export type { ChoiceCardGroupProps, ChoiceCardOption } from './components/ChoiceCardGroup';
 export { ColorControl, normalizeHex, XGC_COLOR_CONTROL_PRESETS } from './components/ColorControl';
 export type { ColorControlProps } from './components/ColorControl';
-export { CodeBlock, DataTable, Pagination, SortableDataTable, StatCard, Toolbar } from './components/DataDisplay';
+export { FormSection, FormSectionSpan, InputActionControl, Vector3Control } from './components/CompoundControls';
+export type {
+  FormSectionProps,
+  FormSectionSpanProps,
+  InputActionControlProps,
+  Vector3ControlAxis,
+  Vector3ControlProps,
+} from './components/CompoundControls';
+export { CodeBlock, DataTable, Pagination, SortableDataTable, StatCard, StatCardButton, Toolbar } from './components/DataDisplay';
 export type {
   CodeBlockProps,
   DataTableColumn,
@@ -45,6 +55,7 @@ export type {
   PaginationProps,
   SortableDataTableProps,
   StatCardProps,
+  StatCardButtonProps,
   ToolbarProps,
 } from './components/DataDisplay';
 export { ConfigSection } from './components/ConfigSection';
@@ -62,6 +73,12 @@ export type {
 } from './components/FormControls';
 export { EmptyState, Notice } from './components/Feedback';
 export type { EmptyStateProps, NoticeProps } from './components/Feedback';
+export { NoticeRegion } from './components/NoticeRegion';
+export type { NoticeRegionProps } from './components/NoticeRegion';
+export { Disclosure } from './components/Disclosure';
+export type { DisclosureProps } from './components/Disclosure';
+export { MarkdownContent } from './components/MarkdownContent';
+export type { MarkdownContentProps } from './components/MarkdownContent';
 export { ConfirmationDialog } from './components/ConfirmationDialog';
 export type { ConfirmationDialogProps, ConfirmationDialogRequest } from './components/ConfirmationDialog';
 export { Drawer } from './components/Drawer';
@@ -105,6 +122,8 @@ export type {
   PanelViewPresentation,
   PanelViewSwitcherProps,
 } from './components/PanelViewSwitcher';
+export { ActionMenu, Popover } from './components/Popover';
+export type { ActionMenuItem, ActionMenuProps, PopoverProps } from './components/Popover';
 export { ProductBrand } from './components/ProductBrand';
 export type { ProductBrandProps } from './components/ProductBrand';
 export { ProgressBar } from './components/ProgressBar';
@@ -116,6 +135,8 @@ export type {
 } from './components/ProgressBar';
 export { SelectMenu } from './components/SelectMenu';
 export type { SelectMenuOption, SelectMenuProps } from './components/SelectMenu';
+export { SelectableList, SelectableListItem } from './components/SelectableList';
+export type { SelectableListItemProps, SelectableListProps } from './components/SelectableList';
 export { StatusText } from './components/StatusText';
 export type { StatusTextProps, StatusTone } from './components/StatusText';
 export { DescriptionItem, DescriptionList, ResourceMeter, SettingRow, SettingsList } from './components/StructuredData';
@@ -139,4 +160,7 @@ export type {
 } from './components/WorkflowStatusCard';
 export { Tooltip } from './components/Tooltip';
 export type { TooltipProps } from './components/Tooltip';
+export { TextPromptDialog } from './components/TextPromptDialog';
+export type { TextPromptDialogProps, TextPromptDialogRequest } from './components/TextPromptDialog';
 export { useConfirmationDialog } from './hooks/useConfirmationDialog';
+export { useTextPromptDialog } from './hooks/useTextPromptDialog';

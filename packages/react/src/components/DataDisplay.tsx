@@ -3,6 +3,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type ButtonHTMLAttributes,
   type HTMLAttributes,
   type InputHTMLAttributes,
   type ReactNode,
@@ -18,11 +19,14 @@ export function Toolbar({ className, ...props }: ToolbarProps) {
   return <div {...props} className={classNames('xgc-toolbar', className)} />;
 }
 
-export type StatCardProps = HTMLAttributes<HTMLElement> & {
+type StatCardContentProps = {
   detail?: ReactNode;
   label: ReactNode;
   value: ReactNode;
 };
+
+export type StatCardProps = HTMLAttributes<HTMLElement> & StatCardContentProps;
+export type StatCardButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> & StatCardContentProps;
 
 export function StatCard({ className, detail, label, value, ...props }: StatCardProps) {
   return (
@@ -31,6 +35,17 @@ export function StatCard({ className, detail, label, value, ...props }: StatCard
       <strong className="xgc-stat-card-value">{value}</strong>
       {detail ? <span className="xgc-stat-card-detail">{detail}</span> : null}
     </article>
+  );
+}
+
+/** Clickable statistic with the same surface contract and native button semantics. */
+export function StatCardButton({ className, detail, label, value, ...props }: StatCardButtonProps) {
+  return (
+    <button {...props} className={classNames('xgc-stat-card xgc-stat-card-button', className)} type="button">
+      <span className="xgc-stat-card-label">{label}</span>
+      <strong className="xgc-stat-card-value">{value}</strong>
+      {detail ? <span className="xgc-stat-card-detail">{detail}</span> : null}
+    </button>
   );
 }
 

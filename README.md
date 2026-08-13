@@ -33,14 +33,14 @@ import '@xgc2/ui-react/styles.css';
 import { AudioCaptureControl, Button, FormField, Panel, Select } from '@xgc2/ui-react';
 ```
 
-Applications must set `data-skin="dark"` or `data-skin="light"` on the root HTML element. The workspace intentionally defaults to dark when no skin has been selected.
+Applications initialize `data-skin="dark"` or `data-skin="light"` on the root HTML element with `initializeSkin`, then use `useSkin` for persisted operator changes. Both APIs intentionally default to light when no preference has been selected.
 
 Production consumers install immutable npm tarballs attached to GitHub releases. Relative `file:` dependencies and direct imports from this repository are intentionally unsupported.
 
 ```json
 {
   "dependencies": {
-    "@xgc2/ui-react": "https://github.com/lxk36/xgc2-ui/releases/download/v0.6.0/xgc2-ui-react-0.6.0.tgz"
+    "@xgc2/ui-react": "https://github.com/lxk36/xgc2-ui/releases/download/v0.12.0/xgc2-ui-react-0.12.0.tgz"
   }
 }
 ```
@@ -50,11 +50,11 @@ The React package inlines the token contract into its published stylesheet, so c
 Reusable coverage includes:
 
 - Foundation: theme and material tokens, spacing and type scales, header/control heights, responsive breakpoints, and the global XGC2 scrollbar treatment.
-- Controls: buttons and links, inputs, textarea, selects, labeled fields/groups, checkbox, switch, segmented controls, semantic tabs, editable/reorderable workspace tabs, plain status text, notices, empty states, progress, and theme-aware highlighted code.
-- Data: statistics, toolbars, pagination, sortable/selectable tables with select-all, and a dense log-table page with its own scroll region.
+- Controls: buttons and links, inputs, textarea, selects, labeled fields/groups, finite form sections, input actions, three-axis vector entry, checkbox, switch, segmented controls, semantic tabs, editable/reorderable workspace tabs, plain status text, notices, empty states, progress, and theme-aware highlighted code/Markdown.
+- Data: selectable lists, disclosures, statistics, description/settings lists, toolbars, pagination, sortable/selectable tables with select-all, and a dense log-table page with its own scroll region.
 - Layout: stack, inline, responsive grid, scroll region, fixed operator workspace, section header, panels, responsive split panes, application shell, collapsible sidebar, single-title topbar, breadcrumbs, and internally scrolling resource catalogs.
-- Overlays and media: modal, queued confirmation, dirty-state-aware right drawer, waveform, and audio capture presentation.
-- Spatial editors: an optional workflow package owning canvas viewport defaults, grid, pan/zoom, selection, drag/drop coordinate conversion, empty state, canvas and element toolbars, and editable sticky notes.
+- Overlays and media: modal, queued confirmation and text prompts, viewport-aware popovers/action menus, dirty-state-aware right drawer, waveform, and audio capture presentation.
+- Spatial editors: an optional workflow package owning canvas viewport defaults, grid, pan/zoom, selection, drag/drop coordinate conversion, empty state, neutral node surfaces, canvas and element toolbars, and editable sticky notes.
 
 Product repositories keep routing, transport, device access, permissions, and domain state. Product-local wrappers should disappear once all required behavior exists here; they must not become a second visual system.
 

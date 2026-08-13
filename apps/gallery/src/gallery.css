@@ -10,7 +10,7 @@ body {
 
 .xgc-gallery-story {
   min-height: 100%;
-  padding: var(--space-20);
+  padding: var(--space-2xl);
   color: var(--color-text);
   background: var(--color-bg-app);
 }
@@ -19,29 +19,29 @@ body {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-10);
+  gap: var(--space-lg);
 }
 
 .xgc-gallery-form {
   width: min(420px, 100%);
   display: grid;
-  gap: var(--space-10);
+  gap: var(--space-lg);
 }
 
 .xgc-gallery-data {
   width: min(920px, 100%);
   display: grid;
-  gap: var(--space-12);
+  gap: var(--space-lg);
 }
 
 .xgc-gallery-field {
   display: grid;
-  gap: var(--space-6);
+  gap: var(--space-sm);
   color: var(--color-text-muted);
 }
 
 .xgc-gallery-shell {
-  height: min(680px, calc(100dvh - var(--space-32) * 2));
+  height: min(680px, calc(100dvh - var(--space-3xl) * 2));
   overflow: hidden;
   border: var(--stroke-thin) solid var(--color-border);
   border-radius: var(--radius-card);
@@ -51,7 +51,7 @@ body {
 .xgc-gallery-content-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-12);
+  gap: var(--space-lg);
 }
 
 .xgc-gallery-scroll-region {
@@ -66,18 +66,18 @@ body {
 
 .xgc-gallery-scroll-row {
   min-width: 680px;
-  padding: var(--space-10) var(--space-12);
+  padding: var(--space-lg) var(--space-lg);
   color: var(--color-text-muted);
   border-bottom: var(--stroke-thin) solid var(--color-border-muted);
 }
 
 .xgc-gallery-log-page {
-  height: min(620px, calc(100dvh - var(--space-32) * 2));
+  height: min(620px, calc(100dvh - var(--space-3xl) * 2));
 }
 
 @media (max-width: 720px) {
   .xgc-gallery-story {
-    padding: var(--space-8);
+    padding: var(--space-md);
   }
 
   .xgc-gallery-content-grid {

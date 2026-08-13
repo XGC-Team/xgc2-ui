@@ -31,6 +31,13 @@ import {
 
 `StatusText` renders decision-relevant state as compact, undecorated text. It intentionally has no filled background, enclosing border, capsule radius, or decorative dot.
 
+`SelectableList`, `Disclosure`, `MarkdownContent`, `ActionMenu`, and `Popover`
+own the reusable listbox, disclosure, sanitized Markdown/code, menu, and
+anchored-overlay interactions. `FormSection`, `InputActionControl`,
+`Vector3Control`, `TextPromptDialog`, and `useTextPromptDialog` own recurring
+form composition. Products supply domain data and actions without copying the
+keyboard, portal, placement, focus, theme, or geometry behavior.
+
 `Toolbar`, `StatCard`, `DataTable`, `Pagination`, `LogTablePage`, `ListPage`, `ConfigSection`, `PanelViewSwitcher`, `WorkflowStatusCard`, structured information rows, settings rows, resource meters, and `CodeBlock` cover recurring operational data layouts while leaving data fetching and mutations to consumers. `Breadcrumbs` owns compact hierarchy navigation, while `ButtonLink` gives native navigation links the same geometry as actions.
 
 `Stack`, `Inline`, `ResponsiveGrid`, `ScrollRegion`, `OperatorWorkspace`, and `SectionHeader` own common spacing and fixed-workspace behavior. `Drawer` owns the right-side overlay, fixed header, internally scrolling body, mobile width, focus behavior, and optional dirty-data confirmation. Consumers provide domain form contents and save behavior.

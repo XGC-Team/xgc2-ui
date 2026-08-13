@@ -7,12 +7,12 @@
     "node": ">=22"
   },
   "scripts": {
-    "build": "pnpm -r --if-present build",
+    "build": "pnpm --filter @xgc2/ui-tokens build && pnpm --filter @xgc2/ui-react build && pnpm --filter @xgc2/ui-workflow build && pnpm --filter @xgc2/ui-gallery build",
     "changeset": "changeset",
     "check": "pnpm validate:style-policy && pnpm typecheck && pnpm test && pnpm build",
     "dev": "pnpm --filter @xgc2/ui-tokens build && pnpm --filter @xgc2/ui-react build && pnpm --filter @xgc2/ui-workflow build && pnpm --filter @xgc2/ui-gallery dev",
     "test": "pnpm -r --if-present test",
-    "validate:style-policy": "node scripts/validate-style-policy.mjs",
+    "validate:style-policy": "node --test scripts/style-policy-contract.test.mjs && node scripts/validate-style-policy.mjs",
     "typecheck": "pnpm --filter @xgc2/ui-tokens build && pnpm --filter @xgc2/ui-react build && pnpm --filter @xgc2/ui-workflow build && pnpm -r --if-present typecheck",
     "version-packages": "changeset version"
   },

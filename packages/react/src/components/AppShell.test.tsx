@@ -74,4 +74,20 @@ describe('application shell', () => {
     expect(container.querySelector('.xgc-app-shell')).toHaveAttribute('data-mobile-breakpoint', 'compact');
     expect(container.querySelectorAll('.xgc-responsive-split-pane')).toHaveLength(2);
   });
+
+  it('owns mobile drawer navigation and its dismissal backdrop', () => {
+    const onMobileOpenChange = vi.fn();
+    render(
+      <AppSidebar
+        brandLabel="XGC"
+        brandMark="X"
+        mobileMode="drawer"
+        mobileOpen
+        onMobileOpenChange={onMobileOpenChange}
+      >Navigation</AppSidebar>,
+    );
+    expect(screen.getByRole('complementary')).toHaveAttribute('data-mobile-open', 'true');
+    fireEvent.click(screen.getAllByRole('button', { name: 'Close navigation' })[1]!);
+    expect(onMobileOpenChange).toHaveBeenCalledWith(false);
+  });
 });

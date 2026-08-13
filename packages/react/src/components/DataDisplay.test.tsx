@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { CodeBlock, DataTable, Pagination, SortableDataTable, StatCard, Toolbar } from './DataDisplay';
+import { CodeBlock, DataTable, Pagination, SortableDataTable, StatCard, StatCardButton, Toolbar } from './DataDisplay';
 
 describe('data display primitives', () => {
   afterEach(() => vi.restoreAllMocks());
@@ -39,8 +39,11 @@ describe('data display primitives', () => {
   });
 
   it('renders statistic and toolbar content', () => {
-    render(<><StatCard label="Packages" value="42" detail="focal" /><Toolbar>Filters</Toolbar></>);
+    const onSelect = vi.fn();
+    render(<><StatCard label="Packages" value="42" detail="focal" /><StatCardButton label="Failures" value="2" onClick={onSelect} /><Toolbar>Filters</Toolbar></>);
     expect(screen.getByText('42')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Failures2/i }));
+    expect(onSelect).toHaveBeenCalledOnce();
     expect(screen.getByText('Filters')).toBeInTheDocument();
   });
 

@@ -17,7 +17,11 @@ This document is normative for every XGC2 web frontend. Product CSS may lay out 
 
 ## Spacing and layout
 
-- Products use the shared `--space-*`, type, radius, control-size, and header-size tokens. Repeated local pixel values for page padding, panel gaps, toolbars, grid columns, and chrome heights are technical debt.
+- The spacing vocabulary is deliberately finite: `2xs`, `xs`, `sm`, `md`, `lg`, `xl`, `2xl`, and `3xl`, plus a small set of semantic layout roles such as `--space-panel-padding`. Numeric names such as `--space-7` are prohibited. A token must express a reusable scale step or design decision; it must never be a new name for one product's historical pixel value.
+- The same rule applies to type, radius, elevation, opacity, icon size, and breakpoints: extend a bounded shared scale only when several components need a stable role. SVG coordinates, charts, calibration geometry, and domain simulation dimensions remain local numbers rather than fake design tokens.
+- Products consume shared token values but may not redefine them. Product custom properties must describe genuine domain semantics, not compatibility aliases for shared values.
+- Shared controls expose only five product-level geometry hooks: `--xgc-control-button-padding`, `--xgc-control-button-padding-block`, `--xgc-control-button-padding-inline`, `--xgc-control-height`, and `--xgc-control-input-padding-inline`. Product definitions of any other `--xgc-control-*` property are appearance forks and fail the cross-product style gate.
+- Repeated local pixel values for page padding, panel gaps, toolbars, grid columns, chrome heights, and responsive shell behavior are technical debt.
 - Use `Stack`, `Inline`, and `ResponsiveGrid` for ordinary composition; use `OperatorWorkspace` and `ScrollRegion` for fixed operations pages. A product may add domain layout constraints, but must not redefine shared spacing rhythm.
 - Use `SectionHeader` for a quiet content-level heading and `Panel` for a framed first-level surface. Helper copy belongs in the body, not beside the title in fixed chrome.
 - Toolbar controls use a single shared density. A panel action must not become as tall as its panel header.
@@ -52,6 +56,8 @@ This document is normative for every XGC2 web frontend. Product CSS may lay out 
 - `Checkbox` and `Switch` are different semantics and different visuals. A normal `input[type="checkbox"]` remains a checkbox; global selectors must never paint every checkbox as a switch.
 - Color fields use `ColorControl`; the native picker, validated hex draft, and palette remain theme-consistent. Preview choices use `ChoiceCardGroup`, including radiogroup semantics and arrow-key movement; products provide preview content without rebuilding selection chrome.
 - Use native `Select` for simple form choices. Use shared `SelectMenu` when an operator choice needs grouped options, icons, a portaled popup, or viewport-aware placement; products must not fork its listbox keyboard and positioning behavior.
+- Use shared `ActionMenu` for command menus and `Popover` for non-modal anchored editing surfaces. They own portal placement, viewport clamping, dismissal, focus restoration, roles, and keyboard navigation; product CSS may arrange the contents but may not rebuild the floating surface.
+- Use `FormSection`, `InputActionControl`, and `Vector3Control` for repeated static form groups, inset input actions, and XYZ/RPY entry. Use `TextPromptDialog` or `useTextPromptDialog` for queued text/password prompts.
 - Tooltips use the shared portaled implementation so they are not clipped by panels and drawers. They must remain optional supporting information, dismiss on scroll or Escape, and never be required to understand a control's primary label.
 
 ## Scrolling
@@ -72,6 +78,8 @@ This document is normative for every XGC2 web frontend. Product CSS may lay out 
 - Workflow, topology, orchestration, and other node/edge editors use the optional `@xgc2/ui-workflow` package. The shared package owns viewport sizing, grid, pan/zoom defaults, box and multi-selection behavior, drop-coordinate conversion, empty overlay, and the floating canvas toolbar.
 - Products own domain node schemas, validation, execution semantics, persistence, permissions, and API calls. These concepts must not leak into the shared canvas API.
 - Canvas actions use `WorkflowCanvasToolbar`; node and edge actions use `WorkflowNodeToolbar` or `WorkflowElementToolbar`. Products may supply action icons, wording, and business callbacks but must not create a second toolbar skin, reimplement event isolation, or scatter viewport constants through route CSS.
+- Node implementations compose `WorkflowNodeSurface`. The shared surface owns neutral padding, focus/selection rings, handle affordances, and stable metadata slots; products own node content and domain state without rebuilding its shell or encoding status as a stripe or dot.
+- The two-skin selection palette belongs to `@xgc2/ui-tokens`; the finite abstract tone palette belongs to `@xgc2/ui-workflow`. Products map domain categories to shared tones and reuse global semantic colors for execution meaning. Product skins must not mirror either palette, leak domain taxonomy into shared token names, or keep synonymous `--color-automation-*` aliases.
 - Lightweight authoring notes use `WorkflowStickyNote`. Products may persist note data in their own schema, but selection, resizing, editing, keyboard completion, deletion, and the note skin remain shared behavior.
 
 ## Feedback and progress
@@ -83,4 +91,4 @@ This document is normative for every XGC2 web frontend. Product CSS may lay out 
 
 ## Review gate
 
-A UI change is incomplete if it introduces copied foundation controls, a left selection stripe, decorative healthy-state chrome, a second title in the topbar, prominent nested code headers, or document-level scrolling in a fixed operator workspace.
+A UI change is incomplete if it introduces copied foundation controls, product CSS selectors that pierce `.xgc-*` shared internals, shared-token redefinitions, numeric pseudo tokens, a left selection stripe, decorative healthy-state chrome, a second title in the topbar, prominent nested code headers, or document-level scrolling in a fixed operator workspace.
