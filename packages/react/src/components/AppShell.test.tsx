@@ -188,4 +188,72 @@ describe('application shell', () => {
     fireEvent.keyDown(close, { key: 'Tab', shiftKey: true });
     expect(last).toHaveFocus();
   });
+
+  it('cancels stale opening focus when the drawer closes immediately', async () => {
+    useMobileViewport();
+    function MobileNavigation() {
+      const [open, setOpen] = useState(false);
+      return (
+        <>
+          <button onClick={() => setOpen(true)} type="button">Open immediately</button>
+          <AppSidebar brandLabel="XGC" brandMark="X" mobileMode="drawer" mobileOpen={open} onMobileOpenChange={setOpen}>
+            <button type="button">Action</button>
+          </AppSidebar>
+        </>
+      );
+    }
+
+    render(<MobileNavigation />);
+    const trigger = screen.getByRole('button', { name: 'Open immediately' });
+    trigger.focus();
+    fireEvent.click(trigger);
+    const drawer = screen.getByRole('complementary');
+    const drawerToggle = screen.getAllByRole('button', { name: 'Close navigation' })[0]!;
+    const staleFocus = vi.spyOn(drawerToggle, 'focus');
+    fireEvent.keyDown(drawer, { key: 'Escape' });
+
+    await waitFor(() => expect(trigger).toHaveFocus());
+    expect(staleFocus).not.toHaveBeenCalled();
+    expect(screen.getByRole('complementary', { hidden: true })).toHaveAttribute('inert');
+  });
+
+  it('cancels queued drawer focus and restores the trigger across immediate close and unmount', async () => {
+    useMobileViewport();
+    function MobileNavigation() {
+      const [open, setOpen] = useState(false);
+      const [visible, setVisible] = useState(true);
+      return (
+        <>
+          <button onClick={() => setOpen(true)} type="button">Open transient</button>
+          {visible ? (
+            <AppSidebar
+              brandLabel="XGC"
+              brandMark="X"
+              mobileMode="drawer"
+              mobileOpen={open}
+              onMobileOpenChange={(next) => {
+                setOpen(next);
+                if (!next) setVisible(false);
+              }}
+            >
+              <button type="button">Action</button>
+            </AppSidebar>
+          ) : null}
+        </>
+      );
+    }
+
+    render(<MobileNavigation />);
+    const trigger = screen.getByRole('button', { name: 'Open transient' });
+    trigger.focus();
+    fireEvent.click(trigger);
+    const drawer = screen.getByRole('complementary');
+    const drawerToggle = screen.getAllByRole('button', { name: 'Close navigation' })[0]!;
+    const staleFocus = vi.spyOn(drawerToggle, 'focus');
+    fireEvent.keyDown(drawer, { key: 'Escape' });
+
+    await waitFor(() => expect(trigger).toHaveFocus());
+    expect(staleFocus).not.toHaveBeenCalled();
+    expect(screen.queryByRole('complementary', { hidden: true })).not.toBeInTheDocument();
+  });
 });

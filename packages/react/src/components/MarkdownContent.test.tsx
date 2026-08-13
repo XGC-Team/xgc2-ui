@@ -53,4 +53,31 @@ describe('MarkdownContent', () => {
     expect(container.querySelector('img, script, a')).toBeNull();
     expect(container.querySelector('[onerror], [onclick]')).toBeNull();
   });
+
+  it('nests child lists inside their owning list items across mixed levels', () => {
+    const { container } = render(
+      <MarkdownContent source={'- parent\n  1. first child\n  2. second child\n    - grandchild\n- sibling'} />,
+    );
+
+    const root = container.querySelector('.xgc-markdown-fragment > ul');
+    const nestedOrdered = root?.querySelector(':scope > li:first-child > ol');
+    const nestedUnordered = nestedOrdered?.querySelector(':scope > li:nth-child(2) > ul');
+    expect(root?.children).toHaveLength(2);
+    expect(nestedOrdered?.children).toHaveLength(2);
+    expect(nestedUnordered?.parentElement?.tagName).toBe('LI');
+    expect(nestedUnordered).toHaveTextContent('grandchild');
+  });
+
+  it('keeps nested task lists valid when returning to a parent level', () => {
+    const { container } = render(
+      <MarkdownContent source={'- [ ] parent task\n  - [x] child task\n- [x] sibling task'} />,
+    );
+
+    const root = container.querySelector('.xgc-markdown-fragment > ul');
+    const child = root?.querySelector(':scope > li:first-child > ul');
+    expect(root?.children).toHaveLength(2);
+    expect(child?.parentElement?.tagName).toBe('LI');
+    expect(child?.querySelector('input')).toBeChecked();
+    expect(root?.querySelectorAll(':scope > li.xgc-markdown-task')).toHaveLength(2);
+  });
 });

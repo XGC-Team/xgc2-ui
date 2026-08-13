@@ -21,3 +21,11 @@ test('publishes only new package assets and refuses mutable release state', () =
   assert.match(workflow, /tag .* does not match package version/);
   assert.match(workflow, /require\('\.\/packages\/\$\{package\}\/package\.json'\)\.version/);
 });
+
+test('pins every release action to an immutable full commit', () => {
+  const actionReferences = [...workflow.matchAll(/^\s*-\s+uses:\s*([^\s#]+)/gm)].map((match) => match[1]);
+  assert.ok(actionReferences.length > 0, 'release workflow must declare its actions');
+  for (const reference of actionReferences) {
+    assert.match(reference, /^[^@\s]+@[0-9a-f]{40}$/, `floating release action: ${reference}`);
+  }
+});

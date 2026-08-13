@@ -128,11 +128,15 @@ export function AppSidebar({
   const [internalCollapsed, setInternalCollapsed] = useState(defaultCollapsed);
   const sidebarRef = useRef<HTMLElement>(null);
   const sidebarToggleRef = useRef<HTMLButtonElement>(null);
+  const focusEpochRef = useRef(0);
+  const focusMountedRef = useRef(true);
+  const mobileDrawerOpenRef = useRef(false);
   const mobileOpenTriggerRef = useRef<HTMLElement | null>(null);
   const wasMobileOpenRef = useRef(false);
   const mobileViewport = useMediaQuery(XGC_MEDIA_QUERIES.mobile);
   const isMobileDrawer = mobileMode === 'drawer' && mobileViewport;
   const isMobileDrawerOpen = isMobileDrawer && mobileOpen;
+  mobileDrawerOpenRef.current = isMobileDrawerOpen;
   const isMobileDrawerClosed = isMobileDrawer && !mobileOpen;
   const isCollapsed = collapsed ?? internalCollapsed;
   const visuallyCollapsed = isCollapsed && !(mobileMode === 'drawer' && mobileOpen);
@@ -144,21 +148,40 @@ export function AppSidebar({
 
   useEffect(() => {
     const wasOpen = wasMobileOpenRef.current;
+    const focusEpoch = ++focusEpochRef.current;
     if (isMobileDrawerOpen && !wasOpen) {
       const activeElement = document.activeElement;
       if (activeElement instanceof HTMLElement && !sidebarRef.current?.contains(activeElement)) {
         mobileOpenTriggerRef.current = activeElement;
       }
-      queueMicrotask(() => sidebarToggleRef.current?.focus());
+      queueMicrotask(() => {
+        if (focusMountedRef.current
+          && focusEpochRef.current === focusEpoch
+          && mobileDrawerOpenRef.current) sidebarToggleRef.current?.focus();
+      });
     } else if (!isMobileDrawerOpen && wasOpen) {
       const trigger = mobileOpenTriggerRef.current;
-      mobileOpenTriggerRef.current = null;
-      queueMicrotask(() => trigger?.focus());
+      queueMicrotask(() => {
+        if (focusMountedRef.current
+          && focusEpochRef.current === focusEpoch
+          && !mobileDrawerOpenRef.current) {
+          trigger?.focus();
+          if (mobileOpenTriggerRef.current === trigger) mobileOpenTriggerRef.current = null;
+        }
+      });
     }
     wasMobileOpenRef.current = isMobileDrawerOpen;
   }, [isMobileDrawerOpen]);
 
-  useEffect(() => () => mobileOpenTriggerRef.current?.focus(), []);
+  useEffect(() => {
+    focusMountedRef.current = true;
+    return () => {
+      focusMountedRef.current = false;
+      focusEpochRef.current += 1;
+      mobileOpenTriggerRef.current?.focus();
+      mobileOpenTriggerRef.current = null;
+    };
+  }, []);
 
   return (
     <>

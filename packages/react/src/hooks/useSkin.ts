@@ -51,11 +51,13 @@ function subscribeToSkin(storageKey: string, listener: () => void) {
 
 export function readStoredSkin({ defaultSkin = 'light', storageKey = 'xgc2.skin' }: SkinStorageOptions = {}): XGCSkin {
   if (typeof window === 'undefined') return defaultSkin;
+  const volatile = volatileSkinValues.get(storageKey);
+  if (volatile) return volatile;
   try {
     const stored = window.localStorage.getItem(storageKey);
-    return validSkin(stored) ? stored : volatileSkinValues.get(storageKey) ?? defaultSkin;
+    return validSkin(stored) ? stored : defaultSkin;
   } catch {
-    return volatileSkinValues.get(storageKey) ?? defaultSkin;
+    return defaultSkin;
   }
 }
 
@@ -80,8 +82,12 @@ export function useSkin(options: SkinStorageOptions = {}) {
     if (!validSkin(resolved)) throw new TypeError(`Unsupported XGC skin: ${String(resolved)}`);
     try {
       window.localStorage.setItem(storageKey, resolved);
+      // A successful write proves persistence has recovered and retires any
+      // same-document value retained after an earlier failed write.
       volatileSkinValues.delete(storageKey);
     } catch {
+      // The operator's latest choice remains authoritative for this document,
+      // even when an older persistent value is still readable.
       volatileSkinValues.set(storageKey, resolved);
     }
     if (typeof document !== 'undefined') document.documentElement.dataset.skin = resolved;

@@ -87,4 +87,48 @@ describe('skin contract', () => {
     expect(readStoredSkin({ storageKey: 'blocked.skin' })).toBe('dark');
     expect(document.documentElement.dataset.skin).toBe('dark');
   });
+
+  it('keeps a failed write authoritative over an older readable value until persistence recovers', () => {
+    localStorage.setItem('read-only.skin', 'light');
+    const first = renderHook(() => useSkin({ storageKey: 'read-only.skin' }));
+    const second = renderHook(() => useSkin({ storageKey: 'read-only.skin' }));
+    const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('Storage is now read-only', 'SecurityError');
+    });
+
+    act(() => first.result.current[1]('dark'));
+    expect(localStorage.getItem('read-only.skin')).toBe('light');
+    expect(first.result.current[0]).toBe('dark');
+    expect(second.result.current[0]).toBe('dark');
+    expect(document.documentElement.dataset.skin).toBe('dark');
+
+    setItem.mockRestore();
+    act(() => second.result.current[1]('light'));
+    expect(localStorage.getItem('read-only.skin')).toBe('light');
+    expect(first.result.current[0]).toBe('light');
+    expect(second.result.current[0]).toBe('light');
+  });
+
+  it('lets a later external storage event replace a volatile same-document value', () => {
+    localStorage.setItem('event.skin', 'light');
+    const { result } = renderHook(() => useSkin({ storageKey: 'event.skin' }));
+    const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('Storage is read-only', 'SecurityError');
+    });
+    act(() => result.current[1]('dark'));
+    expect(result.current[0]).toBe('dark');
+
+    setItem.mockRestore();
+    act(() => {
+      localStorage.setItem('event.skin', 'light');
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: 'event.skin',
+        newValue: 'light',
+        oldValue: 'dark',
+        storageArea: localStorage,
+      }));
+    });
+    expect(result.current[0]).toBe('light');
+    expect(document.documentElement.dataset.skin).toBe('light');
+  });
 });

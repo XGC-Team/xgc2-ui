@@ -58,4 +58,53 @@ describe('SelectableList', () => {
     const options = screen.getAllByRole('option');
     expect(options.map((option) => option.tabIndex)).toEqual([-1, 0, -1]);
   });
+
+  it('preserves the active identity across insertion and reordering', () => {
+    const { rerender } = render(
+      <SelectableList aria-label="Growing documents">
+        <SelectableListItem key="first" title="First" />
+        <SelectableListItem key="second" title="Second" />
+      </SelectableList>,
+    );
+    const initial = screen.getAllByRole('option');
+    fireEvent.keyDown(initial[0]!, { key: 'ArrowDown' });
+
+    rerender(
+      <SelectableList aria-label="Growing documents">
+        <SelectableListItem key="second" title="Second" />
+        <SelectableListItem key="new" title="New" />
+        <SelectableListItem key="first" title="First" />
+      </SelectableList>,
+    );
+    const reordered = screen.getAllByRole('option');
+    expect(reordered.map((option) => option.tabIndex)).toEqual([0, -1, -1]);
+    expect(reordered[0]).toHaveFocus();
+  });
+
+  it('chooses one enabled fallback when the active option is disabled or deleted', () => {
+    const { rerender } = render(
+      <SelectableList aria-label="Changing documents">
+        <SelectableListItem key="first" title="First" />
+        <SelectableListItem key="second" title="Second" />
+      </SelectableList>,
+    );
+    fireEvent.keyDown(screen.getAllByRole('option')[0]!, { key: 'ArrowDown' });
+
+    rerender(
+      <SelectableList aria-label="Changing documents">
+        <SelectableListItem key="first" title="First" />
+        <SelectableListItem disabled key="second" title="Second" />
+        <SelectableListItem key="third" title="Third" />
+      </SelectableList>,
+    );
+    expect(screen.getAllByRole('option').map((option) => option.tabIndex)).toEqual([0, -1, -1]);
+
+    rerender(
+      <SelectableList aria-label="Changing documents">
+        <SelectableListItem disabled key="second" title="Second" />
+        <SelectableListItem key="third" title="Third" />
+      </SelectableList>,
+    );
+    expect(screen.getAllByRole('option').map((option) => option.tabIndex)).toEqual([-1, 0]);
+  });
 });

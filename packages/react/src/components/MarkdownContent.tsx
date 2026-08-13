@@ -39,12 +39,14 @@ function inlineMarkdown(value: string): string {
 function markdownHtml(source: string): string {
   const escaped = escapeHtml(source.replace(/<!--[\s\S]*?-->/g, ''));
   const output: string[] = [];
-  const listStack: Array<{ indent: number; type: 'ol' | 'ul' }> = [];
+  const listStack: Array<{ indent: number; liOpen: boolean; type: 'ol' | 'ul' }> = [];
   let tableRows: string[] = [];
 
   const closeLists = (indent = -1) => {
     while (listStack.length && listStack[listStack.length - 1]!.indent > indent) {
-      output.push(`</${listStack.pop()!.type}>`);
+      const level = listStack.pop()!;
+      if (level.liOpen) output.push('</li>');
+      output.push(`</${level.type}>`);
     }
   };
   const splitTableRow = (row: string) => row.trim().replace(/^\||\|$/g, '').split('|').map((cell) => cell.trim());
@@ -91,21 +93,29 @@ function markdownHtml(source: string): string {
       const current = listStack.at(-1);
       if (!current || current.indent < indent) {
         output.push(`<${type}>`);
-        listStack.push({ indent, type });
+        listStack.push({ indent, liOpen: false, type });
       } else {
         closeLists(indent);
         const sameDepth = listStack.at(-1);
-        if (sameDepth && sameDepth.type !== type) {
+        if (sameDepth?.indent === indent && sameDepth.liOpen) {
+          output.push('</li>');
+          sameDepth.liOpen = false;
+        }
+        if (sameDepth?.indent === indent && sameDepth.type !== type) {
           output.push(`</${sameDepth.type}>`);
           listStack.pop();
           output.push(`<${type}>`);
-          listStack.push({ indent, type });
+          listStack.push({ indent, liOpen: false, type });
+        } else if (!sameDepth || sameDepth.indent < indent) {
+          output.push(`<${type}>`);
+          listStack.push({ indent, liOpen: false, type });
         }
       }
       const task = list[3]!.match(/^\s*\[( |x|X)\]\s+(.*)$/);
       output.push(task
-        ? `<li class="xgc-markdown-task"><input type="checkbox" disabled${task[1]!.toLowerCase() === 'x' ? ' checked' : ''}> ${inlineMarkdown(task[2]!)}</li>`
-        : `<li>${inlineMarkdown(list[3]!)}</li>`);
+        ? `<li class="xgc-markdown-task"><input type="checkbox" disabled${task[1]!.toLowerCase() === 'x' ? ' checked' : ''}> ${inlineMarkdown(task[2]!)}`
+        : `<li>${inlineMarkdown(list[3]!)}`);
+      listStack[listStack.length - 1]!.liOpen = true;
       continue;
     }
     closeLists();

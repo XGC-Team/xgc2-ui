@@ -1,4 +1,4 @@
-import { Children, cloneElement, isValidElement } from 'react';
+import { Children, cloneElement, isValidElement, useEffect, useState } from 'react';
 import type { ButtonHTMLAttributes, HTMLAttributes, KeyboardEvent, ReactElement, ReactNode } from 'react';
 import { classNames } from '../utils';
 
@@ -16,13 +16,27 @@ export function SelectableList({
   ...props
 }: SelectableListProps) {
   const items = Children.toArray(children);
-  const options = items.filter(isSelectableListItem);
-  const tabStop = options.find((option) => !option.props.disabled && option.props.tabIndex === 0)
-    ?? options.find((option) => !option.props.disabled && option.props.selected)
-    ?? options.find((option) => !option.props.disabled);
+  const options = items.flatMap((child, index) => isSelectableListItem(child) ? [{
+    child,
+    enabled: !child.props.disabled,
+    key: String(child.key ?? index),
+  }] : []);
+  const preferredTabStop = options.find((option) => option.enabled && option.child.props.tabIndex === 0)
+    ?? options.find((option) => option.enabled && option.child.props.selected)
+    ?? options.find((option) => option.enabled);
+  const [activeKey, setActiveKey] = useState<string | null>(() => preferredTabStop?.key ?? null);
+  const tabStopKey = options.some((option) => option.enabled && option.key === activeKey)
+    ? activeKey
+    : preferredTabStop?.key ?? null;
+
+  useEffect(() => {
+    if (activeKey !== tabStopKey) setActiveKey(tabStopKey);
+  }, [activeKey, tabStopKey]);
+
   const rovingChildren = items.map((child) => {
     if (!isSelectableListItem(child)) return child;
-    return cloneElement(child, { tabIndex: child === tabStop ? 0 : -1 });
+    const option = options.find((candidate) => candidate.child === child);
+    return cloneElement(child, { tabIndex: option?.enabled && option.key === tabStopKey ? 0 : -1 });
   });
 
   const moveFocus = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -30,20 +44,21 @@ export function SelectableList({
     if (event.defaultPrevented) return;
     const target = event.target as HTMLElement;
     if (target.getAttribute('role') !== 'option') return;
-    const options = [...event.currentTarget.querySelectorAll<HTMLElement>('[role="option"]:not(:disabled)')];
-    const current = options.indexOf(target);
+    const enabledOptions = options.filter((option) => option.enabled);
+    const enabledElements = [...event.currentTarget.querySelectorAll<HTMLElement>('[role="option"]:not(:disabled)')];
+    const current = enabledElements.indexOf(target);
     const previousKey = orientation === 'horizontal' ? 'ArrowLeft' : 'ArrowUp';
     const nextKey = orientation === 'horizontal' ? 'ArrowRight' : 'ArrowDown';
     let next = current;
     if (event.key === previousKey) next = Math.max(0, current - 1);
-    else if (event.key === nextKey) next = Math.min(options.length - 1, current + 1);
+    else if (event.key === nextKey) next = Math.min(enabledOptions.length - 1, current + 1);
     else if (event.key === 'Home') next = 0;
-    else if (event.key === 'End') next = options.length - 1;
+    else if (event.key === 'End') next = enabledOptions.length - 1;
     else return;
     event.preventDefault();
-    setRovingTabStop(options, options[next]);
-    options[next]?.focus();
-    options[next]?.click();
+    setActiveKey(enabledOptions[next]?.key ?? null);
+    enabledElements[next]?.focus();
+    enabledElements[next]?.click();
   };
 
   return (
@@ -58,10 +73,8 @@ export function SelectableList({
         if (event.defaultPrevented) return;
         const target = event.target as HTMLElement;
         if (target.getAttribute('role') !== 'option' || target.matches(':disabled')) return;
-        setRovingTabStop(
-          [...event.currentTarget.querySelectorAll<HTMLElement>('[role="option"]')],
-          target,
-        );
+        const optionIndex = [...event.currentTarget.querySelectorAll<HTMLElement>('[role="option"]')].indexOf(target);
+        setActiveKey(options[optionIndex]?.key ?? null);
       }}
       onKeyDown={moveFocus}
       role="listbox"
@@ -113,8 +126,4 @@ export function SelectableListItem({
 
 function isSelectableListItem(node: ReactNode): node is ReactElement<SelectableListItemProps> {
   return isValidElement<SelectableListItemProps>(node) && node.type === SelectableListItem;
-}
-
-function setRovingTabStop(options: HTMLElement[], active: HTMLElement | undefined) {
-  for (const option of options) option.tabIndex = option === active && !option.matches(':disabled') ? 0 : -1;
 }
