@@ -1,6 +1,7 @@
 name: Release UI packages
 
 on:
+  workflow_dispatch:
   push:
     tags:
       - 'v*'
@@ -35,27 +36,33 @@ jobs:
             echo "release tag ${GITHUB_REF_NAME} does not resolve to the checked-out commit" >&2
             exit 1
           fi
+          git fetch origin main
+          if ! git merge-base --is-ancestor "${GITHUB_REF_NAME}^{commit}" origin/main; then
+            echo "release tag ${GITHUB_REF_NAME} must resolve to a commit on main" >&2
+            exit 1
+          fi
       - name: Pack only packages changed since the preceding immutable release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           mkdir -p release-assets
-          previous_tag="$(gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" --jq '[.[] | select(.draft == false and (.tag_name | test("^v[0-9]")))] | first | .tag_name // ""')"
+          gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/releases?per_page=100" > releases.json
+          previous_tag="$(node scripts/validate-release-delta.mjs --releases releases.json --scope package --print-base)"
           for package in tokens react workflow; do
-            if [[ -n "${previous_tag}" ]] && git diff --quiet "${previous_tag}" "${GITHUB_REF_NAME}" -- \
+            set +e
+            git diff --quiet "${previous_tag}" "${GITHUB_REF_NAME}" -- \
               "packages/${package}" \
-              ":(exclude)packages/${package}/CHANGELOG.md"; then
+              ":(exclude)packages/${package}/CHANGELOG.md"
+            diff_status="$?"
+            set -e
+            if [[ "${diff_status}" == "0" ]]; then
               echo "reusing unchanged @xgc2/ui-${package} from ${previous_tag}"
               continue
             fi
-            if [[ -n "${previous_tag}" ]] && git cat-file -e "${previous_tag}:packages/${package}/package.json" 2>/dev/null; then
-              current_version="$(node -p "require('./packages/${package}/package.json').version")"
-              previous_version="$(git show "${previous_tag}:packages/${package}/package.json" | node -e "let source=''; process.stdin.on('data', (chunk) => { source += chunk; }); process.stdin.on('end', () => process.stdout.write(JSON.parse(source).version));")"
-              if [[ "${current_version}" == "${previous_version}" ]]; then
-                echo "@xgc2/ui-${package} changed since ${previous_tag} without a version bump (${current_version})" >&2
-                exit 1
-              fi
+            if [[ "${diff_status}" != "1" ]]; then
+              echo "could not diff @xgc2/ui-${package} from ${previous_tag}" >&2
+              exit "${diff_status}"
             fi
             pnpm --filter "@xgc2/ui-${package}" pack --pack-destination release-assets
           done
@@ -66,12 +73,21 @@ jobs:
       - name: Reject an existing release or asset namespace
         env:
           GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
           RUN_ATTEMPT: ${{ github.run_attempt }}
           TAG_CREATED: ${{ github.event.created }}
         run: |
           set -euo pipefail
-          if [[ "${TAG_CREATED}" != "true" || "${RUN_ATTEMPT}" != "1" ]]; then
-            echo "release tags are immutable; only the first run for a newly created tag may publish" >&2
+          if [[ "${RUN_ATTEMPT}" != "1" ]]; then
+            echo "release tags are immutable; only the first run may publish" >&2
+            exit 1
+          fi
+          if [[ "${EVENT_NAME}" == "push" && "${TAG_CREATED}" != "true" ]]; then
+            echo "a tag-push release must come from a newly created tag" >&2
+            exit 1
+          fi
+          if [[ "${EVENT_NAME}" != "push" && "${EVENT_NAME}" != "workflow_dispatch" ]]; then
+            echo "unsupported release event ${EVENT_NAME}" >&2
             exit 1
           fi
           release_error="$(mktemp)"

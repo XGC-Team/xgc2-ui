@@ -1,6 +1,7 @@
 name: Release UI policy
 
 on:
+  workflow_dispatch:
   push:
     tags:
       - 'policy-v*'
@@ -35,6 +36,18 @@ jobs:
             echo "policy tag ${GITHUB_REF_NAME} does not resolve to the checked-out commit" >&2
             exit 1
           fi
+          git fetch origin main
+          if ! git merge-base --is-ancestor "${GITHUB_REF_NAME}^{commit}" origin/main; then
+            echo "policy tag ${GITHUB_REF_NAME} must resolve to a commit on main" >&2
+            exit 1
+          fi
+      - name: Require the matching immutable React package family
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/releases?per_page=100" > releases.json
+          node scripts/validate-release-delta.mjs --releases releases.json --scope policy --require-current-package
       - name: Pack the version-locked policy
         run: |
           set -euo pipefail
@@ -43,12 +56,21 @@ jobs:
       - name: Reject an existing release or asset namespace
         env:
           GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
           RUN_ATTEMPT: ${{ github.run_attempt }}
           TAG_CREATED: ${{ github.event.created }}
         run: |
           set -euo pipefail
-          if [[ "${TAG_CREATED}" != "true" || "${RUN_ATTEMPT}" != "1" ]]; then
-            echo "policy releases are immutable; only a newly created tag may publish" >&2
+          if [[ "${RUN_ATTEMPT}" != "1" ]]; then
+            echo "policy releases are immutable; only the first run may publish" >&2
+            exit 1
+          fi
+          if [[ "${EVENT_NAME}" == "push" && "${TAG_CREATED}" != "true" ]]; then
+            echo "a policy tag-push release must come from a newly created tag" >&2
+            exit 1
+          fi
+          if [[ "${EVENT_NAME}" != "push" && "${EVENT_NAME}" != "workflow_dispatch" ]]; then
+            echo "unsupported policy release event ${EVENT_NAME}" >&2
             exit 1
           fi
           version="$(node -p "require('./packages/policy/package.json').version")"

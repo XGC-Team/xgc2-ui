@@ -68,6 +68,19 @@ or a package tag alone is not a deployable family.
 xgc2-style-policy --root src --html index.html
 ```
 
+Release tags are created from the current protected `main` commit through the
+`Prepare immutable release tag` workflow. It validates the release delta,
+creates an annotated tag, then explicitly dispatches the matching publisher
+(tag pushes made with GitHub's workflow token do not start another workflow).
+The package and policy publishers reject lightweight tags or commits outside
+`main`. The immutable-tag ruleset prevents
+updates and deletion after creation. GitHub evaluates tag-push workflows only
+after a ref exists, so a manually pushed malformed tag could still consume an
+otherwise unused namespace even though it cannot publish an asset. Manual tag
+creation is therefore prohibited; where organization rulesets support an
+integration-only creation bypass, that bypass should be limited to GitHub
+Actions and this workflow.
+
 Reusable coverage includes:
 
 - Foundation: theme and material tokens, spacing and type scales, semantic geometry, header/control heights, generated responsive breakpoints, and the global XGC2 scrollbar treatment.

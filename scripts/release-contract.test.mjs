@@ -9,13 +9,16 @@ const packages = await Promise.all(['tokens', 'react', 'workflow', 'policy'].map
 const workflow = await readFile(new URL('.github/workflows/release.yml', root), 'utf8');
 const policyWorkflow = await readFile(new URL('.github/workflows/release-policy.yml', root), 'utf8');
 const ciWorkflow = await readFile(new URL('.github/workflows/ci.yml', root), 'utf8');
+const prepareWorkflow = await readFile(new URL('.github/workflows/prepare-release.yml', root), 'utf8');
 const readme = await readFile(new URL('README.md', root), 'utf8');
 const tokensChangelog = await readFile(new URL('packages/tokens/CHANGELOG.md', root), 'utf8');
 const reactChangelog = await readFile(new URL('packages/react/CHANGELOG.md', root), 'utf8');
 const workflowChangelog = await readFile(new URL('packages/workflow/CHANGELOG.md', root), 'utf8');
+const releaseDelta = await readFile(new URL('scripts/validate-release-delta.mjs', root), 'utf8');
 
 const workflowSources = new Map([
   ['CI', ciWorkflow],
+  ['release preparation', prepareWorkflow],
   ['package release', workflow],
   ['policy release', policyWorkflow],
 ]);
@@ -51,11 +54,12 @@ test('keeps the prepared package family internally coherent', () => {
 test('publishes only new package assets and refuses mutable release state', () => {
   assert.doesNotMatch(workflow, /--clobber|release\s+upload/);
   assert.doesNotMatch(workflow, /git describe/);
-  assert.match(workflow, /releases\?per_page=100/);
-  assert.match(workflow, /\^v\[0-9\]/);
-  assert.match(workflow, /changed since .* without a version bump/);
+  assert.match(workflow, /gh api --paginate --slurp/);
+  assert.match(workflow, /validate-release-delta\.mjs --releases .* --scope package --print-base/);
   assert.match(workflow, /\(exclude\)packages\/\$\{package\}\/CHANGELOG\.md/);
   assert.match(workflow, /git cat-file -e "\$\{GITHUB_REF_NAME\}\^\{tag\}"/);
+  assert.match(workflow, /git merge-base --is-ancestor .* origin\/main/);
+  assert.match(workflow, /diff_status="\$\?"/);
   assert.match(workflow, /TAG_CREATED:\s*\$\{\{ github\.event\.created \}\}/);
   assert.match(workflow, /RUN_ATTEMPT:\s*\$\{\{ github\.run_attempt \}\}/);
   assert.match(workflow, /"\$\{RUN_ATTEMPT\}" != "1"/);
@@ -96,13 +100,30 @@ test('publishes policy under a separate immutable tag namespace', () => {
   assert.match(policyWorkflow, /RUN_ATTEMPT:\s*\$\{\{ github\.run_attempt \}\}/);
   assert.match(policyWorkflow, /xgc2-ui-policy-\$\{version\}\.tgz/);
   assert.match(policyWorkflow, /git cat-file -e "\$\{GITHUB_REF_NAME\}\^\{tag\}"/);
+  assert.match(policyWorkflow, /git merge-base --is-ancestor .* origin\/main/);
+  assert.match(policyWorkflow, /--scope policy --require-current-package/);
   assert.match(policyWorkflow, /gh release create/);
   assert.doesNotMatch(policyWorkflow, /--clobber|release\s+upload/);
 });
 
 test('CI rejects package drift against the latest successful release families', () => {
   assert.match(ciWorkflow, /fetch-depth:\s*0/);
-  assert.match(ciWorkflow, /\^v\[0-9\]/);
-  assert.match(ciWorkflow, /\^policy-v\[0-9\]/);
-  assert.match(ciWorkflow, /validate-release-delta\.mjs --package-base/);
+  assert.match(ciWorkflow, /gh api --paginate --slurp/);
+  assert.match(ciWorkflow, /validate-release-delta\.mjs --releases releases\.json/);
+  assert.match(releaseDelta, /release\.draft \|\| release\.prerelease \|\| !release\.published_at/);
+  assert.match(releaseDelta, /xgc2-ui-react-\$\{version\}\.tgz/);
+  assert.match(releaseDelta, /xgc2-ui-policy-\$\{version\}\.tgz/);
+  assert.match(releaseDelta, /merge-base', '--is-ancestor'/);
+  assert.match(releaseDelta, /if \(comparison < 0\)/);
+  assert.match(releaseDelta, /if \(result\.status === 1\) return true/);
+});
+
+test('prepares release tags through a reviewed annotated main-only path', () => {
+  assert.match(prepareWorkflow, /workflow_dispatch:/);
+  assert.match(prepareWorkflow, /if: github\.ref == 'refs\/heads\/main'/);
+  assert.match(prepareWorkflow, /validate-release-delta\.mjs --releases releases\.json --scope package --require-changes/);
+  assert.match(prepareWorkflow, /--scope policy --require-current-package --require-changes/);
+  assert.match(prepareWorkflow, /git tag -a "\$\{TAG\}"/);
+  assert.match(prepareWorkflow, /git push origin "refs\/tags\/\$\{TAG\}"/);
+  assert.match(prepareWorkflow, /gh workflow run "\$\{workflow\}" .* --ref "\$\{TAG\}"/);
 });

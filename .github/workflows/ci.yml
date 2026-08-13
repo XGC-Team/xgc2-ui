@@ -28,8 +28,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          releases="$(gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100")"
-          package_base="$(node -e 'const releases=JSON.parse(process.argv[1]); process.stdout.write(releases.find((release) => !release.draft && /^v[0-9]/.test(release.tag_name))?.tag_name ?? "")' "${releases}")"
-          policy_base="$(node -e 'const releases=JSON.parse(process.argv[1]); process.stdout.write(releases.find((release) => !release.draft && /^policy-v[0-9]/.test(release.tag_name))?.tag_name ?? "")' "${releases}")"
-          node scripts/validate-release-delta.mjs --package-base "${package_base}" --policy-base "${policy_base}"
+          gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/releases?per_page=100" > releases.json
+          node scripts/validate-release-delta.mjs --releases releases.json
       - run: pnpm check
