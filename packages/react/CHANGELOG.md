@@ -1,5 +1,22 @@
 # @xgc2/ui-react
 
+## 0.14.0
+
+### Major corrective release
+
+- Enforce one enabled roving listbox tab stop even when selection or explicit
+  tab indexes conflict.
+- Parse divider-free Markdown tables without dropping their first row and reject
+  malformed table structures while preserving escaped source text.
+- Complete mobile drawer modality with inert closed state, Escape dismissal,
+  cyclic focus trapping, and trigger-focus restoration.
+- Make queued text prompts identity-bound and exactly-once across stale callbacks,
+  duplicate settlement, and unmount.
+- Make skin persistence reactive to storage-key changes, external storage
+  events, and same-document hooks through one subscription authority.
+- Give statistic buttons an explicitly spaced accessible name and consume the
+  generated breakpoint and semantic geometry contracts.
+
 ## 0.13.1
 
 ### Patch Changes

@@ -46,8 +46,10 @@ The spatial rhythm is intentionally bounded to `--space-2xs`, `--space-xs`,
 `--space-3xl`. Semantic aliases such as `--space-panel-padding` encode a
 family-wide role. Numeric aliases (`--space-7`) and one-off tokens mirroring a
 legacy pixel value are rejected by validation. Apply the same judgment to
-type, radii, opacity, elevation, icon sizes, and breakpoints; domain geometry
-does not become a design token merely because it is a number.
+type, radii, opacity, elevation, and icon sizes. Breakpoints are generated from
+`src/breakpoints.json`; CSS custom properties are not media-query authorities.
+Component dimensions and interaction hit targets use explicit semantic geometry
+tokens rather than arithmetic over the spatial rhythm.
 
 Interactive motion follows three shared durations (`quick`, `fast`, and
 `deliberate`) and three purpose-based easing curves (`standard`, `enter`, and

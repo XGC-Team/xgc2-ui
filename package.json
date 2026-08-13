@@ -7,12 +7,15 @@
     "node": ">=22"
   },
   "scripts": {
-    "build": "pnpm --filter @xgc2/ui-tokens build && pnpm --filter @xgc2/ui-react build && pnpm --filter @xgc2/ui-workflow build && pnpm --filter @xgc2/ui-gallery build",
+    "build": "pnpm check:breakpoints && pnpm --filter @xgc2/ui-tokens build && pnpm --filter @xgc2/ui-react build && pnpm --filter @xgc2/ui-workflow build && pnpm --filter @xgc2/ui-gallery build",
+    "check:breakpoints": "node scripts/generate-breakpoints.mjs --check",
     "changeset": "changeset",
-    "check": "pnpm validate:style-policy && pnpm typecheck && pnpm test && pnpm build",
-    "dev": "pnpm --filter @xgc2/ui-tokens build && pnpm --filter @xgc2/ui-react build && pnpm --filter @xgc2/ui-workflow build && pnpm --filter @xgc2/ui-gallery dev",
+    "check": "pnpm validate:release && pnpm validate:style-policy && pnpm typecheck && pnpm test && pnpm build",
+    "dev": "pnpm generate:breakpoints && pnpm --filter @xgc2/ui-tokens build && pnpm --filter @xgc2/ui-react build && pnpm --filter @xgc2/ui-workflow build && pnpm --filter @xgc2/ui-gallery dev",
+    "generate:breakpoints": "node scripts/generate-breakpoints.mjs",
     "test": "pnpm -r --if-present test",
-    "validate:style-policy": "node --test scripts/style-policy-contract.test.mjs && node scripts/validate-style-policy.mjs",
+    "validate:release": "node --test scripts/release-contract.test.mjs",
+    "validate:style-policy": "pnpm check:breakpoints && node --test scripts/style-policy-contract.test.mjs && node scripts/validate-style-policy.mjs",
     "typecheck": "pnpm --filter @xgc2/ui-tokens build && pnpm --filter @xgc2/ui-react build && pnpm --filter @xgc2/ui-workflow build && pnpm -r --if-present typecheck",
     "version-packages": "changeset version"
   },

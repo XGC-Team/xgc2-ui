@@ -48,6 +48,12 @@ anchored-overlay interactions. `FormSection`, `InputActionControl`,
 form composition. Products supply domain data and actions without copying the
 keyboard, portal, placement, focus, theme, or geometry behavior.
 
+`AppSidebar` drawer mode becomes inert and hidden from assistive technology
+when closed on the generated mobile breakpoint. While open, Escape dismisses
+it, Tab and Shift+Tab stay trapped inside it, and focus returns to the trigger.
+`useSkin` treats its `storageKey` as the sole persistence authority and keeps
+same-document hooks and external storage events synchronized.
+
 `Toolbar`, `StatCard`, `DataTable`, `Pagination`, `LogTablePage`, `ListPage`, `ConfigSection`, `PanelViewSwitcher`, `WorkflowStatusCard`, structured information rows, settings rows, resource meters, and `CodeBlock` cover recurring operational data layouts while leaving data fetching and mutations to consumers. `Breadcrumbs` owns compact hierarchy navigation, while `ButtonLink` gives native navigation links the same geometry as actions.
 
 `Stack`, `Inline`, `ResponsiveGrid`, `ScrollRegion`, `OperatorWorkspace`, and `SectionHeader` own common spacing and fixed-workspace behavior. `Drawer` owns the right-side overlay, fixed header, internally scrolling body, mobile width, focus behavior, and optional dirty-data confirmation. Consumers provide domain form contents and save behavior.

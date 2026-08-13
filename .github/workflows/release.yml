@@ -26,12 +26,54 @@ jobs:
       - run: pnpm --filter @xgc2/ui-tokens pack --pack-destination release-assets
       - run: pnpm --filter @xgc2/ui-react pack --pack-destination release-assets
       - run: pnpm --filter @xgc2/ui-workflow pack --pack-destination release-assets
+      - name: Reject an existing release or asset namespace
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          TAG_CREATED: ${{ github.event.created }}
+        run: |
+          set -euo pipefail
+          if [[ "${TAG_CREATED}" != "true" || "${RUN_ATTEMPT}" != "1" ]]; then
+            echo "release tags are immutable; only the first run for a newly created tag may publish" >&2
+            exit 1
+          fi
+          release_error="$(mktemp)"
+          if gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${GITHUB_REF_NAME}" >/dev/null 2>"${release_error}"; then
+            echo "release already exists: ${GITHUB_REF_NAME}" >&2
+            exit 1
+          elif ! grep -Fq '(HTTP 404)' "${release_error}"; then
+            cat "${release_error}" >&2
+            echo "could not prove that the release namespace is unused" >&2
+            exit 1
+          fi
+          package_version="$(node -p "require('./packages/react/package.json').version")"
+          if [[ "${GITHUB_REF_NAME}" != "v${package_version}" ]]; then
+            echo "tag ${GITHUB_REF_NAME} does not match package version ${package_version}" >&2
+            exit 1
+          fi
+          expected_assets=()
+          for package in tokens react workflow; do
+            name="$(node -p "require('./packages/${package}/package.json').name.replace(/^@/, '').replace('/', '-')")"
+            version="$(node -p "require('./packages/${package}/package.json').version")"
+            expected_assets+=("${name}-${version}.tgz")
+          done
+          mapfile -t built_assets < <(find release-assets -maxdepth 1 -type f -printf '%f\n' | sort)
+          mapfile -t expected_assets < <(printf '%s\n' "${expected_assets[@]}" | sort)
+          if [[ "${built_assets[*]}" != "${expected_assets[*]}" ]]; then
+            printf 'unexpected release assets: %s\n' "${built_assets[*]}" >&2
+            exit 1
+          fi
+          published_assets_file="$(mktemp)"
+          gh api --paginate "repos/${GITHUB_REPOSITORY}/releases?per_page=100" \
+            --jq '.[] | .assets[]? | .name' >"${published_assets_file}"
+          mapfile -t published_assets <"${published_assets_file}"
+          for asset in "${expected_assets[@]}"; do
+            if printf '%s\n' "${published_assets[@]}" | grep -Fqx -- "${asset}"; then
+              echo "asset namespace already exists: ${asset}" >&2
+              exit 1
+            fi
+          done
       - name: Publish immutable package assets
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
-            gh release upload "${GITHUB_REF_NAME}" release-assets/*.tgz --clobber
-          else
-            gh release create "${GITHUB_REF_NAME}" release-assets/*.tgz --verify-tag --generate-notes
-          fi
+        run: gh release create "${GITHUB_REF_NAME}" release-assets/*.tgz --verify-tag --generate-notes

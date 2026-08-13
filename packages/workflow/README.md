@@ -38,4 +38,8 @@ must carry execution meaning.
 
 Import `@xgc2/ui-workflow/styles.css` once at the application boundary. The stylesheet includes the required React Flow base CSS.
 
+Toolbar dimensions, handle geometry, and handle hit targets use the shared
+semantic geometry contract. Spacing rhythm tokens are reserved for layout and
+cannot be repurposed as node or control dimensions.
+
 Use `WorkflowNodeToolbar` for node actions and `WorkflowElementToolbar` inside an edge toolbar. Both consume the same action model and own event isolation, compact shared buttons, focus semantics, and visual treatment. Product code supplies only the business callbacks and labels.

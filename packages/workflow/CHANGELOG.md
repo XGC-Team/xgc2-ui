@@ -1,5 +1,13 @@
 # @xgc2/ui-workflow
 
+## 0.3.0
+
+### Major corrective release
+
+- Require React 0.14 and replace spacing arithmetic with semantic toolbar,
+  canvas, node-handle, and handle-hit-target geometry.
+- Consume the generated single-source responsive and accessibility foundation.
+
 ## 0.2.1
 
 ### Patch Changes

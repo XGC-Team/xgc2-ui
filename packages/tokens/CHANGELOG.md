@@ -1,5 +1,16 @@
 # @xgc2/ui-tokens
 
+## 0.8.0
+
+### Major corrective release
+
+- Replace spacing-derived component dimensions with finite semantic geometry
+  tokens for controls, workflow handles, tabs, swatches, audio, progress, and
+  scrollbars.
+- Establish `src/breakpoints.json` as the only responsive breakpoint authority;
+  generated TypeScript and CSS artifacts replace non-functional CSS variables
+  and duplicated literals.
+
 ## 0.7.0
 
 ### Minor Changes

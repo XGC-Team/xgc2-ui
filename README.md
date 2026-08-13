@@ -40,7 +40,7 @@ Production consumers install immutable npm tarballs attached to GitHub releases.
 ```json
 {
   "dependencies": {
-    "@xgc2/ui-react": "https://github.com/lxk36/xgc2-ui/releases/download/v0.13.1/xgc2-ui-react-0.13.1.tgz"
+    "@xgc2/ui-react": "https://github.com/lxk36/xgc2-ui/releases/download/v0.14.0/xgc2-ui-react-0.14.0.tgz"
   }
 }
 ```
@@ -49,7 +49,7 @@ The React package inlines the token contract into its published stylesheet, so c
 
 Reusable coverage includes:
 
-- Foundation: theme and material tokens, spacing and type scales, header/control heights, responsive breakpoints, and the global XGC2 scrollbar treatment.
+- Foundation: theme and material tokens, spacing and type scales, semantic geometry, header/control heights, generated responsive breakpoints, and the global XGC2 scrollbar treatment.
 - Controls: buttons and links, inputs, textarea, selects, labeled fields/groups, finite form sections, input actions, three-axis vector entry, checkbox, switch, segmented controls, semantic tabs, editable/reorderable workspace tabs, plain status text, notices, empty states, progress, and theme-aware highlighted code/Markdown.
 - Data: selectable lists, disclosures, statistics, description/settings lists, toolbars, pagination, sortable/selectable tables with select-all, and a dense log-table page with its own scroll region.
 - Layout: stack, inline, responsive grid, scroll region, fixed operator workspace, section header, panels, composable grid workspaces, workspace panels, responsive split panes, application shell, collapsible sidebar, single-title topbar, breadcrumbs, and internally scrolling resource catalogs.
