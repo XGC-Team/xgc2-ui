@@ -87,7 +87,7 @@ export const Surface: Story = {
   render: () => (
     <Panel
       title="Speech service"
-      description="Shared surface and action geometry"
+      description="Achromatic neutral-white light material and independent graphite dark material"
       actions={<Button uiSize="compact">Configure</Button>}
     >
       Runtime content remains owned by the consuming product.

@@ -1,5 +1,14 @@
 # @xgc2/ui-react
 
+## 0.15.3
+
+### Patch Changes
+
+- Inline the corrected achromatic neutral-white light skin. Light application
+  workbenches are neutral grey, forward surfaces and controls are clean white,
+  and code/terminal surfaces use neutral luminance steps without changing the
+  independent graphite dark skin.
+
 ## 0.15.2
 
 ### Minor Changes

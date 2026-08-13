@@ -1,6 +1,23 @@
 import { readFile } from 'node:fs/promises';
+import { pathToFileURL } from 'node:url';
+import {
+  assertAchromatic,
+  assertAchromaticChannels,
+  assertNotBlueBiased,
+  assertRestrictedNeutralMaterialSyntax,
+  literalRgbColors,
+  rgbFromHex,
+} from './theme-contract.mjs';
 
-const css = await readFile(new URL('../src/index.css', import.meta.url), 'utf8');
+function tokenSourceUrl(argumentsList) {
+  if (argumentsList.length === 0) return new URL('../src/index.css', import.meta.url);
+  if (argumentsList.length === 2 && argumentsList[0] === '--tokens') {
+    return pathToFileURL(argumentsList[1]);
+  }
+  throw new Error('usage: validate.mjs [--tokens /absolute/path/to/index.css]');
+}
+
+const css = await readFile(tokenSourceUrl(process.argv.slice(2)), 'utf8');
 const baseCss = await readFile(new URL('../src/base.css', import.meta.url), 'utf8');
 const requiredTokens = [
   '--color-bg-app',
@@ -115,12 +132,8 @@ function declarationValue(block, token) {
   return block.match(new RegExp(`${escaped}:\\s*([\\s\\S]*?);`))?.[1];
 }
 
-function rgb(hex) {
-  return hex.slice(1).match(/../g).map((channel) => Number.parseInt(channel, 16));
-}
-
 function luminance(hex) {
-  const channels = rgb(hex).map((channel) => {
+  const channels = rgbFromHex(hex).map((channel) => {
     const value = channel / 255;
     return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
   });
@@ -145,6 +158,15 @@ const contrastContracts = [
   ['--color-terminal-fg', '--color-terminal-bg', 7, 'terminal text'],
   ['--color-terminal-muted', '--color-terminal-bg', 4.5, 'terminal metadata'],
   ['--color-syntax-comment', '--color-bg-code', 4.5, 'code comments'],
+  ['--color-syntax-keyword', '--color-bg-code', 4.5, 'code keywords'],
+  ['--color-syntax-string', '--color-bg-code', 4.5, 'code strings'],
+  ['--color-syntax-variable', '--color-bg-code', 4.5, 'code variables'],
+  ['--color-syntax-number', '--color-bg-code', 4.5, 'code numbers'],
+  ['--color-terminal-syntax-comment', '--color-terminal-bg', 4.5, 'terminal comments'],
+  ['--color-terminal-syntax-keyword', '--color-terminal-bg', 4.5, 'terminal keywords'],
+  ['--color-terminal-syntax-string', '--color-terminal-bg', 4.5, 'terminal strings'],
+  ['--color-terminal-syntax-variable', '--color-terminal-bg', 4.5, 'terminal variables'],
+  ['--color-terminal-syntax-number', '--color-terminal-bg', 4.5, 'terminal numbers'],
 ];
 
 const neutralFoundationTokens = [
@@ -156,7 +178,7 @@ const neutralFoundationTokens = [
   '--color-border-strong', '--color-border-hover', '--color-text',
   '--color-text-strong', '--color-text-heading', '--color-text-muted',
   '--color-text-soft', '--color-text-softer', '--color-text-faint',
-  '--color-text-disabled', '--color-terminal-bg', '--color-terminal-fg',
+  '--color-text-disabled', '--color-text-inverse', '--color-terminal-bg', '--color-terminal-fg',
   '--color-terminal-surface', '--color-terminal-muted',
   '--color-terminal-muted-hover', '--color-terminal-muted-active',
   '--color-chart-axis', '--color-chart-grid', '--color-chart-label',
@@ -169,12 +191,32 @@ const neutralMaterialTokens = [
   '--shadow-drawer', '--shadow-focus',
 ];
 
-function assertNotBlueBiased(value, context) {
-  const [red, green, blue] = rgb(value);
-  if (blue > red || blue > green) {
-    throw new Error(`${context} (${value}) reintroduces a blue-grey bias`);
-  }
-}
+const lightMaterialVariableContract = new Map([
+  ['--background-app', new Set()],
+  ['--background-chrome', new Set()],
+  ['--background-sidebar', new Set()],
+  ['--background-surface', new Set()],
+  ['--background-control', new Set()],
+  ['--background-panel-header', new Set()],
+  ['--shadow-card', new Set([
+    '--stroke-thin',
+    '--color-shadow-overlay-soft',
+  ])],
+  ['--shadow-floating', new Set(['--color-shadow-overlay'])],
+  ['--shadow-dialog', new Set(['--color-shadow-overlay'])],
+  ['--shadow-upward', new Set(['--color-shadow-overlay'])],
+  ['--shadow-drawer', new Set(['--color-shadow-overlay'])],
+  ['--shadow-focus', new Set([
+    '--stroke-thin',
+    '--space-xs',
+    '--color-border-focus',
+  ])],
+]);
+
+const lightAchromaticAlphaTokens = [
+  '--color-terminal-inset-glow', '--color-overlay', '--color-overlay-strong',
+  '--color-shadow-overlay', '--color-shadow-overlay-soft',
+];
 
 for (const skin of ['dark', 'light']) {
   const tokens = hexTokens(skinBlock(skin));
@@ -193,14 +235,44 @@ for (const skin of ['dark', 'light']) {
   for (const token of neutralFoundationTokens) {
     const value = tokens.get(token);
     if (!value) throw new Error(`${skin} neutral foundation token ${token} must use a literal hex value`);
-    assertNotBlueBiased(value, `${skin} ${token}`);
+    if (skin === 'light') {
+      assertAchromatic(value, `${skin} ${token}`);
+    } else {
+      assertNotBlueBiased(value, `${skin} ${token}`);
+    }
   }
 
   for (const token of neutralMaterialTokens) {
     const value = declarationValue(skinBlock(skin), token);
     if (!value) throw new Error(`${skin} neutral material token ${token} must be defined`);
-    for (const match of value.matchAll(/#[\da-f]{6}\b/gi)) {
-      assertNotBlueBiased(match[0].toLowerCase(), `${skin} ${token}`);
+    if (skin === 'light') {
+      assertRestrictedNeutralMaterialSyntax(
+        value,
+        `${skin} ${token}`,
+        lightMaterialVariableContract.get(token),
+      );
+    }
+    for (const { channels, literal } of literalRgbColors(value)) {
+      if (skin === 'light') {
+        assertAchromaticChannels(channels, `${skin} ${token} ${literal}`);
+      } else if (literal.startsWith('#')) {
+        assertNotBlueBiased(literal, `${skin} ${token}`);
+      }
+    }
+  }
+
+  if (skin === 'light') {
+    for (const token of lightAchromaticAlphaTokens) {
+      const value = declarationValue(skinBlock(skin), token);
+      if (!value) throw new Error(`${skin} neutral alpha token ${token} must be defined`);
+      assertRestrictedNeutralMaterialSyntax(value, `${skin} ${token}`);
+      const literals = literalRgbColors(value);
+      if (literals.length === 0) {
+        throw new Error(`${skin} neutral alpha token ${token} must use a literal RGB color`);
+      }
+      for (const { channels, literal } of literals) {
+        assertAchromaticChannels(channels, `${skin} ${token} ${literal}`);
+      }
     }
   }
 }

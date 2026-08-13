@@ -1,6 +1,6 @@
 {
   "name": "@xgc2/ui-tokens",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "Shared XGC2 design tokens and theme contract",
   "type": "module",
   "sideEffects": ["*.css"],
@@ -11,6 +11,7 @@
   },
   "scripts": {
     "build": "node scripts/build.mjs",
+    "test": "node --test scripts/theme-contract.test.mjs scripts/validate.test.mjs",
     "typecheck": "node scripts/validate.mjs"
   },
   "publishConfig": {
