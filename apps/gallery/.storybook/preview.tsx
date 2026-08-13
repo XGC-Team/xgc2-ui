@@ -2,6 +2,7 @@ import type { Preview } from '@storybook/react-vite';
 import '@xgc2/ui-react/styles.css';
 import '@xgc2/ui-tokens/base.css';
 import '../src/gallery.css';
+import '../src/responsive.generated.css';
 
 const preview: Preview = {
   globalTypes: {

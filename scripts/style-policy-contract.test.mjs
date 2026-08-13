@@ -5,11 +5,30 @@ import {
   edgeMarkerViolations,
   forbiddenControlAppearanceDefinitions,
   rawFoundationValueViolations,
+  semanticGeometryViolations,
   sharedSelectorViolations,
   isProductProductionSource,
   skinLifecycleViolations,
   statusVisualContractViolations,
 } from './style-policy-contract.mjs';
+
+test('requires semantic tokens for component dimensions and interaction geometry', () => {
+  const fixture = `
+    .swatch { width: var(--space-xl); height: var(--size-color-swatch); }
+    .toolbar { --xgc-control-height: calc(var(--size-control-default) + var(--space-sm)); }
+    .node { --xgc-node-handle-size: var(--space-md); }
+    .node::after { inset: calc(-1 * var(--space-sm)); }
+    .viewport { max-width: calc(100vw - var(--space-page-padding) * 2); }
+    .layout { --space-panel-padding: var(--space-lg); padding: var(--space-panel-padding); }
+  `;
+
+  assert.deepEqual(semanticGeometryViolations(fixture), [
+    'width uses spacing rhythm as geometry',
+    '--xgc-control-height derives geometry from spacing rhythm',
+    '--xgc-node-handle-size derives geometry from spacing rhythm',
+    'inset derives a hit target from spacing rhythm',
+  ]);
+});
 
 test('allows only the finite product control geometry contract', () => {
   const fixture = `.product-toolbar {

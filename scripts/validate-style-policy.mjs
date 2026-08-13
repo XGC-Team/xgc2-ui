@@ -4,6 +4,7 @@ import {
   edgeMarkerViolations,
   forbiddenControlAppearanceDefinitions,
   rawFoundationValueViolations,
+  semanticGeometryViolations,
   sharedSelectorViolations,
   isProductProductionSource,
   skinLifecycleViolations,
@@ -70,6 +71,9 @@ for (const file of cssFiles) {
   for (const violation of rawFoundationValueViolations(content)) {
     violations.push(`${relative('.', file)}: ${violation}`);
   }
+  for (const violation of semanticGeometryViolations(content)) {
+    violations.push(`${relative('.', file)}: ${violation}`);
+  }
 }
 
 const tokenSource = cssSources.find(({ file }) => file === 'packages/tokens/src/index.css')?.content ?? '';
@@ -126,6 +130,9 @@ for (const directory of productStyleRoots) {
         violations.push(`${relative('.', file)}: ${violation}`);
       }
       for (const violation of rawFoundationValueViolations(declarations)) {
+        violations.push(`${relative('.', file)}: ${violation}`);
+      }
+      for (const violation of semanticGeometryViolations(declarations)) {
         violations.push(`${relative('.', file)}: ${violation}`);
       }
       for (const violation of sharedSelectorViolations(declarations, sharedOwnedClasses)) {

@@ -1,0 +1,13 @@
+@media (max-width: {{mobile}}px) {
+  .xgc-gallery-story {
+    padding: var(--space-md);
+  }
+
+  .xgc-gallery-content-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .xgc-gallery-workspace .xgc-composable-workspace-layout {
+    grid-template-columns: 1fr;
+  }
+}

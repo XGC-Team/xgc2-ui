@@ -100,19 +100,6 @@ body {
   height: min(620px, calc(100dvh - var(--space-3xl) * 2));
 }
 
-@media (max-width: 720px) {
-  .xgc-gallery-story {
-    padding: var(--space-md);
-  }
-
-  .xgc-gallery-content-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .xgc-gallery-workspace .xgc-composable-workspace-layout {
-    grid-template-columns: 1fr;
-  }
-}
 .xgc-gallery-workflow-canvas {
   width: 100vw;
   height: 100vh;

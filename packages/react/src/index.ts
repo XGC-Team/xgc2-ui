@@ -1,4 +1,5 @@
 import './styles.css';
+import './responsive.generated.css';
 
 export { AppShell, AppSidebar, ResponsiveSplit, SidebarNav, SidebarNavItem, Topbar } from './components/AppShell';
 export type {

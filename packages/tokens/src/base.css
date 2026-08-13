@@ -72,11 +72,11 @@ body {
 
 *::-webkit-scrollbar-button:vertical {
   width: var(--size-scrollbar);
-  height: var(--space-scrollbar-end);
+  height: var(--size-scrollbar-end);
 }
 
 *::-webkit-scrollbar-button:horizontal {
-  width: var(--space-scrollbar-end);
+  width: var(--size-scrollbar-end);
   height: var(--size-scrollbar);
 }
 

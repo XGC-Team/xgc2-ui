@@ -1,9 +1,7 @@
 import { useEffect, useState } from 'react';
+import { XGC_BREAKPOINTS } from './breakpoints.generated';
 
-export const XGC_BREAKPOINTS = {
-  compact: 820,
-  mobile: 720,
-} as const;
+export { XGC_BREAKPOINTS } from './breakpoints.generated';
 
 export const XGC_MEDIA_QUERIES = {
   compact: `(max-width: ${XGC_BREAKPOINTS.compact}px)`,

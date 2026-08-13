@@ -199,6 +199,32 @@ export function rawFoundationValueViolations(css) {
   return [...new Set(violations)];
 }
 
+const GEOMETRY_PROPERTY = /^(?:(?:min-|max-)?(?:width|height|inline-size|block-size))$/i;
+const GEOMETRY_TOKEN = /(?:size|width|height|handle|reserve)/i;
+
+/** Spacing rhythm may position content, but it cannot masquerade as component geometry. */
+export function semanticGeometryViolations(css) {
+  const source = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  const violations = [];
+  for (const match of source.matchAll(/([\w-]+)\s*:\s*([^;{}]+)(?:;|(?=\}))/g)) {
+    const property = match[1];
+    const value = match[2].trim();
+    if (GEOMETRY_PROPERTY.test(property) && /^var\(--space-[^)]+\)$/.test(value)) {
+      violations.push(`${property} uses spacing rhythm as geometry`);
+    }
+    if (property.startsWith('--')
+      && !property.startsWith('--space-')
+      && GEOMETRY_TOKEN.test(property)
+      && /var\(--space-/.test(value)) {
+      violations.push(`${property} derives geometry from spacing rhythm`);
+    }
+    if (/^inset(?:-[\w-]+)?$/i.test(property) && /calc\(\s*-1\s*\*\s*var\(--space-/.test(value)) {
+      violations.push(`${property} derives a hit target from spacing rhythm`);
+    }
+  }
+  return [...new Set(violations)];
+}
+
 const EDGE_MARKER_CONTEXT = /(?:^|[-_])(?:active|current|dialog|modal|selected|selection)(?:$|[-_])/i;
 const EDGE_MARKER_ATTRIBUTE = /\[(?:aria-(?:current|selected)|data-(?:xgc-)?(?:active|current|selected|selection))(?:\s*[~|^$*]?=|\])/i;
 
