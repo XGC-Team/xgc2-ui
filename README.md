@@ -4,6 +4,8 @@ Shared design tokens, React components, and application-shell primitives for XGC
 
 The normative family-wide rules live in [DESIGN_CONTRACT.md](./DESIGN_CONTRACT.md). Product-specific CSS may not override those interaction and chrome conventions.
 
+The current remote-default-branch rollout is tracked in [MIGRATION_MATRIX.md](./MIGRATION_MATRIX.md). Its scope is 8 immutable-tarball consumer repositories and 9 UI surfaces (Camera Calibration contributes separate intrinsic and extrinsic pages). XGC2 Lichtblick remains an upstream MUI compatibility boundary and is not counted as a package consumer.
+
 ## Packages
 
 - `@xgc2/ui-tokens`: the single source of truth for light/dark color, spacing, type, elevation, and motion tokens.
@@ -57,6 +59,8 @@ Reusable coverage includes:
 - Spatial editors: an optional workflow package owning canvas viewport defaults, grid, pan/zoom, selection, drag/drop coordinate conversion, empty state, neutral node surfaces, canvas and element toolbars, and editable sticky notes.
 
 Product repositories keep routing, transport, device access, permissions, and domain state. Product-local wrappers should disappear once all required behavior exists here; they must not become a second visual system.
+
+Spacing tokens are layout rhythm, never component dimensions. Shared widths, heights, handles and hit targets use finite semantic `--size-*` roles; genuine chart, calibration, robot and simulation geometry remains an honest local value. `breakpoints.json` is the runtime source of truth (`compact: 820px`, `mobile: 720px`); generated APIs consume it, while handwritten CSS may use those two literal canonical media-query values and no product-specific substitutes.
 
 ## Selection-state policy
 

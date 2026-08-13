@@ -2,6 +2,8 @@
 
 This file is the implementation ledger for the family-wide React migration. A row is complete only when reusable behavior lives in `@xgc2/ui-react`, product-local duplication is removed, product tests/build pass, and the result has been visually checked in both themes and desktop/mobile layouts.
 
+The `0.14.0` baseline covers **8 consumer repositories and 9 UI surfaces**: XGC2 GCS, APT Repository, Agent Hub, Research OS, STT Service, Media Edge, both Camera Calibration pages (intrinsic and extrinsic), and the standalone Gazebo camera tool. Camera Calibration is one repository with two independently packaged pages. XGC2 Lichtblick is an upstream MUI application with a narrow XGC2-owned compatibility bridge; it is not an immutable-tarball consumer and is not counted in this rollout matrix.
+
 ## Ownership rule
 
 | Shared UI owns | Product owns |
@@ -40,18 +42,27 @@ If a pattern appears in two products, or in several XGC2 operations pages, it is
 
 ## Product adoption
 
-| Product | Current state | Next migration gate |
+This snapshot records remote default branches, not local worktrees. A pull request is deliberately not reported as adopted until its default branch contains the immutable release.
+
+| Product repository / UI surface | Remote baseline at this snapshot | `0.14.0` state and gate |
 | --- | --- | --- |
-| XGC2 GCS | React; shared tokens, shell, panels, overlays, controls, feedback, tables, settings, lists, workspace tabs, configuration, workflow node surface and spatial foundation are adopted; repeated product-local feedback, menu/popover, prompt, config-section, vector and input-action implementations are removed | Publish and pin the batched immutable release, then run 8787 + 5173 and light/dark desktop/mobile runtime verification |
-| APT Repository | React; shared shell/topbar/table/select-all/code block/theme/scrollbars/feedback/description rows are in use; Dashboard/Admin use one-screen desktop workspaces and mobile document flow; Admin is deliberately read-only | Immutable release pinned; generated embeds committed; Docker, smoke, image push, two-pass SSH deployment and public Dashboard byte-for-byte verification passed |
-| Agent Hub | React; shared shell, responsive drawer, bounded workspaces, controls, feedback, SelectableList, Markdown, Disclosure and structured data are adopted; the 3,060-line legacy stylesheet and local Markdown parser have been reduced to domain composition only | Publish and pin the batched immutable release, then run formal product build and light/dark desktop/mobile runtime verification |
-| Research OS | React; shared shell/sidebar drawer, theme state, controls, feedback, SelectableList, sortable data, bounded layouts and WorkflowNodeSurface are adopted; product CSS no longer pierces shared internals | Publish and pin the batched immutable release; keep research node roles, graph semantics and coordinates local |
-| STT Service | React; shared shell/topbar/controls/feedback/table/code/structured-data/progress/audio capture are adopted; `waveformLevels` now comes directly from the same PCM stream sent for transcription and inactive stale samples collapse to a baseline | Immutable `0.11.0` release pinned; product tests, types, build and remote-main integration passed |
-| XGC2 Lichtblick | Existing React 18 application retains its upstream MUI theme boundary; the XGC2-owned initial-layout selector consumes shared `ChoiceCardGroup` | Intentional upstream boundary: bridge XGC2-owned surfaces only; do not fork the upstream control system |
-| Media Edge player | Embedded React player consumes `AppShell`, `Topbar`, `ProductBrand`, `SegmentedControl`, `Panel`, `StatusText`, `Button`, shared themes/tokens and scrollbars; generated JS/CSS remain Go-embedded | Immutable `0.11.0` release pinned; deterministic rebuild/drift gate, Go tests/race/vet, package compliance and desktop/mobile light/dark browser verification passed |
-| Camera intrinsic/extrinsic tools | Both independently packaged pages now build from one React/shared-UI source and consume the shared shell, topbar, theme control, panels, forms, tables, feedback, progress and code presentation; their existing ROS transport, canvas interaction and calibration math remain domain-local | Immutable `0.11.0` release pinned; deterministic two-variant build/drift gate, Python tests, package compliance, amd64/arm64 Debian builds and desktop/mobile light/dark browser verification passed (`6804ed6`, CI `31544924506`) |
-| Gazebo camera tool | The independently packaged static page now builds from React and consumes the shared shell, topbar, theme control, panels, controls, feedback, progress and code presentation while retaining its Gazebo transport and camera-domain canvas behavior | Immutable `0.11.0` release pinned; deterministic build/drift gate, package tests/compliance, amd64/arm64 Debian builds and desktop/mobile light/dark browser verification passed (`1ead70c`, CI `31544923978`) |
+| XGC2 GCS (`xgc2-vibe-coding-temp`) | `master@031035bb`; React `0.13.1`, workflow `0.2.1` | **Pending.** Draft PR [#20](https://github.com/lxk36/xgc2-vibe-coding-temp/pull/20) at `b96ff057` pins React `0.14.0` and workflow `0.3.0`, with its checks passing. It remains unadopted until reviewed and merged to `master`; the ledger must not treat the PR branch as the product baseline. |
+| APT Repository (`xgc2-apt-repo`) | `master@5679f278`; React `0.14.0` | **Adopted.** Shared shell/topbar/table/select-all/code/theme/scrollbar primitives remain in use; Docker image run `31679837212` and deployment run `31680057249` passed. |
+| Agent Hub (`xgc2-agent-hub`) | `main@b9512034`; React `0.14.0` | **Adopted.** The shared shell, drawer, bounded workspaces, controls, feedback, lists, Markdown and structured data are pinned; graph legend geometry is explicitly domain-local rather than disguised spacing. CI run `31680269661` passed. |
+| Research OS (`xgc2-research-os`) | `main@b848c848`; React `0.14.0`, workflow `0.3.0` | **Adopted.** Shared shell, navigation, controls, data layouts and workflow surfaces are pinned while graph semantics and coordinates remain local. CI run `31650793799` passed. |
+| STT Service (`xgc2-stt-service`) | `main@d348d9ac`; React `0.13.1` | **Pending.** Draft PR [#3](https://github.com/lxk36/xgc2-stt-service/pull/3) at `2551fe53` pins React `0.14.0` and has a passing review check. Merge remains with G0/Resonance; do not report default-branch adoption before that handoff completes. |
+| Media Edge (`xgc2-media-edge`) | `main@900ea348`; React `0.14.0` (adopted at `5b8850a6`) | **Adopted.** The Go-embedded React player retains deterministic generated assets and the shared mobile contract. Current-main CI run `31681774803` passed. |
+| Camera Calibration (`xgc2-camera-calibration-ros1`), intrinsic and extrinsic pages | `main@2e22e7bd`; React `0.14.0` | **Adopted for both UI surfaces.** One shared React source still produces two independently packaged pages; ROS transport, canvas interaction and calibration math remain domain-local. CI run `31679945282` passed. |
+| Gazebo camera tool (`xgc2-gazebo-sim-camera`) | `main@3a2cc518`; React `0.14.0` | **Adopted.** This is the standalone camera repository, not the aggregate `xgc2-gazebo-sim` repository's `noetic` branch. CI run `31679945647` passed. |
+
+At this snapshot, 6 of 8 consumer repositories and 7 of 9 UI surfaces have `0.14.0` on their remote default branch. XGC2 GCS and STT remain review/merge work, not completed migration.
+
+## Geometry and breakpoint contract
+
+- `--space-*` tokens express rhythm only: gaps, padding and layout insets. They must not be used as component width, height, diameter, handle size, hit target or reserved dimension, nor aliased into a custom property that is then used as one.
+- Reusable component geometry uses the finite shared semantic `--size-*` roles. Genuine charts, graphs, calibration canvases, robot instruments and simulation geometry use honest local values; inventing a shared or product token merely to hide a domain pixel value is prohibited.
+- `packages/tokens/src/breakpoints.json` is the cross-runtime authority: `compact` is `820px` and `mobile` is `720px`. Generated TypeScript and generated CSS consume it. Handwritten CSS may retain the literal canonical `820px` and `720px` media-query values because CSS custom properties cannot govern media queries, but it must not introduce a competing product breakpoint.
 
 ## Release discipline
 
-The shared package is not published after each extraction. Complete the batch, run policy/type/test/build/Storybook checks, publish one immutable release, update every consumer lockfile, validate each product, then deploy APT once and verify its remote workflow and service.
+The shared package is not published after each extraction. Complete the batch, run policy/type/test/build/Storybook checks, publish one immutable release, update every consumer lockfile, validate each product, then deploy APT once and verify its remote workflow and service. Patch releases restart this consumer gate: a tagged package is not family-wide adoption until every applicable default branch and lockfile points at it.

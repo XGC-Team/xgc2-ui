@@ -21,7 +21,7 @@ This document is normative for every XGC2 web frontend. Product CSS may lay out 
 ## Spacing and layout
 
 - The spacing vocabulary is deliberately finite: `2xs`, `xs`, `sm`, `md`, `lg`, `xl`, `2xl`, and `3xl`, plus a small set of semantic layout roles such as `--space-panel-padding`. Numeric names such as `--space-7` are prohibited. A token must express a reusable scale step or design decision; it must never be a new name for one product's historical pixel value.
-- The same rule applies to type, radius, elevation, opacity, icon size, and breakpoints: extend a bounded shared scale only when several components need a stable role. SVG coordinates, charts, calibration geometry, and domain simulation dimensions remain local numbers rather than fake design tokens.
+- The same rule applies to type, radius, elevation, opacity, icon size, and breakpoints: extend a bounded shared scale only when several components need a stable role. Spacing tokens express rhythm and must never supply width, height, diameter, handle, hit-target, or reserved component geometry. Reusable component dimensions use finite semantic `--size-*` roles. SVG coordinates, charts, calibration geometry, and domain simulation dimensions remain honest local numbers rather than fake design tokens.
 - Products consume shared token values but may not redefine them. Product custom properties must describe genuine domain semantics, not compatibility aliases for shared values.
 - Shared controls expose only five product-level geometry hooks: `--xgc-control-button-padding`, `--xgc-control-button-padding-block`, `--xgc-control-button-padding-inline`, `--xgc-control-height`, and `--xgc-control-input-padding-inline`. Product definitions of any other `--xgc-control-*` property are appearance forks and fail the cross-product style gate.
 - Repeated local pixel values for page padding, panel gaps, toolbars, grid columns, chrome heights, and responsive shell behavior are technical debt.
@@ -88,7 +88,7 @@ This document is normative for every XGC2 web frontend. Product CSS may lay out 
 - All scrollable regions inherit the global XGC2 scrollbar tokens and browser rules.
 - Fixed operator workspaces such as APT Dashboard/Admin keep the document and page shell within one viewport. Data tables, command lists, logs, and other unbounded regions scroll independently.
 - Use `min-height: 0` through flex/grid ancestors and `scrollbar-gutter: stable` on persistent internal scroll regions.
-- Responsive operator pages use shared `AppShell mobileLayout="document"` and `ResponsiveSplit`: desktop remains a fixed one-screen workspace, while compact displays become a readable single-column document flow. Dense pages choose `mobileBreakpoint="compact"`; breakpoint-dependent behavior uses `XGC_BREAKPOINTS`, `XGC_MEDIA_QUERIES`, or `useMediaQuery`, not product-local viewport constants.
+- Responsive operator pages use shared `AppShell mobileLayout="document"` and `ResponsiveSplit`: desktop remains a fixed one-screen workspace, while compact displays become a readable single-column document flow. Dense pages choose `mobileBreakpoint="compact"`; breakpoint-dependent behavior uses `XGC_BREAKPOINTS`, `XGC_MEDIA_QUERIES`, or `useMediaQuery`, not product-local viewport constants. `breakpoints.json` is the cross-runtime authority (`compact: 820px`, `mobile: 720px`); handwritten CSS may retain those literal canonical media-query values because CSS custom properties cannot govern media queries, but products must not add competing thresholds.
 
 ## Data tables
 
