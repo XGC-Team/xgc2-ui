@@ -1,0 +1,66 @@
+name: Release UI policy
+
+on:
+  push:
+    tags:
+      - 'policy-v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          run_install: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+      - name: Pack the version-locked policy
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+          pnpm --filter @xgc2/ui-policy pack --pack-destination release-assets
+      - name: Reject an existing release or asset namespace
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          TAG_CREATED: ${{ github.event.created }}
+        run: |
+          set -euo pipefail
+          if [[ "${TAG_CREATED}" != "true" || "${RUN_ATTEMPT}" != "1" ]]; then
+            echo "policy releases are immutable; only a newly created tag may publish" >&2
+            exit 1
+          fi
+          version="$(node -p "require('./packages/policy/package.json').version")"
+          if [[ "${GITHUB_REF_NAME}" != "policy-v${version}" ]]; then
+            echo "tag ${GITHUB_REF_NAME} does not match policy version ${version}" >&2
+            exit 1
+          fi
+          asset="xgc2-ui-policy-${version}.tgz"
+          [[ -f "release-assets/${asset}" ]] || { echo "missing ${asset}" >&2; exit 1; }
+          [[ "$(find release-assets -maxdepth 1 -type f | wc -l)" == "1" ]] || { echo "unexpected policy assets" >&2; exit 1; }
+          release_error="$(mktemp)"
+          if gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${GITHUB_REF_NAME}" >/dev/null 2>"${release_error}"; then
+            echo "release already exists: ${GITHUB_REF_NAME}" >&2
+            exit 1
+          elif ! grep -Fq '(HTTP 404)' "${release_error}"; then
+            cat "${release_error}" >&2
+            exit 1
+          fi
+          if gh api --paginate "repos/${GITHUB_REPOSITORY}/releases?per_page=100" --jq '.[] | .assets[]? | .name' | grep -Fqx -- "${asset}"; then
+            echo "asset namespace already exists: ${asset}" >&2
+            exit 1
+          fi
+      - name: Publish immutable policy asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${GITHUB_REF_NAME}" release-assets/*.tgz --verify-tag --generate-notes
