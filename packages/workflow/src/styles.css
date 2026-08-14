@@ -115,6 +115,61 @@
     box-shadow var(--duration-quick) var(--easing-standard);
 }
 
+/* Running indicator: a single accent highlight travelling clockwise along
+ * the border ring. Functional execution feedback, not decoration; the
+ * readable status text inside the node remains the source of truth. */
+@property --xgc-node-running-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+/* Running indicator: a single accent highlight travelling clockwise along
+ * the border ring. Functional execution feedback, not decoration; the
+ * readable status text inside the node remains the source of truth.
+ * Uses the border-accent token (an accent *edge* role), never a semantic
+ * status fill on the neutral surface. */
+@property --xgc-node-running-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.xgc-workflow-node-surface[data-running='true'] {
+  border-color: color-mix(in srgb, var(--color-border-accent) 40%, var(--color-border));
+}
+
+.xgc-workflow-node-surface[data-running='true']::before {
+  content: '';
+  position: absolute;
+  inset: calc(var(--stroke-strong) * -1);
+  padding: var(--stroke-strong);
+  border-radius: calc(var(--radius-surface) + var(--stroke-strong));
+  background: conic-gradient(
+    from var(--xgc-node-running-angle),
+    transparent 0deg 250deg,
+    var(--color-border-accent) 330deg,
+    transparent 360deg
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  animation: xgc-workflow-node-running-spin calc(var(--duration-deliberate) * 6) linear infinite;
+  pointer-events: none;
+}
+
+@keyframes xgc-workflow-node-running-spin {
+  to { --xgc-node-running-angle: 360deg; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .xgc-workflow-node-surface[data-running='true']::before {
+    animation: none;
+    background: var(--color-border-accent);
+  }
+}
+
 .xgc-workflow-node-surface:hover {
   background: var(--color-bg-surface-hover);
   border-color: color-mix(in srgb, var(--color-accent) 42%, var(--color-border-strong));

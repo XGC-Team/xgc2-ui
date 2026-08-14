@@ -9,6 +9,12 @@ export type WorkflowNodeSurfaceProps = Omit<HTMLAttributes<HTMLDivElement>, 'chi
   dataXgcRole?: string;
   handles?: ReactNode;
   padding?: WorkflowNodeSurfacePadding;
+  /**
+   * Functional "currently executing" indicator: a restrained highlight
+   * travelling clockwise along the node border. It never replaces the
+   * readable status text the product renders inside the node.
+   */
+  running?: boolean;
   selected?: boolean;
 };
 
@@ -21,6 +27,7 @@ export function WorkflowNodeSurface({
   dataXgcRole = 'workflow-node-surface',
   handles,
   padding = 'default',
+  running = false,
   selected = false,
   ...props
 }: WorkflowNodeSurfaceProps) {
@@ -29,6 +36,7 @@ export function WorkflowNodeSurface({
       {...props}
       className={classNames('xgc-workflow-node-surface', className)}
       data-padding={padding}
+      data-running={running || undefined}
       data-selected={selected || undefined}
       data-xgc-id={dataXgcId}
       data-xgc-role={dataXgcRole}

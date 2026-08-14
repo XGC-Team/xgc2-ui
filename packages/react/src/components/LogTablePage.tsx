@@ -4,7 +4,7 @@ import { EmptyState, Notice } from './Feedback';
 import { Input } from './Input';
 import { Pagination, type PaginationLabels, Toolbar } from './DataDisplay';
 import { SectionHeader } from './Layout';
-import { Select } from './FormControls';
+import { SelectMenu } from './SelectMenu';
 import { Tabs, type TabOption } from './Tabs';
 
 export type LogTableColumn<Row> = {
@@ -53,7 +53,7 @@ export type LogTablePageProps<Row> = {
   };
   status?: {
     onChange: (value: string) => void;
-    options: readonly { label: ReactNode; value: string }[];
+    options: readonly { label: string; value: string }[];
     value: string;
   };
   tabs?: readonly TabOption[];
@@ -134,16 +134,13 @@ export function LogTablePage<Row>({
           {status ? (
             <label className="xgc-log-table-filter">
               <span>{copy.status}</span>
-              <Select
-                aria-label={copy.status}
+              <SelectMenu
+                ariaLabel={copy.status}
                 onValueChange={status.onChange}
+                options={status.options}
                 uiSize="compact"
                 value={status.value}
-              >
-                {status.options.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </Select>
+              />
             </label>
           ) : null}
         </div>

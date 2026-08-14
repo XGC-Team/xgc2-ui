@@ -74,16 +74,50 @@
   border-color: color-mix(in srgb, var(--color-border-primary) 82%, var(--color-text-inverse));
 }
 
+/* Danger default: quiet white surface with solid danger text and a neutral
+ * border — no translucent red film. The red material only appears on hover. */
 .xgc-button[data-tone='danger'] {
   color: var(--color-danger);
+  background: var(--xgc-control-background, var(--background-control, var(--color-bg-control)));
+  border-color: var(--color-border);
+}
+
+.xgc-button[data-tone='danger']:hover:not(:disabled) {
+  color: var(--color-danger-strong);
   background: var(--color-bg-danger);
   border-color: var(--color-border-danger);
 }
 
+.xgc-button[data-tone='danger']:active:not(:disabled) {
+  color: var(--color-danger-strong);
+  background: color-mix(in srgb, var(--color-bg-danger) 82%, var(--color-danger));
+  border-color: var(--color-border-danger);
+  box-shadow: inset 0 var(--stroke-thin) var(--stroke-strong) var(--color-shadow-overlay-soft);
+}
+
+.xgc-button[data-tone='danger']:focus-visible {
+  outline: 0;
+  border-color: var(--color-danger);
+  box-shadow: 0 0 0 var(--space-xs) color-mix(in srgb, var(--color-danger) 18%, transparent);
+}
+
 .xgc-button[data-tone='success'] {
+  color: var(--color-success);
+  background: var(--xgc-control-background, var(--background-control, var(--color-bg-control)));
+  border-color: var(--color-border);
+}
+
+.xgc-button[data-tone='success']:hover:not(:disabled) {
   color: var(--color-success);
   background: var(--color-bg-success);
   border-color: var(--color-border-success);
+}
+
+.xgc-button[data-tone='success']:active:not(:disabled) {
+  color: var(--color-success);
+  background: color-mix(in srgb, var(--color-bg-success) 82%, var(--color-success));
+  border-color: var(--color-border-success);
+  box-shadow: inset 0 var(--stroke-thin) var(--stroke-strong) var(--color-shadow-overlay-soft);
 }
 
 .xgc-button[data-appearance='solid'][data-tone='danger'] {
@@ -685,38 +719,58 @@
   cursor: inherit;
 }
 
-.xgc-boolean-control input[role='switch'] {
+/* Switch: real knob element on integer geometry. The previous gradient-drawn
+ * knob anti-aliased into a fuzzy edge on 1x displays. */
+.xgc-switch-shell {
+  position: relative;
   width: var(--size-switch-track-width);
   min-width: var(--size-switch-track-width);
   height: var(--size-switch-track-height);
-  appearance: none;
-  background:
-    radial-gradient(
-      circle at center,
-      var(--color-text-faint) 0 calc(var(--size-switch-knob) / 2 - 0.5px),
-      transparent calc(var(--size-switch-knob) / 2)
-    ),
-    var(--color-bg-subtle);
-  background-position: var(--space-switch-knob-inset) 50%;
-  background-repeat: no-repeat;
-  background-size: var(--size-switch-knob) var(--size-switch-knob);
-  border: var(--stroke-thin) solid var(--color-border);
+  flex: 0 0 auto;
+  display: inline-flex;
   border-radius: var(--radius-pill);
-  transition: background-color var(--duration-quick) var(--easing-standard), background-position var(--duration-quick) var(--easing-standard), border-color var(--duration-quick) var(--easing-standard);
 }
 
-.xgc-boolean-control input[role='switch']:checked {
-  background:
-    radial-gradient(
-      circle at center,
-      var(--color-accent) 0 calc(var(--size-switch-knob) / 2 - 0.5px),
-      transparent calc(var(--size-switch-knob) / 2)
-    ),
-    var(--color-bg-active);
-  background-position: right var(--space-switch-knob-inset) top 50%;
-  background-repeat: no-repeat;
-  background-size: var(--size-switch-knob) var(--size-switch-knob);
+.xgc-switch-shell > input[role='switch'] {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  appearance: none;
+  background: var(--color-bg-subtle);
+  border: var(--stroke-thin) solid var(--color-border);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition:
+    background-color var(--duration-quick) var(--easing-standard),
+    border-color var(--duration-quick) var(--easing-standard);
+}
+
+.xgc-switch-shell > input[role='switch']:checked {
+  background: var(--color-bg-primary);
   border-color: var(--color-border-primary);
+}
+
+.xgc-switch-shell:has(> input[role='switch']:focus-visible) {
+  box-shadow: var(--shadow-focus);
+}
+
+.xgc-switch-knob {
+  position: absolute;
+  top: calc((var(--size-switch-track-height) - var(--size-switch-knob)) / 2);
+  left: var(--space-switch-knob-inset);
+  width: var(--size-switch-knob);
+  height: var(--size-switch-knob);
+  border-radius: var(--radius-pill);
+  background: var(--color-text-faint);
+  pointer-events: none;
+  transition:
+    transform var(--duration-quick) var(--easing-standard),
+    background-color var(--duration-quick) var(--easing-standard);
+}
+
+.xgc-switch-shell > input[role='switch']:checked + .xgc-switch-knob {
+  transform: translateX(calc(var(--size-switch-track-width) - 2 * var(--space-switch-knob-inset) - var(--size-switch-knob)));
+  background: var(--color-text-inverse);
 }
 
 .xgc-boolean-control-copy {
@@ -861,7 +915,7 @@
 .xgc-workspace-tab-select:hover:not(:disabled) { color: var(--color-text-strong); background: var(--color-bg-control-hover); }
 .xgc-workspace-tab[data-xgc-active='true'] .xgc-workspace-tab-select:hover { color: inherit; background: transparent; }
 .xgc-workspace-tab-select:disabled { cursor: not-allowed; opacity: var(--opacity-disabled); }
-.xgc-workspace-tab-select:focus-visible { outline: var(--stroke-strong) solid var(--color-border-focus); outline-offset: var(--space-2xs); }
+.xgc-workspace-tab-select:focus-visible { outline: 0; box-shadow: var(--shadow-focus); }
 .xgc-workspace-tab-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .xgc-workspace-tab-prefix { display: inline-flex; flex: 0 0 auto; align-items: center; gap: var(--space-sm); }
 
@@ -921,7 +975,7 @@
 
 :is(button, a).xgc-breadcrumb-item { cursor: pointer; }
 :is(button, a).xgc-breadcrumb-item:hover { color: var(--color-text-strong); background: var(--color-bg-control-hover); }
-.xgc-breadcrumb-item:focus-visible { outline: var(--stroke-strong) solid var(--color-border-focus); outline-offset: var(--space-2xs); }
+.xgc-breadcrumb-item:focus-visible { outline: 0; box-shadow: var(--shadow-focus); }
 .xgc-breadcrumb-item[aria-current='page'] { color: var(--color-text-heading); }
 .xgc-breadcrumb-separator { display: inline-flex; flex: 0 0 auto; color: var(--color-text-faint); }
 
@@ -948,7 +1002,7 @@
 }
 
 .xgc-choice-card:hover:not(:disabled) { background: var(--color-bg-control-hover); border-color: var(--color-border-hover); }
-.xgc-choice-card:focus-visible { outline: var(--stroke-strong) solid var(--color-border-focus); outline-offset: var(--space-2xs); }
+.xgc-choice-card:focus-visible { outline: 0; box-shadow: var(--shadow-focus); }
 .xgc-choice-card[data-xgc-selected='true'] {
   color: var(--color-text-heading);
   background: var(--color-bg-selected);
@@ -996,7 +1050,7 @@
 }
 
 .xgc-color-swatch:hover { background: var(--color-bg-control-hover); border-color: var(--color-border-hover); }
-.xgc-color-swatch:focus-within { border-color: var(--color-border-focus); outline: var(--stroke-strong) solid var(--color-border-focus); }
+.xgc-color-swatch:focus-within { border-color: var(--color-border-focus); outline: 0; box-shadow: var(--shadow-focus); }
 
 .xgc-color-swatch-fill {
   box-sizing: border-box;
@@ -1054,8 +1108,8 @@
 .xgc-color-preset:hover { border-color: var(--color-border-hover); }
 .xgc-color-preset:is([data-xgc-active='true'], :focus-visible) {
   border-color: var(--color-border-focus);
-  outline: var(--stroke-strong) solid var(--color-border-focus);
-  outline-offset: 1px;
+  outline: 0;
+  box-shadow: var(--shadow-focus);
 }
 
 .xgc-color-control[data-disabled='true'] { opacity: var(--opacity-disabled); pointer-events: none; }
@@ -1214,7 +1268,22 @@ button.xgc-list-tag { cursor: pointer; border-color: var(--color-border); }
 .xgc-list-tag:has(svg) { padding-left: var(--space-md); }
 button.xgc-list-tag:hover { color: var(--color-text-heading); background: var(--color-bg-control-hover); border-color: var(--color-border-hover); }
 button.xgc-list-tag:disabled { cursor: not-allowed; opacity: var(--opacity-deemphasized); }
-.xgc-list-tag[data-xgc-variant='edit'] { color: var(--color-text-soft); border-color: var(--color-border-strong); }
+/* Icon-only square "add/edit" affordance: same three-state language as every
+ * other control, sized to the icon ladder instead of a text chip. */
+.xgc-list-tag[data-xgc-variant='edit'] {
+  width: var(--size-icon-lg);
+  height: var(--size-icon-lg);
+  padding: 0;
+  color: var(--color-text-soft);
+  border-color: var(--color-border);
+  border-radius: var(--radius-control);
+}
+
+.xgc-list-tag[data-xgc-variant='edit']:focus-visible {
+  outline: 0;
+  border-color: var(--color-border-focus);
+  box-shadow: var(--shadow-focus);
+}
 .xgc-list-tag[data-xgc-variant='static'] { cursor: default; }
 .xgc-list-tag[data-xgc-variant='primary'] { color: var(--color-accent); border-color: var(--color-border-accent-soft); }
 
@@ -1237,7 +1306,7 @@ button.xgc-list-tag:disabled { cursor: not-allowed; opacity: var(--opacity-deemp
 }
 
 .xgc-list-row-open:focus-visible,
-.xgc-list-folder-title:focus-visible { outline: var(--stroke-strong) solid var(--color-border-focus); outline-offset: var(--space-2xs); }
+.xgc-list-folder-title:focus-visible { outline: 0; box-shadow: var(--shadow-focus); }
 
 .xgc-list-item-title strong {
   min-width: 0;
@@ -1560,8 +1629,7 @@ button.xgc-list-tag:disabled { cursor: not-allowed; opacity: var(--opacity-deemp
 }
 
 .xgc-workspace-panel-select:focus-visible {
-  outline: var(--stroke-strong) solid var(--color-border-focus);
-  outline-offset: var(--space-2xs);
+  outline: 0; box-shadow: var(--shadow-focus);
 }
 
 .xgc-workspace-panel-actions {
@@ -2547,24 +2615,40 @@ button.xgc-stat-card:disabled {
 }
 
 .xgc-data-table[data-body-scroll='true'] > table > tbody:focus-visible {
-  outline: var(--stroke-strong) solid var(--color-border-focus);
-  outline-offset: calc(-1 * var(--stroke-strong));
+  outline: 0; box-shadow: var(--shadow-focus);
 }
 
 .xgc-data-table th,
 .xgc-data-table td {
-  padding: var(--space-md) var(--space-lg);
+  /* Dense rows: a data row must never outgrow the outer chrome (36px topbar).
+   * Content never wraps; long values truncate with ellipsis (full value via
+   * title/tooltip) instead of inflating the row. */
+  height: var(--size-control-default);
+  padding: var(--space-2xs) var(--space-lg);
+  overflow: hidden;
   border-bottom: var(--stroke-thin) solid var(--color-border);
   text-align: left;
+  text-overflow: ellipsis;
   vertical-align: middle;
+  white-space: nowrap;
+}
+
+/* One typeface per table: em/strong inside cells never italicize or bold. */
+.xgc-data-table td :is(em, strong) {
+  color: inherit;
+  font-style: normal;
+  font-weight: var(--weight-regular);
 }
 
 .xgc-data-table th {
-  color: var(--color-text-faint);
+  /* One header spec for all tables: the 30px log-table-head row. */
+  height: var(--size-control-default);
+  padding-block: 0;
+  color: var(--color-text-muted);
   background: var(--color-bg-subtle);
   font-size: var(--font-sm);
   font-weight: var(--weight-semibold);
-  letter-spacing: 0.035em;
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
   white-space: nowrap;
 }
@@ -2887,6 +2971,9 @@ button.xgc-stat-card:disabled {
   min-height: 0;
   flex: 1 1 auto;
   overflow: auto;
+  /* Cross-page geometry contract: the scrollbar gutter is always reserved so
+   * content width never depends on whether a given page happens to scroll. */
+  scrollbar-gutter: stable;
   background: var(--background-app, var(--color-bg-app));
 }
 
@@ -2965,9 +3052,11 @@ button.xgc-stat-card:disabled {
   margin: 0;
   overflow: hidden;
   color: var(--color-text-strong);
+  /* Page title ranks by size, not weight; bold+tracking is reserved for the brand wordmark. */
   font-size: var(--font-lg);
-  font-weight: var(--weight-strong);
-  line-height: var(--line-height-none);
+  font-weight: var(--weight-medium);
+  /* Tight, never 1: descenders (g, j, y) must survive. */
+  line-height: var(--line-height-tight);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -2975,6 +3064,16 @@ button.xgc-stat-card:disabled {
 .xgc-topbar-actions {
   margin-left: auto;
   justify-content: flex-end;
+}
+
+/* Topbar chrome is 36px; its controls always use the 30px default step
+ * (3px air above and below). Compact density is reserved for data rows. */
+.xgc-topbar .xgc-button,
+.xgc-topbar .xgc-input,
+.xgc-topbar .xgc-select,
+.xgc-topbar .xgc-select-control,
+.xgc-topbar .xgc-segmented-control {
+  height: var(--size-control-default);
 }
 
 .xgc-product-brand {
@@ -3015,10 +3114,10 @@ button.xgc-stat-card:disabled {
 }
 
 .xgc-app-sidebar {
-  /* Collapse animates via clip-path (paint-only, no per-frame workspace
-   * reflow); the shell grid track snaps once via the :has rule below. */
-  position: relative;
-  z-index: var(--z-sticky);
+  /* True width transition: the layout box really is 36px when collapsed, so
+   * nothing invisible overlaps the workspace and the right seam border is
+   * always correct. Collapsed geometry places every icon at the same bounds
+   * it has when expanded, so only the width moves. */
   width: var(--size-sidebar-expanded);
   min-width: 0;
   min-height: 0;
@@ -3027,23 +3126,19 @@ button.xgc-stat-card:disabled {
   overflow: hidden;
   background: var(--background-sidebar, var(--color-bg-sidebar));
   border-right: var(--stroke-thin) solid var(--color-border-muted);
-  clip-path: inset(0 0 0 0);
-  transition: clip-path var(--duration-fast) var(--easing-standard);
+  transition: width var(--duration-fast) var(--easing-standard);
 }
 
 .xgc-app-sidebar[data-collapsed='true'] {
-  width: var(--size-sidebar-expanded);
-  clip-path: inset(0 calc(100% - var(--size-sidebar-collapsed)) 0 0);
-}
-
-.xgc-app-shell:has(> .xgc-app-sidebar[data-collapsed='true']) {
-  grid-template-columns: var(--size-sidebar-collapsed) minmax(0, 1fr);
+  width: var(--size-sidebar-collapsed);
 }
 
 .xgc-sidebar-brand {
   height: var(--size-shell-chrome);
   flex: 0 0 var(--size-shell-chrome);
-  padding: 0 var(--space-md) 0 var(--space-lg);
+  /* Left inset centers the 24px mark at x=18 — identical to its centered
+   * position inside the collapsed rail, so collapse never moves it. */
+  padding: 0 var(--space-md) 0 var(--space-sm);
   color: var(--color-text-strong);
   border-bottom: var(--stroke-thin) solid var(--color-border-muted);
 }
@@ -3052,8 +3147,9 @@ button.xgc-stat-card:disabled {
   width: 100%;
   height: 100%;
   min-width: 0;
-  display: grid;
-  grid-template-columns: var(--size-icon-xl) minmax(0, 1fr) var(--size-icon-default);
+  /* Flex centers deterministically; a grid with implicit columns pushed the
+   * mark out of the 36px chrome row when collapsed. */
+  display: flex;
   align-items: center;
   gap: var(--space-lg);
   padding: 0;
@@ -3077,6 +3173,7 @@ button.xgc-stat-card:disabled {
 
 .xgc-sidebar-brand-label {
   min-width: 0;
+  flex: 1 1 auto;
   overflow: hidden;
   font-size: var(--font-lg);
   font-weight: var(--weight-bold);
@@ -3098,15 +3195,19 @@ button.xgc-stat-card:disabled {
 
 .xgc-app-sidebar[data-collapsed='true'] .xgc-sidebar-toggle {
   /* Sidebar box stays at expanded width during clip-path collapse; pin the
-   * toggle content to the left strip so the mark stays visible. */
-  grid-template-columns: var(--size-sidebar-collapsed);
-  justify-items: center;
+   * toggle to the visible strip and center the mark in it — the same center
+   * x=18 it has when expanded, so collapse never moves it. */
+  width: var(--size-sidebar-collapsed);
+  justify-content: center;
   gap: 0;
 }
 
 .xgc-app-sidebar[data-collapsed='true'] .xgc-sidebar-brand-label,
 .xgc-app-sidebar[data-collapsed='true'] .xgc-sidebar-collapse-indicator {
   width: 0;
+  /* Kill flex-grow too, or the zero-width label still absorbs all free space
+   * and shoves the brand mark against the rail's left edge. */
+  flex: 0 0 0;
   opacity: var(--opacity-hidden);
 }
 
@@ -3126,7 +3227,8 @@ button.xgc-stat-card:disabled {
 
 .xgc-sidebar-nav-item {
   width: 100%;
-  height: 34px;
+  /* 36px row = one chrome unit; identical in expanded and collapsed states. */
+  height: var(--size-header-page);
   min-width: 0;
   display: flex;
   align-items: center;
@@ -3200,12 +3302,13 @@ button.xgc-stat-card:disabled {
 }
 
 .xgc-app-sidebar[data-collapsed='true'] .xgc-sidebar-nav {
+  /* Collapse changes only horizontal geometry: the vertical rhythm (block
+   * padding, row height, gap) is identical to the expanded state. */
   padding-inline: var(--space-sm);
 }
 
 .xgc-app-sidebar[data-collapsed='true'] .xgc-sidebar-nav-item {
   gap: 0;
-  width: calc(var(--size-sidebar-collapsed) - 2 * var(--space-sm));
   padding-inline: 0;
   justify-content: center;
 }
@@ -3220,8 +3323,9 @@ button.xgc-stat-card:disabled {
 .xgc-sidebar-footer {
   min-width: 0;
   flex: 0 0 auto;
-  padding: var(--space-md);
-  border-top: var(--stroke-thin) solid var(--color-border);
+  /* Chrome slot only: one hairline on top, rhythm owned by the content. */
+  padding: 0;
+  border-top: var(--stroke-thin) solid var(--color-border-muted);
 }
 
 .xgc-app-sidebar[data-collapsed='true'] .xgc-sidebar-footer {
@@ -3461,40 +3565,43 @@ button.xgc-workflow-status-card { appearance: none; cursor: pointer; }
 .xgc-config-section-heading { margin: 0; }
 .xgc-config-section-toggle {
   width: 100%;
+  /* One shared spec for collapsible section titles: the 30px ListPage
+   * folder-title row (height, type step, chevron rhythm, hover). */
   min-height: var(--size-control-default);
   display: flex;
   align-items: center;
   gap: var(--space-md);
-  padding: var(--space-lg) var(--space-xl);
-  color: var(--color-text-heading);
+  padding: 0 var(--space-md);
+  color: var(--color-text-softer);
   background: transparent;
   border: 0;
   border-bottom: var(--stroke-thin) solid transparent;
   cursor: pointer;
   font: inherit;
   text-align: left;
+  transition: background-color var(--duration-quick) var(--easing-standard);
 }
 .xgc-config-section[data-xgc-expanded='true'] .xgc-config-section-toggle { border-bottom-color: var(--color-border); }
 .xgc-config-section-toggle:hover { background: var(--color-bg-surface-hover); }
 .xgc-config-section-chevron {
   flex: 0 0 auto;
-  color: var(--color-text-muted);
+  color: var(--color-text-faint);
   transition: transform var(--duration-quick) var(--easing-standard);
 }
 .xgc-config-section-chevron[data-xgc-collapsed='true'] { transform: rotate(-90deg); }
 .xgc-config-section-title {
   min-width: 0;
   color: var(--color-text-heading);
-  font-size: var(--font-lg);
-  font-weight: var(--weight-semibold);
-  line-height: var(--line-height-normal);
+  font-size: var(--font-base);
+  font-weight: var(--weight-regular);
+  line-height: var(--line-height-tight);
   letter-spacing: 0;
 }
 .xgc-config-section-body {
   min-width: 0;
   display: grid;
   gap: 0;
-  padding: 0 var(--space-xl) var(--space-sm);
+  padding: 0 var(--space-xl) var(--space-xs);
 }
 .xgc-config-section-body > .xgc-form-field {
   min-width: 0;
@@ -3502,7 +3609,7 @@ button.xgc-workflow-status-card { appearance: none; cursor: pointer; }
   grid-template-columns: minmax(0, 1fr) minmax(200px, 320px);
   align-items: center;
   gap: var(--space-lg);
-  padding: var(--space-lg) 0;
+  padding: var(--space-sm) 0;
   border-bottom: var(--stroke-thin) solid var(--color-border-muted);
 }
 .xgc-config-section-body > .xgc-form-field:last-child { border-bottom: 0; }
@@ -3913,8 +4020,10 @@ button.xgc-workflow-status-card { appearance: none; cursor: pointer; }
 
 .xgc-log-table-cell > strong {
   display: block;
-  color: var(--color-text-heading);
-  font-weight: var(--weight-semibold);
+  /* One typeface per table: columns differ by alignment and whitespace,
+   * never by font weight or color. */
+  color: var(--color-text);
+  font-weight: var(--weight-regular);
 }
 
 .xgc-log-table-empty {

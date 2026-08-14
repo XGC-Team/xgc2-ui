@@ -327,6 +327,13 @@ function BooleanControl({
       onChange={(event) => onCheckedChange(event.target.checked)}
     />
   );
+  // Switches render a real knob element: gradient-drawn knobs alias badly.
+  const switchable = role === 'switch' ? (
+    <span className="xgc-switch-shell">
+      {input}
+      <span className="xgc-switch-knob" aria-hidden="true" />
+    </span>
+  ) : input;
   const control = layout === 'field' ? (
     <div
       className={classNames('xgc-boolean-control', className)}
@@ -338,7 +345,7 @@ function BooleanControl({
     >
       {hasLabel ? <label className="xgc-boolean-title" id={labelId} htmlFor={inputId}>{label}</label> : null}
       <span className="xgc-boolean-control-row">
-        {input}
+        {switchable}
         {description ? <small className="xgc-boolean-status" id={descriptionId}>{description}</small> : null}
       </span>
     </div>
@@ -351,7 +358,7 @@ function BooleanControl({
       data-xgc-id={dataXgcId}
       data-xgc-role={dataXgcRole}
     >
-      {input}
+      {switchable}
       {hasLabel || description ? (
         <span className="xgc-boolean-control-copy">
           {hasLabel ? <strong id={labelId}>{label}</strong> : null}

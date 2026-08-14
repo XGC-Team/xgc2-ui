@@ -57,6 +57,8 @@ export type EmptyStateProps = Omit<HTMLAttributes<HTMLElement>, 'title'> & {
   description?: ReactNode;
   density?: 'default' | 'compact';
   fill?: boolean;
+  /** @deprecated Empty states are text-only (title + description + actions);
+   * decorative icons are no longer rendered. */
   icon?: ReactNode;
   title: ReactNode;
 };
@@ -69,7 +71,6 @@ export function EmptyState({
   description,
   density = 'default',
   fill = false,
-  icon,
   title,
   ...props
 }: EmptyStateProps) {
@@ -82,7 +83,6 @@ export function EmptyState({
       data-density={density}
       data-fill={fill || undefined}
     >
-      {icon ? <div className="xgc-empty-state-icon" aria-hidden="true">{icon}</div> : null}
       <strong className="xgc-empty-state-title">{title}</strong>
       {description ? <p className="xgc-empty-state-description">{description}</p> : null}
       {actions ? <div className="xgc-empty-state-actions">{actions}</div> : null}

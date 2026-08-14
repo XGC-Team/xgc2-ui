@@ -22,8 +22,11 @@
   --space-layout-default: var(--space-lg);
   --space-layout-comfortable: var(--space-xl);
   --space-layout-spacious: var(--space-2xl);
-  --space-page-padding: var(--space-xl);
+  --space-page-padding: var(--space-2xl);
   --space-panel-padding: var(--space-lg);
+  /* Vertical rhythm for control strips inside a panel (toolbars, filter
+   * rows, action rows) — one shared step, no locally invented padding. */
+  --space-panel-section-gap: var(--space-sm);
   --space-control-gap: var(--space-sm);
   --space-control-padding-inline: var(--space-lg);
   --space-control-padding-inline-compact: var(--space-md);
@@ -85,7 +88,8 @@
   --size-code-viewport-default: 360px;
   --size-shell-chrome: var(--size-header-page);
   --size-sidebar-expanded: 216px;
-  --size-sidebar-collapsed: 44px;
+  /* Collapsed rail width matches the page topbar height: one square chrome unit. */
+  --size-sidebar-collapsed: var(--size-header-page);
   --size-grid-column-compact: 180px;
   --size-grid-column-default: 240px;
   --size-grid-column-wide: 320px;
@@ -246,7 +250,9 @@
   --shadow-dialog: 0 18px 64px var(--color-shadow-overlay);
   --shadow-upward: 0 -6px 22px color-mix(in srgb, var(--color-shadow-overlay) 46%, transparent);
   --shadow-drawer: -18px 0 40px var(--color-shadow-overlay);
-  --shadow-focus: 0 0 0 var(--stroke-thin) rgba(208, 155, 106, 0.34), 0 0 0 var(--space-xs) rgba(208, 155, 106, 0.12);
+  /* Focus = control border turns to focus color + one soft outer glow.
+   * No solid 1px ring here: it would stack with the border into a double line. */
+  --shadow-focus: 0 0 0 var(--space-xs) rgba(208, 155, 106, 0.16);
 }
 
 :root[data-skin="light"] {
@@ -270,9 +276,10 @@
   --color-bg-warning: #faf4e4;
   --color-bg-success: #edf6f0;
   --color-border-muted: #e8e8e8;
-  --color-border: #dcdcdc;
-  --color-border-strong: #b8b8b8;
-  --color-border-hover: #a8a8a8;
+  /* Control borders stay discernible: >= 3:1 against the control surface. */
+  --color-border: #949494;
+  --color-border-strong: #767676;
+  --color-border-hover: #6f6f6f;
   --color-border-primary: #2563eb;
   --color-border-accent: #2563eb;
   --color-border-accent-soft: rgba(37, 99, 235, 0.22);
@@ -280,14 +287,14 @@
   --color-border-success: #9cc4aa;
   --color-border-warning: #d3b871;
   --color-border-danger: #e0a49f;
-  --color-text: #26292e;
-  --color-text-strong: #101214;
-  --color-text-heading: #1a1d21;
-  --color-text-muted: #5c6167;
-  --color-text-soft: #40454b;
-  --color-text-softer: #4d5258;
-  --color-text-faint: #7a7f86;
-  --color-text-disabled: #9a9ea5;
+  --color-text: #262626;
+  --color-text-strong: #101010;
+  --color-text-heading: #1a1a1a;
+  --color-text-muted: #5c5c5c;
+  --color-text-soft: #404040;
+  --color-text-softer: #4d4d4d;
+  --color-text-faint: #6b6b6b;
+  --color-text-disabled: #8a8a8a;
   --color-text-inverse: #ffffff;
   --color-accent: #2563eb;
   --color-accent-soft: #eef3fe;
@@ -297,7 +304,7 @@
   --color-warning: #92600a;
   --color-danger: #c03a32;
   --color-danger-strong: #a32e27;
-  --color-syntax-comment: #7a7f86;
+  --color-syntax-comment: #667085;
   --color-syntax-keyword: #1d4ed8;
   --color-syntax-string: #1e7a4a;
   --color-syntax-variable: #6d28d9;
@@ -305,23 +312,23 @@
   --color-chart-line: #2563eb;
   --color-chart-axis: #a8a8a8;
   --color-chart-grid: #e4e4e4;
-  --color-chart-label: #5c6167;
+  --color-chart-label: #5c5c5c;
   --color-terminal-bg: #f5f5f5;
-  --color-terminal-fg: #26292e;
+  --color-terminal-fg: #262626;
   --color-terminal-surface: #e8e8e8;
-  --color-terminal-muted: #5c6167;
-  --color-terminal-muted-hover: #40454b;
-  --color-terminal-muted-active: #26292e;
+  --color-terminal-muted: #5c5c5c;
+  --color-terminal-muted-hover: #404040;
+  --color-terminal-muted-active: #262626;
   --color-terminal-inset-glow: rgba(255, 255, 255, 0.7);
-  --color-terminal-syntax-comment: #7a7f86;
+  --color-terminal-syntax-comment: #667085;
   --color-terminal-syntax-keyword: #1d4ed8;
   --color-terminal-syntax-string: #1e7a4a;
   --color-terminal-syntax-variable: #6d28d9;
   --color-terminal-syntax-number: #b45309;
-  --color-overlay: rgba(16, 18, 20, 0.16);
-  --color-overlay-strong: rgba(16, 18, 20, 0.42);
-  --color-shadow-overlay: rgba(16, 18, 20, 0.12);
-  --color-shadow-overlay-soft: rgba(16, 18, 20, 0.06);
+  --color-overlay: rgba(0, 0, 0, 0.16);
+  --color-overlay-strong: rgba(0, 0, 0, 0.42);
+  --color-shadow-overlay: rgba(0, 0, 0, 0.12);
+  --color-shadow-overlay-soft: rgba(0, 0, 0, 0.06);
   --background-app: #fafafa;
   --background-chrome: #ffffff;
   --background-sidebar: #fafafa;
@@ -333,7 +340,8 @@
   --shadow-dialog: 0 16px 48px var(--color-shadow-overlay);
   --shadow-upward: 0 -6px 22px color-mix(in srgb, var(--color-shadow-overlay) 46%, transparent);
   --shadow-drawer: -18px 0 40px var(--color-shadow-overlay);
+  /* Focus = control border turns to focus color + one soft outer glow.
+   * No solid 1px ring here: it would stack with the border into a double line. */
   --shadow-focus:
-    0 0 0 var(--stroke-thin) var(--color-border-focus),
     0 0 0 var(--space-xs) color-mix(in srgb, var(--color-border-focus) 18%, transparent);
 }
