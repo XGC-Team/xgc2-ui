@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
+
+const policyVersion = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8')).version;
 
 const cli = new URL('../dist/cli.mjs', import.meta.url);
 
@@ -32,7 +34,10 @@ test('scans a standalone consumer and reports exact coverage', async () => {
   try {
     const result = run(project.directory, '--root', 'src', '--html', 'index.html');
     assert.equal(result.status, 0, result.stderr);
-    assert.match(result.stdout, /XGC2 UI policy 0\.14\.1: scanned 1 root\(s\), 1 CSS file\(s\), 2 production script\/HTML file\(s\)/);
+    assert.match(
+      result.stdout,
+      new RegExp(`XGC2 UI policy ${policyVersion.replaceAll('.', '\\.')}: scanned 1 root\\(s\\), 1 CSS file\\(s\\), 2 production script\\/HTML file\\(s\\)`),
+    );
   } finally {
     await rm(project.directory, { recursive: true, force: true });
   }

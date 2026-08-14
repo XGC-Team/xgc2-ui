@@ -141,4 +141,14 @@
   .xgc-log-table-search {
     width: 100%;
   }
+
+  .xgc-speech-client {
+    width: calc(100% - (var(--space-layout-default) * 2));
+    grid-template-columns: 1fr;
+    margin-top: var(--space-layout-default);
+  }
+
+  .xgc-speech-client-extra {
+    grid-column: auto;
+  }
 }

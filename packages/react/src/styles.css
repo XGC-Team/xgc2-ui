@@ -2714,18 +2714,6 @@ button.xgc-stat-card:disabled {
   gap: var(--space-layout-default);
 }
 
-@media (max-width: 720px) {
-  .xgc-speech-client {
-    width: calc(100% - (var(--space-layout-default) * 2));
-    grid-template-columns: 1fr;
-    margin-top: var(--space-layout-default);
-  }
-
-  .xgc-speech-client-extra {
-    grid-column: auto;
-  }
-}
-
 .xgc-app-shell {
   --xgc-shell-ui-font-size: var(--font-base);
   min-width: 0;
