@@ -15,14 +15,17 @@ Set the active skin on the root element:
 
 Applications may add domain-specific tokens, but must not redefine shared tokens locally.
 
-The shared foundation is deliberately neutral rather than blue-grey: dark mode
-uses near-black graphite and subtly warm charcoal; light mode uses paper-white
-and warm neutral grey. Copper and amber are reserved for small accents, focus,
-and selection, while semantic and syntax colors stay restrained. Validation
-rejects a blue channel bias in foundational surfaces, borders, text, terminal,
-and chart chrome. It also enforces WCAG contrast for body and control text
-(7:1), secondary and quiet text (4.5:1), focus indicators (3:1), primary
-controls (4.5:1), and code/terminal content (4.5:1 or 7:1 for primary text).
+The two skins are independent. Dark mode uses near-black graphite and subtly
+warm charcoal. Light mode uses clean white forward surfaces over an achromatic
+neutral-grey workbench; cream, yellow-brown, and blue-grey casts are not part of
+its foundation. Copper and amber are reserved for small accents, focus, and
+selection, while semantic and syntax colors stay restrained. Validation limits
+light foundation and material literals to a maximum RGB channel delta of two,
+including alpha colors in neutral overlays and shadows. Dark foundations retain
+their separate no-blue-bias guard. Validation also enforces WCAG contrast for
+body and control text (7:1), secondary and quiet text (4.5:1), focus indicators
+(3:1), primary controls (4.5:1), and code/terminal content (4.5:1 or 7:1 for
+primary text).
 
 Material roles are intentionally small and semantic. `--background-app` is the
 workspace canvas beneath product content; `--background-chrome` and
@@ -31,8 +34,9 @@ workspace canvas beneath product content; `--background-chrome` and
 `--background-control` is reserved for interactive controls and compact
 operator messages. `--shadow-card` supplies restrained elevation, so products
 must not redraw panels with bright dark-mode outlines or local gradients. In
-the light skin the surface is a warm porcelain gradient over a quiet grey-beige
-workbench; in the dark skin it is raised by graphite luminance and shadow.
+the light skin, clean white surfaces rise from a neutral-grey workbench through
+small achromatic luminance steps and neutral shadow. In the dark skin, surfaces
+are raised independently through graphite luminance and shadow.
 
 Selection colors and their complete enclosing halo are part of this theme contract:
 use `--color-selection-highlight`, `--color-selection-glow`, and

@@ -1,6 +1,6 @@
 {
   "name": "@xgc2/ui-react",
-  "version": "0.15.2",
+  "version": "0.15.3",
   "description": "Shared React components and application shell for XGC2 products",
   "type": "module",
   "sideEffects": ["*.css"],

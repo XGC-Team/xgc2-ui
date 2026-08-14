@@ -48,7 +48,7 @@ This document is normative for every XGC2 web frontend. Product CSS may lay out 
 
 - Light and dark modes share semantic roles but not mechanically inverted values. Dark mode dims the workspace, raises forward surfaces by restrained luminance, and reduces chromatic saturation so operator data remains dominant.
 - App, chrome, surface, control, and panel-header materials come from shared `--background-*` tokens. Their gradients and top-light sheen remain subtle; products must not add decorative accent glows or competing background effects.
-- Light surfaces use a warm porcelain hierarchy: a quiet grey-beige workbench under a clean, subtly shaded panel material. Dark surfaces use graphite luminance and shadow for depth. Neither skin may separate every panel with a bright outline; borders stay subordinate to material and elevation.
+- Light surfaces use an achromatic neutral-white hierarchy: a quiet neutral-grey workbench under clean white, subtly shaded panel material. Cream, yellow-brown, and blue-grey casts are prohibited in light foundation and material roles. Dark surfaces independently use graphite luminance and shadow for depth. Neither skin may separate every panel with a bright outline; borders stay subordinate to material and elevation.
 - Blue-grey is not a neutral foundation color. App, chrome, sidebar, surface, control, border, text, terminal, and neutral chart tokens are guarded against blue-biased values; saturated color is reserved for real data, syntax, focus, and decision-relevant semantics.
 - Product entry HTML may declare a static fallback `data-skin`, but executable inline scripts must not read or write skin persistence or mutate `documentElement`; `initializeSkin` and `useSkin` remain the single lifecycle authority.
 

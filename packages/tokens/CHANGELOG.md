@@ -1,5 +1,17 @@
 # @xgc2/ui-tokens
 
+## 0.8.1
+
+### Patch Changes
+
+- Restore the light skin to an achromatic neutral-white hierarchy. Application,
+  chrome, panel, control, code, terminal, border, text, and shadow foundations
+  now create depth through luminance instead of cream, yellow, brown, or blue
+  tint, while accent, semantic, and syntax colors remain intentionally scoped.
+- Reject both cool and warm color casts in light foundation and material
+  literals with a two-level maximum RGB channel delta, including alpha colors
+  used by overlays and shadows.
+
 ## 0.8.0
 
 ### Major corrective release
