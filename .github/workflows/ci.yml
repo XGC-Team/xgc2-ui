@@ -13,6 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
         with:
           run_install: false
@@ -21,4 +23,13 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Validate versions against the latest immutable releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          releases="$(gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100")"
+          package_base="$(node -e 'const releases=JSON.parse(process.argv[1]); process.stdout.write(releases.find((release) => !release.draft && /^v[0-9]/.test(release.tag_name))?.tag_name ?? "")' "${releases}")"
+          policy_base="$(node -e 'const releases=JSON.parse(process.argv[1]); process.stdout.write(releases.find((release) => !release.draft && /^policy-v[0-9]/.test(release.tag_name))?.tag_name ?? "")' "${releases}")"
+          node scripts/validate-release-delta.mjs --package-base "${package_base}" --policy-base "${policy_base}"
       - run: pnpm check

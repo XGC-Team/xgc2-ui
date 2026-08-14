@@ -59,7 +59,10 @@ The React package inlines the token contract into its published stylesheet, so c
 
 Every consumer installs the matching policy package and runs it against its
 real product source. Missing paths and empty scans are errors; the CLI reports
-the exact number of CSS and production script/HTML files checked.
+the exact number of CSS and production script/HTML files checked. A React
+family is ready for consumer rollout only after both its `vX.Y.Z` package
+release and matching `policy-vX.Y.Z` policy release exist; source preparation
+or a package tag alone is not a deployable family.
 
 ```bash
 xgc2-style-policy --root src --html index.html

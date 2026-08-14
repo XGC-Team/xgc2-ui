@@ -24,15 +24,38 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
+      - name: Validate annotated release tag
+        run: |
+          set -euo pipefail
+          if ! git cat-file -e "${GITHUB_REF_NAME}^{tag}" 2>/dev/null; then
+            echo "release tag ${GITHUB_REF_NAME} must be annotated" >&2
+            exit 1
+          fi
+          if [[ "$(git rev-parse HEAD)" != "$(git rev-parse "${GITHUB_REF_NAME}^{commit}")" ]]; then
+            echo "release tag ${GITHUB_REF_NAME} does not resolve to the checked-out commit" >&2
+            exit 1
+          fi
       - name: Pack only packages changed since the preceding immutable release
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           mkdir -p release-assets
-          previous_tag="$(git describe --tags --abbrev=0 "${GITHUB_REF_NAME}^" 2>/dev/null || true)"
+          previous_tag="$(gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" --jq '[.[] | select(.draft == false and (.tag_name | test("^v[0-9]")))] | first | .tag_name // ""')"
           for package in tokens react workflow; do
-            if [[ -n "${previous_tag}" ]] && git diff --quiet "${previous_tag}" "${GITHUB_REF_NAME}" -- "packages/${package}"; then
+            if [[ -n "${previous_tag}" ]] && git diff --quiet "${previous_tag}" "${GITHUB_REF_NAME}" -- \
+              "packages/${package}" \
+              ":(exclude)packages/${package}/CHANGELOG.md"; then
               echo "reusing unchanged @xgc2/ui-${package} from ${previous_tag}"
               continue
+            fi
+            if [[ -n "${previous_tag}" ]] && git cat-file -e "${previous_tag}:packages/${package}/package.json" 2>/dev/null; then
+              current_version="$(node -p "require('./packages/${package}/package.json').version")"
+              previous_version="$(git show "${previous_tag}:packages/${package}/package.json" | node -e "let source=''; process.stdin.on('data', (chunk) => { source += chunk; }); process.stdin.on('end', () => process.stdout.write(JSON.parse(source).version));")"
+              if [[ "${current_version}" == "${previous_version}" ]]; then
+                echo "@xgc2/ui-${package} changed since ${previous_tag} without a version bump (${current_version})" >&2
+                exit 1
+              fi
             fi
             pnpm --filter "@xgc2/ui-${package}" pack --pack-destination release-assets
           done
