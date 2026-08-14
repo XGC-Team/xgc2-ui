@@ -5,6 +5,13 @@ export type PanelProps = Omit<HTMLAttributes<HTMLElement>, 'title'> & {
   actions?: ReactNode;
   bodyLayout?: 'block' | 'column';
   bodyScroll?: boolean;
+  /**
+   * `framed` is the full chrome (border, radius, header, card shadow) and is
+   * the only variant allowed at the two outermost nesting levels. `flat`
+   * drops background/border/radius/shadow and simplifies the header so inner
+   * sections group by spacing and typography instead of stacked chrome.
+   */
+  chrome?: 'framed' | 'flat';
   description?: ReactNode;
   fill?: boolean;
   padding?: 'default' | 'none';
@@ -16,6 +23,7 @@ export function Panel({
   bodyLayout = 'block',
   bodyScroll = false,
   children,
+  chrome = 'framed',
   className,
   description,
   fill = false,
@@ -29,6 +37,7 @@ export function Panel({
       {...props}
       className={classNames('xgc-panel', className)}
       aria-labelledby={title ? titleId : props['aria-labelledby']}
+      data-chrome={chrome === 'flat' ? 'flat' : undefined}
       data-fill={fill || undefined}
       data-padding={padding}
     >

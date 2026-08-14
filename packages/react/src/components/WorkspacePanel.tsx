@@ -30,7 +30,12 @@ export type WorkspacePanelProps = Omit<HTMLAttributes<HTMLElement>, 'title' | 'o
   bodyLayout?: 'block' | 'column';
   bodyProps?: Omit<HTMLAttributes<HTMLDivElement>, 'children' | 'className'> & DataAttributes;
   bodyScroll?: boolean;
-  chrome?: 'framed' | 'seamed';
+  /**
+   * `framed` = full chrome (border, radius, card shadow); `seamed` = edge
+   * seams only for tiled layouts; `flat` = no background/border/radius/shadow
+   * for inner sections beyond the two outermost nesting levels.
+   */
+  chrome?: 'framed' | 'seamed' | 'flat';
   editing?: boolean;
   headerClassName?: string;
   headerProps?: Omit<HTMLAttributes<HTMLElement>, 'children' | 'className'> & DataAttributes;
