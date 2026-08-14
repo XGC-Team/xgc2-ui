@@ -1,8 +1,20 @@
 # XGC2 Frontend Foundation Migration Matrix
 
-This file is the implementation ledger for the family-wide React migration. A row is complete only when reusable behavior lives in `@xgc2/ui-react`, product-local duplication is removed, product tests/build pass, and the result has been visually checked in both themes and desktop/mobile layouts.
+This file is the implementation ledger for the family-wide React migration. A row is complete only when reusable behavior lives in the shared packages, product-local duplication is removed, immutable packages are installed from the canonical organization repository, the fail-closed policy runs in product CI, product tests/build pass, and the result has been visually checked in both themes and desktop/mobile layouts.
 
-The `0.14.0` baseline covers **8 consumer repositories and 9 UI surfaces**: XGC2 GCS, APT Repository, Agent Hub, Research OS, STT Service, Media Edge, both Camera Calibration pages (intrinsic and extrinsic), and the standalone Gazebo camera tool. Camera Calibration is one repository with two independently packaged pages. XGC2 Lichtblick is an upstream MUI application with a narrow XGC2-owned compatibility bridge; it is not an immutable-tarball consumer and is not counted in this rollout matrix.
+The `0.14.1` family baseline covers **8 consumer repositories and 9 UI surfaces**: XGC2 GCS, APT Repository, Agent Hub, Research OS, STT Service, Media Edge, both Camera Calibration pages (intrinsic and extrinsic), and the standalone Gazebo camera tool. Camera Calibration is one repository with two independently packaged pages. XGC2 Lichtblick is an upstream MUI application with a narrow XGC2-owned compatibility bridge; it is not an immutable-tarball consumer and is not counted in this rollout matrix.
+
+## Canonical source and immutable artifacts
+
+The source authority is [XGC-Team/xgc2-ui](https://github.com/XGC-Team/xgc2-ui). Consumer manifests and lockfiles must use its immutable release URLs; the former personal-owner URL is only a GitHub compatibility redirect and is not an accepted production source.
+
+| Package | Canonical immutable asset | SHA-256 |
+| --- | --- | --- |
+| `@xgc2/ui-react@0.14.1` | [`v0.14.1/xgc2-ui-react-0.14.1.tgz`](https://github.com/XGC-Team/xgc2-ui/releases/download/v0.14.1/xgc2-ui-react-0.14.1.tgz) | `cb8654828cda326b57c3d5a3e8a82d7e99ab1f4ad11b629c6fc1adb2e5746882` |
+| `@xgc2/ui-workflow@0.3.0` | [`v0.14.0/xgc2-ui-workflow-0.3.0.tgz`](https://github.com/XGC-Team/xgc2-ui/releases/download/v0.14.0/xgc2-ui-workflow-0.3.0.tgz) | `4104298c9e5a8ae73635cefee1e7c67549e2f575757f8b7a6a4a1d37ba828485` |
+| `@xgc2/ui-policy@0.14.1` | [`policy-v0.14.1/xgc2-ui-policy-0.14.1.tgz`](https://github.com/XGC-Team/xgc2-ui/releases/download/policy-v0.14.1/xgc2-ui-policy-0.14.1.tgz) | `4a588ea714dd7496df738f9e006bd52c57a20a8dec010ed2489360f6010c27ef` |
+
+The workflow package keeps its independent `0.3.0` package version and therefore remains attached to the immutable `v0.14.0` release. The policy package is independently tagged `policy-v0.14.1`; neither fact permits a consumer to substitute a moving branch or a legacy-owner URL.
 
 ## Ownership rule
 
@@ -42,20 +54,20 @@ If a pattern appears in two products, or in several XGC2 operations pages, it is
 
 ## Product adoption
 
-This snapshot records remote default branches, not local worktrees. A pull request is deliberately not reported as adopted until its default branch contains the immutable release.
+This snapshot was verified on 2026-08-14 and records remote default branches, not local worktrees. A pull request is deliberately not reported as default-branch adoption. A green run is listed only when the checked revision actually executes `xgc2-style-policy` against product source; ordinary build success is not a substitute.
 
-| Product repository / UI surface | Remote baseline at this snapshot | `0.14.0` state and gate |
-| --- | --- | --- |
-| XGC2 GCS (`xgc2-vibe-coding-temp`) | `master@031035bb`; React `0.13.1`, workflow `0.2.1` | **Pending.** Draft PR [#20](https://github.com/lxk36/xgc2-vibe-coding-temp/pull/20) at `b96ff057` pins React `0.14.0` and workflow `0.3.0`, with its checks passing. It remains unadopted until reviewed and merged to `master`; the ledger must not treat the PR branch as the product baseline. |
-| APT Repository (`xgc2-apt-repo`) | `master@5679f278`; React `0.14.0` | **Adopted.** Shared shell/topbar/table/select-all/code/theme/scrollbar primitives remain in use; Docker image run `31679837212` and deployment run `31680057249` passed. |
-| Agent Hub (`xgc2-agent-hub`) | `main@b9512034`; React `0.14.0` | **Adopted.** The shared shell, drawer, bounded workspaces, controls, feedback, lists, Markdown and structured data are pinned; graph legend geometry is explicitly domain-local rather than disguised spacing. CI run `31680269661` passed. |
-| Research OS (`xgc2-research-os`) | `main@b848c848`; React `0.14.0`, workflow `0.3.0` | **Adopted.** Shared shell, navigation, controls, data layouts and workflow surfaces are pinned while graph semantics and coordinates remain local. CI run `31650793799` passed. |
-| STT Service (`xgc2-stt-service`) | `main@d348d9ac`; React `0.13.1` | **Pending.** Draft PR [#3](https://github.com/lxk36/xgc2-stt-service/pull/3) at `2551fe53` pins React `0.14.0` and has a passing review check. Merge remains with G0/Resonance; do not report default-branch adoption before that handoff completes. |
-| Media Edge (`xgc2-media-edge`) | `main@900ea348`; React `0.14.0` (adopted at `5b8850a6`) | **Adopted.** The Go-embedded React player retains deterministic generated assets and the shared mobile contract. Current-main CI run `31681774803` passed. |
-| Camera Calibration (`xgc2-camera-calibration-ros1`), intrinsic and extrinsic pages | `main@2e22e7bd`; React `0.14.0` | **Adopted for both UI surfaces.** One shared React source still produces two independently packaged pages; ROS transport, canvas interaction and calibration math remain domain-local. CI run `31679945282` passed. |
-| Gazebo camera tool (`xgc2-gazebo-sim-camera`) | `main@3a2cc518`; React `0.14.0` | **Adopted.** This is the standalone camera repository, not the aggregate `xgc2-gazebo-sim` repository's `noetic` branch. CI run `31679945647` passed. |
+| Product repository / UI surface | Verified remote default | Shared package state | Gate evidence |
+| --- | --- | --- | --- |
+| XGC2 GCS (`xgc2-vibe-coding-temp`) | [`master@48137cd28b8acda6abd7d11da7e9e0a11b137048`](https://github.com/lxk36/xgc2-vibe-coding-temp/commit/48137cd28b8acda6abd7d11da7e9e0a11b137048) | React `0.14.1`, workflow `0.3.0`, policy `0.14.1`; all three use canonical `XGC-Team` assets. | **Complete.** [`web-ci` run 31693980510](https://github.com/lxk36/xgc2-vibe-coding-temp/actions/runs/31693980510) passed policy, repository gates, visual regression and the real Core-to-Agent lifecycle; [`secret-policy` run 31693980595](https://github.com/lxk36/xgc2-vibe-coding-temp/actions/runs/31693980595) also passed. |
+| APT Repository (`xgc2-apt-repo`) | [`master@b4892f090e383eb17201a649172c283bd83ff959`](https://github.com/lxk36/xgc2-apt-repo/commit/b4892f090e383eb17201a649172c283bd83ff959) | React `0.14.1`, policy `0.14.1`; canonical `XGC-Team` assets. | **Complete and deployed.** [`Docker image` run 31692871551](https://github.com/lxk36/xgc2-apt-repo/actions/runs/31692871551) ran policy and passed; [`Deploy` run 31693116792](https://github.com/lxk36/xgc2-apt-repo/actions/runs/31693116792) passed, and the public dashboard/package API and health endpoint were verified after deployment. |
+| Agent Hub (`xgc2-agent-hub`) | [`main@6c09f60f65cc60d2d46953ddad40100ce078ea4c`](https://github.com/lxk36/xgc2-agent-hub/commit/6c09f60f65cc60d2d46953ddad40100ce078ea4c) | React `0.14.1`, policy `0.14.1`; canonical `XGC-Team` assets. | **Complete.** [`Agent Hub CI` run 31692832261](https://github.com/lxk36/xgc2-agent-hub/actions/runs/31692832261) ran policy and passed. |
+| Research OS (`xgc2-research-os`) | [`main@0c049463939a4dffcd795d97e5d1c60c4eaad79f`](https://github.com/lxk36/xgc2-research-os/commit/0c049463939a4dffcd795d97e5d1c60c4eaad79f) | React `0.14.1`, workflow `0.3.0`, policy `0.14.1`; all three use canonical `XGC-Team` assets. | **Complete.** [`CI` run 31693067538](https://github.com/lxk36/xgc2-research-os/actions/runs/31693067538) ran policy and passed. |
+| STT Service (`xgc2-stt-service`) | [`main@961d5caa1d2f7f3a223faa0379a9d9d8254f6b68`](https://github.com/XGC-Team/xgc2-stt-service/commit/961d5caa1d2f7f3a223faa0379a9d9d8254f6b68) | Default branch contains React `0.14.1`, but its manifest/lockfile still use the legacy-owner redirect and it has no policy package or policy CI. | **Not complete on the default branch.** Open draft PR [#5](https://github.com/XGC-Team/xgc2-stt-service/pull/5) at `6bde7acb6e3d1bd8f33cb43d9a10092a76975c42` changes only the manifest/lockfile to canonical React `0.14.1` plus policy `0.14.1`; [`Review` run 31693406479](https://github.com/XGC-Team/xgc2-stt-service/actions/runs/31693406479) ran policy and passed. It remains draft and must not be counted as default-branch adoption. |
+| Media Edge (`xgc2-media-edge`) | [`main@b614a685086fe48c73ecc3286341780ec2264034`](https://github.com/lxk36/xgc2-media-edge/commit/b614a685086fe48c73ecc3286341780ec2264034) | React `0.14.1`, policy `0.14.1`; canonical `XGC-Team` assets. | **Complete.** [`ci` run 31693067768](https://github.com/lxk36/xgc2-media-edge/actions/runs/31693067768) ran policy and passed; deterministic Go-embedded assets and the shared mobile contract remain intact. |
+| Camera Calibration (`xgc2-camera-calibration-ros1`), intrinsic and extrinsic pages | [`main@9b30b00d2aa5cdf75b58bb20340c4efdd2aeab29`](https://github.com/lxk36/xgc2-camera-calibration-ros1/commit/9b30b00d2aa5cdf75b58bb20340c4efdd2aeab29) | React `0.14.1`, policy `0.14.1`; canonical `XGC-Team` assets for both packaged pages. | **Complete for both UI surfaces.** [`ci` run 31693066991](https://github.com/lxk36/xgc2-camera-calibration-ros1/actions/runs/31693066991) ran policy and passed. ROS transport, canvas interaction and calibration math remain domain-local. |
+| Gazebo camera tool (`xgc2-gazebo-sim-camera`) | [`main@3ef30b89481610f01b4fdd3af0e3b6bb2d716608`](https://github.com/lxk36/xgc2-gazebo-sim-camera/commit/3ef30b89481610f01b4fdd3af0e3b6bb2d716608) | React `0.14.1`, policy `0.14.1`; canonical `XGC-Team` assets. | **Complete.** [`ci` run 31693068209](https://github.com/lxk36/xgc2-gazebo-sim-camera/actions/runs/31693068209) ran policy and passed. This is the standalone camera repository, not the aggregate `xgc2-gazebo-sim` repository's `noetic` branch. |
 
-At this snapshot, 6 of 8 consumer repositories and 7 of 9 UI surfaces have `0.14.0` on their remote default branch. XGC2 GCS and STT remain review/merge work, not completed migration.
+React `0.14.1` is present on **8 of 8 default branches and 9 of 9 UI surfaces**. The stricter canonical-source and policy gate is complete on **7 of 8 repositories and 8 of 9 UI surfaces**; STT remains the sole draft-only handoff. Workflow `0.3.0` is complete on both applicable default branches, XGC2 GCS and Research OS.
 
 ## Geometry and breakpoint contract
 
@@ -65,4 +77,4 @@ At this snapshot, 6 of 8 consumer repositories and 7 of 9 UI surfaces have `0.14
 
 ## Release discipline
 
-The shared package is not published after each extraction. Complete the batch, run policy/type/test/build/Storybook checks, publish one immutable release, update every consumer lockfile, validate each product, then deploy APT once and verify its remote workflow and service. Patch releases restart this consumer gate: a tagged package is not family-wide adoption until every applicable default branch and lockfile points at it.
+The shared package is not published after each extraction. Complete the batch, run policy/type/test/build/Storybook checks, publish one immutable release from `XGC-Team/xgc2-ui`, update every consumer manifest and lockfile to the canonical asset, validate each product under `@xgc2/ui-policy`, then deploy APT once and verify its remote workflow and service. Patch releases restart this consumer gate: a tagged package is not family-wide adoption until every applicable default branch and lockfile points at it and runs the matching policy in CI.
