@@ -1,0 +1,100 @@
+name: Prepare immutable release tag
+
+on:
+  workflow_dispatch:
+    inputs:
+      family:
+        description: Release family to tag from the current main commit
+        required: true
+        type: choice
+        options:
+          - package
+          - policy
+
+permissions:
+  actions: write
+  contents: write
+
+concurrency:
+  group: prepare-release-tag
+  cancel-in-progress: false
+
+jobs:
+  tag:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          ref: main
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        with:
+          run_install: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Validate the current main release family
+        env:
+          FAMILY: ${{ inputs.family }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "${GITHUB_SHA}" ]] || { echo "workflow must run from the checked-out main commit" >&2; exit 1; }
+          gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/releases?per_page=100" > releases.json
+          case "${FAMILY}" in
+            package)
+              version="$(node -p "require('./packages/react/package.json').version")"
+              tag="v${version}"
+              node scripts/validate-release-delta.mjs --releases releases.json --scope package --require-changes
+              ;;
+            policy)
+              version="$(node -p "require('./packages/policy/package.json').version")"
+              tag="policy-v${version}"
+              node scripts/validate-release-delta.mjs --releases releases.json --scope policy --require-current-package --require-changes
+              ;;
+            *)
+              echo "unsupported release family ${FAMILY}" >&2
+              exit 1
+              ;;
+          esac
+          pnpm check
+          set +e
+          git ls-remote --exit-code --tags origin "refs/tags/${tag}" >/dev/null 2>&1
+          tag_status="$?"
+          set -e
+          if [[ "${tag_status}" == "0" ]]; then
+            echo "tag namespace already exists: ${tag}" >&2
+            exit 1
+          elif [[ "${tag_status}" != "2" ]]; then
+            echo "could not prove that tag namespace ${tag} is unused" >&2
+            exit 1
+          fi
+          release_error="$(mktemp)"
+          if gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${tag}" >/dev/null 2>"${release_error}"; then
+            echo "release namespace already exists: ${tag}" >&2
+            exit 1
+          elif ! grep -Fq '(HTTP 404)' "${release_error}"; then
+            cat "${release_error}" >&2
+            echo "could not prove that release namespace ${tag} is unused" >&2
+            exit 1
+          fi
+          printf 'TAG=%s\n' "${tag}" >> "${GITHUB_ENV}"
+      - name: Create the reviewed annotated tag and dispatch its publisher
+        env:
+          FAMILY: ${{ inputs.family }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git tag -a "${TAG}" -m "Release ${TAG}"
+          git push origin "refs/tags/${TAG}"
+          if [[ "${FAMILY}" == "package" ]]; then
+            workflow='release.yml'
+          else
+            workflow='release-policy.yml'
+          fi
+          gh workflow run "${workflow}" --repo "${GITHUB_REPOSITORY}" --ref "${TAG}"
