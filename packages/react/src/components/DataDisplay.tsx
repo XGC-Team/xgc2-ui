@@ -1,6 +1,7 @@
 import {
   useEffect,
   useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -116,6 +117,10 @@ export type DataTableSelection<Row> = {
 };
 
 export type SortableDataTableProps<Row> = Omit<DataTableProps, 'children' | 'empty'> & {
+  /** Keep the table header outside the bounded vertical row viewport. */
+  bodyScroll?: boolean;
+  /** Accessible name for the keyboard-scrollable row viewport. */
+  bodyScrollLabel?: string;
   columns: readonly DataTableColumn<Row>[];
   defaultSort?: DataTableSort;
   getRowProps?: (row: Row) => DataTableRowProps;
@@ -164,6 +169,8 @@ function compareDataTableValues(
 }
 
 export function SortableDataTable<Row>({
+  bodyScroll = false,
+  bodyScrollLabel = 'Table rows',
   columns,
   defaultSort,
   emptyMessage,
@@ -178,6 +185,9 @@ export function SortableDataTable<Row>({
   ...props
 }: SortableDataTableProps<Row>) {
   const [internalSort, setInternalSort] = useState<DataTableSort | undefined>(defaultSort);
+  const [bodyColumnWidths, setBodyColumnWidths] = useState<number[]>([]);
+  const [bodyViewportWidth, setBodyViewportWidth] = useState<number>();
+  const bodyViewportRef = useRef<HTMLTableSectionElement>(null);
   const activeSort = sort ?? internalSort;
   const activeColumn = activeSort ? columns.find((column) => column.id === activeSort.columnId) : undefined;
   const visibleRows = useMemo(() => {
@@ -210,6 +220,41 @@ export function SortableDataTable<Row>({
   const allSelected = Boolean(selection && rows.length && selectedOnPage === rows.length);
   const someSelected = Boolean(selection && selectedOnPage > 0 && !allSelected);
 
+  useLayoutEffect(() => {
+    if (!bodyScroll) {
+      setBodyColumnWidths([]);
+      setBodyViewportWidth(undefined);
+      return undefined;
+    }
+    const viewport = bodyViewportRef.current;
+    if (!viewport) return undefined;
+    const synchronizeColumns = () => {
+      const firstRow = viewport.rows.item(0);
+      const nextWidths = firstRow
+        ? Array.from(firstRow.cells, (cell) => cell.getBoundingClientRect().width)
+        : [];
+      const nextViewportWidth = viewport.clientWidth;
+      setBodyColumnWidths((current) => (
+        current.length === nextWidths.length
+        && current.every((width, index) => Math.abs(width - (nextWidths[index] ?? width)) < 0.25)
+          ? current
+          : nextWidths
+      ));
+      setBodyViewportWidth((current) => (
+        current !== undefined && Math.abs(current - nextViewportWidth) < 0.25
+          ? current
+          : nextViewportWidth
+      ));
+    };
+    synchronizeColumns();
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    const observer = new ResizeObserver(synchronizeColumns);
+    observer.observe(viewport);
+    const firstRow = viewport.rows.item(0);
+    if (firstRow) observer.observe(firstRow);
+    return () => observer.disconnect();
+  }, [bodyScroll, columns, selection, visibleRows]);
+
   const toggleAll = () => {
     if (!selection) return;
     const next = new Set(selection.selectedRowKeys);
@@ -219,12 +264,21 @@ export function SortableDataTable<Row>({
   };
 
   return (
-    <DataTable {...props} empty={!rows.length} emptyMessage={emptyMessage}>
+    <DataTable
+      {...props}
+      data-body-scroll={bodyScroll || undefined}
+      empty={!rows.length}
+      emptyMessage={emptyMessage}
+    >
       <table {...tableProps} className={classNames('xgc-sortable-data-table', tableProps?.className)}>
-        <thead>
+        <thead style={bodyViewportWidth === undefined ? undefined : { width: bodyViewportWidth }}>
           <tr>
             {selection ? (
-              <th className="xgc-data-table-selection" scope="col">
+              <th
+                className="xgc-data-table-selection"
+                scope="col"
+                style={bodyColumnWidths[0] === undefined ? undefined : { width: bodyColumnWidths[0] }}
+              >
                 <DataTableCheckbox
                   aria-label={selection.rowHeaderLabel ?? 'Select all rows'}
                   checked={allSelected}
@@ -234,7 +288,7 @@ export function SortableDataTable<Row>({
                 />
               </th>
             ) : null}
-            {columns.map((column) => {
+            {columns.map((column, index) => {
               const direction = activeSort?.columnId === column.id ? activeSort.direction : undefined;
               return (
                 <th
@@ -242,6 +296,9 @@ export function SortableDataTable<Row>({
                   className={column.headerClassName}
                   key={column.id}
                   scope="col"
+                  style={bodyColumnWidths[index + (selection ? 1 : 0)] === undefined
+                    ? undefined
+                    : { width: bodyColumnWidths[index + (selection ? 1 : 0)] }}
                 >
                   {column.sortable ? (
                     <button
@@ -261,7 +318,12 @@ export function SortableDataTable<Row>({
             })}
           </tr>
         </thead>
-        <tbody>
+        <tbody
+          aria-label={bodyScroll ? bodyScrollLabel : undefined}
+          data-xgc-role="data-table-row-viewport"
+          ref={bodyViewportRef}
+          tabIndex={bodyScroll ? 0 : undefined}
+        >
           {visibleRows.map((row) => {
             const key = rowKey(row);
             const selected = selection?.selectedRowKeys.has(key) ?? false;
@@ -274,7 +336,10 @@ export function SortableDataTable<Row>({
                 key={key}
               >
                 {selection ? (
-                  <td className="xgc-data-table-selection">
+                  <td
+                    className="xgc-data-table-selection"
+                    style={bodyColumnWidths[0] === undefined ? undefined : { width: bodyColumnWidths[0] }}
+                  >
                     <DataTableCheckbox
                       aria-label={selection.getRowLabel?.(row) ?? `Select row ${key}`}
                       checked={selected}
@@ -288,7 +353,7 @@ export function SortableDataTable<Row>({
                     />
                   </td>
                 ) : null}
-                {columns.map((column) => (
+                {columns.map((column, index) => (
                   (() => {
                     const cellProps = typeof column.cellProps === 'function'
                       ? column.cellProps(row)
@@ -298,6 +363,12 @@ export function SortableDataTable<Row>({
                         {...cellProps}
                         className={classNames(column.className, cellProps?.className)}
                         key={column.id}
+                        style={{
+                          ...cellProps?.style,
+                          ...(bodyColumnWidths[index + (selection ? 1 : 0)] === undefined
+                            ? undefined
+                            : { width: bodyColumnWidths[index + (selection ? 1 : 0)] }),
+                        }}
                       >
                         {column.cell(row)}
                       </td>

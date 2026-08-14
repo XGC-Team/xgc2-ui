@@ -69,6 +69,25 @@ describe('data display primitives', () => {
     expect(screen.getAllByRole('row')[1]).toHaveTextContent('1.10.0');
   });
 
+  it('keeps the header outside the bounded vertical row viewport', () => {
+    const { container } = render(
+      <SortableDataTable
+        bodyScroll
+        columns={[{ id: 'package', header: 'Package', cell: (row) => row.name }]}
+        rowKey={(row) => row.id}
+        rows={[{ id: 'a', name: 'alpha' }, { id: 'b', name: 'beta' }]}
+      />,
+    );
+    const tableContainer = container.querySelector('.xgc-data-table');
+    const rowViewport = container.querySelector('[data-xgc-role="data-table-row-viewport"]');
+    const header = screen.getByRole('columnheader', { name: 'Package' });
+    expect(tableContainer).toHaveAttribute('data-body-scroll', 'true');
+    expect(rowViewport).toHaveAttribute('aria-label', 'Table rows');
+    expect(rowViewport).toHaveAttribute('tabindex', '0');
+    expect(rowViewport).toContainElement(screen.getByRole('cell', { name: 'alpha' }));
+    expect(rowViewport).not.toContainElement(header);
+  });
+
   it('forwards semantic cell metadata without requiring consumer-owned table markup', () => {
     const { container } = render(
       <SortableDataTable

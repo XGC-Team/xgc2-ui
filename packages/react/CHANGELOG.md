@@ -1,5 +1,13 @@
 # @xgc2/ui-react
 
+## 0.15.4
+
+### Patch Changes
+
+- Add a bounded `SortableDataTable` row viewport that keeps the column header
+  outside vertical scrolling while preserving one synchronized horizontal
+  table axis for headers and data.
+
 ## 0.15.3
 
 ### Patch Changes
