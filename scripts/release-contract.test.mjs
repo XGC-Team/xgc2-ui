@@ -22,7 +22,7 @@ const node24ActionPins = new Map([
 ]);
 
 test('publishes only new package assets and refuses mutable release state', () => {
-  assert.deepEqual(packages.map((manifest) => manifest.version), ['0.8.0', '0.15.1', '0.3.0', '0.15.1']);
+  assert.deepEqual(packages.map((manifest) => manifest.version), ['0.8.0', '0.15.2', '0.3.1', '0.15.2']);
   const reactCompatibilityFloor = packages[1].version.split('.').slice(0, 2).join('.');
   assert.match(packages[2].peerDependencies['@xgc2/ui-react'], new RegExp(`>=${reactCompatibilityFloor}\\s`));
   assert.equal(packages[3].peerDependencies['@xgc2/ui-react'], packages[1].version);

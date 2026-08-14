@@ -1,6 +1,6 @@
 # @xgc2/ui-react
 
-## 0.15.1
+## 0.15.2
 
 ### Minor Changes
 
