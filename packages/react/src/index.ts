@@ -18,6 +18,19 @@ export type {
   AudioCaptureState,
   AudioWaveformProps,
 } from './components/AudioCapture';
+export {
+  SpeechClientWorkspace,
+  SpeechConnectionForm,
+  SpeechTranscript,
+} from './components/SpeechClient';
+export type {
+  SpeechClientWorkspaceProps,
+  SpeechConnectionFormLabels,
+  SpeechConnectionFormProps,
+  SpeechConnectionValues,
+  SpeechOutputScript,
+  SpeechTranscriptProps,
+} from './components/SpeechClient';
 export { Button, ButtonLink } from './components/Button';
 export type {
   ButtonAppearance,

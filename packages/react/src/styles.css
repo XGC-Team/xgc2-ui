@@ -2671,6 +2671,61 @@ button.xgc-stat-card:disabled {
   border-top: var(--stroke-thin) solid var(--color-border);
 }
 
+.xgc-speech-client {
+  width: min(100% - (var(--space-page-padding) * 2), 70rem);
+  margin: var(--space-page-padding) auto var(--space-3xl);
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  gap: var(--space-layout-default);
+}
+
+.xgc-speech-client-result {
+  min-height: 0;
+}
+
+.xgc-speech-transcript {
+  min-height: 16rem;
+  max-height: calc(100dvh - var(--size-header-page) - var(--size-header-panel) - var(--space-3xl));
+  overflow: auto;
+  padding: var(--space-panel-padding);
+  color: var(--color-text);
+  font-size: var(--font-xl);
+  line-height: var(--line-height-relaxed);
+  white-space: pre-wrap;
+  user-select: text;
+}
+
+.xgc-speech-transcript-stable {
+  color: var(--color-text);
+}
+
+.xgc-speech-transcript-unstable {
+  color: var(--color-text-faint);
+}
+
+.xgc-speech-connection {
+  display: grid;
+  gap: var(--space-layout-default);
+}
+
+.xgc-speech-client-extra {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: var(--space-layout-default);
+}
+
+@media (max-width: 720px) {
+  .xgc-speech-client {
+    width: calc(100% - (var(--space-layout-default) * 2));
+    grid-template-columns: 1fr;
+    margin-top: var(--space-layout-default);
+  }
+
+  .xgc-speech-client-extra {
+    grid-column: auto;
+  }
+}
+
 .xgc-app-shell {
   --xgc-shell-ui-font-size: var(--font-base);
   min-width: 0;

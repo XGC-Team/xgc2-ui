@@ -33,7 +33,14 @@ The gallery runs on `http://127.0.0.1:6006` by default.
 
 ```tsx
 import '@xgc2/ui-react/styles.css';
-import { AudioCaptureControl, Button, FormField, Panel, Select } from '@xgc2/ui-react';
+import {
+  AudioCaptureControl,
+  Button,
+  FormField,
+  Panel,
+  Select,
+  SpeechClientWorkspace,
+} from '@xgc2/ui-react';
 ```
 
 Applications initialize `data-skin="dark"` or `data-skin="light"` on the root HTML element with `initializeSkin`, then use `useSkin` for persisted operator changes. Both APIs intentionally default to light when no preference has been selected.
@@ -64,7 +71,7 @@ Reusable coverage includes:
 - Controls: buttons and links, inputs, textarea, selects, labeled fields/groups, finite form sections, input actions, three-axis vector entry, checkbox, switch, segmented controls, semantic tabs, editable/reorderable workspace tabs, plain status text, notices, empty states, progress, and theme-aware highlighted code/Markdown.
 - Data: selectable lists, disclosures, statistics, description/settings lists, toolbars, pagination, sortable/selectable tables with select-all, and a dense log-table page with its own scroll region.
 - Layout: stack, inline, responsive grid, scroll region, fixed operator workspace, section header, panels, composable grid workspaces, workspace panels, responsive split panes, application shell, collapsible sidebar, single-title topbar, breadcrumbs, and internally scrolling resource catalogs.
-- Conversation, overlays, and media: shared agent/human timelines, messages, composers, tool activities, modal, queued confirmation and text prompts, viewport-aware popovers/action menus, dirty-state-aware right drawer, waveform, and audio capture presentation.
+- Conversation, overlays, and media: shared agent/human timelines, messages, composers, tool activities, modal, queued confirmation and text prompts, viewport-aware popovers/action menus, dirty-state-aware right drawer, waveform, audio capture presentation, and embeddable speech-client capture/transcript chrome.
 - Spatial editors: an optional workflow package owning canvas viewport defaults, grid, pan/zoom, selection, drag/drop coordinate conversion, empty state, neutral node surfaces, canvas and element toolbars, and editable sticky notes.
 
 Product repositories keep routing, transport, device access, permissions, and domain state. Product-local wrappers should disappear once all required behavior exists here; they must not become a second visual system.

@@ -1,5 +1,14 @@
 # @xgc2/ui-react
 
+## 0.15.0
+
+### Minor Changes
+
+- Add embeddable speech-client chrome: connection fields for a user-supplied
+  API origin and key, a live final/partial transcript surface, and a two-panel
+  capture workspace. Products keep microphone access, streaming transport, and
+  persistence; this package owns the shared page composition.
+
 ## 0.14.1
 
 ### Patch Changes
