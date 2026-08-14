@@ -22,7 +22,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "peerDependencies": {
-    "@xgc2/ui-react": ">=0.14 <1",
+    "@xgc2/ui-react": ">=0.15 <1",
     "@xyflow/react": ">=12.9 <13",
     "react": ">=19 <20",
     "react-dom": ">=19 <20"
