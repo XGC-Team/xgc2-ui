@@ -74,6 +74,7 @@ test('publishes only new package assets and refuses mutable release state', () =
 test('pins every workflow action to its reviewed commit and uses the XGC2 build image', () => {
   for (const [name, source] of workflowSources) {
     assert.match(source, /ghcr\.io\/xgc-team\/xgc2-images\/xgc2-build-noble-dev:1\.0\.0/, `${name} must run inside the XGC2 build image`);
+    assert.match(source, /safe\.directory/, `${name} must mark the workspace as a Git safe directory`);
     assert.doesNotMatch(source, /@v\d+\b/, `${name} must not use a floating major tag`);
     assert.doesNotMatch(source, /node20|#\s*v4\b/i, `${name} must not restore a Node 20 action generation`);
     assert.doesNotMatch(source, /actions\/setup-node|pnpm\/action-setup/, `${name} must take Node and pnpm from the build image`);
