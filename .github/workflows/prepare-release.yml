@@ -15,6 +15,10 @@ permissions:
   actions: write
   contents: write
 
+defaults:
+  run:
+    shell: bash
+
 concurrency:
   group: prepare-release-tag
   cancel-in-progress: false

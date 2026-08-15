@@ -1,6 +1,6 @@
 {
   "name": "@xgc2/ui-workflow",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Reusable spatial workflow canvas foundation for XGC2 frontends",
   "type": "module",
   "sideEffects": ["*.css"],

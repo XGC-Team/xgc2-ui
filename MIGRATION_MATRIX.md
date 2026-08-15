@@ -2,7 +2,14 @@
 
 This file is the implementation ledger for the family-wide React migration. A row is complete only when reusable behavior lives in the shared packages, product-local duplication is removed, immutable packages are installed from the canonical organization repository, the fail-closed policy runs in product CI, product tests/build pass, and the result has been visually checked in both themes and desktop/mobile layouts.
 
-The current `0.15.4` rollout covers **8 consumer repositories and 9 UI surfaces**: XGC2 GCS, APT Repository, Agent Hub, Research OS, STT Service, Media Edge, both Camera Calibration pages (intrinsic and extrinsic), and the standalone Gazebo camera tool. Camera Calibration is one repository with two independently packaged pages. XGC2 Lichtblick is an upstream MUI application with a narrow XGC2-owned compatibility bridge; it is not an immutable-tarball consumer and is not counted in this rollout matrix.
+The current published family on `main` is `0.15.5` (React `0.15.5`, tokens
+`0.8.2`, workflow `0.3.2`, policy `0.15.5`). It contains the post-`0.15.4`
+geometry lock: flattened nested panel chrome, list-page toolbar rhythm, and
+`--space-panel-section-gap`. The snapshot below remains the last verified
+`0.15.4` consumer train; a tagged `0.15.5` family is not family-wide adoption
+until every applicable default branch and lockfile points at it.
+
+The previous `0.15.4` rollout covered **8 consumer repositories and 9 UI surfaces**: XGC2 GCS, APT Repository, Agent Hub, Research OS, STT Service, Media Edge, both Camera Calibration pages (intrinsic and extrinsic), and the standalone Gazebo camera tool. Camera Calibration is one repository with two independently packaged pages. XGC2 Lichtblick is an upstream MUI application with a narrow XGC2-owned compatibility bridge; it is not an immutable-tarball consumer and is not counted in this rollout matrix.
 
 ## Canonical source and immutable artifacts
 
