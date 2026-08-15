@@ -1,5 +1,14 @@
 # @xgc2/ui-react
 
+## 0.15.5
+
+### Patch Changes
+
+- Lock cross-page geometry, flatten nested panel chrome, and add the
+  `--space-panel-section-gap` rhythm token so list-page toolbars and stacked
+  control strips share one vertical spacing contract.
+- Give solid danger and success buttons explicit hover and active states.
+
 ## 0.15.4
 
 ### Patch Changes

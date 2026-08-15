@@ -1,5 +1,12 @@
 # @xgc2/ui-workflow
 
+## 0.3.2
+
+### Patch Changes
+
+- Lock `WorkflowNodeSurface` chrome and handle geometry to the shared 0.15.5
+  surface contract.
+
 ## 0.3.1
 
 ### Patch Changes

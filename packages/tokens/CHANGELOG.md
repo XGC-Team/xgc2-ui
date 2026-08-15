@@ -1,5 +1,12 @@
 # @xgc2/ui-tokens
 
+## 0.8.2
+
+### Patch Changes
+
+- Add `--space-panel-section-gap` and tighten the page, panel, and list-page
+  chrome geometry that the 0.15.5 React family publishes inline.
+
 ## 0.8.1
 
 ### Patch Changes
