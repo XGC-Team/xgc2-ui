@@ -23,6 +23,12 @@ const POPOVER_VIEWPORT_MARGIN = 8;
 const POPOVER_MIN_AVAILABLE_HEIGHT = 112;
 const POPOVER_MAX_HEIGHT = 420;
 const POPOVER_WIDE_WIDTH = 380;
+const hiddenPopoverPosition: CSSProperties = {
+  left: 0,
+  position: 'fixed',
+  top: 0,
+  visibility: 'hidden',
+};
 
 type PopoverTriggerProps = {
   'aria-controls'?: string;
@@ -72,7 +78,7 @@ export function Popover({
   const previousOpen = useRef(open);
   const focusedForOpen = useRef(false);
   const popoverId = useId();
-  const [position, setPosition] = useState<CSSProperties>({ visibility: 'hidden' });
+  const [position, setPosition] = useState<CSSProperties>(hiddenPopoverPosition);
   const closeAndRestoreFocus = () => {
     onOpenChange(false);
     anchorRef.current?.querySelector<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')?.focus();
@@ -101,7 +107,10 @@ export function Popover({
   }, [open, onOpenChange]);
 
   useLayoutEffect(() => {
-    if (!open) return;
+    if (!open) {
+      setPosition(hiddenPopoverPosition);
+      return;
+    }
     const updatePosition = () => {
       const rect = anchorRef.current?.getBoundingClientRect();
       if (!rect) return;
@@ -113,7 +122,12 @@ export function Popover({
         ? (spaceBelow < POPOVER_MIN_AVAILABLE_HEIGHT && spaceAbove > spaceBelow ? 'above' : 'below')
         : placement;
       const availableHeight = resolvedPlacement === 'above' ? spaceAbove : spaceBelow;
-      const measuredWidth = surfaceRef.current?.offsetWidth || rect.width;
+      const rawSurfaceWidth = surfaceRef.current?.offsetWidth ?? 0;
+      // A static block in document.body reports the viewport width. Treat that
+      // as "not measured yet" so align=end does not clamp to the left margin.
+      const measuredWidth = rawSurfaceWidth > 0 && rawSurfaceWidth < viewportWidth - POPOVER_VIEWPORT_MARGIN
+        ? rawSurfaceWidth
+        : rect.width;
       const resolvedWidth = width === 'wide'
         ? Math.min(POPOVER_WIDE_WIDTH, viewportWidth - POPOVER_VIEWPORT_MARGIN * 2)
         : width === 'trigger'
@@ -138,9 +152,15 @@ export function Popover({
     };
 
     updatePosition();
+    const surface = surfaceRef.current;
+    const observer = surface && typeof ResizeObserver !== 'undefined'
+      ? new ResizeObserver(updatePosition)
+      : undefined;
+    if (surface) observer?.observe(surface);
     window.addEventListener('resize', updatePosition);
     window.addEventListener('scroll', updatePosition, true);
     return () => {
+      observer?.disconnect();
       window.removeEventListener('resize', updatePosition);
       window.removeEventListener('scroll', updatePosition, true);
     };

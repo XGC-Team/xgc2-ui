@@ -186,7 +186,6 @@ export function SortableDataTable<Row>({
 }: SortableDataTableProps<Row>) {
   const [internalSort, setInternalSort] = useState<DataTableSort | undefined>(defaultSort);
   const [bodyColumnWidths, setBodyColumnWidths] = useState<number[]>([]);
-  const [bodyViewportWidth, setBodyViewportWidth] = useState<number>();
   const bodyViewportRef = useRef<HTMLTableSectionElement>(null);
   const activeSort = sort ?? internalSort;
   const activeColumn = activeSort ? columns.find((column) => column.id === activeSort.columnId) : undefined;
@@ -223,7 +222,6 @@ export function SortableDataTable<Row>({
   useLayoutEffect(() => {
     if (!bodyScroll) {
       setBodyColumnWidths([]);
-      setBodyViewportWidth(undefined);
       return undefined;
     }
     const viewport = bodyViewportRef.current;
@@ -233,17 +231,11 @@ export function SortableDataTable<Row>({
       const nextWidths = firstRow
         ? Array.from(firstRow.cells, (cell) => cell.getBoundingClientRect().width)
         : [];
-      const nextViewportWidth = viewport.clientWidth;
       setBodyColumnWidths((current) => (
         current.length === nextWidths.length
         && current.every((width, index) => Math.abs(width - (nextWidths[index] ?? width)) < 0.25)
           ? current
           : nextWidths
-      ));
-      setBodyViewportWidth((current) => (
-        current !== undefined && Math.abs(current - nextViewportWidth) < 0.25
-          ? current
-          : nextViewportWidth
       ));
     };
     synchronizeColumns();
@@ -271,7 +263,7 @@ export function SortableDataTable<Row>({
       emptyMessage={emptyMessage}
     >
       <table {...tableProps} className={classNames('xgc-sortable-data-table', tableProps?.className)}>
-        <thead style={bodyViewportWidth === undefined ? undefined : { width: bodyViewportWidth }}>
+        <thead>
           <tr>
             {selection ? (
               <th

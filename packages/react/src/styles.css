@@ -552,6 +552,8 @@
 
 .xgc-popover {
   box-sizing: border-box;
+  width: max-content;
+  max-width: calc(100vw - (2 * var(--space-page-padding)));
   min-width: min(var(--size-grid-column-compact), calc(100vw - var(--space-page-padding)));
   display: grid;
   overflow: auto;
@@ -2593,7 +2595,10 @@ button.xgc-stat-card:disabled {
 }
 
 .xgc-data-table[data-body-scroll='true'] > table > thead {
-  width: 100%;
+  /* Span the table, including the body scrollbar column, so the header chrome
+   * is not replaced by a reserved gutter. Column widths stay synced in JS. */
+  width: 100% !important;
+  box-sizing: border-box;
   flex: 0 0 auto;
   display: table;
   table-layout: fixed;
@@ -2971,9 +2976,9 @@ button.xgc-stat-card:disabled {
   min-height: 0;
   flex: 1 1 auto;
   overflow: auto;
-  /* Cross-page geometry contract: the scrollbar gutter is always reserved so
-   * content width never depends on whether a given page happens to scroll. */
-  scrollbar-gutter: stable;
+  /* Scroll lives only in this pane, under the topbar. Do not reserve a stable
+   * gutter here: that paints a blank strip under the topbar's trailing edge. */
+  scrollbar-gutter: auto;
   background: var(--background-app, var(--color-bg-app));
 }
 

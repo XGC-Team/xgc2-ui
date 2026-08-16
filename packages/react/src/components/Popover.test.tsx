@@ -222,6 +222,48 @@ describe('Popover', () => {
     firstRoot.unmount();
   });
 
+  it('aligns an end-anchored menu to the trigger on the first open', () => {
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      if (this.classList.contains('xgc-popover-anchor')) {
+        return DOMRect.fromRect({ height: 28, width: 32, x: 900, y: 80 });
+      }
+      return DOMRect.fromRect({ height: 0, width: 0, x: 0, y: 0 });
+    });
+    const offsetWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetWidth');
+    Object.defineProperty(HTMLElement.prototype, 'offsetWidth', {
+      configurable: true,
+      get() {
+        if (!(this as HTMLElement).classList.contains('xgc-popover')) return 0;
+        return this.style.position === 'fixed' ? 180 : 1280;
+      },
+    });
+
+    function FirstOpenMenu() {
+      const [open, setOpen] = useState(false);
+      return (
+        <ActionMenu
+          ariaLabel="More actions for backups"
+          items={[{ id: 'copy', label: 'Copy', onSelect: () => undefined }]}
+          onOpenChange={setOpen}
+          open={open}
+          trigger="⋯"
+        />
+      );
+    }
+
+    try {
+      render(<FirstOpenMenu />);
+      fireEvent.click(screen.getByRole('button', { name: 'More actions for backups' }));
+      const menu = screen.getByRole('menu', { name: 'More actions for backups' });
+      expect(menu.style.position).toBe('fixed');
+      expect(Number.parseFloat(menu.style.left)).toBeGreaterThan(700);
+      expect(menu.style.left).not.toBe(`${8}px`);
+    } finally {
+      if (offsetWidth) Object.defineProperty(HTMLElement.prototype, 'offsetWidth', offsetWidth);
+      else delete (HTMLElement.prototype as { offsetWidth?: unknown }).offsetWidth;
+    }
+  });
+
   it('owns menuitem semantics, arrow navigation, and selection close', () => {
     const selectCopy = vi.fn();
     render(
