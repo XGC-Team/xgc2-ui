@@ -1,5 +1,9 @@
 # Neutral-white light correction evidence
 
+Historical note: tokens `0.9.0` restored the original cool blue-grey light
+foundation and replaced the achromatic gate with a not-warm contract. The
+tables below remain the `0.15.3` beige-to-neutral correction record.
+
 This review compares the published `v0.15.2` application-shell story at
 `f77e6366cf310ab38c05b8b17f8afe5e3a5e00ab` with the `0.15.3` candidate. Both
 screenshots use Google Chrome, a `1440 × 900` viewport, device scale factor `1`,

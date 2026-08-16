@@ -23,7 +23,7 @@ async function validateMutation(from, to) {
 
 test('full validator rejects semantic color variables in light application material', async () => {
   const result = await validateMutation(
-    '--background-app: #fafafa;',
+    '--background-app: #f4f6fa;',
     '--background-app: linear-gradient(135deg, var(--color-accent), var(--color-bg-danger));',
   );
   assert.notEqual(result.status, 0);
@@ -32,7 +32,7 @@ test('full validator rejects semantic color variables in light application mater
 
 test('full validator confines the chromatic focus variable to the focus shadow', async () => {
   const result = await validateMutation(
-    '--background-app: #fafafa;',
+    '--background-app: #f4f6fa;',
     '--background-app: linear-gradient(135deg, var(--color-border-focus), #ffffff);',
   );
   assert.notEqual(result.status, 0);
@@ -40,7 +40,7 @@ test('full validator confines the chromatic focus variable to the focus shadow',
 });
 
 test('full validator rejects a warm light foundation regression', async () => {
-  const result = await validateMutation('--color-bg-app: #fafafa;', '--color-bg-app: #f2eee7;');
+  const result = await validateMutation('--color-bg-app: #f4f6fa;', '--color-bg-app: #f2eee7;');
   assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /chromatically biased/);
+  assert.match(result.stderr, /warm-biased/);
 });

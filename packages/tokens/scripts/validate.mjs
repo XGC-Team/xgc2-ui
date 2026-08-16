@@ -1,9 +1,9 @@
 import { readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import {
-  assertAchromatic,
-  assertAchromaticChannels,
   assertNotBlueBiased,
+  assertNotWarm,
+  assertNotWarmChannels,
   assertRestrictedNeutralMaterialSyntax,
   literalRgbColors,
   rgbFromHex,
@@ -213,7 +213,7 @@ const lightMaterialVariableContract = new Map([
   ])],
 ]);
 
-const lightAchromaticAlphaTokens = [
+const lightNeutralAlphaTokens = [
   '--color-terminal-inset-glow', '--color-overlay', '--color-overlay-strong',
   '--color-shadow-overlay', '--color-shadow-overlay-soft',
 ];
@@ -236,7 +236,7 @@ for (const skin of ['dark', 'light']) {
     const value = tokens.get(token);
     if (!value) throw new Error(`${skin} neutral foundation token ${token} must use a literal hex value`);
     if (skin === 'light') {
-      assertAchromatic(value, `${skin} ${token}`);
+      assertNotWarm(value, `${skin} ${token}`);
     } else {
       assertNotBlueBiased(value, `${skin} ${token}`);
     }
@@ -254,7 +254,7 @@ for (const skin of ['dark', 'light']) {
     }
     for (const { channels, literal } of literalRgbColors(value)) {
       if (skin === 'light') {
-        assertAchromaticChannels(channels, `${skin} ${token} ${literal}`);
+        assertNotWarmChannels(channels, `${skin} ${token} ${literal}`);
       } else if (literal.startsWith('#')) {
         assertNotBlueBiased(literal, `${skin} ${token}`);
       }
@@ -262,7 +262,7 @@ for (const skin of ['dark', 'light']) {
   }
 
   if (skin === 'light') {
-    for (const token of lightAchromaticAlphaTokens) {
+    for (const token of lightNeutralAlphaTokens) {
       const value = declarationValue(skinBlock(skin), token);
       if (!value) throw new Error(`${skin} neutral alpha token ${token} must be defined`);
       assertRestrictedNeutralMaterialSyntax(value, `${skin} ${token}`);
@@ -271,7 +271,7 @@ for (const skin of ['dark', 'light']) {
         throw new Error(`${skin} neutral alpha token ${token} must use a literal RGB color`);
       }
       for (const { channels, literal } of literals) {
-        assertAchromaticChannels(channels, `${skin} ${token} ${literal}`);
+        assertNotWarmChannels(channels, `${skin} ${token} ${literal}`);
       }
     }
   }

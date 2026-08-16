@@ -83,7 +83,7 @@ Actions and this workflow.
 
 Reusable coverage includes:
 
-- Foundation: an achromatic neutral-white light hierarchy and independent graphite dark hierarchy, theme and material tokens, spacing and type scales, semantic geometry, header/control heights, generated responsive breakpoints, and the global XGC2 scrollbar treatment.
+- Foundation: a cool blue-grey light hierarchy and independent graphite dark hierarchy, theme and material tokens, spacing and type scales, semantic geometry, header/control heights, generated responsive breakpoints, and the global XGC2 scrollbar treatment.
 - Controls: buttons and links, inputs, textarea, selects, labeled fields/groups, finite form sections, input actions, three-axis vector entry, checkbox, switch, segmented controls, semantic tabs, editable/reorderable workspace tabs, plain status text, notices, empty states, progress, and theme-aware highlighted code/Markdown.
 - Data: selectable lists, disclosures, statistics, description/settings lists, toolbars, pagination, sortable/selectable tables with select-all, and a dense log-table page with its own scroll region.
 - Layout: stack, inline, responsive grid, scroll region, fixed operator workspace, section header, panels, composable grid workspaces, workspace panels, responsive split panes, application shell, collapsible sidebar, single-title topbar, breadcrumbs, and internally scrolling resource catalogs.

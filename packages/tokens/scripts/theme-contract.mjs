@@ -1,4 +1,4 @@
-export const ACHROMATIC_MAX_CHANNEL_DELTA = 2;
+export const WARM_MAX_RED_BIAS = 2;
 
 const allowedNeutralMaterialIdentifiers = new Set([
   'at',
@@ -88,20 +88,21 @@ export function assertNotBlueBiased(value, context) {
   }
 }
 
-export function assertAchromaticChannels(
+export function assertNotWarmChannels(
   channels,
   context,
-  maximumDelta = ACHROMATIC_MAX_CHANNEL_DELTA,
+  maximumRedBias = WARM_MAX_RED_BIAS,
 ) {
-  const delta = Math.max(...channels) - Math.min(...channels);
-  if (delta > maximumDelta) {
+  const [red, green, blue] = channels;
+  const redBias = red - Math.min(green, blue);
+  if (redBias > maximumRedBias) {
     throw new Error(
-      `${context} (${channels.join(', ')}) is chromatically biased; `
-      + `light foundation colors allow at most ${maximumDelta} RGB levels of channel drift`,
+      `${context} (${channels.join(', ')}) is warm-biased; `
+      + `light foundation colors must stay cool or neutral`,
     );
   }
 }
 
-export function assertAchromatic(value, context, maximumDelta = ACHROMATIC_MAX_CHANNEL_DELTA) {
-  assertAchromaticChannels(rgbFromHex(value), `${context} ${value}`, maximumDelta);
+export function assertNotWarm(value, context, maximumRedBias = WARM_MAX_RED_BIAS) {
+  assertNotWarmChannels(rgbFromHex(value), `${context} ${value}`, maximumRedBias);
 }

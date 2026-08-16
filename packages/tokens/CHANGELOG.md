@@ -1,5 +1,15 @@
 # @xgc2/ui-tokens
 
+## 0.9.0
+
+### Minor Changes
+
+- Restore the light skin to the original cool blue-grey industrial hierarchy:
+  a `#f4f6fa` workbench, white chrome and cards, soft `#d9e0ea` borders, slate
+  text, and `#315fdc` interaction. Cream, beige, and copper casts stay rejected.
+- Replace the achromatic light-foundation gate with a not-warm contract. Cool
+  blue-grey and neutral white are valid; warm red-biased literals are not.
+
 ## 0.8.2
 
 ### Patch Changes

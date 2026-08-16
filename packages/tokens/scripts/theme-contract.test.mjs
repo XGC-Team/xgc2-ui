@@ -1,64 +1,66 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
-  ACHROMATIC_MAX_CHANNEL_DELTA,
-  assertAchromatic,
-  assertAchromaticChannels,
+  WARM_MAX_RED_BIAS,
+  assertNotWarm,
+  assertNotWarmChannels,
   assertRestrictedNeutralMaterialSyntax,
   literalRgbColors,
 } from './theme-contract.mjs';
 
-test('accepts neutral-white foundations with only imperceptible channel drift', () => {
-  assert.doesNotThrow(() => assertAchromatic('#f4f4f4', 'light app'));
-  assert.doesNotThrow(() => assertAchromatic('#f5f5f4', 'light app'));
-  assert.equal(ACHROMATIC_MAX_CHANNEL_DELTA, 2);
+test('accepts cool blue-grey and neutral-white light foundations', () => {
+  assert.doesNotThrow(() => assertNotWarm('#f4f6fa', 'light app'));
+  assert.doesNotThrow(() => assertNotWarm('#f8fafc', 'light sidebar'));
+  assert.doesNotThrow(() => assertNotWarm('#ffffff', 'light surface'));
+  assert.doesNotThrow(() => assertNotWarm('#f4f4f4', 'light app'));
+  assert.equal(WARM_MAX_RED_BIAS, 2);
 });
 
-test('rejects both the withdrawn blue-grey and warm beige foundations', () => {
+test('rejects warm beige light foundations', () => {
   assert.throws(
-    () => assertAchromatic('#f4f6fa', 'light app'),
-    /chromatically biased/,
+    () => assertNotWarm('#f2eee7', 'light app'),
+    /warm-biased/,
   );
   assert.throws(
-    () => assertAchromatic('#f2eee7', 'light app'),
-    /chromatically biased/,
+    () => assertNotWarm('#fffdf9', 'light chrome'),
+    /warm-biased/,
   );
 });
 
 test('inspects hex and alpha literals inside gradients and shadows', () => {
   const colors = literalRgbColors(
-    'linear-gradient(#ffffff, #f7f7f7), 0 8px 24px rgba(20, 20, 20, 0.1)',
+    'linear-gradient(#ffffff, #f4f6fa), 0 8px 24px rgba(15, 23, 42, 0.1)',
   );
   assert.deepEqual(colors.map(({ channels }) => channels), [
     [255, 255, 255],
-    [247, 247, 247],
-    [20, 20, 20],
+    [244, 246, 250],
+    [15, 23, 42],
   ]);
   for (const { channels, literal } of colors) {
-    assert.doesNotThrow(() => assertAchromaticChannels(channels, literal));
+    assert.doesNotThrow(() => assertNotWarmChannels(channels, literal));
   }
   assert.throws(
-    () => assertAchromaticChannels([39, 31, 24], 'legacy brown shadow'),
-    /chromatically biased/,
+    () => assertNotWarmChannels([39, 31, 24], 'legacy brown shadow'),
+    /warm-biased/,
   );
 });
 
 test('normalizes every supported CSS hex and RGB literal form', () => {
   assert.deepEqual(
-    literalRgbColors('#fff #ffff #ffffff #ffffffff rgb(244 244 244 / .9) rgba(20, 20, 20, .1)')
+    literalRgbColors('#fff #ffff #ffffff #ffffffff rgb(244 246 250 / .9) rgba(15, 23, 42, .1)')
       .map(({ channels }) => channels),
     [
       [255, 255, 255],
       [255, 255, 255],
       [255, 255, 255],
       [255, 255, 255],
-      [244, 244, 244],
-      [20, 20, 20],
+      [244, 246, 250],
+      [15, 23, 42],
     ],
   );
 });
 
-test('rejects color syntax that could evade the achromatic material gate', () => {
+test('rejects color syntax that could evade the cool-or-neutral material gate', () => {
   for (const value of [
     'linear-gradient(#ffe, #fff)',
     'linear-gradient(#fffaf0dd, #fff)',
@@ -66,8 +68,8 @@ test('rejects color syntax that could evade the achromatic material gate', () =>
   ]) {
     const colors = literalRgbColors(value);
     assert.throws(
-      () => colors.forEach(({ channels, literal }) => assertAchromaticChannels(channels, literal)),
-      /chromatically biased/,
+      () => colors.forEach(({ channels, literal }) => assertNotWarmChannels(channels, literal)),
+      /warm-biased/,
     );
   }
   for (const value of ['oklch(96% 0.04 80)', 'hsl(40 60% 96%)', 'beige']) {
