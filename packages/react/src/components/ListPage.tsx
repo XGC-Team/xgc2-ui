@@ -40,8 +40,6 @@ export type ListPageProps<T> = {
     mimeType: string;
     onMove: (itemId: string, folderId: string) => void;
   };
-  emptyActionLabel?: string;
-  emptyAppearance?: 'illustrated' | 'plain';
   emptyDescription?: string;
   emptyTitle: string;
   folders: Array<ListPageFolder<T>>;

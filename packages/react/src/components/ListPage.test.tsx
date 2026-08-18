@@ -60,10 +60,11 @@ describe('ListPage', () => {
 
   it('uses the shared empty-state presentation without a decorative fake status mark', () => {
     const { container } = render(
-      <ListPage emptyAppearance="plain" emptyDescription="Create one to begin." emptyTitle="No hosts" folders={[]} renderItem={() => null} />,
+      <ListPage emptyDescription="Create one to begin." emptyTitle="No hosts" folders={[]} renderItem={() => null} />,
     );
     expect(container.querySelector('.xgc-list-empty')).toHaveClass('xgc-empty-state');
     expect(container.querySelector('.xgc-list-empty')).toHaveAttribute('data-appearance', 'plain');
+    expect(container.querySelector('.xgc-list-empty')).toHaveAttribute('data-fill', 'true');
     expect(screen.getByText('Create one to begin.')).toBeInTheDocument();
   });
 
