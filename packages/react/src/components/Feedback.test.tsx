@@ -23,5 +23,8 @@ describe('feedback primitives', () => {
     expect(screen.getByText('No logs')).toBeInTheDocument();
     expect(container.querySelector('[class*="dot"], [class*="badge"], [class*="pill"]')).toBeNull();
     expect(container.querySelector('.xgc-empty-state')).toHaveAttribute('data-fill', 'true');
+    expect(container.querySelector('.xgc-empty-state')).toHaveAttribute('data-appearance', 'plain');
+    expect(container.querySelector('.xgc-empty-state-actions')).toBeNull();
+    expect(container.querySelector('.xgc-empty-state-icon')).toBeNull();
   });
 });

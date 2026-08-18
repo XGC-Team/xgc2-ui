@@ -185,8 +185,6 @@ export function ListPage<T>({
   dataXgcId,
   dataXgcRole,
   drag,
-  emptyActionLabel,
-  emptyAppearance = 'illustrated',
   emptyDescription,
   emptyTitle,
   folders,
@@ -283,12 +281,10 @@ export function ListPage<T>({
           );
         }) : (
           <EmptyState
-            actions={emptyActionLabel && onCreate ? (
-              <Button onClick={onCreate} tone="primary"><PlusIcon />{emptyActionLabel}</Button>
-            ) : undefined}
-            appearance={emptyAppearance === 'plain' ? 'plain' : 'surface'}
+            appearance="plain"
             className="xgc-list-empty"
             description={emptyDescription}
+            fill
             title={emptyTitle}
           />
         )}

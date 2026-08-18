@@ -1404,8 +1404,26 @@ button.xgc-list-tag:disabled { cursor: not-allowed; opacity: var(--opacity-deemp
   border-radius: var(--radius-control);
 }
 
-.xgc-list-empty { min-height: 380px; place-content: center; }
-.xgc-list-empty[data-appearance='plain'] { min-height: 160px; }
+.xgc-list-empty {
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  flex: 1 1 auto;
+  place-content: center;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.xgc-list-page-host:has(> .xgc-list-page) > .xgc-list-page > .xgc-list-shell:has(> .xgc-list-empty) {
+  display: flex;
+  flex-direction: column;
+}
+
+.xgc-list-page-host:has(> .xgc-list-page) > .xgc-list-page > .xgc-list-shell > .xgc-list-empty {
+  width: 100%;
+}
 
 .xgc-panel {
   min-width: 0;
@@ -2348,6 +2366,11 @@ article.xgc-agent-activity > .xgc-agent-activity-content {
 }
 
 .xgc-empty-state[data-appearance='plain'] {
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  flex: 1 1 auto;
+  align-self: stretch;
   background: transparent;
   border: 0;
   border-radius: 0;
