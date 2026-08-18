@@ -1,5 +1,18 @@
 # @xgc2/ui-react
 
+## 0.15.6
+
+### Patch Changes
+
+- Restore the published light skin to the cool blue-grey industrial hierarchy
+  (`#f4f6fa` workbench, white chrome, `#315fdc` interaction) that replaced the
+  achromatic 0.15.5 correction.
+- Keep the application topbar full-bleed: the content pane no longer reserves a
+  stable scrollbar gutter under the topbar's trailing edge. Body-scroll table
+  headers span the table, including the row-viewport scrollbar column.
+- Measure ActionMenu / Popover against a fixed, shrink-wrapped surface on the
+  first open so end-aligned menus do not clamp to the left viewport margin.
+
 ## 0.15.5
 
 ### Patch Changes
@@ -8,11 +21,6 @@
   `--space-panel-section-gap` rhythm token so list-page toolbars and stacked
   control strips share one vertical spacing contract.
 - Give solid danger and success buttons explicit hover and active states.
-- Keep the application topbar full-bleed: the content pane no longer reserves a
-  stable scrollbar gutter under the topbar's trailing edge. Body-scroll table
-  headers span the table, including the row-viewport scrollbar column.
-- Measure ActionMenu / Popover against a fixed, shrink-wrapped surface on the
-  first open so end-aligned menus do not clamp to the left viewport margin.
 
 ## 0.15.4
 
