@@ -5,8 +5,7 @@ This file is the implementation ledger for the family-wide React migration. A ro
 The current family on `main` is `0.15.6` (React `0.15.6`, tokens `0.9.0`,
 workflow `0.3.2`, policy `0.15.6`). This is the cool blue-grey light skin plus
 the topbar/popover/table chrome that operators already accepted in local Vite.
-A tagged `0.15.6` family is not family-wide adoption until every applicable
-default branch and lockfile points at it.
+Default-branch manifests now point at this family.
 
 The previous `0.15.4` rollout covered **8 consumer repositories and 9 UI surfaces**: XGC2 GCS, APT Repository, Agent Hub, Research OS, STT Service, Media Edge, both Camera Calibration pages (intrinsic and extrinsic), and the standalone Gazebo camera tool. Camera Calibration is one repository with two independently packaged pages. XGC2 Lichtblick is an upstream MUI application with a narrow XGC2-owned compatibility bridge; it is not an immutable-tarball consumer and is not counted in this rollout matrix.
 
@@ -16,11 +15,12 @@ The source authority is [XGC-Team/xgc2-ui](https://github.com/XGC-Team/xgc2-ui).
 
 | Package | Canonical immutable asset | SHA-256 |
 | --- | --- | --- |
-| `@xgc2/ui-react@0.15.4` | [`v0.15.4/xgc2-ui-react-0.15.4.tgz`](https://github.com/XGC-Team/xgc2-ui/releases/download/v0.15.4/xgc2-ui-react-0.15.4.tgz) | `328aed92b7fc713984524c3d4c34311948f1d078db651013c1d174663c55dcc5` |
-| `@xgc2/ui-workflow@0.3.1` | [`v0.15.2/xgc2-ui-workflow-0.3.1.tgz`](https://github.com/XGC-Team/xgc2-ui/releases/download/v0.15.2/xgc2-ui-workflow-0.3.1.tgz) | `fb1667961b7455fb21abca93e7a73c617a998cfca69590dcae170f61bf5d3e4e` |
-| `@xgc2/ui-policy@0.15.4` | [`policy-v0.15.4/xgc2-ui-policy-0.15.4.tgz`](https://github.com/XGC-Team/xgc2-ui/releases/download/policy-v0.15.4/xgc2-ui-policy-0.15.4.tgz) | `49cbca9f5afd148452d167c7d05d8a8ef23f81d7d5156b4874d8a7bf62bb5849` |
+| `@xgc2/ui-react@0.15.6` | [`v0.15.6/xgc2-ui-react-0.15.6.tgz`](https://github.com/XGC-Team/xgc2-ui/releases/download/v0.15.6/xgc2-ui-react-0.15.6.tgz) | `ff8f3a27fab20bebc69cbc457ab7cefbce5a5a95e507334b0189bb5f39c8c47c` |
+| `@xgc2/ui-tokens@0.9.0` | [`v0.15.6/xgc2-ui-tokens-0.9.0.tgz`](https://github.com/XGC-Team/xgc2-ui/releases/download/v0.15.6/xgc2-ui-tokens-0.9.0.tgz) | `545576e34caf1c73c3f3991c7f7ed1a36bbb02eef816dc9cfa5e9aadb5dee5bf` |
+| `@xgc2/ui-workflow@0.3.2` | [`v0.15.5/xgc2-ui-workflow-0.3.2.tgz`](https://github.com/XGC-Team/xgc2-ui/releases/download/v0.15.5/xgc2-ui-workflow-0.3.2.tgz) | `1af7b53f7dead73e147134993b3755ab4a10d38856741bc4c1037e4167839929` |
+| `@xgc2/ui-policy@0.15.6` | [`policy-v0.15.6/xgc2-ui-policy-0.15.6.tgz`](https://github.com/XGC-Team/xgc2-ui/releases/download/policy-v0.15.6/xgc2-ui-policy-0.15.6.tgz) | `828baebce18e8d3a02b1dc86e33501f0a091a55fb89ea6a8e8fd7ade56636e52` |
 
-The workflow package keeps its independent `0.3.1` package version and therefore remains attached to the immutable `v0.15.2` release. The policy package is independently tagged `policy-v0.15.4`; neither fact permits a consumer to substitute a moving branch or a legacy-owner URL. React `0.15.4` contains both the achromatic neutral-white Light correction introduced in `0.15.3` and the bounded table-row scrolling fix; the independent graphite Dark source was not changed. Both `0.15.4` tags resolve to [`main@876c45a1d743e4b2f380ea8ca33815bcb748a16d`](https://github.com/XGC-Team/xgc2-ui/commit/876c45a1d743e4b2f380ea8ca33815bcb748a16d), whose [library CI](https://github.com/XGC-Team/xgc2-ui/actions/runs/31705568780), [React release](https://github.com/XGC-Team/xgc2-ui/actions/runs/31705879660), and [policy release](https://github.com/XGC-Team/xgc2-ui/actions/runs/31706223381) all passed.
+Workflow `0.3.2` did not change in this family, so it stays on the immutable `v0.15.5` asset. Policy is independently tagged `policy-v0.15.6`. Neither fact permits a consumer to substitute a moving branch. React `0.15.6` is the cool blue-grey light skin plus topbar/popover/table chrome. Both `0.15.6` tags resolve to [`main@323cb81737648a3b497b5b3d5e8a0c58b81b2dcb`](https://github.com/XGC-Team/xgc2-ui/commit/323cb81737648a3b497b5b3d5e8a0c58b81b2dcb).
 
 ## Ownership rule
 
