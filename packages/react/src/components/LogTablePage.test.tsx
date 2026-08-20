@@ -43,7 +43,7 @@ describe('LogTablePage', () => {
   });
 
   it('owns empty, search, refresh, and pagination controls', () => {
-    const { onRefresh, onSearch } = renderPage();
+    const { container, onRefresh, onSearch } = renderPage();
     expect(screen.getByText('No logs')).toBeInTheDocument();
     fireEvent.change(screen.getByRole('searchbox', { name: 'Search logs' }), { target: { value: 'error' } });
     fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
@@ -51,6 +51,8 @@ describe('LogTablePage', () => {
     expect(onRefresh).toHaveBeenCalledOnce();
     expect(screen.getByRole('searchbox')).toHaveAttribute('data-xgc-role', 'audit-search');
     expect(screen.getByLabelText('Rows per page')).toBeInTheDocument();
+    expect(container.querySelector('.xgc-pagination')).not.toBeNull();
+    expect(container.querySelector('.xgc-log-table-head')).not.toBeNull();
   });
 
   it('keeps the page header to one title and puts tabs in the action area', () => {

@@ -2766,6 +2766,7 @@ button.xgc-stat-card:disabled {
   gap: var(--space-md);
   padding: var(--space-xs) var(--space-md);
   color: var(--color-text-muted);
+  background: var(--color-bg-subtle);
   border-top: var(--stroke-thin) solid var(--color-border);
   font-size: var(--font-sm);
 }
@@ -3928,7 +3929,7 @@ button.xgc-workflow-status-card { appearance: none; cursor: pointer; }
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-lg);
+  gap: 0;
   overflow: hidden;
   font-size: var(--font-base);
   line-height: var(--line-height-normal);
@@ -3938,6 +3939,7 @@ button.xgc-workflow-status-card { appearance: none; cursor: pointer; }
   min-width: 0;
   flex: 0 0 auto;
   justify-content: space-between;
+  margin-bottom: var(--space-lg);
 }
 
 .xgc-log-table-toolbar-start,
@@ -3969,6 +3971,7 @@ button.xgc-workflow-status-card { appearance: none; cursor: pointer; }
 
 .xgc-log-table-page > .xgc-notice {
   flex: 0 0 auto;
+  margin-bottom: var(--space-lg);
 }
 
 .xgc-log-table-shell {
@@ -3984,7 +3987,8 @@ button.xgc-workflow-status-card { appearance: none; cursor: pointer; }
   scrollbar-gutter: stable;
   background: var(--color-bg-surface);
   border: var(--stroke-thin) solid var(--color-border);
-  border-radius: var(--radius-control);
+  border-bottom: 0;
+  border-radius: var(--radius-control) var(--radius-control) 0 0;
 }
 
 .xgc-log-table {
@@ -4007,9 +4011,16 @@ button.xgc-workflow-status-card { appearance: none; cursor: pointer; }
   z-index: var(--z-sticky);
   min-height: var(--size-control-default);
   color: var(--color-text-muted);
-  background: var(--background-panel-header);
+  background: var(--color-bg-subtle);
   border-bottom: var(--stroke-thin) solid var(--color-border);
   font-weight: var(--weight-semibold);
+}
+
+.xgc-log-table-page > .xgc-pagination {
+  background: var(--color-bg-subtle);
+  border: var(--stroke-thin) solid var(--color-border);
+  border-top: 0;
+  border-radius: 0 0 var(--radius-control) var(--radius-control);
 }
 
 .xgc-log-table-head > span,

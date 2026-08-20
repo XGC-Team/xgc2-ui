@@ -87,6 +87,7 @@ describe('data display primitives', () => {
     expect(rowViewport).toContainElement(screen.getByRole('cell', { name: 'alpha' }));
     expect(rowViewport).not.toContainElement(header);
     expect(container.querySelector('thead')).not.toHaveAttribute('style');
+    expect(container.querySelector('.xgc-pagination')).toBeNull();
   });
 
   it('forwards semantic cell metadata without requiring consumer-owned table markup', () => {
