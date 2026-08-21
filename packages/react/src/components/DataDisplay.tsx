@@ -386,6 +386,7 @@ export type PaginationLabels = {
 };
 
 export type PaginationProps = Omit<HTMLAttributes<HTMLElement>, 'onChange'> & {
+  hidePageSize?: boolean;
   labels?: Partial<PaginationLabels>;
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
@@ -406,6 +407,7 @@ const defaultPaginationLabels: PaginationLabels = {
 
 export function Pagination({
   className,
+  hidePageSize = false,
   labels,
   onPageChange,
   onPageSizeChange,
@@ -422,16 +424,18 @@ export function Pagination({
   return (
     <footer {...props} className={classNames('xgc-pagination', className)}>
       <span className="xgc-pagination-total">{copy.total} {Math.max(0, total)}</span>
-      <Select
-        aria-label={copy.rowsPerPage}
-        uiSize="compact"
-        value={String(safePageSize)}
-        onValueChange={(value) => onPageSizeChange(Number(value))}
-      >
-        {pageSizeOptions.map((size) => (
-          <option key={size} value={size}>{size}{copy.pageSizeSuffix ? ` ${copy.pageSizeSuffix}` : ''}</option>
-        ))}
-      </Select>
+      {hidePageSize ? null : (
+        <Select
+          aria-label={copy.rowsPerPage}
+          uiSize="compact"
+          value={String(safePageSize)}
+          onValueChange={(value) => onPageSizeChange(Number(value))}
+        >
+          {pageSizeOptions.map((size) => (
+            <option key={size} value={size}>{size}{copy.pageSizeSuffix ? ` ${copy.pageSizeSuffix}` : ''}</option>
+          ))}
+        </Select>
+      )}
       <Button
         appearance="ghost"
         iconOnly

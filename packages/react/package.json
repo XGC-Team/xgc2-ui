@@ -1,6 +1,6 @@
 {
   "name": "@xgc2/ui-react",
-  "version": "0.15.6",
+  "version": "0.15.7",
   "description": "Shared React components and application shell for XGC2 products",
   "type": "module",
   "sideEffects": ["*.css"],
@@ -13,10 +13,11 @@
       "types": "./dist/types/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./styles.css": "./dist/styles.css"
+    "./styles.css": "./dist/styles.css",
+    "./focus.css": "./dist/focus.css"
   },
   "scripts": {
-    "build": "vite build && pnpm build:types",
+    "build": "vite build && node ./scripts/copy-focus-css.mjs && pnpm build:types",
     "build:types": "tsc -p tsconfig.build.json",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"

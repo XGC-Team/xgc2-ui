@@ -1,5 +1,24 @@
 # @xgc2/ui-react
 
+## 0.15.7
+
+### Patch Changes
+
+- Ship the family keyboard-focus contract as a dedicated unlayered stylesheet
+  (`@xgc2/ui-react/focus.css`). Consumers import it after their resets so
+  route-level styles can never erase the focus indicator; the rules move out of
+  per-product CSS where they duplicated shared control internals.
+- Own the `WorkflowStatusCard` `tile` geometry end to end: the title floats
+  centered over the card without intercepting pointer events and the progress
+  bar pins to the bottom edge, replacing per-product absolute-position patches.
+- Add `Pagination` `hidePageSize` for fitted page sizes that must not offer a
+  rows-per-page selector.
+- Add `ListPage` / `ListPageHost` `contentWidth="full"` for dense operator
+  pages that use the whole workspace instead of the centered reading column,
+  plus `--xgc-list-folder-gap`, `--xgc-list-folder-item-gap`, and
+  `--xgc-list-folder-title-padding-inline` spacing hooks.
+- Consume a `--xgc-breadcrumb-item-max-width` hook on breadcrumb items.
+
 ## 0.15.6
 
 ### Patch Changes

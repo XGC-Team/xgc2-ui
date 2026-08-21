@@ -133,7 +133,7 @@ export {
   ListPageTagButton,
   ListPageTagRow,
 } from './components/ListPage';
-export type { ListPageFolder, ListPageItemIcon, ListPageProps } from './components/ListPage';
+export type { ListPageContentWidth, ListPageFolder, ListPageItemIcon, ListPageProps } from './components/ListPage';
 export { Modal } from './components/Modal';
 export type { ModalProps } from './components/Modal';
 export { Panel } from './components/Panel';

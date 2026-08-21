@@ -956,6 +956,7 @@
 
 .xgc-breadcrumb-item {
   min-width: 0;
+  max-width: var(--xgc-breadcrumb-item-max-width, none);
   height: var(--xgc-breadcrumb-height, var(--size-control-compact));
   display: inline-flex;
   align-items: center;
@@ -1118,6 +1119,19 @@
 
 .xgc-list-page,
 .xgc-list-page-host { --xgc-list-content-max: 1080px; }
+
+/* Full-bleed mode: dense operator pages that must use the whole workspace
+ * instead of the centered reading column. */
+.xgc-list-page[data-xgc-content-width='full'],
+.xgc-list-page-host[data-xgc-content-width='full'] { --xgc-list-content-max: 100%; }
+
+.xgc-list-page-host[data-xgc-content-width='full'] {
+  width: 100%;
+  max-width: none;
+  justify-self: stretch;
+}
+
+.xgc-list-page[data-xgc-content-width='full'] .xgc-list-controls { width: 100%; }
 
 .xgc-list-page {
   min-height: var(--xgc-page-height, 0);
@@ -1363,7 +1377,7 @@ button.xgc-list-tag:disabled { cursor: not-allowed; opacity: var(--opacity-deemp
   white-space: nowrap;
 }
 
-.xgc-list-folder { display: grid; gap: var(--space-md); border-radius: var(--radius-surface); }
+.xgc-list-folder { display: grid; gap: var(--xgc-list-folder-gap, var(--space-md)); border-radius: var(--radius-surface); }
 .xgc-list-folder-header { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-sm); }
 
 .xgc-list-folder-title {
@@ -1372,7 +1386,7 @@ button.xgc-list-tag:disabled { cursor: not-allowed; opacity: var(--opacity-deemp
   display: flex;
   align-items: center;
   gap: var(--space-md);
-  padding: 0;
+  padding: 0 var(--xgc-list-folder-title-padding-inline, 0);
   color: var(--color-text-softer);
   background: transparent;
   border: 0;
@@ -1392,7 +1406,7 @@ button.xgc-list-tag:disabled { cursor: not-allowed; opacity: var(--opacity-deemp
 .xgc-list-folder-action { --xgc-control-height: var(--size-control-compact); opacity: var(--opacity-full); }
 .xgc-list-folder-action:disabled { opacity: var(--opacity-subdued); }
 .xgc-list-folder-name-input { width: min(240px, 34vw); }
-.xgc-list-folder-items { display: grid; gap: var(--space-md); }
+.xgc-list-folder-items { display: grid; gap: var(--xgc-list-folder-item-gap, var(--space-md)); }
 
 .xgc-list-folder-empty {
   min-height: 52px;
@@ -3433,13 +3447,26 @@ button.xgc-workflow-status-card { appearance: none; cursor: pointer; }
 
 .xgc-workflow-status-card[data-xgc-layout='tile'] { text-align: center; }
 .xgc-workflow-status-card[data-xgc-layout='tile'] > .xgc-workflow-status-card-heading {
-  min-height: 0;
-  flex: 1 1 auto;
+  /* Action-tile geometry: the title floats centered over the whole card and
+   * never intercepts clicks meant for the card button underneath. */
+  position: absolute;
+  inset: 0;
+  z-index: 1;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: var(--space-2xs);
   text-align: center;
+  pointer-events: none;
+}
+.xgc-workflow-status-card[data-xgc-layout='tile'] > .xgc-workflow-status-card-progress {
+  position: absolute;
+  right: var(--space-sm);
+  bottom: var(--space-sm);
+  left: var(--space-sm);
+  z-index: 0;
+  width: auto;
+  margin-top: 0;
 }
 .xgc-workflow-status-card[data-xgc-layout='tile'] > .xgc-workflow-status-card-heading strong {
   max-width: 100%;

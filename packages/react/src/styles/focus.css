@@ -1,0 +1,59 @@
+/*
+ * Keyboard-focus contract for the whole family. Consumers must import this
+ * file UNLAYERED (never inside a @layer), after their resets, so route-level
+ * styles cannot erase the application focus indicator.
+ */
+/* The body branch includes application portals; the #root branch supplies the
+ * selector weight needed to out-rank competing unlayered focus declarations. */
+:is(body, #root) :where(
+  button,
+  a[href],
+  input,
+  select,
+  textarea,
+  summary,
+  [role="button"],
+  [role="link"],
+  [role="option"],
+  [role="tab"],
+  [tabindex]:not([tabindex="-1"])
+):focus-visible {
+  border-color: transparent;
+  outline: var(--stroke-strong) solid var(--color-border-focus);
+  outline-offset: 0;
+  box-shadow: none;
+}
+
+/*
+ * Shared composite controls expose one ring around the complete control.
+ * Use :has(:focus-visible) rather than :focus-within so a mouse click on the
+ * select trigger does not paint a false “selected” focus ring (topbar run-mode).
+ * Keyboard focus still lights the wrapper when the trigger/input matches :focus-visible.
+ *
+ * Match the atomic focus contract: hide the resting border (transparent) and paint
+ * only the outline on the outer shell. An inner outline on the native field
+ * looked like a second inset border (Experiments list search / ListPage Input).
+ * Negative outline-offset also pulled that ring inside the shell.
+ */
+:is(body, #root) :where(
+  .xgc-input,
+  .xgc-input-control,
+  .xgc-textarea-control,
+  .xgc-select-control
+):has(:focus-visible) {
+  border-color: transparent;
+  outline: var(--stroke-strong) solid var(--color-border-focus);
+  outline-offset: 0;
+  box-shadow: none;
+}
+
+/* Composite controls render their focus indicator on the shared wrapper. */
+:is(body, #root) :where(
+  .xgc-input > input,
+  .xgc-input-control > input,
+  .xgc-textarea-control > textarea,
+  .xgc-select-control .xgc-select-trigger
+):focus-visible {
+  outline: 0;
+  box-shadow: none;
+}

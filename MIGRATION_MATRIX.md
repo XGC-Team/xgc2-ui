@@ -2,10 +2,14 @@
 
 This file is the implementation ledger for the family-wide React migration. A row is complete only when reusable behavior lives in the shared packages, product-local duplication is removed, immutable packages are installed from the canonical organization repository, the fail-closed policy runs in product CI, product tests/build pass, and the result has been visually checked in both themes and desktop/mobile layouts.
 
-The current family on `main` is `0.15.6` (React `0.15.6`, tokens `0.9.0`,
-workflow `0.3.2`, policy `0.15.6`). This is the cool blue-grey light skin plus
-the topbar/popover/table chrome that operators already accepted in local Vite.
-Default-branch manifests now point at this family.
+The current family on `main` is `0.15.7` (React `0.15.7`, tokens `0.9.0`,
+workflow `0.3.2`, policy `0.15.7`). React `0.15.7` extracts the family
+keyboard-focus contract into an unlayered `@xgc2/ui-react/focus.css` entry,
+owns the `WorkflowStatusCard` tile overlay geometry, and adds the
+`Pagination.hidePageSize`, `ListPage.contentWidth="full"`, list-folder spacing
+hooks, and the breadcrumb item max-width hook that XGC2 previously patched
+through shared internals. Default-branch manifests move to this family as each
+consumer adopts it.
 
 The previous `0.15.4` rollout covered **8 consumer repositories and 9 UI surfaces**: XGC2 GCS, APT Repository, Agent Hub, Research OS, STT Service, Media Edge, both Camera Calibration pages (intrinsic and extrinsic), and the standalone Gazebo camera tool. Camera Calibration is one repository with two independently packaged pages. XGC2 Lichtblick is an upstream MUI application with a narrow XGC2-owned compatibility bridge; it is not an immutable-tarball consumer and is not counted in this rollout matrix.
 

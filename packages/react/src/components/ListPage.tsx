@@ -30,6 +30,7 @@ type FolderProps = Omit<HTMLAttributes<HTMLElement>, 'onDrop' | 'onDragOver'> & 
 
 export type ListPageProps<T> = {
   collapsedFolders?: string[];
+  contentWidth?: ListPageContentWidth;
   controls?: ReactNode;
   createLabel?: string;
   createRole?: string;
@@ -113,8 +114,18 @@ export function ListPageItemMain({
   );
 }
 
-export function ListPageHost({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div {...props} className={classNames('xgc-list-page-host', className)} />;
+export type ListPageContentWidth = 'default' | 'full';
+
+export function ListPageHost({ className, contentWidth = 'default', ...props }: HTMLAttributes<HTMLDivElement> & {
+  contentWidth?: ListPageContentWidth;
+}) {
+  return (
+    <div
+      {...props}
+      className={classNames('xgc-list-page-host', className)}
+      data-xgc-content-width={contentWidth === 'full' ? 'full' : undefined}
+    />
+  );
 }
 
 export function ListPageRow({
@@ -177,6 +188,7 @@ export function ListPageFolderEmpty({ className, ...props }: HTMLAttributes<HTML
 
 export function ListPage<T>({
   collapsedFolders,
+  contentWidth = 'default',
   controls,
   createLabel,
   createRole,
@@ -199,7 +211,12 @@ export function ListPage<T>({
   title,
 }: ListPageProps<T>) {
   return (
-    <section className="xgc-list-page" data-xgc-id={dataXgcId} data-xgc-role={dataXgcRole}>
+    <section
+      className="xgc-list-page"
+      data-xgc-content-width={contentWidth === 'full' ? 'full' : undefined}
+      data-xgc-id={dataXgcId}
+      data-xgc-role={dataXgcRole}
+    >
       <div className="xgc-list-control-shell" data-xgc-role="list-page-controls">
         {title ? <div className="xgc-list-heading"><h1>{title}</h1></div> : null}
         {search ? (
