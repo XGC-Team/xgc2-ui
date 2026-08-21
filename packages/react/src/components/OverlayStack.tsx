@@ -4,6 +4,7 @@ import {
   useContext,
   useLayoutEffect,
   useRef,
+  type CSSProperties,
   type ReactNode,
   type RefObject,
 } from 'react';
@@ -40,6 +41,15 @@ function bindOverlayListener(document: Document) {
 
 function topOverlay() {
   return overlayStack.at(-1);
+}
+
+/** Shared overlay contract: write position state only when geometry changed,
+ * so capture-phase scroll listeners cannot re-render the surface per frame. */
+export function overlayStyleEquals(a: CSSProperties, b: CSSProperties): boolean {
+  const aKeys = Object.keys(a);
+  const bKeys = Object.keys(b);
+  if (aKeys.length !== bKeys.length) return false;
+  return aKeys.every((key) => (a as Record<string, unknown>)[key] === (b as Record<string, unknown>)[key]);
 }
 
 function closeTopOverlayForEvent(event: KeyboardEvent | React.KeyboardEvent) {

@@ -1,4 +1,5 @@
 import {
+  memo,
   useEffect,
   useId,
   useLayoutEffect,
@@ -505,7 +506,10 @@ export function highlightCode(content: string, language: 'bash' | 'json' | 'shel
   return output;
 }
 
-export function CodeBlock({
+/** Memoized so streaming parents (chat transcripts, logs) can re-render
+ * without re-highlighting every historical block. Highlight work is also
+ * cached per content+language inside the component. */
+export const CodeBlock = memo(function CodeBlock({
   className,
   content,
   copyLabel = 'Copy',
@@ -518,6 +522,10 @@ export function CodeBlock({
   ...props
 }: CodeBlockProps) {
   const [copied, setCopied] = useState(false);
+  const highlighted = useMemo(
+    () => (language === 'text' ? content : highlightCode(content, language)),
+    [content, language],
+  );
   const copy = async () => {
     if (!content || !navigator.clipboard) return;
     await navigator.clipboard.writeText(content);
@@ -541,7 +549,7 @@ export function CodeBlock({
           ) : null}
         </header>
       ) : null}
-      <pre><code data-language={language}>{language === 'text' ? content : highlightCode(content, language)}</code></pre>
+      <pre><code data-language={language}>{highlighted}</code></pre>
     </section>
   );
-}
+});

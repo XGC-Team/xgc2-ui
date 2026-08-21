@@ -16,13 +16,14 @@ import {
 import { createPortal } from 'react-dom';
 import { classNames } from '../utils';
 import { Button, type ButtonProps, type ButtonTone } from './Button';
-import { OverlayOwner, useOverlayStack } from './OverlayStack';
+import { overlayStyleEquals, OverlayOwner, useOverlayStack } from './OverlayStack';
 
 const POPOVER_GAP = 6;
 const POPOVER_VIEWPORT_MARGIN = 8;
 const POPOVER_MIN_AVAILABLE_HEIGHT = 112;
 const POPOVER_MAX_HEIGHT = 420;
 const POPOVER_WIDE_WIDTH = 380;
+
 const hiddenPopoverPosition: CSSProperties = {
   left: 0,
   position: 'fixed',
@@ -77,6 +78,7 @@ export function Popover({
   const surfaceRef = useRef<HTMLDivElement>(null);
   const previousOpen = useRef(open);
   const focusedForOpen = useRef(false);
+  const positionFrame = useRef<number | null>(null);
   const popoverId = useId();
   const [position, setPosition] = useState<CSSProperties>(hiddenPopoverPosition);
   const closeAndRestoreFocus = () => {
@@ -148,21 +150,34 @@ export function Popover({
       };
       if (resolvedPlacement === 'above') next.bottom = viewportHeight - rect.top + POPOVER_GAP;
       else next.top = rect.bottom + POPOVER_GAP;
-      setPosition(next);
+      setPosition((current) => (overlayStyleEquals(current, next) ? current : next));
+    };
+    // Scroll and resize events fire per frame; coalesce them into one layout
+    // read + one state write per animation frame.
+    const schedulePositionUpdate = () => {
+      if (positionFrame.current !== null) return;
+      positionFrame.current = requestAnimationFrame(() => {
+        positionFrame.current = null;
+        updatePosition();
+      });
     };
 
     updatePosition();
     const surface = surfaceRef.current;
     const observer = surface && typeof ResizeObserver !== 'undefined'
-      ? new ResizeObserver(updatePosition)
+      ? new ResizeObserver(schedulePositionUpdate)
       : undefined;
     if (surface) observer?.observe(surface);
-    window.addEventListener('resize', updatePosition);
-    window.addEventListener('scroll', updatePosition, true);
+    window.addEventListener('resize', schedulePositionUpdate);
+    window.addEventListener('scroll', schedulePositionUpdate, true);
     return () => {
+      if (positionFrame.current !== null) {
+        cancelAnimationFrame(positionFrame.current);
+        positionFrame.current = null;
+      }
       observer?.disconnect();
-      window.removeEventListener('resize', updatePosition);
-      window.removeEventListener('scroll', updatePosition, true);
+      window.removeEventListener('resize', schedulePositionUpdate);
+      window.removeEventListener('scroll', schedulePositionUpdate, true);
     };
   }, [align, open, placement, width]);
 

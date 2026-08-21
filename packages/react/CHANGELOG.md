@@ -4,6 +4,13 @@
 
 ### Patch Changes
 
+- Stop per-frame overlay re-renders: `Popover` and `SelectMenu` coalesce
+  capture-phase scroll/resize listeners into one animation-frame layout read
+  and skip the position state write entirely when the resolved geometry is
+  unchanged.
+- Memoize `CodeBlock` and cache its highlight result per content+language so
+  streaming transcripts and logs stop re-highlighting every historical block
+  when a parent re-renders.
 - Ship the family keyboard-focus contract as a dedicated unlayered stylesheet
   (`@xgc2/ui-react/focus.css`). Consumers import it after their resets so
   route-level styles can never erase the focus indicator; the rules move out of

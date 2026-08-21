@@ -3,7 +3,7 @@ import type { AriaAttributes, CSSProperties, ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import type { ComponentSize } from './Button';
 import { classNames } from '../utils';
-import { useOverlayStack } from './OverlayStack';
+import { overlayStyleEquals, useOverlayStack } from './OverlayStack';
 
 export type SelectMenuOption = {
   disabled?: boolean;
@@ -129,16 +129,27 @@ export function SelectMenu({
         next.left = rect.left;
         next.right = 'auto';
       }
-      setResolvedPlacement(placement);
-      setMenuStyle(next);
+      setResolvedPlacement((current) => (current === placement ? current : placement));
+      setMenuStyle((current) => (overlayStyleEquals(current, next) ? current : next));
+    };
+    // Scroll and resize events fire per frame; coalesce them into one layout
+    // read + one state write per animation frame.
+    let positionFrame: number | null = null;
+    const schedulePositionUpdate = () => {
+      if (positionFrame !== null) return;
+      positionFrame = requestAnimationFrame(() => {
+        positionFrame = null;
+        updatePosition();
+      });
     };
 
     updatePosition();
-    window.addEventListener('resize', updatePosition);
-    window.addEventListener('scroll', updatePosition, true);
+    window.addEventListener('resize', schedulePositionUpdate);
+    window.addEventListener('scroll', schedulePositionUpdate, true);
     return () => {
-      window.removeEventListener('resize', updatePosition);
-      window.removeEventListener('scroll', updatePosition, true);
+      if (positionFrame !== null) cancelAnimationFrame(positionFrame);
+      window.removeEventListener('resize', schedulePositionUpdate);
+      window.removeEventListener('scroll', schedulePositionUpdate, true);
     };
   }, [menuAlign, menuPlacement, open, options.length, value]);
 

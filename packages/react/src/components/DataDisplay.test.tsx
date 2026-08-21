@@ -43,6 +43,16 @@ describe('data display primitives', () => {
     expect(container.querySelector('.xgc-code-block')).toHaveAttribute('data-viewport', 'compact');
   });
 
+  it('memoizes blocks so streaming parents do not re-highlight history', () => {
+    expect((CodeBlock as unknown as { $$typeof: symbol }).$$typeof).toBe(Symbol.for('react.memo'));
+    const { rerender } = render(<CodeBlock label="Log" language="shell" content="systemctl restart xgc2" />);
+    const highlighted = document.querySelector('code[data-language="shell"]')?.innerHTML;
+    rerender(<CodeBlock label="Log" language="shell" content="systemctl restart xgc2" />);
+    expect(document.querySelector('code[data-language="shell"]')?.innerHTML).toBe(highlighted);
+    rerender(<CodeBlock label="Log" language="json" content='{"ok":true}' />);
+    expect(document.querySelector('code[data-language="json"]')).not.toBeNull();
+  });
+
   it('renders statistic and toolbar content', () => {
     const onSelect = vi.fn();
     render(<><StatCard label="Packages" value="42" detail="focal" /><StatCardButton label="Failures" value="2" onClick={onSelect} /><Toolbar>Filters</Toolbar></>);

@@ -122,6 +122,30 @@ describe('Popover', () => {
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
   });
 
+  it('does not re-render the surface subtree per scroll frame when geometry is unchanged', async () => {
+    let probeRenders = 0;
+    function Probe() {
+      probeRenders += 1;
+      return <div>probe content</div>;
+    }
+    function Host() {
+      const [open, setOpen] = useState(true);
+      return (
+        <Popover ariaLabel="Perf" onOpenChange={setOpen} open={open} trigger={<button type="button">Edit</button>}>
+          <Probe />
+        </Popover>
+      );
+    }
+    render(<Host />);
+    const rendersAfterOpen = probeRenders;
+    await act(async () => {
+      for (let frame = 0; frame < 5; frame += 1) window.dispatchEvent(new Event('scroll'));
+      await new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
+      await new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
+    });
+    expect(probeRenders).toBe(rendersAfterOpen);
+  });
+
   it('lets a nested listbox consume Escape before closing its dialog', () => {
     render(<NestedSelectPopover />);
     const outerTrigger = screen.getByRole('button', { name: 'Edit parameters' });
