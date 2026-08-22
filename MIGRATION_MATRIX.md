@@ -18,12 +18,16 @@ The source authority is [XGC-Team/xgc2-ui](https://github.com/XGC-Team/xgc2-ui).
 
 | Package | Canonical immutable asset | SHA-256 |
 | --- | --- | --- |
-| `@xgc2/ui-react@0.15.6` | [`v0.15.6/xgc2-ui-react-0.15.6.tgz`](https://github.com/XGC-Team/xgc2-ui/releases/download/v0.15.6/xgc2-ui-react-0.15.6.tgz) | `ff8f3a27fab20bebc69cbc457ab7cefbce5a5a95e507334b0189bb5f39c8c47c` |
+| `@xgc2/ui-react@0.15.8` | [`v0.15.8/xgc2-ui-react-0.15.8.tgz`](https://github.com/XGC-Team/xgc2-ui/releases/download/v0.15.8/xgc2-ui-react-0.15.8.tgz) | `c6ecd18b339fda1222e7cf4f005bbad0ed9c6a3b62a9409dad20281a76761e3b` |
 | `@xgc2/ui-tokens@0.9.0` | [`v0.15.6/xgc2-ui-tokens-0.9.0.tgz`](https://github.com/XGC-Team/xgc2-ui/releases/download/v0.15.6/xgc2-ui-tokens-0.9.0.tgz) | `545576e34caf1c73c3f3991c7f7ed1a36bbb02eef816dc9cfa5e9aadb5dee5bf` |
 | `@xgc2/ui-workflow@0.3.2` | [`v0.15.5/xgc2-ui-workflow-0.3.2.tgz`](https://github.com/XGC-Team/xgc2-ui/releases/download/v0.15.5/xgc2-ui-workflow-0.3.2.tgz) | `1af7b53f7dead73e147134993b3755ab4a10d38856741bc4c1037e4167839929` |
-| `@xgc2/ui-policy@0.15.6` | [`policy-v0.15.6/xgc2-ui-policy-0.15.6.tgz`](https://github.com/XGC-Team/xgc2-ui/releases/download/policy-v0.15.6/xgc2-ui-policy-0.15.6.tgz) | `828baebce18e8d3a02b1dc86e33501f0a091a55fb89ea6a8e8fd7ade56636e52` |
+| `@xgc2/ui-policy@0.15.8` | [`policy-v0.15.8/xgc2-ui-policy-0.15.8.tgz`](https://github.com/XGC-Team/xgc2-ui/releases/download/policy-v0.15.8/xgc2-ui-policy-0.15.8.tgz) | `9dd27571f6ec185df5f256410e89a8dfb6916c7509e68a02d80282636c3cce92` |
 
-Workflow `0.3.2` did not change in this family, so it stays on the immutable `v0.15.5` asset. Policy is independently tagged `policy-v0.15.6`. Neither fact permits a consumer to substitute a moving branch. React `0.15.6` is the cool blue-grey light skin plus topbar/popover/table chrome. Both `0.15.6` tags resolve to [`main@323cb81737648a3b497b5b3d5e8a0c58b81b2dcb`](https://github.com/XGC-Team/xgc2-ui/commit/323cb81737648a3b497b5b3d5e8a0c58b81b2dcb).
+Tokens `0.9.0` and Workflow `0.3.2` did not change in this family, so they stay
+on their earlier immutable package assets. Policy is independently tagged
+`policy-v0.15.8`; neither fact permits a consumer to substitute a moving
+branch. Both `0.15.8` tags are annotated and resolve to
+[`main@52d30ab78efd7dcb085df7c4fce4145cfb187edb`](https://github.com/XGC-Team/xgc2-ui/commit/52d30ab78efd7dcb085df7c4fce4145cfb187edb).
 
 ## Ownership rule
 
