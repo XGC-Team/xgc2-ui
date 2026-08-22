@@ -1,5 +1,19 @@
 # @xgc2/ui-react
 
+## 0.15.9
+
+### Patch Changes
+
+- Add `SortableDataTable` `emptyMode` (`'message' | 'table'`, default `'message'`).
+  `'table'` keeps the real table rendered while `rows` is empty — column headers
+  and the focusable body-scroll row viewport stay stable across empty and
+  populated states, with an optional `emptyMessage` rendered as a full-width,
+  headerless row inside the viewport. Column-width sync only measures real data
+  rows, so the empty-state message never stamps its colSpan width onto the first
+  header. The default `'message'` mode is unchanged for existing consumers.
+- Ignore disabled selection controls in `SortableDataTable`: a disabled
+  select-all checkbox can no longer trigger `selection.onChange`.
+
 ## 0.15.8
 
 ### Patch Changes

@@ -2660,6 +2660,18 @@ button.xgc-stat-card:disabled {
   outline: 0; box-shadow: var(--shadow-focus);
 }
 
+/* Empty-state message rendered inside the kept-rendered table (emptyMode="table").
+ * A full-width, headerless row so the column headers above stay untouched. */
+.xgc-data-table .xgc-data-table-empty-row > td {
+  height: auto;
+  display: grid;
+  min-height: 120px;
+  place-items: center;
+  color: var(--color-text-faint);
+  text-align: center;
+  border-bottom: none;
+}
+
 .xgc-data-table th,
 .xgc-data-table td {
   /* Dense rows: a data row must never outgrow the outer chrome (36px topbar).

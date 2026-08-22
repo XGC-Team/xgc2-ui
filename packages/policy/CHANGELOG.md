@@ -1,5 +1,12 @@
 # @xgc2/ui-policy
 
+## 0.15.9
+
+### Patch Changes
+
+- Updated dependencies
+  - @xgc2/ui-react@0.15.9
+
 ## 0.15.8
 
 ### Patch Changes

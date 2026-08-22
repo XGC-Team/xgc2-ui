@@ -69,6 +69,7 @@ export type {
   DataTableColumn,
   DataTableCellProps,
   DataTableDataAttributes,
+  DataTableEmptyMode,
   DataTableProps,
   DataTableRowProps,
   DataTableSelection,

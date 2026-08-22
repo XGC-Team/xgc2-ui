@@ -117,11 +117,28 @@ export type DataTableSelection<Row> = {
   selectedRowKeys: ReadonlySet<string>;
 };
 
+/** How the table renders when `rows` is empty.
+ *
+ * - `'message'` (default): replaces the whole table with a `.xgc-data-table-empty`
+ *   block — no column headers, no row viewport.
+ * - `'table'`: keeps rendering the real `<thead>` plus an empty, focusable row
+ *   viewport so the table chrome (column headers, body-scroll container) stays
+ *   stable across empty and non-empty states. With `emptyMessage` set, the
+ *   message renders inside the empty viewport as a full-width, headerless row.
+ *
+ * `emptyMessage` is any ReactNode; it renders whenever provided — an empty
+ * string still produces an (empty) message node. Callers that want no message
+ * simply omit the prop.
+ */
+export type DataTableEmptyMode = 'message' | 'table';
+
 export type SortableDataTableProps<Row> = Omit<DataTableProps, 'children' | 'empty'> & {
   /** Keep the table header outside the bounded vertical row viewport. */
   bodyScroll?: boolean;
   /** Accessible name for the keyboard-scrollable row viewport. */
   bodyScrollLabel?: string;
+  /** Empty-state structure: `'message'` swaps the table out, `'table'` keeps it rendered. */
+  emptyMode?: DataTableEmptyMode;
   columns: readonly DataTableColumn<Row>[];
   defaultSort?: DataTableSort;
   getRowProps?: (row: Row) => DataTableRowProps;
@@ -175,6 +192,7 @@ export function SortableDataTable<Row>({
   columns,
   defaultSort,
   emptyMessage,
+  emptyMode = 'message',
   getRowProps,
   manualSort = false,
   onSortChange,
@@ -227,10 +245,15 @@ export function SortableDataTable<Row>({
     }
     const viewport = bodyViewportRef.current;
     if (!viewport) return undefined;
+    // Width sync must only read real data rows. The empty-mode message row spans
+    // every column with one cell; measuring it would stamp that single width onto
+    // the first column header.
+    const firstDataRow = Array.from(viewport.rows).find(
+      (row) => !row.classList.contains('xgc-data-table-empty-row'),
+    );
     const synchronizeColumns = () => {
-      const firstRow = viewport.rows.item(0);
-      const nextWidths = firstRow
-        ? Array.from(firstRow.cells, (cell) => cell.getBoundingClientRect().width)
+      const nextWidths = firstDataRow
+        ? Array.from(firstDataRow.cells, (cell) => cell.getBoundingClientRect().width)
         : [];
       setBodyColumnWidths((current) => (
         current.length === nextWidths.length
@@ -243,24 +266,25 @@ export function SortableDataTable<Row>({
     if (typeof ResizeObserver === 'undefined') return undefined;
     const observer = new ResizeObserver(synchronizeColumns);
     observer.observe(viewport);
-    const firstRow = viewport.rows.item(0);
-    if (firstRow) observer.observe(firstRow);
+    if (firstDataRow) observer.observe(firstDataRow);
     return () => observer.disconnect();
   }, [bodyScroll, columns, selection, visibleRows]);
 
   const toggleAll = () => {
-    if (!selection) return;
+    if (!selection || selection.disabled) return;
     const next = new Set(selection.selectedRowKeys);
     if (allSelected) rows.forEach((row) => next.delete(rowKey(row)));
     else rows.forEach((row) => next.add(rowKey(row)));
     selection.onChange(next);
   };
 
+  const emptyTable = rows.length === 0 && emptyMode === 'table';
+
   return (
     <DataTable
       {...props}
       data-body-scroll={bodyScroll || undefined}
-      empty={!rows.length}
+      empty={rows.length === 0 && emptyMode !== 'table'}
       emptyMessage={emptyMessage}
     >
       <table {...tableProps} className={classNames('xgc-sortable-data-table', tableProps?.className)}>
@@ -312,11 +336,16 @@ export function SortableDataTable<Row>({
           </tr>
         </thead>
         <tbody
-          aria-label={bodyScroll ? bodyScrollLabel : undefined}
+          aria-label={bodyScroll || emptyTable ? bodyScrollLabel : undefined}
           data-xgc-role="data-table-row-viewport"
           ref={bodyViewportRef}
-          tabIndex={bodyScroll ? 0 : undefined}
+          tabIndex={bodyScroll || emptyTable ? 0 : undefined}
         >
+          {emptyTable && emptyMessage != null ? (
+            <tr aria-busy="false" className="xgc-data-table-empty-row">
+              <td colSpan={(selection ? 1 : 0) + columns.length}>{emptyMessage}</td>
+            </tr>
+          ) : null}
           {visibleRows.map((row) => {
             const key = rowKey(row);
             const selected = selection?.selectedRowKeys.has(key) ?? false;

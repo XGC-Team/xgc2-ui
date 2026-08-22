@@ -100,6 +100,170 @@ describe('data display primitives', () => {
     expect(container.querySelector('.xgc-pagination')).toBeNull();
   });
 
+  it('replaces the table with a message by default when rows are empty', () => {
+    const { container } = render(
+      <SortableDataTable<{ id: string; name: string }>
+        bodyScroll
+        columns={[{ id: 'package', header: 'Package', cell: (row) => row.name }]}
+        emptyMessage="No packages"
+        rowKey={(row) => row.id}
+        rows={[]}
+      />,
+    );
+    expect(screen.getByText('No packages')).toBeInTheDocument();
+    expect(container.querySelector('.xgc-data-table-empty')).toBeInTheDocument();
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+    expect(container.querySelector('[data-xgc-role="data-table-row-viewport"]')).toBeNull();
+  });
+
+  it('keeps the rendered table chrome when rows are empty in table mode', () => {
+    const { container } = render(
+      <SortableDataTable<{ id: string; name: string; size: number }>
+        bodyScroll
+        bodyScrollLabel="Cleanup entries"
+        columns={[
+          { id: 'name', header: 'Name', sortable: true, sortValue: (row) => row.name, cell: (row) => row.name },
+          { id: 'size', header: 'Size', cell: (row) => row.size },
+        ]}
+        emptyMessage="Nothing cleanable"
+        emptyMode="table"
+        rowKey={(row) => row.id}
+        rows={[]}
+      />,
+    );
+    const tableContainer = container.querySelector('.xgc-data-table');
+    const rowViewport = container.querySelector('[data-xgc-role="data-table-row-viewport"]');
+    const nameHeader = screen.getByRole('columnheader', { name: 'Name' });
+    // Table chrome survives: real table, column headers, focusable named viewport.
+    expect(tableContainer).toHaveAttribute('data-body-scroll', 'true');
+    expect(screen.getByRole('table')).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Size' })).toBeInTheDocument();
+    expect(nameHeader).toHaveAttribute('aria-sort', 'none');
+    expect(rowViewport).toHaveAttribute('aria-label', 'Cleanup entries');
+    expect(rowViewport).toHaveAttribute('tabindex', '0');
+    expect(rowViewport?.children).toHaveLength(1); // only the empty-state message row
+    expect(rowViewport).toContainElement(screen.getByText('Nothing cleanable'));
+    expect(rowViewport).not.toContainElement(nameHeader);
+    // No duplicate standalone empty block next to the table.
+    expect(container.querySelector('.xgc-data-table-empty')).toBeNull();
+    expect(container.querySelectorAll('table')).toHaveLength(1);
+  });
+
+  it('never syncs column widths from the empty-state message row onto the headers', () => {
+    const { container, rerender } = render(
+      <SortableDataTable<{ id: string; name: string; size: number }>
+        bodyScroll
+        bodyScrollLabel="Cleanup entries"
+        columns={[
+          { id: 'name', header: 'Name', sortable: true, sortValue: (row) => row.name, cell: (row) => row.name },
+          { id: 'size', header: 'Size', cell: (row) => row.size },
+        ]}
+        emptyMessage="Nothing cleanable"
+        emptyMode="table"
+        rowKey={(row) => row.id}
+        rows={[]}
+      />,
+    );
+    // The colSpan message row exists but must not feed width sync: no header
+    // carries an inline width and the message row itself is never observed-sized.
+    const nameHeader = screen.getByRole('columnheader', { name: 'Name' });
+    const sizeHeader = screen.getByRole('columnheader', { name: 'Size' });
+    expect(nameHeader).not.toHaveAttribute('style');
+    expect(sizeHeader).not.toHaveAttribute('style');
+    expect(container.querySelector('.xgc-data-table-empty-row')).toBeInTheDocument();
+
+    rerender(
+      <SortableDataTable<{ id: string; name: string; size: number }>
+        bodyScroll
+        bodyScrollLabel="Cleanup entries"
+        columns={[
+          { id: 'name', header: 'Name', sortable: true, sortValue: (row) => row.name, cell: (row) => row.name },
+          { id: 'size', header: 'Size', cell: (row) => row.size },
+        ]}
+        emptyMessage="Nothing cleanable"
+        emptyMode="table"
+        rowKey={(row) => row.id}
+        rows={[{ id: 'a', name: 'alpha', size: 1024 }]}
+      />,
+    );
+    // Real data rows resume normal synchronization (widths measured from row cells).
+    expect(screen.getByRole('cell', { name: 'alpha' })).toBeInTheDocument();
+    expect(container.querySelector('.xgc-data-table-empty-row')).toBeNull();
+  });
+
+  it('renders an optional selection header in table mode with an empty viewport', () => {
+    const onChange = vi.fn();
+    const { container } = render(
+      <SortableDataTable<{ id: string; name: string }>
+        columns={[{ id: 'name', header: 'Name', cell: (row) => row.name }]}
+        emptyMode="table"
+        rowKey={(row) => row.id}
+        rows={[]}
+        selection={{
+          disabled: true,
+          getRowLabel: (row) => `Select ${row.name}`,
+          onChange,
+          rowHeaderLabel: 'Select all entries',
+          selectedRowKeys: new Set(),
+        }}
+      />,
+    );
+    const selectAll = screen.getByRole('checkbox', { name: 'Select all entries' });
+    expect(selectAll).toBeInTheDocument();
+    expect(selectAll).toBeDisabled();
+    expect(container.querySelector('th.xgc-data-table-selection')).toContainElement(selectAll);
+    const rowViewport = container.querySelector('[data-xgc-role="data-table-row-viewport"]');
+    // A focusable viewport always carries its accessible name (default label here).
+    expect(rowViewport).toHaveAttribute('aria-label', 'Table rows');
+    expect(rowViewport).toHaveAttribute('tabindex', '0');
+    expect(rowViewport).toBeEmptyDOMElement();
+    fireEvent.click(selectAll);
+    expect(onChange).not.toHaveBeenCalled(); // disabled bulk control stays inert
+  });
+
+  it('omits the empty message row inside table mode when no message is given', () => {
+    const { container } = render(
+      <SortableDataTable<{ id: string; name: string }>
+        columns={[{ id: 'name', header: 'Name', cell: (row) => row.name }]}
+        emptyMode="table"
+        rowKey={(row) => row.id}
+        rows={[]}
+      />,
+    );
+    expect(container.querySelector('.xgc-data-table-empty-row')).toBeNull();
+    expect(screen.queryByText('No data')).not.toBeInTheDocument();
+    expect(container.querySelector('[data-xgc-role="data-table-row-viewport"]')).toBeEmptyDOMElement();
+  });
+
+  it('transitions between message and populated states without losing table chrome', () => {
+    const { rerender } = render(
+      <SortableDataTable<{ id: string; name: string }>
+        bodyScroll
+        columns={[{ id: 'name', header: 'Name', cell: (row) => row.name }]}
+        emptyMessage="Nothing here"
+        emptyMode="table"
+        rowKey={(row) => row.id}
+        rows={[]}
+      />,
+    );
+    expect(document.querySelector('.xgc-data-table-empty')).toBeNull();
+    rerender(
+      <SortableDataTable<{ id: string; name: string }>
+        bodyScroll
+        columns={[{ id: 'name', header: 'Name', cell: (row) => row.name }]}
+        emptyMessage="Nothing here"
+        emptyMode="table"
+        rowKey={(row) => row.id}
+        rows={[{ id: 'a', name: 'alpha' }]}
+      />,
+    );
+    const rowViewport = document.querySelector('[data-xgc-role="data-table-row-viewport"]');
+    expect(screen.getByRole('cell', { name: 'alpha' })).toBeInTheDocument();
+    expect(rowViewport).toHaveAttribute('aria-label', 'Table rows');
+    expect(rowViewport).toHaveAttribute('tabindex', '0');
+    expect(document.querySelector('.xgc-data-table-empty-row')).toBeNull();
+  });
+
   it('forwards semantic cell metadata without requiring consumer-owned table markup', () => {
     const { container } = render(
       <SortableDataTable
