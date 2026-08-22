@@ -73,6 +73,7 @@ test('rejects the full cross-product visual drift contract', async () => {
       .item[data-selected='true'] { border-left: 3px solid red; }
       .layout { width: calc(var(--space-lg) * 10); }
       .fork .xgc-button { --color-text: red; opacity: 0.5; }
+      .xgc-list-page .xgc-config-section { padding: var(--space-md); }
     `);
     const result = run(project.directory, '--root', 'src', '--html', 'index.html');
     assert.equal(result.status, 1);
@@ -80,6 +81,7 @@ test('rejects the full cross-product visual drift contract', async () => {
     assert.match(result.stderr, /left edge marker/);
     assert.match(result.stderr, /width uses spacing rhythm as geometry/);
     assert.match(result.stderr, /shared selector \.xgc-button/);
+    assert.match(result.stderr, /page-family selector couples resource-directory and form-settings-operator/);
     assert.match(result.stderr, /product redefines shared token --color-text/);
     assert.match(result.stderr, /raw opacity 0\.5/);
     assert.match(result.stderr, /direct documentElement skin dataset access/);

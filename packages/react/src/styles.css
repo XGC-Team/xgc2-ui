@@ -3621,8 +3621,9 @@ button.xgc-workflow-status-card { appearance: none; cursor: pointer; }
 .xgc-config-section-heading { margin: 0; }
 .xgc-config-section-toggle {
   width: 100%;
-  /* One shared spec for collapsible section titles: the 30px ListPage
-   * folder-title row (height, type step, chevron rhythm, hover). */
+  /* Config sections use the compact settings rhythm. Resource-directory
+   * geometry belongs to ListPage, but Settings must not grow beyond the
+   * shared control ladder when the two families are separated. */
   min-height: var(--size-control-default);
   display: flex;
   align-items: center;

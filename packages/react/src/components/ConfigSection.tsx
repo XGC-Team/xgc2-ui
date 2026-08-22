@@ -36,6 +36,7 @@ export function ConfigSection({
       className={classNames('xgc-config-section', className)}
       data-xgc-expanded={expanded ? 'true' : 'false'}
       data-xgc-id={dataXgcId}
+      data-xgc-layout-family="form-settings"
       data-xgc-role={dataXgcRole}
     >
       <h2 className="xgc-config-section-heading" id={titleId}>

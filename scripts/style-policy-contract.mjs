@@ -28,6 +28,41 @@ export function sharedSelectorViolations(css, sharedClasses) {
   )];
 }
 
+const PAGE_GEOMETRY_FAMILIES = [
+  {
+    name: 'resource-directory',
+    matches: (identifier) => identifier.startsWith('xgc-list-'),
+  },
+  {
+    name: 'form-settings-operator',
+    matches: (identifier) => /^(?:xgc-config-section|xgc-form-(?:field|group|section)|xgc-operator-workspace|xgc-setting-row|xgc-settings-list)/.test(identifier),
+  },
+];
+
+const PAGE_GEOMETRY_DECLARATION = /(?:^|;)\s*(?:box-sizing|display|position|inset(?:-[a-z]+)?|top|right|bottom|left|width|min-width|max-width|height|min-height|max-height|margin(?:-[a-z]+)?|padding(?:-[a-z]+)?|gap|row-gap|column-gap|grid(?:-[a-z]+)?|flex(?:-[a-z]+)?|align-(?:items|content|self)|justify-(?:items|content|self)|place-(?:items|content|self)|overflow(?:-[xy])?)\s*:/m;
+
+/**
+ * Shared CSS keeps page-family geometry in the component that owns it. A
+ * selector may still give several families the same semantic color or type
+ * treatment; only spatial declarations make that coupling architectural.
+ */
+export function pageFamilySelectorCouplingViolations(css) {
+  const source = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  const violations = [];
+  for (const rule of source.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    const selector = rule[1].trim();
+    if (!PAGE_GEOMETRY_DECLARATION.test(rule[2])) continue;
+    const identifiers = selectorIdentifiers(selector);
+    const families = PAGE_GEOMETRY_FAMILIES
+      .filter(({ matches }) => identifiers.some(matches))
+      .map(({ name }) => name);
+    if (families.length > 1) {
+      violations.push(`page-family selector couples ${families.join(' and ')} in ${selector}`);
+    }
+  }
+  return [...new Set(violations)];
+}
+
 function sourceWithoutComments(source) {
   let result = '';
   let state = 'code';

@@ -6,7 +6,11 @@ import { ConfigSection } from './ConfigSection';
 
 describe('ConfigSection', () => {
   it('supports uncontrolled disclosure with an associated region', () => {
-    render(<ConfigSection defaultOpen={false} title="Safety"><span>Fields</span></ConfigSection>);
+    const { container } = render(<ConfigSection defaultOpen={false} title="Safety"><span>Fields</span></ConfigSection>);
+    expect(container.querySelector('[data-xgc-role="config-section"]')).toHaveAttribute(
+      'data-xgc-layout-family',
+      'form-settings',
+    );
     const toggle = screen.getByRole('button', { name: 'Safety' });
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
     fireEvent.click(toggle);

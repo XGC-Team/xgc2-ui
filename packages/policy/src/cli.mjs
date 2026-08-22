@@ -8,6 +8,7 @@ import {
   edgeMarkerViolations,
   forbiddenControlAppearanceDefinitions,
   isProductProductionSource,
+  pageFamilySelectorCouplingViolations,
   rawFoundationValueViolations,
   semanticGeometryViolations,
   sharedSelectorViolations,
@@ -133,6 +134,7 @@ function inspectCss(file, css, violations) {
   for (const token of forbiddenControlAppearanceDefinitions(declarations)) record(violations, file, `product control appearance override ${token}`);
   for (const message of statusVisualContractViolations(declarations)) record(violations, file, message);
   for (const message of edgeMarkerViolations(declarations)) record(violations, file, message);
+  for (const message of pageFamilySelectorCouplingViolations(declarations)) record(violations, file, message);
   for (const message of rawFoundationValueViolations(declarations)) record(violations, file, message);
   for (const message of semanticGeometryViolations(declarations)) record(violations, file, message);
   for (const message of sharedSelectorViolations(declarations, sharedClasses)) {

@@ -1,6 +1,7 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { extname, join, relative } from 'node:path';
 import {
+  pageFamilySelectorCouplingViolations,
   rawFoundationValueViolations,
   semanticGeometryViolations,
   statusVisualContractViolations,
@@ -45,6 +46,9 @@ for (const file of cssFiles) {
     }
   }
   for (const violation of statusVisualContractViolations(content)) {
+    violations.push(`${relative('.', file)}: ${violation}`);
+  }
+  for (const violation of pageFamilySelectorCouplingViolations(content)) {
     violations.push(`${relative('.', file)}: ${violation}`);
   }
   for (const violation of rawFoundationValueViolations(content)) {

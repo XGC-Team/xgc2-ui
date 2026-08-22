@@ -1,5 +1,13 @@
 # @xgc2/ui-react
 
+## 0.15.8
+
+### Patch Changes
+
+- Separate resource-directory and form/settings layout ownership, mark each
+  shared family in the DOM, and reject selectors that couple their geometry.
+  Keep Settings on the compact control-height rhythm.
+
 ## 0.15.7
 
 ### Patch Changes

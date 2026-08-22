@@ -4,6 +4,7 @@ import {
   PRODUCT_CONTROL_GEOMETRY_HOOKS,
   edgeMarkerViolations,
   forbiddenControlAppearanceDefinitions,
+  pageFamilySelectorCouplingViolations,
   rawFoundationValueViolations,
   semanticGeometryViolations,
   sharedSelectorViolations,
@@ -11,6 +12,22 @@ import {
   skinLifecycleViolations,
   statusVisualContractViolations,
 } from './style-policy-contract.mjs';
+
+test('keeps resource-directory geometry separate from form and operator geometry', () => {
+  const fixture = `
+    .xgc-list-folder-title,
+    .xgc-config-section-toggle { min-height: var(--size-control-default); }
+    .xgc-list-page .xgc-operator-workspace { padding: var(--space-page-padding); }
+    .xgc-list-row, .xgc-config-section { color: var(--color-text); }
+    .xgc-list-row, .xgc-list-folder-title { min-width: 0; }
+    .xgc-config-section .xgc-form-field, .xgc-settings-list { min-width: 0; }
+  `;
+
+  assert.deepEqual(pageFamilySelectorCouplingViolations(fixture), [
+    'page-family selector couples resource-directory and form-settings-operator in .xgc-list-folder-title,\n    .xgc-config-section-toggle',
+    'page-family selector couples resource-directory and form-settings-operator in .xgc-list-page .xgc-operator-workspace',
+  ]);
+});
 
 test('requires semantic tokens for component dimensions and interaction geometry', () => {
   const fixture = `

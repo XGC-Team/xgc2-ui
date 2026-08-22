@@ -124,6 +124,7 @@ export function ListPageHost({ className, contentWidth = 'default', ...props }: 
       {...props}
       className={classNames('xgc-list-page-host', className)}
       data-xgc-content-width={contentWidth === 'full' ? 'full' : undefined}
+      data-xgc-layout-family="resource-directory"
     />
   );
 }
@@ -215,6 +216,7 @@ export function ListPage<T>({
       className="xgc-list-page"
       data-xgc-content-width={contentWidth === 'full' ? 'full' : undefined}
       data-xgc-id={dataXgcId}
+      data-xgc-layout-family="resource-directory"
       data-xgc-role={dataXgcRole}
     >
       <div className="xgc-list-control-shell" data-xgc-role="list-page-controls">

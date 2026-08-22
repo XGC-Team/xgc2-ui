@@ -51,6 +51,14 @@ describe('ListPage', () => {
     );
     const controls = container.querySelector('[data-xgc-role="list-page-controls"]')!;
     const items = container.querySelector('[data-xgc-role="list-page-items-scroll"]')!;
+    expect(container.querySelector('.xgc-list-page-host')).toHaveAttribute(
+      'data-xgc-layout-family',
+      'resource-directory',
+    );
+    expect(container.querySelector('.xgc-list-page')).toHaveAttribute(
+      'data-xgc-layout-family',
+      'resource-directory',
+    );
     expect(controls).toContainElement(screen.getByPlaceholderText('Search resources'));
     expect(controls).toContainElement(screen.getByRole('button', { name: 'New' }));
     expect(items).not.toContainElement(screen.getByPlaceholderText('Search resources'));
