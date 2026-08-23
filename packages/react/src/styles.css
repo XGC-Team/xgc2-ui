@@ -1174,7 +1174,8 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: clip;
+  overflow-clip-margin: var(--stroke-strong);
 }
 
 .xgc-list-page-host:has(> .xgc-list-page) > .xgc-list-page {

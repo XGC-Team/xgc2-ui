@@ -1,5 +1,12 @@
 # @xgc2/ui-react
 
+## 0.15.11
+
+### Patch Changes
+
+- Reserve a shared ListPage clip margin so control focus rings remain visible at
+  the page edge without product-specific padding workarounds.
+
 ## 0.15.10
 
 ### Patch Changes

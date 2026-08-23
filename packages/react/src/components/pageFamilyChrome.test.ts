@@ -21,6 +21,14 @@ function ruleDeclarations(css: string, selector: string): Map<string, string> {
 }
 
 describe('page-family visual geometry', () => {
+  it('keeps the shared ListPage focus halo outside its clip edge', () => {
+    const css = readFileSync(stylesPath, 'utf8');
+    const listHost = ruleDeclarations(css, '.xgc-list-page-host:has(> .xgc-list-page)');
+
+    expect(listHost.get('overflow')).toBe('clip');
+    expect(listHost.get('overflow-clip-margin')).toBe('var(--stroke-strong)');
+  });
+
   it('keeps compact settings geometry independently owned from resource directories', () => {
     const css = readFileSync(stylesPath, 'utf8');
     const configToggle = ruleDeclarations(css, '.xgc-config-section-toggle');
