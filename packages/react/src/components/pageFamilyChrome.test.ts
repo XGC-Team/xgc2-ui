@@ -6,8 +6,8 @@ import { describe, expect, it } from 'vitest';
 const stylesPath = join(dirname(fileURLToPath(import.meta.url)), '../styles.css');
 
 function ruleDeclarations(css: string, selector: string): Map<string, string> {
-  const needle = `${selector} {`;
-  const start = css.indexOf(needle);
+  const lineNeedle = `\n${selector} {`;
+  const start = css.indexOf(lineNeedle);
   if (start < 0) throw new Error(`missing rule ${selector} in ${stylesPath}`);
   const open = css.indexOf('{', start);
   const close = css.indexOf('}', open);
@@ -50,5 +50,22 @@ describe('page-family visual geometry', () => {
     expect(listFolder.get('padding')).toBe('0 var(--xgc-list-folder-title-padding-inline, 0)');
     expect(listFolderTitle.get('font-size')).toBe('var(--font-base)');
     expect(listFolderTitle.get('font-weight')).toBe('var(--weight-regular)');
+  });
+
+  it('keeps Panel and WorkspacePanel headers regular with full shared padding', () => {
+    const css = readFileSync(stylesPath, 'utf8');
+    const panelHeader = ruleDeclarations(css, '.xgc-panel-header');
+    const panelTitle = ruleDeclarations(css, '.xgc-panel-heading h2');
+    const workspaceHeader = ruleDeclarations(css, '.xgc-workspace-panel-header');
+    const workspaceTitle = ruleDeclarations(css, '.xgc-workspace-panel-title');
+
+    for (const header of [panelHeader, workspaceHeader]) {
+      expect(header.get('padding')).toBe('var(--space-xs) var(--space-control-gap)');
+    }
+    for (const title of [panelTitle, workspaceTitle]) {
+      expect(title.get('font-size')).toBe('var(--font-base)');
+      expect(title.get('font-weight')).toBe('var(--weight-regular)');
+      expect(title.get('line-height')).toBe('var(--line-height-tight)');
+    }
   });
 });

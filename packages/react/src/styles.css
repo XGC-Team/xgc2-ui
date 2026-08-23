@@ -1497,12 +1497,10 @@ button.xgc-list-tag:disabled { cursor: not-allowed; opacity: var(--opacity-deemp
 
 .xgc-panel-heading h2 {
   margin: 0;
-}
-
-.xgc-panel-heading h2 {
   color: var(--color-text-heading);
   font-size: var(--font-base);
-  font-weight: var(--weight-strong);
+  font-weight: var(--weight-regular);
+  line-height: var(--line-height-tight);
 }
 
 .xgc-panel-actions {
@@ -1628,7 +1626,7 @@ button.xgc-list-tag:disabled { cursor: not-allowed; opacity: var(--opacity-deemp
   align-items: center;
   justify-content: space-between;
   gap: var(--space-sm);
-  padding: 0 var(--space-sm);
+  padding: var(--space-xs) var(--space-control-gap);
   color: var(--color-text-soft);
   background: var(--background-panel-header);
   border-bottom: var(--stroke-thin) solid var(--color-border-muted);
@@ -1644,7 +1642,8 @@ button.xgc-list-tag:disabled { cursor: not-allowed; opacity: var(--opacity-deemp
   overflow: hidden;
   color: var(--color-text-heading);
   font-size: var(--font-base);
-  font-weight: var(--weight-strong);
+  font-weight: var(--weight-regular);
+  line-height: var(--line-height-tight);
   text-overflow: ellipsis;
   white-space: nowrap;
 }

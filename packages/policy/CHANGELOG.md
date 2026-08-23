@@ -1,5 +1,13 @@
 # @xgc2/ui-policy
 
+## 0.15.13
+
+### Patch Changes
+
+- Lock the shared Panel header spacing and regular-title contract.
+- Updated dependencies
+  - @xgc2/ui-react@0.15.13
+
 ## 0.15.12
 
 ### Patch Changes

@@ -1,5 +1,12 @@
 # @xgc2/ui-react
 
+## 0.15.13
+
+### Patch Changes
+
+- Give Panel and WorkspacePanel headers full token padding and regular,
+  theme-consistent title typography.
+
 ## 0.15.12
 
 ### Patch Changes
