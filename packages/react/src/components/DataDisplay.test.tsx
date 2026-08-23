@@ -92,12 +92,50 @@ describe('data display primitives', () => {
     const rowViewport = container.querySelector('[data-xgc-role="data-table-row-viewport"]');
     const header = screen.getByRole('columnheader', { name: 'Package' });
     expect(tableContainer).toHaveAttribute('data-body-scroll', 'true');
+    expect(tableContainer).toHaveAttribute('data-sticky-header', 'true');
     expect(rowViewport).toHaveAttribute('aria-label', 'Table rows');
     expect(rowViewport).toHaveAttribute('tabindex', '0');
     expect(rowViewport).toContainElement(screen.getByRole('cell', { name: 'alpha' }));
     expect(rowViewport).not.toContainElement(header);
     expect(container.querySelector('thead')).not.toHaveAttribute('style');
     expect(container.querySelector('.xgc-pagination')).toBeNull();
+  });
+
+  it('keeps sticky table chrome when a bounded table changes between empty and overflowing rows', () => {
+    const { container, rerender } = render(
+      <SortableDataTable<{ id: string; name: string }>
+        bodyScroll
+        columns={[{ id: 'package', header: 'Package', cell: (row) => row.name }]}
+        emptyMessage="No packages"
+        emptyMode="table"
+        rowKey={(row) => row.id}
+        rows={[]}
+      />,
+    );
+    const tableContainer = container.querySelector('.xgc-data-table');
+    const rowViewport = container.querySelector('[data-xgc-role="data-table-row-viewport"]');
+    const header = screen.getByRole('columnheader', { name: 'Package' });
+    expect(tableContainer).toHaveAttribute('data-body-scroll', 'true');
+    expect(tableContainer).toHaveAttribute('data-sticky-header', 'true');
+    expect(rowViewport).not.toContainElement(header);
+    expect(rowViewport).toContainElement(screen.getByText('No packages'));
+
+    rerender(
+      <SortableDataTable<{ id: string; name: string }>
+        bodyScroll
+        columns={[{ id: 'package', header: 'Package', cell: (row) => row.name }]}
+        emptyMessage="No packages"
+        emptyMode="table"
+        rowKey={(row) => row.id}
+        rows={Array.from({ length: 40 }, (_, index) => ({ id: String(index), name: `package-${index}` }))}
+      />,
+    );
+    expect(container.querySelector('.xgc-data-table')).toHaveAttribute('data-sticky-header', 'true');
+    expect(container.querySelector('[data-xgc-role="data-table-row-viewport"]')).toHaveAttribute('tabindex', '0');
+    expect(screen.getByText('package-39')).toBeInTheDocument();
+    expect(container.querySelector('[data-xgc-role="data-table-row-viewport"]')).not.toContainElement(
+      screen.getByRole('columnheader', { name: 'Package' }),
+    );
   });
 
   it('replaces the table with a message by default when rows are empty', () => {

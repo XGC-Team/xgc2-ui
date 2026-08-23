@@ -279,11 +279,13 @@ export function SortableDataTable<Row>({
   };
 
   const emptyTable = rows.length === 0 && emptyMode === 'table';
+  const stickyHeader = bodyScroll || (props as DataTableDataAttributes)['data-sticky-header'] === 'true';
 
   return (
     <DataTable
       {...props}
       data-body-scroll={bodyScroll || undefined}
+      data-sticky-header={stickyHeader ? 'true' : undefined}
       empty={rows.length === 0 && emptyMode !== 'table'}
       emptyMessage={emptyMessage}
     >

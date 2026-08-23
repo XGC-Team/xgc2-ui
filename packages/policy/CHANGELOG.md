@@ -1,5 +1,13 @@
 # @xgc2/ui-policy
 
+## 0.15.12
+
+### Patch Changes
+
+- Require the bounded data-table sticky-header and themed scrollbar contract.
+- Updated dependencies
+  - @xgc2/ui-react@0.15.12
+
 ## 0.15.11
 
 ### Patch Changes

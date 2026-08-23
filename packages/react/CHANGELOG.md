@@ -1,5 +1,12 @@
 # @xgc2/ui-react
 
+## 0.15.12
+
+### Patch Changes
+
+- Keep bounded data-table scrollbars inside the row viewport so sticky headers
+  retain their theme surface without a covering gutter.
+
 ## 0.15.11
 
 ### Patch Changes
