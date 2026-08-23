@@ -52,4 +52,26 @@ describe('WorkflowStatusCard', () => {
     fireEvent.click(button);
     expect(onClick).toHaveBeenCalledOnce();
   });
+
+  it('lets progress use an independent signal without recoloring status copy', () => {
+    const { container } = render(
+      <WorkflowStatusCard
+        ariaLabel="ROS; ready"
+        dataXgcId="roscore"
+        dataXgcRole="ros-basic-service-control"
+        metrics={{ primary: '1/1 ready' }}
+        progress={{ color: 'var(--color-service-ready)',label: 'ROS readiness',percent: 100,tone: 'success',value: 1,max: 1 }}
+        running
+        status="ready"
+        statusLabel="ready"
+        title="ROS"
+        tone="neutral"
+      />,
+    );
+    const card = container.querySelector('[data-xgc-role="ros-basic-service-control"]')!;
+    const progress = card.querySelector('[role="progressbar"]')!;
+    expect(card).toHaveAttribute('data-xgc-tone','neutral');
+    expect(progress).toHaveAttribute('data-xgc-tone','success');
+    expect(progress).toHaveStyle({ '--xgc-progress-fill':'var(--color-service-ready)' });
+  });
 });

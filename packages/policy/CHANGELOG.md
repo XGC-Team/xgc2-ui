@@ -1,5 +1,14 @@
 # @xgc2/ui-policy
 
+## 0.15.10
+
+### Patch Changes
+
+- Allow `WorkflowStatusCard` progress to select its own semantic tone and fill
+  color without recoloring the card status label.
+- Updated dependencies
+  - @xgc2/ui-react@0.15.10
+
 ## 0.15.9
 
 ### Patch Changes

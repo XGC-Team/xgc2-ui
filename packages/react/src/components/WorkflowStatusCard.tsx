@@ -6,12 +6,16 @@ export type WorkflowStatusCardTone = ProgressBarTone;
 export type WorkflowStatusCardLayout = 'default' | 'tile';
 
 export type WorkflowStatusCardProgress = {
+  /** Optional fill color independent from the card/status tone. */
+  color?: string;
   indeterminate?: boolean;
   label?: string;
   max?: number;
   min?: number;
   percent: number;
   segments?: number;
+  /** Optional semantic tone independent from the card/status tone. */
+  tone?: ProgressBarTone;
   value?: number;
 };
 
@@ -56,13 +60,14 @@ export function WorkflowStatusCard({
       <ProgressBar
         ariaHidden={!progress.label}
         className="xgc-workflow-status-card-progress"
+        color={progress.color}
         indeterminate={progress.indeterminate}
         label={progress.label}
         max={progress.max}
         min={progress.min}
         percent={percent}
         segments={progress.segments}
-        tone={tone}
+        tone={progress.tone ?? tone}
         value={measured ? progress.value : undefined}
       />
       {children}
