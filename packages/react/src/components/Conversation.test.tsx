@@ -6,6 +6,7 @@ import {
   ConversationMessage,
   ConversationRegion,
 } from './Conversation';
+import '../styles.css';
 
 describe('Conversation foundation', () => {
   it('exposes an accessible live log and speaker-aware message structure', () => {
@@ -95,6 +96,51 @@ describe('Conversation foundation', () => {
     );
     expect(screen.getByRole('textbox')).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
+  });
+
+  it('renders the compact composer as a single border-box row with centered line box', () => {
+    render(
+      <ConversationComposer
+        density="compact"
+        label="Message composer"
+        onSubmitMessage={() => undefined}
+        onValueChange={() => undefined}
+        placeholder="Message the ground station"
+        submitIcon={<span data-testid="send-icon" />}
+        submitLabel="Send"
+        value=""
+      />,
+    );
+    const form = screen.getByRole('form', { name: 'Message composer' });
+    expect(form).toHaveAttribute('data-density', 'compact');
+    const textbox = screen.getByRole('textbox', { name: 'Message composer' });
+    // compact density owns exactly one text row; default density keeps two.
+    expect(textbox).toHaveAttribute('rows', '1');
+    expect(textbox).toHaveClass('xgc-conversation-composer-input');
+    const submit = screen.getByRole('button', { name: 'Send' });
+    expect(submit).toHaveClass('xgc-conversation-composer-submit');
+
+    // CSS contract: fixed border-box height, collapsed block padding, and a
+    // line box sized to the inner rows so placeholder/text stay centered.
+    const sheet = [...document.styleSheets].find((candidate) =>
+      [...candidate.cssRules].some((rule) => rule.cssText.includes('.xgc-conversation-composer')),
+    )!;
+    const rules = [...sheet.cssRules].map((rule) => rule.cssText).join('\n');
+    const compactInput = rules.match(
+      /\.xgc-conversation-composer\[data-density=['"]compact['"]\] \.xgc-conversation-composer-input\s*{[^}]*}/,
+    )?.[0];
+    expect(compactInput).toBeDefined();
+    expect(compactInput).toContain('box-sizing: border-box');
+    expect(compactInput).toContain('height: var(--size-control-compact)');
+    expect(compactInput).toContain('padding-block: 0px');
+    expect(compactInput).toContain(
+      'line-height: calc(var(--size-control-compact) - var(--stroke-thin) - var(--stroke-thin))',
+    );
+    // Default density must stay multi-row: no border-box override on the bare
+    // default selector.
+    expect(rules).not.toMatch(
+      /(^|})\.xgc-conversation-composer-input\s*{[^}]*box-sizing:\s*border-box/,
+    );
   });
 
   it('renders collapsible agent activity with undecorated status text', () => {

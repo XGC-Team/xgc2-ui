@@ -2328,8 +2328,14 @@ article.xgc-agent-activity > .xgc-agent-activity-content {
 }
 
 .xgc-conversation-composer[data-density='compact'] .xgc-conversation-composer-input {
+  /* One-row compact composer: the fixed control height is border-box, so the
+     inherited content padding must collapse and the line box fills the row
+     to keep placeholder and text vertically centered. */
+  box-sizing: border-box;
   min-height: var(--size-control-compact);
   height: var(--size-control-compact);
+  padding-block: 0;
+  line-height: calc(var(--size-control-compact) - var(--stroke-thin) - var(--stroke-thin));
   resize: none;
 }
 
