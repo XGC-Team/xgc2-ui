@@ -3616,7 +3616,7 @@ button.xgc-workflow-status-card { appearance: none; cursor: pointer; }
   gap: var(--space-layout-tight);
 }
 
-.xgc-form-section-body > :is(.xgc-form-field, .xgc-form-group) > .xgc-form-field-label,
+.xgc-form-section-body :is(.xgc-form-field, .xgc-form-group) > .xgc-form-field-label,
 .xgc-form-section-body .xgc-boolean-title {
   min-height: 0;
   display: block;
@@ -3624,6 +3624,7 @@ button.xgc-workflow-status-card { appearance: none; cursor: pointer; }
   margin: 0;
   padding: 0;
   color: var(--color-text-muted);
+  font-family: var(--font-sans);
   font-size: var(--font-base);
   font-weight: var(--weight-regular);
   line-height: var(--line-height-tight);
