@@ -60,7 +60,7 @@ describe('page-family visual geometry', () => {
     const workspaceTitle = ruleDeclarations(css, '.xgc-workspace-panel-title');
 
     for (const header of [panelHeader, workspaceHeader]) {
-      expect(header.get('padding')).toBe('var(--space-xs) var(--space-control-gap)');
+      expect(header.get('padding')).toBe('var(--space-xs) var(--space-panel-padding)');
     }
     for (const title of [panelTitle, workspaceTitle]) {
       expect(title.get('font-size')).toBe('var(--font-base)');
