@@ -21,4 +21,16 @@ describe('shared focus contract', () => {
     const withoutComments = focusCss.replace(/\/\*[\s\S]*?\*\//g, '');
     expect(withoutComments).not.toMatch(/@layer/);
   });
+
+  it('keeps the workspace tab rename editor inside the tab footprint', () => {
+    const start = focusCss.indexOf('.xgc-workspace-tab-input');
+    const rule = focusCss.slice(start);
+    expect(start).toBeGreaterThan(-1);
+    expect(rule).toContain(':has(> input:focus-visible)');
+    expect(rule).toContain('border-color: var(--color-border-focus);');
+    expect(rule).toContain('outline: 0;');
+    expect(rule).toContain(
+      'box-shadow: inset 0 0 0 var(--stroke-thin) var(--color-border-focus);',
+    );
+  });
 });
