@@ -229,7 +229,6 @@ export function WorkspaceTabs({
                   onDoubleClick={(event) => event.stopPropagation()}
                   onDragStart={(event) => event.preventDefault()}
                   title={deleteTitle ?? deleteLabel(item)}
-                  tone="danger"
                   uiSize="compact"
                 >
                   {deleteIcon}

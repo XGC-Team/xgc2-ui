@@ -929,7 +929,6 @@
 
 .xgc-workspace-tab-delete {
   --xgc-control-height: var(--size-workspace-tab-action);
-  --xgc-control-hover-background: var(--color-bg-danger-soft);
   flex: 0 0 var(--size-workspace-tab-action);
 }
 
@@ -3778,9 +3777,10 @@ button.xgc-workflow-status-card { appearance: none; cursor: pointer; }
   min-width: 0;
   overflow: hidden;
   color: var(--color-text-heading);
+  font-family: var(--font-sans);
   font-size: var(--font-base);
-  font-weight: var(--weight-semibold);
-  line-height: var(--line-height-none);
+  font-weight: var(--weight-regular);
+  line-height: var(--line-height-control);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
