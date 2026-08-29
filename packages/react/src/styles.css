@@ -227,6 +227,16 @@
   font-size: var(--font-base);
 }
 
+.xgc-input > input[type='number'] {
+  appearance: textfield;
+}
+
+.xgc-input > input[type='number']::-webkit-inner-spin-button,
+.xgc-input > input[type='number']::-webkit-outer-spin-button {
+  margin: 0;
+  appearance: none;
+}
+
 .xgc-input > input::placeholder {
   color: var(--color-text-faint);
 }
@@ -242,6 +252,59 @@
 .xgc-input-unit {
   font-size: var(--font-base);
   white-space: nowrap;
+}
+
+.xgc-input-stepper {
+  width: var(--size-icon-xl);
+  align-self: stretch;
+  flex: 0 0 var(--size-icon-xl);
+  display: grid;
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  margin-inline-end: calc(-1 * var(--xgc-control-input-padding-inline, var(--space-control-padding-inline)));
+  overflow: hidden;
+  background: transparent;
+  border-inline-start: var(--stroke-thin) solid var(--color-border-muted);
+}
+
+.xgc-input[data-size='compact'] .xgc-input-stepper {
+  margin-inline-end: calc(-1 * var(--xgc-control-input-padding-inline, var(--space-control-padding-inline-compact)));
+}
+
+.xgc-input-stepper-button {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  color: var(--color-text-faint);
+  appearance: none;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.xgc-input-stepper-button + .xgc-input-stepper-button {
+  border-block-start: var(--stroke-thin) solid var(--color-border-muted);
+}
+
+.xgc-input-stepper-button:hover:not(:disabled) {
+  color: var(--color-text-strong);
+  background: var(--xgc-control-hover-background, var(--color-bg-control-hover));
+}
+
+.xgc-input-stepper-button:disabled {
+  cursor: default;
+}
+
+.xgc-input-stepper-button > svg {
+  width: var(--size-icon-xs);
+  height: var(--size-icon-xs);
+  overflow: visible;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: var(--stroke-strong);
 }
 
 .xgc-textarea {
