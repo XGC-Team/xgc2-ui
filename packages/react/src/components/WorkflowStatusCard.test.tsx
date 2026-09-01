@@ -51,6 +51,44 @@ describe('WorkflowStatusCard', () => {
     expect(button).toHaveAttribute('data-xgc-layout', 'tile');
     fireEvent.click(button);
     expect(onClick).toHaveBeenCalledOnce();
+    expect(button).not.toHaveAttribute('aria-pressed');
+  });
+
+  it('exposes aria-pressed only when the caller sets pressed', () => {
+    const { rerender } = render(
+      <WorkflowStatusCard
+        ariaLabel="Hold"
+        dataXgcRole="ugv-chassis-hold"
+        layout="tile"
+        metrics={{ primary: 'Ready' }}
+        onClick={() => undefined}
+        pressed
+        progress={{ percent: 0 }}
+        running={false}
+        status="stopped"
+        statusLabel="idle"
+        title="Hold"
+        tone="neutral"
+      />,
+    );
+    expect(screen.getByRole('button', { name: 'Hold' })).toHaveAttribute('aria-pressed', 'true');
+    rerender(
+      <WorkflowStatusCard
+        ariaLabel="Hold"
+        dataXgcRole="ugv-chassis-hold"
+        layout="tile"
+        metrics={{ primary: 'Ready' }}
+        onClick={() => undefined}
+        pressed={false}
+        progress={{ percent: 0 }}
+        running={false}
+        status="stopped"
+        statusLabel="idle"
+        title="Hold"
+        tone="neutral"
+      />,
+    );
+    expect(screen.getByRole('button', { name: 'Hold' })).toHaveAttribute('aria-pressed', 'false');
   });
 
   it('lets progress use an independent signal without recoloring status copy', () => {
