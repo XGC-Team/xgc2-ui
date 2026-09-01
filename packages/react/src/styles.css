@@ -1546,7 +1546,7 @@ button.xgc-list-tag:disabled { cursor: not-allowed; opacity: var(--opacity-deemp
   align-items: center;
   justify-content: space-between;
   gap: var(--space-layout-default);
-  padding: var(--space-xs) var(--space-panel-padding);
+  padding: var(--space-xs);
   background: var(--background-panel-header);
   border-bottom: var(--stroke-thin) solid var(--color-border-muted);
 }
@@ -1688,7 +1688,7 @@ button.xgc-list-tag:disabled { cursor: not-allowed; opacity: var(--opacity-deemp
   align-items: center;
   justify-content: space-between;
   gap: var(--space-sm);
-  padding: var(--space-xs) var(--space-panel-padding);
+  padding: var(--space-xs);
   color: var(--color-text-soft);
   background: var(--background-panel-header);
   border-bottom: var(--stroke-thin) solid var(--color-border-muted);

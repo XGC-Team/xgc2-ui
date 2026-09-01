@@ -104,4 +104,4 @@ Every topbar has exactly one product title on the left and only high-value inter
 
 Status is plain text, not decoration. Use shared `StatusText` without a capsule, filled background, rounded enclosing border, or decorative dot. Wording is mandatory; restrained semantic text color is only a secondary cue.
 
-Page chrome and first-level panel chrome use `--size-header-page` and `--size-header-panel`; the panel value is the compact 35px XGC2 experiment-panel baseline with equal 4px top and bottom padding around 26px controls plus its 1px divider. Code labels and Copy actions use `--size-header-code` as quiet in-surface metadata, never a visually dominant nested topbar.
+Page chrome and first-level panel chrome use `--size-header-page` and `--size-header-panel`; the panel value is the compact 35px XGC2 experiment-panel baseline with equal 4px padding on all sides around 26px controls plus its 1px divider. Code labels and Copy actions use `--size-header-code` as quiet in-surface metadata, never a visually dominant nested topbar.
