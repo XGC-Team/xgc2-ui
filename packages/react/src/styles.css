@@ -1547,9 +1547,6 @@ button.xgc-list-tag:disabled { cursor: not-allowed; opacity: var(--opacity-deemp
   justify-content: space-between;
   gap: var(--space-layout-default);
   padding: var(--space-xs) var(--space-panel-padding);
-  /* 34px already includes the hairline. Shorten padding-bottom so 26px
-   * header actions sit equally between the top edge and that divider. */
-  padding-bottom: calc(var(--space-xs) - var(--stroke-thin));
   background: var(--background-panel-header);
   border-bottom: var(--stroke-thin) solid var(--color-border-muted);
 }
@@ -1692,9 +1689,6 @@ button.xgc-list-tag:disabled { cursor: not-allowed; opacity: var(--opacity-deemp
   justify-content: space-between;
   gap: var(--space-sm);
   padding: var(--space-xs) var(--space-panel-padding);
-  /* 34px already includes the hairline. Shorten padding-bottom so 26px
-   * header actions sit equally between the top edge and that divider. */
-  padding-bottom: calc(var(--space-xs) - var(--stroke-thin));
   color: var(--color-text-soft);
   background: var(--background-panel-header);
   border-bottom: var(--stroke-thin) solid var(--color-border-muted);

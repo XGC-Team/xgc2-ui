@@ -61,7 +61,7 @@ describe('page-family visual geometry', () => {
 
     for (const header of [panelHeader, workspaceHeader]) {
       expect(header.get('padding')).toBe('var(--space-xs) var(--space-panel-padding)');
-      expect(header.get('padding-bottom')).toBe('calc(var(--space-xs) - var(--stroke-thin))');
+      expect(header.has('padding-bottom')).toBe(false);
       expect(header.get('height')).toBe('var(--size-header-panel)');
       expect(header.get('border-bottom')).toBe('var(--stroke-thin) solid var(--color-border-muted)');
     }

@@ -64,6 +64,6 @@ same-document hooks and external storage events synchronized.
 
 `Stack`, `Inline`, `ResponsiveGrid`, `ScrollRegion`, `OperatorWorkspace`, and `SectionHeader` own common spacing and fixed-workspace behavior. `Drawer` owns the right-side overlay, fixed header, internally scrolling body, mobile width, focus behavior, and optional dirty-data confirmation. Consumers provide domain form contents and save behavior.
 
-Page and first-level panel chrome use the shared `--size-header-page` and `--size-header-panel` tokens. Panel chrome follows the compact 34px XGC2 experiment-panel density. `CodeBlock` uses a quiet 24px metadata/copy row inside the code surface; it must not resemble another panel topbar. Its `viewport="compact"` option is the shared bounded-height choice for command lists that must remain inside a one-screen workspace.
+Page and first-level panel chrome use the shared `--size-header-page` and `--size-header-panel` tokens. Panel chrome follows the compact 35px XGC2 experiment-panel density: equal 4px top and bottom padding around 26px controls plus the 1px divider. `CodeBlock` uses a quiet 24px metadata/copy row inside the code surface; it must not resemble another panel topbar. Its `viewport="compact"` option is the shared bounded-height choice for command lists that must remain inside a one-screen workspace.
 
 React and React DOM are peer dependencies to guarantee that a consuming application owns the single React runtime.

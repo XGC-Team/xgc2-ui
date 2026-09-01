@@ -9,7 +9,7 @@ import { classNames } from '../utils';
 export const WORKSPACE_PANEL_DRAG_HANDLE_SELECTOR = '.xgc-workspace-panel-drag-handle';
 export const WORKSPACE_PANEL_DRAG_CANCEL_SELECTOR = '.xgc-workspace-panel-interactive, .xgc-workspace-panel-interactive *';
 /** JS geometry companion to the shared `--size-header-panel` design token. */
-export const WORKSPACE_PANEL_HEADER_HEIGHT_PX = 34;
+export const WORKSPACE_PANEL_HEADER_HEIGHT_PX = 35;
 const WORKSPACE_PANEL_INTERACTIVE_SELECTOR = [
   'a', 'button', 'input', 'select', 'textarea', 'summary',
   '[contenteditable="true"]',
