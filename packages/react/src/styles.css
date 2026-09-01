@@ -1547,6 +1547,9 @@ button.xgc-list-tag:disabled { cursor: not-allowed; opacity: var(--opacity-deemp
   justify-content: space-between;
   gap: var(--space-layout-default);
   padding: var(--space-xs) var(--space-panel-padding);
+  /* 34px already includes the hairline. Shorten padding-bottom so 26px
+   * header actions sit equally between the top edge and that divider. */
+  padding-bottom: calc(var(--space-xs) - var(--stroke-thin));
   background: var(--background-panel-header);
   border-bottom: var(--stroke-thin) solid var(--color-border-muted);
 }
@@ -1689,6 +1692,9 @@ button.xgc-list-tag:disabled { cursor: not-allowed; opacity: var(--opacity-deemp
   justify-content: space-between;
   gap: var(--space-sm);
   padding: var(--space-xs) var(--space-panel-padding);
+  /* 34px already includes the hairline. Shorten padding-bottom so 26px
+   * header actions sit equally between the top edge and that divider. */
+  padding-bottom: calc(var(--space-xs) - var(--stroke-thin));
   color: var(--color-text-soft);
   background: var(--background-panel-header);
   border-bottom: var(--stroke-thin) solid var(--color-border-muted);
@@ -3580,17 +3586,20 @@ button.xgc-workflow-status-card { appearance: none; cursor: pointer; }
 .xgc-workflow-status-card-metric-secondary { flex: 0 0 auto; }
 
 .xgc-panel-view-switcher {
+  box-sizing: border-box;
   min-width: 0;
+  height: var(--size-control-panel-header);
   display: inline-flex;
   gap: var(--space-2xs);
-  padding: var(--space-2xs);
+  padding: 0 var(--space-2xs);
   background: var(--color-bg-control);
   border: var(--stroke-thin) solid var(--color-border);
   border-radius: var(--radius-control);
 }
 
 .xgc-panel-view-switcher-button {
-  height: 22px;
+  height: 100%;
+  min-height: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;

@@ -61,11 +61,28 @@ describe('page-family visual geometry', () => {
 
     for (const header of [panelHeader, workspaceHeader]) {
       expect(header.get('padding')).toBe('var(--space-xs) var(--space-panel-padding)');
+      expect(header.get('padding-bottom')).toBe('calc(var(--space-xs) - var(--stroke-thin))');
+      expect(header.get('height')).toBe('var(--size-header-panel)');
+      expect(header.get('border-bottom')).toBe('var(--stroke-thin) solid var(--color-border-muted)');
     }
     for (const title of [panelTitle, workspaceTitle]) {
       expect(title.get('font-size')).toBe('var(--font-base)');
       expect(title.get('font-weight')).toBe('var(--weight-regular)');
       expect(title.get('line-height')).toBe('var(--line-height-tight)');
     }
+  });
+
+  it('keeps panel header actions and view switchers inside the compact control height', () => {
+    const css = readFileSync(stylesPath, 'utf8');
+    const viewSwitcher = ruleDeclarations(css, '.xgc-panel-view-switcher');
+    const viewSwitcherButton = ruleDeclarations(css, '.xgc-panel-view-switcher-button');
+    const panelActions = ruleDeclarations(css, '.xgc-panel-actions');
+    const workspaceActions = ruleDeclarations(css, '.xgc-workspace-panel-actions');
+
+    expect(viewSwitcher.get('height')).toBe('var(--size-control-panel-header)');
+    expect(viewSwitcher.get('padding')).toBe('0 var(--space-2xs)');
+    expect(viewSwitcherButton.get('height')).toBe('100%');
+    expect(panelActions.get('height')).toBe('var(--size-control-panel-header)');
+    expect(workspaceActions.get('height')).toBe('var(--size-control-panel-header)');
   });
 });
