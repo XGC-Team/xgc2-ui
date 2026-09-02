@@ -2,4 +2,4 @@
 '@xgc2/ui-react': patch
 ---
 
-Keep AppShell sidebar width motion. Clip a stable expanded inner track so padding, labels, and footer do not snap during the tween.
+Keep AppShell sidebar width motion with a clipped expanded inner track. Framed Panels that render a header use the same --space-xs inset on default body as on the header.
