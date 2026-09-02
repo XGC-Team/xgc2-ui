@@ -65,11 +65,73 @@ describe('page-family visual geometry', () => {
       expect(header.get('height')).toBe('var(--size-header-panel)');
       expect(header.get('border-bottom')).toBe('var(--stroke-thin) solid var(--color-border-muted)');
     }
+    expect(ruleDeclarations(
+      css,
+      ".xgc-panel:not([data-chrome='flat']):has(> .xgc-panel-header)[data-padding='default'] > .xgc-panel-body",
+    ).get('padding')).toBe('var(--space-xs)');
+    expect(ruleDeclarations(css, '.xgc-panel[data-padding=\'default\'] > .xgc-panel-body').get('padding'))
+      .toBe('var(--space-panel-padding)');
+    expect(ruleDeclarations(css, '.xgc-workspace-panel-body[data-padding=\'default\']').get('padding'))
+      .toBe('var(--space-xs)');
     for (const title of [panelTitle, workspaceTitle]) {
       expect(title.get('font-size')).toBe('var(--font-base)');
       expect(title.get('font-weight')).toBe('var(--weight-regular)');
       expect(title.get('line-height')).toBe('var(--line-height-tight)');
     }
+  });
+
+  it('keeps sidebar width motion while clipping a stable expanded inner track', () => {
+    const css = readFileSync(stylesPath, 'utf8');
+    const sidebar = ruleDeclarations(css, '.xgc-app-sidebar');
+    const collapsed = ruleDeclarations(css, ".xgc-app-sidebar[data-collapsed='true']");
+    const inner = ruleDeclarations(css, '.xgc-sidebar-brand,\n.xgc-sidebar-body,\n.xgc-sidebar-footer');
+    const collapsedFooter = ruleDeclarations(css, ".xgc-app-sidebar[data-collapsed='true'] .xgc-sidebar-footer");
+
+    expect(sidebar.get('width')).toBe('var(--size-sidebar-expanded)');
+    expect(sidebar.get('transition')).toBe('width var(--duration-fast) var(--easing-standard)');
+    expect(collapsed.get('width')).toBe('var(--size-sidebar-collapsed)');
+    expect(inner.get('min-width')).toBe('var(--size-sidebar-expanded)');
+    expect(collapsedFooter.get('display')).toBeUndefined();
+    expect(collapsedFooter.get('max-height')).toBe('0');
+    expect(css).not.toMatch(/\[data-collapsed='true'\] \.xgc-sidebar-nav-label[^}]*opacity:\s*var\(--opacity-hidden\)/s);
+
+    const nav = ruleDeclarations(css, '.xgc-sidebar-nav');
+    const item = ruleDeclarations(css, '.xgc-sidebar-nav-item');
+    const collapsedNav = ruleDeclarations(css, ".xgc-app-sidebar[data-collapsed='true'] .xgc-sidebar-nav");
+    const collapsedItem = ruleDeclarations(css, ".xgc-app-sidebar[data-collapsed='true'] .xgc-sidebar-nav-item");
+    expect(nav.get('transition')).toBe('padding-inline var(--duration-fast) var(--easing-standard)');
+    expect(item.get('transition')).toBe('padding-inline var(--duration-fast) var(--easing-standard)');
+    expect(item.get('justify-content')).toBe('flex-start');
+    expect(collapsedNav.get('padding-inline')).toBe('0');
+    expect(collapsedItem.get('padding-inline')).toBe(
+      'calc((var(--size-sidebar-collapsed) - var(--xgc-sidebar-icon-size)) / 2)',
+    );
+    expect(collapsedItem.get('justify-content')).toBeUndefined();
+  });
+
+  it('keeps every field hint label on the FormSection specimen and textarea content on input type', () => {
+    const css = readFileSync(stylesPath, 'utf8');
+    const field = ruleDeclarations(css, '.xgc-form-field');
+    const label = ruleDeclarations(css, '.xgc-form-field-label');
+    const textarea = ruleDeclarations(css, '.xgc-textarea');
+    const inputValue = ruleDeclarations(css, '.xgc-input > input');
+    const sectionLabel = ruleDeclarations(
+      css,
+      '.xgc-form-section-body :is(.xgc-form-field, .xgc-form-group) > .xgc-form-field-label',
+    );
+
+    expect(field.get('font-size')).toBeUndefined();
+    expect(label.get('font-family')).toBe('var(--font-sans)');
+    expect(label.get('font-size')).toBe('var(--font-base)');
+    expect(label.get('font-weight')).toBe('var(--weight-regular)');
+    expect(label.get('line-height')).toBe('var(--line-height-tight)');
+    expect(label.get('color')).toBe('var(--color-text-muted)');
+    expect(sectionLabel.get('font-size')).toBeUndefined();
+    expect(sectionLabel.get('font-weight')).toBeUndefined();
+    expect(textarea.get('font-size')).toBe(inputValue.get('font-size'));
+    expect(textarea.get('font-size')).toBe('var(--font-base)');
+    expect(textarea.get('font-family')).toBe('var(--font-sans)');
+    expect(textarea.get('font-weight')).toBe('var(--weight-regular)');
   });
 
   it('keeps panel header actions and view switchers inside the compact control height', () => {

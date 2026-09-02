@@ -318,6 +318,9 @@
   border: var(--stroke-thin) solid var(--color-border);
   border-radius: var(--radius-control);
   font: inherit;
+  font-family: var(--font-sans);
+  font-size: var(--font-base);
+  font-weight: var(--weight-regular);
   line-height: var(--line-height-relaxed);
   transition:
     background-color var(--duration-quick) var(--easing-standard),
@@ -540,14 +543,17 @@
   display: grid;
   gap: var(--space-sm);
   color: var(--color-text-muted);
-  font-size: var(--font-sm);
 }
 
 .xgc-form-field-label {
   display: inline-flex;
   align-items: baseline;
   gap: var(--space-xs);
-  font-weight: var(--weight-medium);
+  color: var(--color-text-muted);
+  font-family: var(--font-sans);
+  font-size: var(--font-base);
+  font-weight: var(--weight-regular);
+  line-height: var(--line-height-tight);
 }
 
 .xgc-form-field-required,
@@ -1613,6 +1619,13 @@ button.xgc-list-tag:disabled { cursor: not-allowed; opacity: var(--opacity-deemp
   padding: var(--space-panel-padding);
 }
 
+/* Framed cards with a header share the header inset. --space-panel-padding
+ * stays on headerless / flat default bodies. padding="none" is flush only
+ * when the product does not re-pad the first row. */
+.xgc-panel:not([data-chrome='flat']):has(> .xgc-panel-header)[data-padding='default'] > .xgc-panel-body {
+  padding: var(--space-xs);
+}
+
 .xgc-panel-description {
   margin: 0 0 var(--space-lg);
   color: var(--color-text-muted);
@@ -1752,7 +1765,7 @@ button.xgc-list-tag:disabled { cursor: not-allowed; opacity: var(--opacity-deemp
 }
 
 .xgc-workspace-panel-body[data-padding='default'] {
-  padding: var(--space-panel-padding);
+  padding: var(--space-xs);
 }
 
 .xgc-workspace-panel-body[data-scroll='true'] {
@@ -3241,16 +3254,19 @@ button.xgc-stat-card:disabled {
 }
 
 .xgc-app-sidebar {
-  /* True width transition: the layout box really is 36px when collapsed, so
-   * nothing invisible overlaps the workspace and the right seam border is
-   * always correct. Collapsed geometry places every icon at the same bounds
-   * it has when expanded, so only the width moves. */
+  /* True width motion: the layout box really is 36px when collapsed, so the
+   * seam is honest and nothing invisible overlaps the workspace. Webpage
+   * flash comes from snapping inner padding/opacity/display while width
+   * tweens. Inner tracks stay at expanded width and clip; only this box
+   * interpolates. */
   width: var(--size-sidebar-expanded);
   min-width: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  contain: layout;
+  align-items: flex-start;
   background: var(--background-sidebar, var(--color-bg-sidebar));
   border-right: var(--stroke-thin) solid var(--color-border-muted);
   transition: width var(--duration-fast) var(--easing-standard);
@@ -3258,6 +3274,15 @@ button.xgc-stat-card:disabled {
 
 .xgc-app-sidebar[data-collapsed='true'] {
   width: var(--size-sidebar-collapsed);
+}
+
+.xgc-sidebar-brand,
+.xgc-sidebar-body,
+.xgc-sidebar-footer {
+  box-sizing: border-box;
+  width: var(--size-sidebar-expanded);
+  min-width: var(--size-sidebar-expanded);
+  max-width: var(--size-sidebar-expanded);
 }
 
 .xgc-sidebar-brand {
@@ -3316,32 +3341,11 @@ button.xgc-stat-card:disabled {
   transition: transform var(--duration-fast) var(--easing-standard);
 }
 
-.xgc-app-sidebar[data-collapsed='true'] .xgc-sidebar-brand {
-  padding-inline: 0;
-}
-
-.xgc-app-sidebar[data-collapsed='true'] .xgc-sidebar-toggle {
-  /* Sidebar box stays at expanded width during clip-path collapse; pin the
-   * toggle to the visible strip and center the mark in it — the same center
-   * x=18 it has when expanded, so collapse never moves it. */
-  width: var(--size-sidebar-collapsed);
-  justify-content: center;
-  gap: 0;
-}
-
-.xgc-app-sidebar[data-collapsed='true'] .xgc-sidebar-brand-label,
-.xgc-app-sidebar[data-collapsed='true'] .xgc-sidebar-collapse-indicator {
-  width: 0;
-  /* Kill flex-grow too, or the zero-width label still absorbs all free space
-   * and shoves the brand mark against the rail's left edge. */
-  flex: 0 0 0;
-  opacity: var(--opacity-hidden);
-}
-
 .xgc-sidebar-body {
   min-height: 0;
   flex: 1 1 auto;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .xgc-sidebar-nav {
@@ -3349,19 +3353,27 @@ button.xgc-stat-card:disabled {
   display: flex;
   flex-direction: column;
   gap: var(--space-xs);
-  padding: var(--space-lg) var(--space-md);
+  padding: var(--space-lg) var(--space-sm);
+  transition: padding-inline var(--duration-fast) var(--easing-standard);
+}
+
+.xgc-app-sidebar[data-collapsed='true'] .xgc-sidebar-nav {
+  padding-inline: 0;
 }
 
 .xgc-sidebar-nav-item {
+  --xgc-sidebar-icon-size: 17px;
   width: 100%;
   /* 36px row = one chrome unit; identical in expanded and collapsed states. */
   height: var(--size-header-page);
   min-width: 0;
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: var(--space-lg);
   padding: 0 var(--space-lg);
   overflow: hidden;
+  transition: padding-inline var(--duration-fast) var(--easing-standard);
   color: var(--color-text-muted);
   background: transparent;
   border: 0;
@@ -3374,6 +3386,7 @@ button.xgc-stat-card:disabled {
 }
 
 .xgc-sidebar-nav-item[data-size='compact'] {
+  --xgc-sidebar-icon-size: 15px;
   height: var(--size-control-default);
   gap: var(--space-lg);
 }
@@ -3382,6 +3395,12 @@ button.xgc-stat-card:disabled {
   width: 15px;
   height: 15px;
   flex-basis: 15px;
+}
+
+.xgc-app-sidebar[data-collapsed='true'] .xgc-sidebar-nav-item {
+  /* Slide the icon to the center of the 36px rail. justify-content cannot
+   * tween; padding-inline can, and keeps labels to the right of the clip. */
+  padding-inline: calc((var(--size-sidebar-collapsed) - var(--xgc-sidebar-icon-size)) / 2);
 }
 
 .xgc-sidebar-nav-item[data-depth='1'] {
@@ -3428,35 +3447,26 @@ button.xgc-stat-card:disabled {
   flex: 0 0 auto;
 }
 
-.xgc-app-sidebar[data-collapsed='true'] .xgc-sidebar-nav {
-  /* Collapse changes only horizontal geometry: the vertical rhythm (block
-   * padding, row height, gap) is identical to the expanded state. */
-  padding-inline: var(--space-sm);
-}
-
-.xgc-app-sidebar[data-collapsed='true'] .xgc-sidebar-nav-item {
-  gap: 0;
-  padding-inline: 0;
-  justify-content: center;
-}
-
-.xgc-app-sidebar[data-collapsed='true'] .xgc-sidebar-nav-label,
-.xgc-app-sidebar[data-collapsed='true'] .xgc-sidebar-nav-badge {
-  width: 0;
-  flex: 0 0 0;
-  opacity: var(--opacity-hidden);
-}
-
 .xgc-sidebar-footer {
-  min-width: 0;
   flex: 0 0 auto;
+  max-height: var(--size-shell-chrome);
+  overflow: hidden;
   /* Chrome slot only: one hairline on top, rhythm owned by the content. */
   padding: 0;
   border-top: var(--stroke-thin) solid var(--color-border-muted);
+  opacity: var(--opacity-full);
+  pointer-events: auto;
+  transition:
+    max-height var(--duration-fast) var(--easing-standard),
+    opacity var(--duration-fast) var(--easing-standard),
+    border-color var(--duration-fast) var(--easing-standard);
 }
 
 .xgc-app-sidebar[data-collapsed='true'] .xgc-sidebar-footer {
-  display: none;
+  max-height: 0;
+  border-top-color: transparent;
+  opacity: var(--opacity-hidden);
+  pointer-events: none;
 }
 
 .xgc-sidebar-backdrop {
@@ -3466,6 +3476,9 @@ button.xgc-stat-card:disabled {
 @media (prefers-reduced-motion: reduce) {
   .xgc-app-sidebar,
   .xgc-sidebar-collapse-indicator,
+  .xgc-sidebar-footer,
+  .xgc-sidebar-nav,
+  .xgc-sidebar-nav-item,
   .xgc-sidebar-backdrop {
     transition: none;
   }
@@ -3682,7 +3695,14 @@ button.xgc-workflow-status-card { appearance: none; cursor: pointer; }
   gap: var(--space-layout-tight);
 }
 
-.xgc-form-section-body :is(.xgc-form-field, .xgc-form-group) > .xgc-form-field-label,
+.xgc-form-section-body :is(.xgc-form-field, .xgc-form-group) > .xgc-form-field-label {
+  min-height: 0;
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
 .xgc-form-section-body .xgc-boolean-title {
   min-height: 0;
   display: block;
