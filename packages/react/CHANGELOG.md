@@ -1,5 +1,14 @@
 # @xgc2/ui-react
 
+## 0.15.14
+
+### Patch Changes
+
+- Panel and WorkspacePanel header titles fill the header content row so the
+  label keeps equal gaps on every side and lines up with trailing controls.
+  Panel accepts `headerProps` so products can stamp markable identity on the
+  whole header chrome.
+
 ## 0.15.13
 
 ### Patch Changes
