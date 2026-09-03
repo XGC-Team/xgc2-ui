@@ -306,7 +306,10 @@
   stroke: currentColor;
   stroke-linecap: round;
   stroke-linejoin: round;
-  stroke-width: var(--stroke-strong);
+  /* The 8×5 viewBox renders at 1.5×; a strong stroke would paint a ~3px
+   * chevron on a 9px glyph — twice the weight of the theme's other chevrons
+   * (lucide ~1.7px). The thin hairline keeps the stepper arrows delicate. */
+  stroke-width: var(--stroke-thin);
 }
 
 .xgc-textarea {
