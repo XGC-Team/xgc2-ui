@@ -59,6 +59,7 @@ describe('WorkflowStatusCard', () => {
       <WorkflowStatusCard
         ariaLabel="Hold"
         dataXgcRole="ugv-chassis-hold"
+        dataXgcId="ugv-chassis-hold"
         layout="tile"
         metrics={{ primary: 'Ready' }}
         onClick={() => undefined}
@@ -76,6 +77,7 @@ describe('WorkflowStatusCard', () => {
       <WorkflowStatusCard
         ariaLabel="Hold"
         dataXgcRole="ugv-chassis-hold"
+        dataXgcId="ugv-chassis-hold"
         layout="tile"
         metrics={{ primary: 'Ready' }}
         onClick={() => undefined}
