@@ -1,5 +1,11 @@
 # @xgc2/ui-tokens
 
+## 0.9.2
+
+### Patch Changes
+
+- a835608: Give first-level panel headers equal four-pixel padding on all sides around compact controls, with the divider occupying its own pixel.
+
 ## 0.9.1
 
 ### Patch Changes

@@ -1,5 +1,18 @@
 # @xgc2/ui-react
 
+## 0.15.16
+
+### Patch Changes
+
+- f2d431f: Number-input stepper chevrons render at half their previous stroke weight
+  (`--stroke-thin` instead of `--stroke-strong`). The 8×5 viewBox scales 1.5×
+  to a 12px box, so the strong stroke painted a ~3px chevron on a 9px glyph —
+  about twice the weight of the theme's other chevrons (e.g. lucide ~1.7px)
+  and out of proportion with the 30px control.
+- a835608: Give first-level panel headers equal four-pixel padding on all sides around compact controls, with the divider occupying its own pixel.
+- 722a04c: Panel and WorkspacePanel header titles fill the header content row: the title line box uses --size-control-panel-header so the label has equal gaps on every side (the header --space-xs padding) and aligns with the header's compact controls.
+- ecdb4ae: Keep AppShell sidebar width motion with a clipped expanded inner track. Framed Panels that render a header use the same --space-xs inset on default body as on the header.
+
 ## 0.15.15
 
 ### Patch Changes
