@@ -263,7 +263,9 @@
   margin-inline-end: calc(-1 * var(--xgc-control-input-padding-inline, var(--space-control-padding-inline)));
   overflow: hidden;
   background: transparent;
-  border-inline-start: var(--stroke-thin) solid var(--color-border-muted);
+  /* Divider between the field and its stepper. Left-edge borders are
+   * prohibited by family policy, so paint the same hairline as a shadow. */
+  box-shadow: calc(-1 * var(--stroke-thin)) 0 0 0 var(--color-border-muted);
 }
 
 .xgc-input[data-size='compact'] .xgc-input-stepper {
