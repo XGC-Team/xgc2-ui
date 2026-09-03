@@ -14,6 +14,10 @@ export type PanelProps = Omit<HTMLAttributes<HTMLElement>, 'title'> & {
   chrome?: 'framed' | 'flat';
   description?: ReactNode;
   fill?: boolean;
+  /** Extra attributes stamped on the panel header chrome (markable identity). */
+  headerProps?: Omit<HTMLAttributes<HTMLElement>, 'children' | 'className'> & {
+    [attribute: `data-${string}`]: string | number | boolean | undefined;
+  };
   padding?: 'default' | 'none';
   title?: ReactNode;
 };
@@ -27,6 +31,7 @@ export function Panel({
   className,
   description,
   fill = false,
+  headerProps,
   padding = 'default',
   title,
   ...props
@@ -42,7 +47,7 @@ export function Panel({
       data-padding={padding}
     >
       {title || actions ? (
-        <header className="xgc-panel-header">
+        <header className="xgc-panel-header" {...headerProps}>
           <div className="xgc-panel-heading">
             {title ? <h2 id={titleId}>{title}</h2> : null}
           </div>

@@ -76,7 +76,7 @@ describe('page-family visual geometry', () => {
     for (const title of [panelTitle, workspaceTitle]) {
       expect(title.get('font-size')).toBe('var(--font-base)');
       expect(title.get('font-weight')).toBe('var(--weight-regular)');
-      expect(title.get('line-height')).toBe('var(--line-height-tight)');
+      expect(title.get('line-height')).toBe('var(--size-control-panel-header)');
     }
   });
 

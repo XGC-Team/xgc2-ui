@@ -1568,7 +1568,10 @@ button.xgc-list-tag:disabled { cursor: not-allowed; opacity: var(--opacity-deemp
   color: var(--color-text-heading);
   font-size: var(--font-base);
   font-weight: var(--weight-regular);
-  line-height: var(--line-height-tight);
+  /* The heading line box fills the header content row so the label's top /
+   * bottom gap equals its left gap (the header padding), and it aligns with
+   * the 26px panel-header controls on the right. */
+  line-height: var(--size-control-panel-header);
 }
 
 .xgc-panel-actions {
@@ -1718,7 +1721,10 @@ button.xgc-list-tag:disabled { cursor: not-allowed; opacity: var(--opacity-deemp
   color: var(--color-text-heading);
   font-size: var(--font-base);
   font-weight: var(--weight-regular);
-  line-height: var(--line-height-tight);
+  /* Same filled header row as .xgc-panel-heading h2: the title line box
+   * equals the header content height so the label has equal gaps on all
+   * sides and lines up with the header's compact controls. */
+  line-height: var(--size-control-panel-header);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
