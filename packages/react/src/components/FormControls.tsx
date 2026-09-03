@@ -67,9 +67,10 @@ export type FormFieldProps = Omit<HTMLAttributes<HTMLDivElement>, 'children'> & 
   required?: boolean;
   tooltip?: ReactNode;
   tooltipEnabled?: boolean;
+  'data-xgc-id'?: string;
 };
 
-export function FormField({
+export const FormField = forwardRef<HTMLDivElement, FormFieldProps>(function FormField({
   children,
   className,
   description,
@@ -80,7 +81,7 @@ export function FormField({
   tooltip,
   tooltipEnabled = true,
   ...props
-}: FormFieldProps) {
+}: FormFieldProps, ref) {
   const generatedId = useId();
   const controlId = children.props.id ?? htmlFor ?? `${generatedId}-control`;
   const supportingCopy = description;
@@ -93,24 +94,25 @@ export function FormField({
       'aria-invalid': error ? true : children.props['aria-invalid'],
     })
     : children;
+  const labelHost = tooltip
+    ? <Tooltip content={tooltip} enabled={tooltipEnabled} dataXgcId={props['data-xgc-id']}><label className="xgc-form-field-label" htmlFor={controlId}>{label}{required ? <span className="xgc-form-field-required" aria-hidden="true">*</span> : null}</label></Tooltip>
+    : <label className="xgc-form-field-label" htmlFor={controlId}>{label}{required ? <span className="xgc-form-field-required" aria-hidden="true">*</span> : null}</label>;
   const field = (
     <div
+      ref={ref}
       {...props}
       className={classNames('xgc-form-field', className)}
       data-invalid={Boolean(error) || undefined}
       data-required={required || undefined}
     >
-      <label className="xgc-form-field-label" htmlFor={controlId}>
-        {label}
-        {required ? <span className="xgc-form-field-required" aria-hidden="true">*</span> : null}
-      </label>
+      {labelHost}
       {control}
       {supportingCopy ? <span className="xgc-form-field-hint" id={descriptionId}>{supportingCopy}</span> : null}
       {error ? <span className="xgc-form-field-error" id={errorId} role="alert">{error}</span> : null}
     </div>
   );
-  return tooltip ? <Tooltip content={tooltip} enabled={tooltipEnabled}>{field}</Tooltip> : field;
-}
+  return field;
+});
 
 export type FormGroupProps = HTMLAttributes<HTMLFieldSetElement> & {
   description?: ReactNode;
@@ -119,7 +121,7 @@ export type FormGroupProps = HTMLAttributes<HTMLFieldSetElement> & {
   required?: boolean;
 };
 
-export function FormGroup({
+export const FormGroup = forwardRef<HTMLFieldSetElement, FormGroupProps>(function FormGroup({
   children,
   className,
   description,
@@ -127,13 +129,14 @@ export function FormGroup({
   label,
   required = false,
   ...props
-}: FormGroupProps) {
+}: FormGroupProps, ref) {
   const generatedId = useId();
   const supportingCopy = description;
   const descriptionId = supportingCopy ? `${generatedId}-description` : undefined;
   const errorId = error ? `${generatedId}-error` : undefined;
   return (
     <fieldset
+      ref={ref}
       {...props}
       aria-describedby={joinIds(props['aria-describedby'], descriptionId, errorId)}
       className={classNames('xgc-form-field', 'xgc-form-group', className)}
@@ -149,7 +152,7 @@ export function FormGroup({
       {error ? <span className="xgc-form-field-error" id={errorId} role="alert">{error}</span> : null}
     </fieldset>
   );
-}
+});
 
 export type SegmentedControlOption = {
   ariaControls?: string;

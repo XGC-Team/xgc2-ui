@@ -1,5 +1,15 @@
 # @xgc2/ui-react
 
+## 0.15.18
+
+### Patch Changes
+
+- FormField and FormGroup forward their ref to the field root; FormField
+  tooltips attach to the field label instead of wrapping the whole field; the
+  tooltip trigger is display:contents so it never reflows a parent
+  grid/flex layout while staying in the DOM for child selectors, refs, focus,
+  and pointer events.
+
 ## 0.15.17
 
 ### Patch Changes

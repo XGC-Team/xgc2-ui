@@ -31,6 +31,8 @@ export type TooltipProps = {
   children: ReactNode;
   className?: string;
   content?: ReactNode;
+  /** Optional markable identity stamped onto the trigger host. */
+  dataXgcId?: string;
   delayMs?: number;
   enabled?: boolean;
   hideDelayMs?: number;
@@ -41,6 +43,7 @@ export function Tooltip({
   children,
   className,
   content,
+  dataXgcId,
   delayMs = 200,
   enabled = true,
   hideDelayMs = 100,
@@ -123,6 +126,7 @@ export function Tooltip({
     <>
       <span
         className={classNames('xgc-tooltip-trigger', className)}
+        data-xgc-id={dataXgcId}
         data-xgc-role="tooltip-trigger"
         data-xgc-tooltip-trigger="true"
         onBlurCapture={blur}

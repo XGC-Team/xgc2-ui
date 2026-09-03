@@ -598,7 +598,10 @@
 
 .xgc-tooltip-trigger {
   min-width: 0;
-  display: block;
+  /* The trigger stays in the DOM (so > child selectors, refs, focus and
+   * pointer events still resolve) but contributes no box, so a tooltip
+   * wrapper never reflows its parent grid/flex layout. */
+  display: contents;
 }
 
 .xgc-tooltip {
