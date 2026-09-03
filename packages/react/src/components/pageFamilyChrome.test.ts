@@ -52,7 +52,7 @@ describe('page-family visual geometry', () => {
     expect(listFolderTitle.get('font-weight')).toBe('var(--weight-regular)');
   });
 
-  it('keeps Panel and WorkspacePanel headers regular with full shared padding', () => {
+  it('keeps Panel and WorkspacePanel headers regular with shared body inset', () => {
     const css = readFileSync(stylesPath, 'utf8');
     const panelHeader = ruleDeclarations(css, '.xgc-panel-header');
     const panelTitle = ruleDeclarations(css, '.xgc-panel-heading h2');
@@ -60,7 +60,7 @@ describe('page-family visual geometry', () => {
     const workspaceTitle = ruleDeclarations(css, '.xgc-workspace-panel-title');
 
     for (const header of [panelHeader, workspaceHeader]) {
-      expect(header.get('padding')).toBe('var(--space-xs)');
+      expect(header.get('padding')).toBe('0 var(--space-panel-padding)');
       expect(header.has('padding-bottom')).toBe(false);
       expect(header.get('height')).toBe('var(--size-header-panel)');
       expect(header.get('border-bottom')).toBe('var(--stroke-thin) solid var(--color-border-muted)');
@@ -68,7 +68,7 @@ describe('page-family visual geometry', () => {
     expect(ruleDeclarations(
       css,
       ".xgc-panel:not([data-chrome='flat']):has(> .xgc-panel-header)[data-padding='default'] > .xgc-panel-body",
-    ).get('padding')).toBe('var(--space-xs)');
+    ).get('padding')).toBe('var(--space-panel-padding)');
     expect(ruleDeclarations(css, '.xgc-panel[data-padding=\'default\'] > .xgc-panel-body').get('padding'))
       .toBe('var(--space-panel-padding)');
     expect(ruleDeclarations(css, '.xgc-workspace-panel-body[data-padding=\'default\']').get('padding'))
