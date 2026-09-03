@@ -255,9 +255,9 @@
 }
 
 .xgc-input-stepper {
-  width: var(--size-icon-xl);
+  width: var(--size-icon-default);
   align-self: stretch;
-  flex: 0 0 var(--size-icon-xl);
+  flex: 0 0 var(--size-icon-default);
   display: grid;
   grid-template-rows: repeat(2, minmax(0, 1fr));
   margin-inline-end: calc(-1 * var(--xgc-control-input-padding-inline, var(--space-control-padding-inline)));
@@ -299,16 +299,16 @@
 }
 
 .xgc-input-stepper-button > svg {
-  width: var(--size-icon-xs);
-  height: var(--size-icon-xs);
+  width: var(--size-icon-2xs);
+  height: var(--size-icon-2xs);
   overflow: visible;
   fill: none;
   stroke: currentColor;
   stroke-linecap: round;
   stroke-linejoin: round;
-  /* The 8×5 viewBox renders at 1.5×; a strong stroke would paint a ~3px
-   * chevron on a 9px glyph — twice the weight of the theme's other chevrons
-   * (lucide ~1.7px). The thin hairline keeps the stepper arrows delicate. */
+  /* The 8×5 viewBox renders at 1.25× into a 10px box, so a thin stroke
+   * paints a ~1.25px chevron on a ~7.5px glyph — subordinate to the field,
+   * like the native spinner, instead of a heavy out-of-theme arrowhead. */
   stroke-width: var(--stroke-thin);
 }
 
