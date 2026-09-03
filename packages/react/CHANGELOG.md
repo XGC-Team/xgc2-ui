@@ -1,5 +1,14 @@
 # @xgc2/ui-react
 
+## 0.15.15
+
+### Patch Changes
+
+- Panel and WorkspacePanel headers drop vertical padding and use the body
+  inset (`--space-panel-padding`) inline, so the title label, trailing
+  controls, and the first body row all sit on the same inset. Framed default
+  bodies keep the same padding as their header.
+
 ## 0.15.14
 
 ### Patch Changes
