@@ -1,5 +1,13 @@
 # @xgc2/ui-tokens
 
+## 0.9.1
+
+### Patch Changes
+
+- Grow the panel header height to 35px so a framed header holds the compact
+  control row plus one divider pixel with equal four-pixel padding on every
+  side.
+
 ## 0.9.0
 
 ### Minor Changes
