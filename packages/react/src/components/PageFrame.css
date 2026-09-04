@@ -1,0 +1,115 @@
+.xgc-page-frame {
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  position: relative;
+  display: grid;
+  align-content: start;
+  gap: var(--space-layout-default);
+  color: var(--color-text);
+  background: transparent;
+}
+
+.xgc-page-frame[data-padding='default'] {
+  padding: var(--space-page-padding);
+}
+
+.xgc-page-frame[data-padding='compact'] {
+  padding: var(--space-xl);
+}
+
+.xgc-page-frame[data-padding='none'] {
+  padding: 0;
+}
+
+.xgc-page-frame[data-width='wide'] > :is(.xgc-page-frame-header, .xgc-page-frame-body) {
+  width: min(100%, 1440px);
+  margin-inline: auto;
+}
+
+.xgc-page-frame[data-width='readable'] > :is(.xgc-page-frame-header, .xgc-page-frame-body) {
+  width: min(100%, 960px);
+  margin-inline: auto;
+}
+
+.xgc-page-frame-header {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-xl);
+}
+
+.xgc-page-frame-heading {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.xgc-page-frame-breadcrumbs {
+  min-width: 0;
+  min-height: var(--size-control-compact);
+  display: flex;
+  align-items: center;
+}
+
+.xgc-page-frame-actions {
+  min-width: 0;
+  min-height: var(--size-control-default);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-control-gap);
+}
+
+.xgc-page-frame-body {
+  min-width: 0;
+  min-height: 0;
+}
+
+.xgc-page-frame-progress {
+  height: 2px;
+  position: absolute;
+  inset: 0 0 auto;
+  overflow: hidden;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+}
+
+.xgc-page-frame-progress::after {
+  content: '';
+  width: 32%;
+  height: 100%;
+  display: block;
+  background: var(--color-accent);
+  transform: translateX(-120%);
+  animation: xgc-page-frame-progress 1s var(--easing-enter) infinite;
+}
+
+@keyframes xgc-page-frame-progress {
+  to { transform: translateX(410%); }
+}
+
+@media (max-width: 720px) {
+  .xgc-page-frame[data-padding='default'],
+  .xgc-page-frame[data-padding='compact'] {
+    padding: var(--space-xl);
+  }
+
+  .xgc-page-frame-header {
+    display: grid;
+    gap: var(--space-lg);
+  }
+
+  .xgc-page-frame-actions {
+    justify-content: flex-start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .xgc-page-frame-progress::after {
+    width: 100%;
+    transform: none;
+    animation: none;
+  }
+}
