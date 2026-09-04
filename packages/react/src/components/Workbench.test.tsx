@@ -73,7 +73,7 @@ describe('Workbench primitives', () => {
     fireEvent.click(screen.getByRole('tab', { name: /paper\.pdf/i }));
     expect(onActiveResourceChange).toHaveBeenCalledWith('pdf');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Delete workspace' }));
-    expect(onCloseResource).toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Close paper.pdf' }));
+    expect(onCloseResource).toHaveBeenCalledWith('pdf');
   });
 });
