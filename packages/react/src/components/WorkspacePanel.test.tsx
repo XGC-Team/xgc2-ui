@@ -1,6 +1,20 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { WorkspacePanel, WORKSPACE_PANEL_DRAG_HANDLE_SELECTOR } from './WorkspacePanel';
+import {
+  WorkspacePanel,
+  WORKSPACE_PANEL_DRAG_CANCEL_SELECTOR,
+  WORKSPACE_PANEL_DRAG_HANDLE_SELECTOR,
+} from './WorkspacePanel';
+
+function ancestorsMatch(el: Element, selector: string, root: Element) {
+  let node: Element | null = el;
+  while (node) {
+    if (node.matches(selector)) return true;
+    if (node === root) break;
+    node = node.parentElement;
+  }
+  return false;
+}
 
 describe('WorkspacePanel', () => {
   it('owns the compact panel chrome, accessible title, actions, and fill body', () => {
@@ -86,5 +100,43 @@ describe('WorkspacePanel', () => {
     fireEvent.click(container.querySelector('.xgc-workspace-panel')!);
     expect(onClick).toHaveBeenCalledTimes(3);
     expect(onSelect).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps the actions row as drag chrome and only cancels real controls', () => {
+    const { container } = render(
+      <WorkspacePanel
+        actions={(
+          <>
+            <span data-testid="status-chrome">IDLE</span>
+            <button type="button">Configure</button>
+          </>
+        )}
+        editing
+        title="Runtime"
+      >
+        Stream
+      </WorkspacePanel>,
+    );
+
+    const panel = container.querySelector<HTMLElement>('.xgc-workspace-panel')!;
+    const actions = container.querySelector('.xgc-workspace-panel-actions');
+    const status = screen.getByTestId('status-chrome');
+    const configure = screen.getByRole('button', { name: 'Configure' });
+    expect(panel).toHaveClass('xgc-workspace-panel-drag-handle');
+    expect(actions).not.toHaveClass('xgc-workspace-panel-interactive');
+    expect(ancestorsMatch(status, WORKSPACE_PANEL_DRAG_CANCEL_SELECTOR, panel)).toBe(false);
+    expect(ancestorsMatch(configure, WORKSPACE_PANEL_DRAG_CANCEL_SELECTOR, panel)).toBe(true);
+    expect(WORKSPACE_PANEL_DRAG_CANCEL_SELECTOR).toContain('button');
+  });
+
+  it('does not make interactive-while-editing panels grab from the article', () => {
+    const { container, rerender } = render(
+      <WorkspacePanel editing interactiveWhileEditing title="Robots">Roster</WorkspacePanel>,
+    );
+    expect(container.querySelector('.xgc-workspace-panel')).not.toHaveClass('xgc-workspace-panel-drag-handle');
+    expect(container.querySelector(WORKSPACE_PANEL_DRAG_HANDLE_SELECTOR)).toBe(container.querySelector('.xgc-workspace-panel-header'));
+
+    rerender(<WorkspacePanel title="Robots">Roster</WorkspacePanel>);
+    expect(container.querySelector(WORKSPACE_PANEL_DRAG_HANDLE_SELECTOR)).toBeNull();
   });
 });

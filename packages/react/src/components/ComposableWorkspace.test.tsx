@@ -34,6 +34,7 @@ describe('ComposableWorkspace', () => {
 
     expect(adapter?.items[0]).toMatchObject({ id: 'camera', x: 9, y: 0, w: 3, h: 2 });
     expect(adapter?.dragCancelSelector).toContain('.xgc-workspace-panel-interactive');
+    expect(adapter?.dragCancelSelector).toContain('button');
     expect(adapter?.dragHandleSelector).toBe('.xgc-workspace-panel-drag-handle');
     expect(adapter?.resizeHandles).toEqual(['se', 'e', 's']);
     expect(container.querySelector('.xgc-composable-workspace')).toHaveAttribute('data-editing', 'true');

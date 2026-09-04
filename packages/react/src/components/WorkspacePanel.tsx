@@ -7,17 +7,31 @@ import {
 import { classNames } from '../utils';
 
 export const WORKSPACE_PANEL_DRAG_HANDLE_SELECTOR = '.xgc-workspace-panel-drag-handle';
-export const WORKSPACE_PANEL_DRAG_CANCEL_SELECTOR = '.xgc-workspace-panel-interactive, .xgc-workspace-panel-interactive *';
 /** JS geometry companion to the shared `--size-header-panel` design token. */
 export const WORKSPACE_PANEL_HEADER_HEIGHT_PX = 35;
-const WORKSPACE_PANEL_INTERACTIVE_SELECTOR = [
+const WORKSPACE_PANEL_INTERACTIVE_HOSTS = [
   'a', 'button', 'input', 'select', 'textarea', 'summary',
   '[contenteditable="true"]',
   '[role="button"]', '[role="checkbox"]', '[role="combobox"]',
   '[role="link"]', '[role="menuitem"]', '[role="option"]',
   '[role="radio"]', '[role="slider"]', '[role="switch"]', '[role="tab"]',
   '[data-xgc-workspace-panel-interactive="true"]',
-].join(',');
+] as const;
+const WORKSPACE_PANEL_INTERACTIVE_SELECTOR = WORKSPACE_PANEL_INTERACTIVE_HOSTS.join(',');
+
+function dragCancelClause(selector: string) {
+  return `${selector}, ${selector} *`;
+}
+
+/**
+ * Grid engines match cancel against the event target and its ancestors.
+ * Only real controls belong here. Stamping the full-width actions row as
+ * interactive swallows the header drag surface.
+ */
+export const WORKSPACE_PANEL_DRAG_CANCEL_SELECTOR = [
+  dragCancelClause('.xgc-workspace-panel-interactive'),
+  ...WORKSPACE_PANEL_INTERACTIVE_HOSTS.map(dragCancelClause),
+].join(', ');
 
 type DataAttributes = {
   [attribute: `data-${string}`]: string | number | boolean | undefined;
@@ -92,7 +106,14 @@ export function WorkspacePanel({
     <article
       {...props}
       aria-labelledby={heading ? titleId : props['aria-labelledby']}
-      className={classNames('xgc-workspace-panel', className)}
+      className={classNames(
+        'xgc-workspace-panel',
+        // Locked bodies are inert with pointer-events: none, so hits fall
+        // through onto the article. Keep the handle here so grabbing the
+        // card rearranges it. interactiveWhileEditing panels stay header-only.
+        bodyInteractionLocked && 'xgc-workspace-panel-drag-handle',
+        className,
+      )}
       data-chrome={chrome}
       data-editing={editing || undefined}
       data-interactive-while-editing={editing && interactiveWhileEditing || undefined}
@@ -121,7 +142,7 @@ export function WorkspacePanel({
             ) : heading}
           </h2>
         ) : null}
-        <div className={classNames('xgc-workspace-panel-actions', 'xgc-workspace-panel-interactive', actionsClassName)}>{actions}</div>
+        <div className={classNames('xgc-workspace-panel-actions', actionsClassName)}>{actions}</div>
       </header>
       <div
         {...bodyProps}

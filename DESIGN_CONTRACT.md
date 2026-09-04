@@ -129,6 +129,7 @@ This document is normative for every XGC2 web frontend. Product CSS may lay out 
 - Dashboard and whiteboard-style panel layouts use `ComposableWorkspace` with `WorkspacePanel`. `ComposableWorkspace` owns item identity, finite column and breakpoint policy, the optional low-contrast editing grid, per-item constraints, drag/resize handles, placeholder surface, and the layout-commit boundary. A product injects its layout-engine adapter; the shared React package does not force React Grid Layout or another third-party engine onto every consumer.
 - Products own panel manifests, domain content, permissions, target routing, specialized height normalization, and persistence. Saved resource schemas and plugin registries never enter the shared component API.
 - Grid editing uses a quiet full-area grid and enclosing focus/selection treatment. Accent stripes, status dots, status-color panel fills, animated glows, and product-specific panel-header gradients remain prohibited.
+- Edit-mode panel drag is a user decision. `WorkspacePanel` owns the handle: the header while editing, and the panel article when the body is interaction-locked (inert / `pointer-events: none`, so hits fall through onto the article). Drag cancel is only real controls — native interactive hosts, `.xgc-workspace-panel-interactive` opt-in, and their descendants. Products must not stamp `xgc-workspace-panel-interactive` on the full-width actions row; that swallows the handle. `interactiveWhileEditing` panels stay header-only so body forms remain clickable.
 
 ## Feedback and progress
 
