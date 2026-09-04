@@ -278,7 +278,7 @@ body {
 
 @starting-style {
   .xgc-select-menu {
-    opacity: 0;
+    opacity: var(--opacity-hidden);
     transform: translateY(-4px) scale(0.985);
   }
 
