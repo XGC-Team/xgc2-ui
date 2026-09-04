@@ -1,0 +1,317 @@
+@import '@xgc2/ui-tokens/v016.css';
+@import '@xgc2/ui-tokens/v016-monochrome.css';
+
+/*
+ * XGC2 UI 0.16 visual quality layer.
+ *
+ * This file intentionally sits after the current component and responsive
+ * styles while the new visual language is reviewed in Gallery and downstream
+ * reference products. It should eventually be folded into the stable styles
+ * once the 0.16 family replaces the legacy skin.
+ */
+
+html {
+  text-rendering: optimizeLegibility;
+  font-synthesis: none;
+}
+
+body {
+  line-height: var(--line-height-normal);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  color: var(--color-text-strong);
+  background: color-mix(in srgb, var(--color-accent) 28%, transparent);
+}
+
+:where(input, textarea, [contenteditable='true']) {
+  caret-color: var(--color-accent);
+}
+
+/* Core controls ---------------------------------------------------------- */
+
+.xgc-button {
+  font-weight: var(--weight-medium);
+  letter-spacing: -0.005em;
+  border-color: var(--color-border);
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--color-text-inverse) 3%, transparent);
+  transition:
+    color var(--duration-quick) var(--easing-standard),
+    background-color var(--duration-quick) var(--easing-standard),
+    border-color var(--duration-quick) var(--easing-standard),
+    box-shadow var(--duration-quick) var(--easing-standard),
+    translate var(--duration-quick) var(--easing-standard);
+}
+
+.xgc-button:hover:not(:disabled):not([aria-disabled='true']) {
+  border-color: var(--color-border-hover);
+  box-shadow:
+    0 1px 0 color-mix(in srgb, var(--color-text-inverse) 4%, transparent),
+    0 3px 10px color-mix(in srgb, var(--color-shadow-overlay) 35%, transparent);
+}
+
+.xgc-button:active:not(:disabled):not([aria-disabled='true']) {
+  translate: 0 1px;
+  box-shadow: none;
+}
+
+.xgc-button[data-appearance='ghost'] {
+  color: var(--color-text-muted);
+  box-shadow: none;
+}
+
+.xgc-button[data-appearance='ghost']:hover:not(:disabled):not([aria-disabled='true']) {
+  color: var(--color-text-strong);
+  background: color-mix(in srgb, var(--color-bg-control-hover) 82%, transparent);
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.xgc-button[data-tone='primary'] {
+  font-weight: var(--weight-semibold);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 14%, transparent),
+    0 1px 2px color-mix(in srgb, var(--color-shadow-overlay) 42%, transparent);
+}
+
+.xgc-button[data-tone='primary']:hover:not(:disabled) {
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 18%, transparent),
+    0 4px 14px color-mix(in srgb, var(--color-bg-primary) 24%, transparent);
+}
+
+.xgc-button:focus-visible,
+.xgc-input:focus-within,
+.xgc-select-control:has(.xgc-select-trigger:focus-visible),
+.xgc-textarea:focus-visible,
+.xgc-sidebar-toggle:focus-visible,
+.xgc-sidebar-nav-item:focus-visible {
+  outline: 0;
+  border-color: var(--color-border-focus);
+  box-shadow: var(--shadow-focus);
+}
+
+.xgc-input,
+.xgc-select-control,
+.xgc-textarea {
+  background: var(--background-control, var(--color-bg-control));
+  border-color: var(--color-border);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-text-inverse) 2.5%, transparent);
+}
+
+.xgc-input:hover:not([data-disabled='true']),
+.xgc-select-control:hover:not([data-disabled='true']),
+.xgc-textarea:hover:not(:disabled):not(:read-only) {
+  border-color: var(--color-border-hover);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-text-inverse) 3.5%, transparent);
+}
+
+.xgc-input:focus-within,
+.xgc-select-control:has(.xgc-select-trigger:focus-visible),
+.xgc-textarea:focus-visible {
+  background: var(--color-bg-control);
+}
+
+.xgc-input > input,
+.xgc-select-value,
+.xgc-textarea {
+  font-variant-ligatures: contextual;
+}
+
+.xgc-input-icon,
+.xgc-input-unit,
+.xgc-select-leading,
+.xgc-select-chevron {
+  color: var(--color-text-faint);
+}
+
+.xgc-input-stepper {
+  box-shadow: calc(-1 * var(--stroke-thin)) 0 0 0 var(--color-border-muted);
+}
+
+.xgc-input-stepper-button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-bg-control-hover) 84%, transparent);
+}
+
+/* Tabs and navigation ---------------------------------------------------- */
+
+:is(.xgc-tabs, .xgc-tab-strip) {
+  gap: var(--space-2xs);
+  padding: var(--space-2xs);
+  background: color-mix(in srgb, var(--color-bg-subtle) 86%, transparent);
+  border-color: var(--color-border-muted);
+  box-shadow: inset 0 1px 2px color-mix(in srgb, var(--color-shadow-overlay-soft) 55%, transparent);
+}
+
+:is(.xgc-tab, .xgc-tab-item) {
+  border-radius: calc(var(--radius-control) - var(--space-2xs));
+  font-weight: var(--weight-medium);
+  color: var(--color-text-muted);
+  transition:
+    color var(--duration-quick) var(--easing-standard),
+    background-color var(--duration-quick) var(--easing-standard),
+    box-shadow var(--duration-quick) var(--easing-standard);
+}
+
+:is(.xgc-tab, .xgc-tab-item):hover:not(:disabled) {
+  color: var(--color-text-strong);
+  background: color-mix(in srgb, var(--color-bg-control-hover) 72%, transparent);
+}
+
+:is(.xgc-tab, .xgc-tab-item)[aria-selected='true'],
+.xgc-tab-item[data-active='true'] {
+  color: var(--color-text-strong);
+  background: var(--color-bg-surface);
+  box-shadow:
+    0 0 0 var(--stroke-thin) var(--color-border-muted),
+    0 1px 3px color-mix(in srgb, var(--color-shadow-overlay) 28%, transparent);
+}
+
+.xgc-sidebar-nav-item {
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+}
+
+.xgc-sidebar-nav-item:hover:not(:disabled):not([aria-disabled='true']) {
+  color: var(--color-text-strong);
+  background: color-mix(in srgb, var(--color-bg-control-hover) 78%, transparent);
+}
+
+.xgc-sidebar-nav-item[data-active='true'] {
+  color: var(--color-text-strong);
+  background: var(--color-bg-selected);
+  box-shadow: inset 0 0 0 var(--stroke-thin) var(--color-border-muted);
+}
+
+.xgc-sidebar-nav-item[data-active='true'] .xgc-sidebar-nav-icon {
+  color: var(--color-accent);
+}
+
+/* Surfaces --------------------------------------------------------------- */
+
+.xgc-panel,
+.xgc-workspace-panel {
+  background: var(--background-surface, var(--color-bg-surface));
+  border-color: var(--color-border-muted);
+  box-shadow: var(--shadow-card);
+}
+
+.xgc-panel-header,
+.xgc-workspace-panel-header {
+  color: var(--color-text-soft);
+  background: var(--background-panel-header);
+  border-block-end-color: var(--color-border-muted);
+}
+
+.xgc-panel-heading h2,
+.xgc-workspace-panel-title,
+.xgc-topbar-title {
+  letter-spacing: -0.01em;
+}
+
+.xgc-panel[data-chrome='flat'] {
+  box-shadow: none;
+}
+
+.xgc-topbar {
+  background: var(--background-chrome, var(--color-bg-chrome));
+  border-block-end-color: var(--color-border-muted);
+}
+
+.xgc-app-sidebar {
+  background: var(--background-sidebar, var(--color-bg-sidebar));
+  border-inline-end-color: var(--color-border-muted);
+}
+
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .xgc-topbar {
+    background: color-mix(in srgb, var(--color-bg-chrome) 88%, transparent);
+    backdrop-filter: blur(18px) saturate(118%);
+    -webkit-backdrop-filter: blur(18px) saturate(118%);
+  }
+
+  .xgc-select-menu {
+    background: color-mix(in srgb, var(--color-bg-surface) 92%, transparent);
+    backdrop-filter: blur(18px) saturate(118%);
+    -webkit-backdrop-filter: blur(18px) saturate(118%);
+  }
+}
+
+/* Select menu / floating controls --------------------------------------- */
+
+.xgc-select-menu {
+  padding: var(--space-xs);
+  background: var(--color-bg-surface);
+  border-color: var(--color-border);
+  border-radius: var(--radius-floating);
+  box-shadow: var(--shadow-floating);
+  transform-origin: top center;
+  transition:
+    opacity var(--duration-fast) var(--easing-enter),
+    transform var(--duration-fast) var(--easing-enter);
+}
+
+.xgc-select-menu[data-xgc-menu-placement='above'] {
+  transform-origin: bottom center;
+}
+
+.xgc-select-option {
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  transition:
+    color var(--duration-quick) var(--easing-standard),
+    background-color var(--duration-quick) var(--easing-standard);
+}
+
+.xgc-select-option:hover:not(:disabled),
+.xgc-select-option:focus-visible {
+  color: var(--color-text-strong);
+  background: var(--color-bg-control-hover);
+}
+
+.xgc-select-option[aria-selected='true'] {
+  color: var(--color-text-strong);
+  background: var(--color-bg-selected);
+}
+
+@starting-style {
+  .xgc-select-menu {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.985);
+  }
+
+  .xgc-select-menu[data-xgc-menu-placement='above'] {
+    transform: translateY(4px) scale(0.985);
+  }
+}
+
+/* Modern accessibility preferences ------------------------------------- */
+
+@media (prefers-contrast: more) {
+  .xgc-button,
+  .xgc-input,
+  .xgc-select-control,
+  .xgc-textarea,
+  .xgc-panel,
+  .xgc-workspace-panel {
+    border-color: var(--color-border-strong);
+  }
+
+  :is(.xgc-tab, .xgc-tab-item)[aria-selected='true'],
+  .xgc-tab-item[data-active='true'],
+  .xgc-sidebar-nav-item[data-active='true'] {
+    box-shadow: inset 0 0 0 var(--stroke-medium) var(--color-border-strong);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .xgc-button {
+    translate: none !important;
+  }
+
+  .xgc-select-menu {
+    transform: none !important;
+  }
+}

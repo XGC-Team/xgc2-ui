@@ -1,0 +1,83 @@
+.xgc-conversation-stream-shell {
+  min-width: 0;
+  min-height: 0;
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+}
+
+.xgc-conversation-stream {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scroll-behavior: auto;
+  scrollbar-gutter: stable;
+  overflow-anchor: none;
+  contain: layout paint style;
+}
+
+.xgc-conversation-stream-content {
+  min-width: 0;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: var(--space-layout-default);
+  padding: var(--space-xl);
+}
+
+.xgc-conversation-stream[data-density='compact'] .xgc-conversation-stream-content {
+  gap: var(--space-layout-compact);
+  padding: var(--space-lg);
+}
+
+.xgc-conversation-stream-follow {
+  position: absolute;
+  inset-inline: 50% auto;
+  inset-block-end: var(--space-lg);
+  z-index: var(--z-sticky);
+  max-width: calc(100% - 2 * var(--space-xl));
+  translate: -50% 0;
+  color: var(--color-text-strong);
+  background: color-mix(in srgb, var(--color-bg-surface) 94%, transparent);
+  box-shadow: var(--shadow-floating);
+}
+
+.xgc-conversation-stream-follow > svg {
+  width: var(--size-icon-sm);
+  height: var(--size-icon-sm);
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.6;
+}
+
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .xgc-conversation-stream-follow {
+    background: color-mix(in srgb, var(--color-bg-surface) 86%, transparent);
+    backdrop-filter: blur(14px) saturate(116%);
+    -webkit-backdrop-filter: blur(14px) saturate(116%);
+  }
+}
+
+@media (max-width: 720px) {
+  .xgc-conversation-stream-content {
+    padding: var(--space-lg);
+  }
+
+  .xgc-conversation-stream-follow {
+    inset-block-end: var(--space-md);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .xgc-conversation-stream,
+  .xgc-conversation-stream-follow {
+    scroll-behavior: auto !important;
+  }
+}

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { classNames } from '../utils';
+import './Breadcrumbs.css';
 
 export type BreadcrumbItem = {
   className?: string;

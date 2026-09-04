@@ -1,5 +1,6 @@
 import './styles.css';
 import './responsive.generated.css';
+import './styles-v016.css';
 
 export { AppShell, AppSidebar, ResponsiveSplit, SidebarNav, SidebarNavItem, Topbar } from './components/AppShell';
 export type {
@@ -41,6 +42,8 @@ export type {
 } from './components/Button';
 export { Breadcrumbs } from './components/Breadcrumbs';
 export type { BreadcrumbItem, BreadcrumbsProps } from './components/Breadcrumbs';
+export { CommandPalette } from './components/CommandPalette';
+export type { CommandPaletteCommand, CommandPaletteProps } from './components/CommandPalette';
 export { ChoiceCardGroup } from './components/ChoiceCardGroup';
 export type { ChoiceCardGroupProps, ChoiceCardOption } from './components/ChoiceCardGroup';
 export { ColorControl, normalizeHex, XGC_COLOR_CONTROL_PRESETS } from './components/ColorControl';
@@ -135,6 +138,12 @@ export {
   ListPageTagRow,
 } from './components/ListPage';
 export type { ListPageContentWidth, ListPageFolder, ListPageItemIcon, ListPageProps } from './components/ListPage';
+export { ResourceExplorer } from './components/ResourceExplorer';
+export type { ResourceExplorerNode, ResourceExplorerProps } from './components/ResourceExplorer';
+export { ResourceWorkbench } from './components/ResourceWorkbench';
+export type { ResourceWorkbenchProps, WorkbenchResource } from './components/ResourceWorkbench';
+export { WorkbenchShell } from './components/WorkbenchShell';
+export type { WorkbenchPaneSize, WorkbenchShellProps } from './components/WorkbenchShell';
 export { Modal } from './components/Modal';
 export type { ModalProps } from './components/Modal';
 export { Panel } from './components/Panel';

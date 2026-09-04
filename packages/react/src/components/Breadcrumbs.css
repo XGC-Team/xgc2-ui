@@ -1,0 +1,64 @@
+.xgc-breadcrumbs {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-family: var(--font-sans);
+  font-size: var(--font-md);
+  font-weight: var(--weight-regular);
+  line-height: var(--line-height-tight);
+}
+
+.xgc-breadcrumb-segment {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.xgc-breadcrumb-item {
+  min-width: 0;
+  max-width: var(--xgc-breadcrumb-item-max-width, 280px);
+  height: var(--size-control-compact);
+  display: inline-flex;
+  align-items: center;
+  padding-inline: var(--space-sm);
+  overflow: hidden;
+  color: inherit;
+  appearance: none;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  font: inherit;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:is(button, a).xgc-breadcrumb-item {
+  cursor: pointer;
+}
+
+:is(button, a).xgc-breadcrumb-item:hover {
+  color: var(--color-text-strong);
+  background: var(--color-bg-control-hover);
+}
+
+.xgc-breadcrumb-item:focus-visible {
+  outline: 0;
+  box-shadow: var(--shadow-focus);
+}
+
+.xgc-breadcrumb-item[aria-current='page'] {
+  color: var(--color-text-heading);
+  font-weight: var(--weight-medium);
+}
+
+.xgc-breadcrumb-separator {
+  flex: 0 0 auto;
+  color: var(--color-text-faint);
+  font-size: var(--font-sm);
+  user-select: none;
+}
