@@ -233,23 +233,6 @@
   }
 }
 
-@media (max-width: 720px) {
-  .xgc-command-palette-backdrop {
-    place-items: start stretch;
-    padding: var(--space-md);
-  }
-
-  .xgc-command-palette {
-    width: 100%;
-    max-height: calc(100dvh - 2 * var(--space-md));
-    border-radius: var(--radius-lg);
-  }
-
-  .xgc-command-palette-search {
-    height: 48px;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .xgc-command-palette {
     transform: none !important;
