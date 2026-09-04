@@ -1,5 +1,13 @@
 # @xgc2/ui-react
 
+## 0.15.19
+
+### Patch Changes
+
+- Keep Edit-mode panel drag on the WorkspacePanel chrome. The locked panel body
+  and non-control header content remain drag handles, while native interactive
+  controls and explicitly interactive descendants cancel dragging.
+
 ## 0.15.18
 
 ### Patch Changes
