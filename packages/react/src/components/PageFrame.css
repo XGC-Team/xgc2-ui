@@ -83,7 +83,7 @@
   display: block;
   background: var(--color-accent);
   transform: translateX(-120%);
-  animation: xgc-page-frame-progress 1s var(--easing-enter) infinite;
+  animation: xgc-page-frame-progress calc(var(--duration-deliberate) * 4) var(--easing-enter) infinite;
 }
 
 @keyframes xgc-page-frame-progress {
