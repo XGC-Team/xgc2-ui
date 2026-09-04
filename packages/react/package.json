@@ -13,6 +13,10 @@
       "types": "./dist/types/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./v016": {
+      "types": "./dist/types/v016.d.ts",
+      "import": "./dist/v016.js"
+    },
     "./styles.css": "./dist/styles.css",
     "./focus.css": "./dist/focus.css"
   },
