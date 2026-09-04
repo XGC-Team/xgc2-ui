@@ -17,8 +17,19 @@
 .xgc-resource-workbench-content {
   min-width: 0;
   min-height: 0;
+  position: relative;
   overflow: hidden;
   background: var(--color-bg-app);
+  contain: layout paint style;
+}
+
+.xgc-resource-workbench-activity {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  contain: layout paint style;
 }
 
 .xgc-resource-workbench-content[data-empty='true'] {
