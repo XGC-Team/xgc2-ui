@@ -71,6 +71,8 @@ export function ResourceWorkbench({
       {resources.length ? (
         <WorkspaceTabs
           ariaLabel={ariaLabel}
+          deleteLabel={(item) => `Close ${item.label}`}
+          deleteTitle="Close resource"
           getTabTitle={(item) => {
             const resource = resourceById.get(item.id);
             return resource?.dirty ? `${item.label} — unsaved changes` : item.label;
