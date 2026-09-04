@@ -90,22 +90,6 @@
   to { transform: translateX(410%); }
 }
 
-@media (max-width: 720px) {
-  .xgc-page-frame[data-padding='default'],
-  .xgc-page-frame[data-padding='compact'] {
-    padding: var(--space-xl);
-  }
-
-  .xgc-page-frame-header {
-    display: grid;
-    gap: var(--space-lg);
-  }
-
-  .xgc-page-frame-actions {
-    justify-content: flex-start;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .xgc-page-frame-progress::after {
     width: 100%;
