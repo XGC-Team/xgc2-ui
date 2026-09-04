@@ -1,5 +1,14 @@
 # @xgc2/ui-policy
 
+## 0.16.0
+
+### Minor Changes
+
+- Lock the policy package to `@xgc2/ui-react@0.16.0` so every 0.16 consumer validates against the same monochrome foundation and shared layout/interaction family.
+- Carry the 0.16 product-system baseline forward as a fail-closed consumer contract; additional Workbench and advanced-surface rules can now evolve on the same versioned family instead of drifting behind React.
+- Updated dependencies
+  - @xgc2/ui-react@0.16.0
+
 ## 0.15.13
 
 ### Patch Changes
