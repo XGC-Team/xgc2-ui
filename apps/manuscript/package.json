@@ -1,0 +1,32 @@
+{
+  "name": "@xgc2/ui-manuscript-app",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 3281",
+    "build": "tsc -p tsconfig.app.json --noEmit && vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 3281",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.app.json --pretty false"
+  },
+  "dependencies": {
+    "@xgc2/ui-manuscript": "workspace:*",
+    "@xgc2/ui-react": "workspace:*",
+    "monaco-editor": "catalog:",
+    "pdfjs-dist": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "6.9.1",
+    "@testing-library/react": "16.3.2",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "jsdom": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}

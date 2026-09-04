@@ -11,6 +11,7 @@ The current remote-default-branch rollout is tracked in [MIGRATION_MATRIX.md](./
 - `@xgc2/ui-tokens`: the single source of truth for light/dark color, spacing, type, elevation, and motion tokens.
 - `@xgc2/ui-react`: framework components and application-shell layout. React and React DOM are peer dependencies.
 - `@xgc2/ui-workflow`: optional spatial workflow/topology canvas foundation. It keeps React Flow out of frontends that only need ordinary controls.
+- `@xgc2/ui-manuscript`: optional source editor, PDF pane, and quote chip. It keeps Monaco / PDF.js out of GCS and `@xgc2/ui-react`. The private `apps/manuscript` host talks to `latex-service` on `127.0.0.1:3280`.
 - `@xgc2/ui-policy`: version-locked, fail-closed consumer CI for the shared visual and interaction contract.
 - `@xgc2/ui-gallery`: a private Storybook application used for documentation and visual review.
 

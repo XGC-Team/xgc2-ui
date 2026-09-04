@@ -12,6 +12,8 @@ catalog:
   '@vitejs/plugin-react': 5.1.1
   '@xyflow/react': 12.10.2
   jsdom: 29.1.1
+  monaco-editor: 0.55.1
+  pdfjs-dist: 4.10.38
   react: 19.2.1
   react-dom: 19.2.1
   typescript: 5.9.3
