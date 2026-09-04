@@ -1,4 +1,4 @@
-import type { HTMLAttributes, ReactNode } from 'react';
+import { Activity, useMemo, type HTMLAttributes, type ReactNode } from 'react';
 import { classNames } from '../utils';
 import { WorkspaceTabs, type WorkspaceTabItem } from './WorkspaceTabs';
 import './ResourceWorkbench.css';
@@ -16,6 +16,13 @@ export type ResourceWorkbenchProps = Omit<HTMLAttributes<HTMLDivElement>, 'child
   activeResourceId?: string;
   ariaLabel: string;
   empty?: ReactNode;
+  /**
+   * Keep opened resources mounted with React 19.2 Activity boundaries so
+   * editor/view state survives tab switches while hidden effects are torn
+   * down and hidden updates are deprioritized. Disable only for consumers
+   * whose resource implementation must be recreated on every activation.
+   */
+  preserveInactive?: boolean;
   onActiveResourceChange: (id: string) => void;
   onCloseResource?: (id: string) => void;
   onReorderResources?: (orderedIds: string[]) => void;
@@ -37,6 +44,7 @@ export function ResourceWorkbench({
   onActiveResourceChange,
   onCloseResource,
   onReorderResources,
+  preserveInactive = true,
   renderResource,
   resources,
   ...props
@@ -44,7 +52,7 @@ export function ResourceWorkbench({
   const active = resources.find((resource) => resource.id === activeResourceId)
     ?? resources.find((resource) => !resource.disabled)
     ?? resources[0];
-  const tabs: WorkspaceTabItem[] = resources.map((resource) => ({
+  const tabs = useMemo<WorkspaceTabItem[]>(() => resources.map((resource) => ({
     disabled: resource.disabled,
     icon: resource.icon,
     id: resource.id,
@@ -52,7 +60,11 @@ export function ResourceWorkbench({
     prefix: resource.dirty
       ? <span className="xgc-resource-workbench-dirty" aria-hidden="true">*</span>
       : resource.prefix,
-  }));
+  })), [resources]);
+  const resourceById = useMemo(
+    () => new Map(resources.map((resource) => [resource.id, resource])),
+    [resources],
+  );
 
   return (
     <div {...props} className={classNames('xgc-resource-workbench', className)}>
@@ -60,7 +72,7 @@ export function ResourceWorkbench({
         <WorkspaceTabs
           ariaLabel={ariaLabel}
           getTabTitle={(item) => {
-            const resource = resources.find((candidate) => candidate.id === item.id);
+            const resource = resourceById.get(item.id);
             return resource?.dirty ? `${item.label} — unsaved changes` : item.label;
           }}
           items={tabs}
@@ -79,7 +91,22 @@ export function ResourceWorkbench({
         data-empty={!active || undefined}
         role={active ? 'tabpanel' : undefined}
       >
-        {active ? renderResource(active) : empty}
+        {active ? (
+          preserveInactive ? resources.map((resource) => (
+            <Activity
+              key={resource.id}
+              mode={resource.id === active.id ? 'visible' : 'hidden'}
+            >
+              <div
+                className="xgc-resource-workbench-activity"
+                data-active={resource.id === active.id || undefined}
+                data-resource-id={resource.id}
+              >
+                {renderResource(resource)}
+              </div>
+            </Activity>
+          )) : renderResource(active)
+        ) : empty}
       </div>
     </div>
   );
