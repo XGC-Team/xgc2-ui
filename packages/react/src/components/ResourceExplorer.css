@@ -1,0 +1,141 @@
+.xgc-resource-explorer {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: var(--space-xs);
+  color: var(--color-text);
+  background: transparent;
+  scrollbar-gutter: stable;
+}
+
+.xgc-resource-explorer-item {
+  width: 100%;
+  min-width: 0;
+  min-height: var(--size-control-navigation);
+  display: grid;
+  grid-template-columns: var(--size-icon-sm) auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-sm);
+  padding-block: var(--space-xs);
+  padding-inline-start: calc(
+    var(--space-sm) + (var(--xgc-resource-level) - 1) * var(--space-lg)
+  );
+  padding-inline-end: var(--space-md);
+  color: var(--color-text-muted);
+  appearance: none;
+  background: transparent;
+  border: var(--stroke-thin) solid transparent;
+  border-radius: var(--radius-md);
+  cursor: default;
+  font: inherit;
+  text-align: start;
+  transition:
+    color var(--duration-quick) var(--easing-standard),
+    background-color var(--duration-quick) var(--easing-standard),
+    border-color var(--duration-quick) var(--easing-standard);
+}
+
+.xgc-resource-explorer-item:hover:not(:disabled) {
+  color: var(--color-text-strong);
+  background: color-mix(in srgb, var(--color-bg-control-hover) 72%, transparent);
+}
+
+.xgc-resource-explorer-item[aria-selected='true'] {
+  color: var(--color-text-strong);
+  background: var(--color-bg-selected);
+  border-color: var(--color-border-muted);
+}
+
+.xgc-resource-explorer-item:focus-visible {
+  outline: 0;
+  border-color: var(--color-border-focus);
+  box-shadow: var(--shadow-focus);
+}
+
+.xgc-resource-explorer-item:disabled {
+  cursor: not-allowed;
+  opacity: var(--opacity-disabled);
+}
+
+.xgc-resource-explorer-disclosure {
+  width: var(--size-icon-sm);
+  height: var(--size-icon-sm);
+  display: grid;
+  place-items: center;
+  color: var(--color-text-faint);
+  visibility: hidden;
+}
+
+.xgc-resource-explorer-disclosure[data-visible='true'] {
+  visibility: visible;
+}
+
+.xgc-resource-explorer-disclosure > svg {
+  width: var(--size-icon-xs);
+  height: var(--size-icon-xs);
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.5;
+  transition: transform var(--duration-quick) var(--easing-standard);
+}
+
+.xgc-resource-explorer-item[aria-expanded='true'] .xgc-resource-explorer-disclosure > svg {
+  transform: rotate(90deg);
+}
+
+.xgc-resource-explorer-icon {
+  width: var(--size-icon-default);
+  height: var(--size-icon-default);
+  display: grid;
+  place-items: center;
+  color: var(--color-text-faint);
+}
+
+.xgc-resource-explorer-icon > :is(svg, img) {
+  width: 100%;
+  height: 100%;
+}
+
+.xgc-resource-explorer-copy {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-2xs);
+}
+
+.xgc-resource-explorer-label,
+.xgc-resource-explorer-description {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.xgc-resource-explorer-label {
+  color: inherit;
+  font-size: var(--font-base);
+  font-weight: var(--weight-regular);
+  line-height: var(--line-height-tight);
+}
+
+.xgc-resource-explorer-description {
+  color: var(--color-text-faint);
+  font-size: var(--font-xs);
+  line-height: var(--line-height-tight);
+}
+
+.xgc-resource-explorer-trailing {
+  min-width: 0;
+  color: var(--color-text-faint);
+  font-size: var(--font-sm);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .xgc-resource-explorer-disclosure > svg {
+    transition: none;
+  }
+}
