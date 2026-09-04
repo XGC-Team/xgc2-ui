@@ -51,7 +51,7 @@ Production consumers install immutable npm tarballs attached to GitHub releases.
 ```json
 {
   "dependencies": {
-    "@xgc2/ui-react": "https://github.com/XGC-Team/xgc2-ui/releases/download/v0.15.19/xgc2-ui-react-0.15.19.tgz"
+    "@xgc2/ui-react": "https://github.com/XGC-Team/xgc2-ui/releases/download/v0.16.0/xgc2-ui-react-0.16.0.tgz"
   }
 }
 ```
@@ -84,11 +84,11 @@ Actions and this workflow.
 
 Reusable coverage includes:
 
-- Foundation: a cool blue-grey light hierarchy and independent graphite dark hierarchy, theme and material tokens, spacing and type scales, semantic geometry, header/control heights, generated responsive breakpoints, and the global XGC2 scrollbar treatment.
+- Foundation: an optical monochrome black/white/graphite hierarchy with semantic color reserved for data and decision-relevant state, theme and material tokens, spacing and type scales, semantic geometry, header/control heights, generated responsive breakpoints, and the global XGC2 scrollbar treatment.
 - Controls: buttons and links, inputs, textarea, selects, labeled fields/groups, finite form sections, input actions, three-axis vector entry, checkbox, switch, segmented controls, semantic tabs, editable/reorderable workspace tabs, plain status text, notices, empty states, progress, and theme-aware highlighted code/Markdown.
 - Data: selectable lists, disclosures, statistics, description/settings lists, toolbars, pagination, sortable/selectable tables with select-all, and a dense log-table page with its own scroll region.
-- Layout: stack, inline, responsive grid, scroll region, fixed operator workspace, section header, panels, composable grid workspaces, workspace panels, responsive split panes, application shell, collapsible sidebar, single-title topbar, breadcrumbs, and internally scrolling resource catalogs.
-- Conversation, overlays, and media: shared agent/human timelines, messages, composers, tool activities, modal, queued confirmation and text prompts, viewport-aware popovers/action menus, dirty-state-aware right drawer, waveform, audio capture presentation, and embeddable speech-client capture/transcript chrome.
+- Layout: stack, inline, responsive grid, scroll region, fixed operator workspace, semantic PageFrame, section header, automatically flattening panels, composable grid workspaces, workspace panels, responsive split panes, application shell, collapsible sidebar, single-title topbar, breadcrumbs, and internally scrolling resource catalogs.
+- Conversation, overlays, and media: shared agent/human timelines, streaming follow-tail viewports, messages, composers, tool activities, modal, queued confirmation and text prompts, viewport-aware popovers/action menus, dirty-state-aware right drawer, waveform, audio capture presentation, and embeddable speech-client capture/transcript chrome.
 - Spatial editors: an optional workflow package owning canvas viewport defaults, grid, pan/zoom, selection, drag/drop coordinate conversion, empty state, neutral node surfaces, canvas and element toolbars, and editable sticky notes.
 
 Product repositories keep routing, transport, device access, permissions, and domain state. Product-local wrappers should disappear once all required behavior exists here; they must not become a second visual system.
@@ -105,4 +105,4 @@ Every topbar has exactly one product title on the left and only high-value inter
 
 Status is plain text, not decoration. Use shared `StatusText` without a capsule, filled background, rounded enclosing border, or decorative dot. Wording is mandatory; restrained semantic text color is only a secondary cue.
 
-Page chrome and first-level panel chrome use `--size-header-page` and `--size-header-panel`; the panel value is the compact 35px XGC2 experiment-panel baseline with equal 4px padding on all sides around 26px controls plus its 1px divider. Code labels and Copy actions use `--size-header-code` as quiet in-surface metadata, never a visually dominant nested topbar.
+Page chrome and first-level panel chrome use `--size-header-page` and `--size-header-panel`; the 0.16 family uses 40px page chrome and 38px panel chrome around 28px compact controls. Code labels and Copy actions use `--size-header-code` as quiet in-surface metadata, never a visually dominant nested topbar.
