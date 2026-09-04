@@ -138,6 +138,12 @@ export {
   ListPageTagRow,
 } from './components/ListPage';
 export type { ListPageContentWidth, ListPageFolder, ListPageItemIcon, ListPageProps } from './components/ListPage';
+export { ResourceExplorer } from './components/ResourceExplorer';
+export type { ResourceExplorerNode, ResourceExplorerProps } from './components/ResourceExplorer';
+export { ResourceWorkbench } from './components/ResourceWorkbench';
+export type { ResourceWorkbenchProps, WorkbenchResource } from './components/ResourceWorkbench';
+export { WorkbenchShell } from './components/WorkbenchShell';
+export type { WorkbenchPaneSize, WorkbenchShellProps } from './components/WorkbenchShell';
 export { Modal } from './components/Modal';
 export type { ModalProps } from './components/Modal';
 export { Panel } from './components/Panel';
