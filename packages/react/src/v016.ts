@@ -1,0 +1,12 @@
+export { Heading, Text } from './components/Typography';
+export type { HeadingProps, HeadingVariant, TextProps, TextVariant } from './components/Typography';
+export { PageFrame } from './components/PageFrame';
+export type { PageFrameProps } from './components/PageFrame';
+export { CommandPalette } from './components/CommandPalette';
+export type { CommandPaletteCommand, CommandPaletteProps } from './components/CommandPalette';
+export { ResourceExplorer } from './components/ResourceExplorer';
+export type { ResourceExplorerNode, ResourceExplorerProps } from './components/ResourceExplorer';
+export { ResourceWorkbench } from './components/ResourceWorkbench';
+export type { ResourceWorkbenchProps, WorkbenchResource } from './components/ResourceWorkbench';
+export { WorkbenchShell } from './components/WorkbenchShell';
+export type { WorkbenchPaneSize, WorkbenchShellProps } from './components/WorkbenchShell';
