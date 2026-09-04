@@ -55,7 +55,7 @@
 .xgc-workbench-editor,
 .xgc-workbench-inspector,
 .xgc-workbench-bottom,
-.xgc-workbench-status {
+.xgc-workbench-footer {
   min-width: 0;
   min-height: 0;
 }
@@ -84,7 +84,6 @@
   grid-area: inspector;
   overflow: hidden;
   background: var(--color-bg-chrome);
-  border-inline-start: var(--stroke-thin) solid var(--color-border-muted);
 }
 
 .xgc-workbench-bottom {
@@ -96,7 +95,7 @@
   border-block-start: var(--stroke-thin) solid var(--color-border-muted);
 }
 
-.xgc-workbench-status {
+.xgc-workbench-footer {
   grid-area: status;
   min-height: var(--size-control-compact);
   overflow: hidden;
