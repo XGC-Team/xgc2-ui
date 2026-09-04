@@ -7,12 +7,14 @@
   "files": ["dist"],
   "exports": {
     ".": "./dist/index.css",
-    "./base.css": "./dist/base.css"
+    "./base.css": "./dist/base.css",
+    "./v016.css": "./dist/v016.css"
   },
   "scripts": {
     "build": "node scripts/build.mjs",
-    "test": "node --test scripts/theme-contract.test.mjs scripts/validate.test.mjs",
-    "typecheck": "node scripts/validate.mjs"
+    "test": "node --test scripts/theme-contract.test.mjs scripts/validate.test.mjs && node scripts/validate.mjs --tokens ./src/v016.css",
+    "typecheck": "node scripts/validate.mjs",
+    "validate:v016": "node scripts/validate.mjs --tokens ./src/v016.css"
   },
   "publishConfig": {
     "access": "restricted"
