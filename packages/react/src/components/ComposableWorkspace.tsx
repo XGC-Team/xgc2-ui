@@ -1,9 +1,20 @@
-import { type CSSProperties, type HTMLAttributes, type ReactNode, type Ref } from 'react';
+import {
+  useCallback,
+  useMemo,
+  type CSSProperties,
+  type HTMLAttributes,
+  type ReactNode,
+  type Ref,
+} from 'react';
 import { classNames } from '../utils';
 import {
   WORKSPACE_PANEL_DRAG_CANCEL_SELECTOR,
   WORKSPACE_PANEL_DRAG_HANDLE_SELECTOR,
 } from './WorkspacePanel';
+
+const EMPTY_WORKSPACE_BREAKPOINTS: readonly WorkspaceBreakpoint[] = [];
+const DEFAULT_WORKSPACE_GAP = [0, 0] as const;
+const DEFAULT_WORKSPACE_RESIZE_HANDLES: readonly WorkspaceResizeHandle[] = ['se', 'e', 's'];
 
 export type WorkspaceLayoutPosition = {
   h: number;
@@ -79,18 +90,19 @@ export type ComposableWorkspaceProps<Item> = Omit<HTMLAttributes<HTMLDivElement>
 /**
  * Grid-engine-neutral composition for spatial operator dashboards.
  *
- * The adapter supplies React Grid Layout, CSS Grid, or another engine. This
- * component keeps item identity, constraints, responsive column policy,
- * edit handles, and the commit boundary consistent without owning persistence.
+ * Layout derivation is memoized deliberately because domain telemetry can
+ * update far more often than panel geometry. A stable item/layout input now
+ * keeps constraint normalization, map construction and child element creation
+ * outside unrelated React renders.
  */
 export function ComposableWorkspace<Item>({
-  breakpoints = [],
+  breakpoints = EMPTY_WORKSPACE_BREAKPOINTS,
   className,
   columns,
   containerRef,
   editing = false,
   empty,
-  gap = [0, 0],
+  gap = DEFAULT_WORKSPACE_GAP,
   grid = 'none',
   getConstraints,
   getItemId,
@@ -104,13 +116,16 @@ export function ComposableWorkspace<Item>({
   padding = gap,
   renderItem,
   renderLayout,
-  resizeHandles = ['se', 'e', 's'],
+  resizeHandles = DEFAULT_WORKSPACE_RESIZE_HANDLES,
   rowHeight,
   style,
   width,
   ...props
 }: ComposableWorkspaceProps<Item>) {
-  const activeBreakpoint = resolveWorkspaceBreakpoint(width, breakpoints);
+  const activeBreakpoint = useMemo(
+    () => resolveWorkspaceBreakpoint(width, breakpoints),
+    [breakpoints, width],
+  );
   const effectiveColumns = Math.max(1, Math.trunc(activeBreakpoint?.columns ?? columns));
   const availableWidth = width !== undefined && Number.isFinite(width)
     ? Math.max(0, width - gap[0] * Math.max(0, effectiveColumns - 1) - padding[0] * 2)
@@ -118,7 +133,8 @@ export function ComposableWorkspace<Item>({
   const columnPitch = availableWidth !== undefined
     ? `${availableWidth / effectiveColumns + gap[0]}px`
     : `${100 / effectiveColumns}%`;
-  const constrainedItems = items.map((item) => {
+
+  const constrainedItems = useMemo(() => items.map((item) => {
     const id = getItemId(item);
     const constraints = getConstraints?.(item) ?? {};
     return {
@@ -127,31 +143,56 @@ export function ComposableWorkspace<Item>({
       ...clampWorkspacePosition(getPosition(item), constraints, effectiveColumns),
       ...constraints,
     };
-  });
-  const layout = (normalizeLayout?.(constrainedItems, {
-    activeBreakpoint,
-    columns: effectiveColumns,
-    width,
-  }) ?? constrainedItems).map((entry) => ({
+  }), [effectiveColumns, getConstraints, getItemId, getPosition, items]);
+
+  const layout = useMemo(() => (
+    normalizeLayout?.(constrainedItems, {
+      activeBreakpoint,
+      columns: effectiveColumns,
+      width,
+    }) ?? constrainedItems
+  ).map((entry) => ({
     ...entry,
     ...clampWorkspacePosition(entry, entry, effectiveColumns),
-  }));
-  const constraintsById = new Map(layout.map((entry) => [entry.id, entry]));
+  })), [activeBreakpoint, constrainedItems, effectiveColumns, normalizeLayout, width]);
 
-  function commit(nextLayout: readonly (WorkspaceLayoutPosition & { id: string })[]) {
+  const constraintsById = useMemo(
+    () => new Map(layout.map((entry) => [entry.id, entry])),
+    [layout],
+  );
+
+  const commit = useCallback((nextLayout: readonly (WorkspaceLayoutPosition & { id: string })[]) => {
     const positions: Record<string, WorkspaceLayoutPosition> = {};
     for (const entry of nextLayout) {
       const workspaceItem: WorkspaceLayoutItem<Item> | undefined = constraintsById.get(entry.id);
-      // Layout engines can transiently return a stale key while children are
-      // being removed. Unknown keys are neither domain items nor persistence
-      // input, so keep them outside the consumer commit boundary.
       if (!workspaceItem) continue;
       const constrained = clampWorkspacePosition(entry, workspaceItem, effectiveColumns);
       const normalized = normalizeCommittedPosition?.(constrained, workspaceItem.item) ?? constrained;
       positions[entry.id] = clampWorkspacePosition(normalized, workspaceItem, effectiveColumns);
     }
     onLayoutCommit(positions);
-  }
+  }, [constraintsById, effectiveColumns, normalizeCommittedPosition, onLayoutCommit]);
+
+  const renderedItems = useMemo(() => layout.map((entry) => (
+    <div
+      className={classNames('xgc-composable-workspace-item', itemClassName)}
+      data-xgc-workspace-item={entry.id}
+      key={entry.id}
+    >
+      {renderItem(entry.item)}
+    </div>
+  )), [itemClassName, layout, renderItem]);
+
+  const workspaceStyle = useMemo(() => ({
+    '--xgc-workspace-columns': effectiveColumns,
+    '--xgc-workspace-column-pitch': columnPitch,
+    '--xgc-workspace-gap-x': `${gap[0]}px`,
+    '--xgc-workspace-gap-y': `${gap[1]}px`,
+    '--xgc-workspace-origin-x': `${padding[0]}px`,
+    '--xgc-workspace-origin-y': `${padding[1]}px`,
+    '--xgc-workspace-row-height': `${rowHeight}px`,
+    ...style,
+  } as CSSProperties), [columnPitch, effectiveColumns, gap, padding, rowHeight, style]);
 
   return (
     <div
@@ -161,26 +202,13 @@ export function ComposableWorkspace<Item>({
       data-breakpoint={activeBreakpoint?.name}
       data-editing={editing || undefined}
       data-grid={grid}
-      style={{
-        '--xgc-workspace-columns': effectiveColumns,
-        '--xgc-workspace-column-pitch': columnPitch,
-        '--xgc-workspace-gap-x': `${gap[0]}px`,
-        '--xgc-workspace-gap-y': `${gap[1]}px`,
-        '--xgc-workspace-origin-x': `${padding[0]}px`,
-        '--xgc-workspace-origin-y': `${padding[1]}px`,
-        '--xgc-workspace-row-height': `${rowHeight}px`,
-        ...style,
-      } as CSSProperties}
+      style={workspaceStyle}
     >
       {layout.length === 0 && empty ? (
         <div className="xgc-composable-workspace-empty">{empty}</div>
       ) : renderLayout({
         activeBreakpoint,
-        children: layout.map((entry) => (
-          <div className={classNames('xgc-composable-workspace-item', itemClassName)} key={entry.id}>
-            {renderItem(entry.item)}
-          </div>
-        )),
+        children: renderedItems,
         className: classNames('xgc-composable-workspace-layout', layoutClassName),
         columns: effectiveColumns,
         dragCancelSelector: WORKSPACE_PANEL_DRAG_CANCEL_SELECTOR,
