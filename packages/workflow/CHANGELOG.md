@@ -1,5 +1,12 @@
 # @xgc2/ui-workflow
 
+## 0.4.0
+
+### Minor Changes
+
+- Raise the shared React compatibility floor to `>=0.16 <1` so workflow surfaces consume the 0.16 monochrome foundation and application geometry instead of remaining compatible with the withdrawn 0.15 family.
+- Keep XYFlow-specific spatial behavior isolated in the workflow package while inheriting the shared 0.16 chrome, typography, focus, motion, and performance contracts from `@xgc2/ui-react`.
+
 ## 0.3.2
 
 ### Patch Changes
