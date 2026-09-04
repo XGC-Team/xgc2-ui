@@ -1,5 +1,15 @@
 # @xgc2/ui-react
 
+## 0.16.0
+
+### Minor Changes
+
+- Establish the 0.16 monochrome desktop foundation with neutral application chrome, semantic typography, quieter surfaces, more legible compact geometry, and a stable black/white/graphite visual hierarchy.
+- Add the preview `@xgc2/ui-react/v016` surface with semantic `Heading`/`Text`, `PageFrame`, `CommandPalette`, `ConversationStream`, `WorkbenchShell`, `ResourceExplorer`, `ResourceWorkbench`, and the frame-batched external store APIs.
+- Make deep `Panel` nesting flatten automatically so products no longer count panel levels or invent wrapper chrome for spacing.
+- Preserve inactive editor/document/workbench state with React 19.2 `Activity` boundaries and isolate high-frequency visual data behind frame-batched, slice-selectable subscriptions.
+- Add stable follow-tail behavior for streaming conversation surfaces so operator scroll position is never fought by incremental output.
+
 ## 0.15.19
 
 ### Patch Changes
