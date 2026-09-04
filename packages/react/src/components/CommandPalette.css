@@ -228,7 +228,7 @@
 
 @starting-style {
   .xgc-command-palette {
-    opacity: 0;
+    opacity: var(--opacity-hidden);
     transform: translateY(-8px) scale(0.985);
   }
 }
