@@ -65,16 +65,6 @@
   }
 }
 
-@media (max-width: 720px) {
-  .xgc-conversation-stream-content {
-    padding: var(--space-lg);
-  }
-
-  .xgc-conversation-stream-follow {
-    inset-block-end: var(--space-md);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .xgc-conversation-stream,
   .xgc-conversation-stream-follow {
