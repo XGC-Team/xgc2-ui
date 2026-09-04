@@ -72,7 +72,7 @@ export function WorkbenchShell({
         </section>
       ) : null}
       {statusBar ? (
-        <footer className="xgc-workbench-status">
+        <footer className="xgc-workbench-footer">
           {statusBar}
         </footer>
       ) : null}
