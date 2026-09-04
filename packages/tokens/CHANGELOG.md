@@ -1,5 +1,13 @@
 # @xgc2/ui-tokens
 
+## 0.10.0
+
+### Minor Changes
+
+- Introduce the 0.16 monochrome desktop foundation: neutral black/white/graphite application materials, semantic color reserved for data and decision-relevant states, and a separate optical light/dark hierarchy.
+- Raise the compact legibility floor with 13px base text, 28px compact controls, 32px default controls, 38px panel chrome, and 40px page chrome while preserving the bounded spacing vocabulary.
+- Add the versioned `v016.css` and `v016-monochrome.css` token surfaces so the new family can be validated and published without mutating an older immutable release.
+
 ## 0.9.3
 
 ### Patch Changes
