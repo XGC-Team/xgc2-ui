@@ -42,6 +42,8 @@ export type {
 } from './components/Button';
 export { Breadcrumbs } from './components/Breadcrumbs';
 export type { BreadcrumbItem, BreadcrumbsProps } from './components/Breadcrumbs';
+export { CommandPalette } from './components/CommandPalette';
+export type { CommandPaletteCommand, CommandPaletteProps } from './components/CommandPalette';
 export { ChoiceCardGroup } from './components/ChoiceCardGroup';
 export type { ChoiceCardGroupProps, ChoiceCardOption } from './components/ChoiceCardGroup';
 export { ColorControl, normalizeHex, XGC_COLOR_CONTROL_PRESETS } from './components/ColorControl';
