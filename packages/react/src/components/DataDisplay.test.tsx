@@ -65,7 +65,12 @@ describe('data display primitives', () => {
   it('sorts rows and exposes the active direction to assistive technology', () => {
     render(
       <SortableDataTable
-        columns={[{ id: 'version', header: 'Version', sortable: true, sortValue: (row) => row.version, cell: (row) => row.version }]}
+        columns={[{
+          id: 'version', header: 'Version', sortable: true,
+          headerProps: { 'data-xgc-role': 'package-header', 'data-xgc-id': 'version' },
+          sortButtonProps: { 'data-xgc-role': 'package-sort', 'data-xgc-id': 'version' },
+          sortValue: (row) => row.version, cell: (row) => row.version,
+        }]}
         defaultSort={{ columnId: 'version', direction: 'ascending' }}
         rowKey={(row) => row.id}
         rows={[{ id: 'b', version: '1.10.0' }, { id: 'a', version: '1.2.0' }]}
@@ -74,6 +79,10 @@ describe('data display primitives', () => {
     expect(screen.getAllByRole('row')[1]).toHaveTextContent('1.2.0');
     const header = screen.getByRole('columnheader', { name: /version/i });
     expect(header).toHaveAttribute('aria-sort', 'ascending');
+    expect(header).toHaveAttribute('data-xgc-role', 'package-header');
+    expect(header).toHaveAttribute('data-xgc-id', 'version');
+    expect(screen.getByRole('button', { name: 'Sort by Version' })).toHaveAttribute('data-xgc-role', 'package-sort');
+    expect(screen.getByRole('button', { name: 'Sort by Version' })).toHaveAttribute('data-xgc-id', 'version');
     fireEvent.click(screen.getByRole('button', { name: 'Sort by Version' }));
     expect(header).toHaveAttribute('aria-sort', 'descending');
     expect(screen.getAllByRole('row')[1]).toHaveTextContent('1.10.0');

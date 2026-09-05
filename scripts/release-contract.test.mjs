@@ -49,26 +49,19 @@ test('keeps the prepared package family internally coherent', () => {
   );
 });
 
-test('publishes only new package assets and refuses mutable release state', () => {
-  assert.doesNotMatch(workflow, /--clobber|release\s+upload/);
-  assert.doesNotMatch(workflow, /git describe/);
-  assert.match(workflow, /gh api --paginate --slurp/);
-  assert.match(workflow, /validate-release-delta\.mjs --releases .* --scope package --print-base/);
-  assert.match(workflow, /\(exclude\)packages\/\$\{package\}\/CHANGELOG\.md/);
-  assert.match(workflow, /git cat-file -e "\$\{GITHUB_REF_NAME\}\^\{tag\}"/);
-  assert.match(workflow, /git merge-base --is-ancestor .* origin\/main/);
-  assert.match(workflow, /diff_status="\$\?"/);
-  assert.match(workflow, /TAG_CREATED:\s*\$\{\{ github\.event\.created \}\}/);
-  assert.match(workflow, /RUN_ATTEMPT:\s*\$\{\{ github\.run_attempt \}\}/);
-  assert.match(workflow, /"\$\{RUN_ATTEMPT\}" != "1"/);
-  assert.match(workflow, /releases\/tags\/\$\{GITHUB_REF_NAME\}/);
-  assert.match(workflow, /\.assets\[\]\? \| \.name/);
-  assert.match(workflow, /gh release create/);
-  assert.match(workflow, /tag .* does not match package version/);
-  assert.match(workflow, /require\('\.\/packages\/\$\{package\}\/package\.json'\)\.version/);
-  assert.match(workflow, /fetch-depth:\s*0/);
-  assert.match(workflow, /git diff --quiet "\$\{previous_tag\}" "\$\{GITHUB_REF_NAME\}" --/);
-  assert.match(workflow, /release has no changed package assets/);
+test('hosted publishers share the immutable release executor and require an explicit dispatch', () => {
+  for (const [family, source] of [['package', workflow], ['policy', policyWorkflow]]) {
+    assert.match(source, /workflow_dispatch:/);
+    assert.doesNotMatch(source, /^  push:/m);
+    assert.match(source, /node scripts\/publish-immutable-release\.mjs/);
+    assert.ok(source.includes(`--family ${family}`));
+    assert.match(source, /--source-sha "\$GITHUB_SHA"/);
+    assert.match(source, /--evidence-dir "\$RUNNER_TEMP\//);
+    assert.match(source, /--executor github-actions/);
+    assert.match(source, /--publish/);
+    assert.match(source, /fetch-depth:\s*0/);
+    assert.doesNotMatch(source, /--clobber|release\s+upload/);
+  }
 });
 
 test('pins every workflow action to its reviewed commit and uses the XGC2 build image', () => {
@@ -93,18 +86,6 @@ test('pins every workflow action to its reviewed commit and uses the XGC2 build 
       `${name} must use every reviewed action exactly once`,
     );
   }
-});
-
-test('publishes policy under a separate immutable tag namespace', () => {
-  assert.match(policyWorkflow, /tags:\s*\n\s*- 'policy-v\*'/);
-  assert.match(policyWorkflow, /TAG_CREATED:\s*\$\{\{ github\.event\.created \}\}/);
-  assert.match(policyWorkflow, /RUN_ATTEMPT:\s*\$\{\{ github\.run_attempt \}\}/);
-  assert.match(policyWorkflow, /xgc2-ui-policy-\$\{version\}\.tgz/);
-  assert.match(policyWorkflow, /git cat-file -e "\$\{GITHUB_REF_NAME\}\^\{tag\}"/);
-  assert.match(policyWorkflow, /git merge-base --is-ancestor .* origin\/main/);
-  assert.match(policyWorkflow, /--scope policy --require-current-package/);
-  assert.match(policyWorkflow, /gh release create/);
-  assert.doesNotMatch(policyWorkflow, /--clobber|release\s+upload/);
 });
 
 test('CI rejects package drift against the latest successful release families', () => {

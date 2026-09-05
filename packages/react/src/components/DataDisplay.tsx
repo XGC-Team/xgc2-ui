@@ -103,8 +103,12 @@ export type DataTableColumn<Row> = {
   cellProps?: DataTableCellProps | ((row: Row) => DataTableCellProps);
   header: ReactNode;
   headerClassName?: string;
+  /** Attributes belong to the real header cell, not an inner label. */
+  headerProps?: Omit<DataTableCellProps, 'children' | 'className' | 'style' | 'aria-sort'>;
   id: string;
   sortLabel?: string;
+  /** Identity and description for the native sorting control; sorting remains table-owned. */
+  sortButtonProps?: Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children' | 'className' | 'onClick' | 'type' | 'aria-label'> & DataTableDataAttributes;
   sortable?: boolean;
   sortValue?: (row: Row) => Date | number | string | null | undefined;
 };
@@ -311,6 +315,7 @@ export function SortableDataTable<Row>({
               const direction = activeSort?.columnId === column.id ? activeSort.direction : undefined;
               return (
                 <th
+                  {...column.headerProps}
                   aria-sort={column.sortable ? direction ?? 'none' : undefined}
                   className={column.headerClassName}
                   key={column.id}
@@ -321,6 +326,7 @@ export function SortableDataTable<Row>({
                 >
                   {column.sortable ? (
                     <button
+                      {...column.sortButtonProps}
                       aria-label={`Sort by ${column.sortLabel ?? (typeof column.header === 'string' ? column.header : column.id)}`}
                       className="xgc-data-table-sort"
                       onClick={() => changeSort(column)}

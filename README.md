@@ -30,6 +30,11 @@ pnpm dev
 
 The gallery runs on `http://127.0.0.1:6006` by default.
 
+Formal package and policy publication uses the same immutable executor locally
+and in GitHub Actions. See [Immutable releases](./docs/immutable-releases.md) for
+the complete checks, exact source evidence, and local execution when hosted CI
+is unavailable.
+
 ## Consumer usage
 
 ```tsx
@@ -51,7 +56,7 @@ Production consumers install immutable npm tarballs attached to GitHub releases.
 ```json
 {
   "dependencies": {
-    "@xgc2/ui-react": "https://github.com/XGC-Team/xgc2-ui/releases/download/v0.16.0/xgc2-ui-react-0.16.0.tgz"
+    "@xgc2/ui-react": "https://github.com/XGC-Team/xgc2-ui/releases/download/v0.16.1/xgc2-ui-react-0.16.1.tgz"
   }
 }
 ```

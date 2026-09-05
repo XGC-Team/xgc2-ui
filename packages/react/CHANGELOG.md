@@ -1,5 +1,12 @@
 # @xgc2/ui-react
 
+## 0.16.1
+
+### Patch Changes
+
+- Render the sidebar collapse indicator in a fixed SVG icon box while retaining sidebar width motion.
+- Expose typed DataTable header and sort-button host props so products can mark the actual interactive chrome without changing sorting ownership.
+
 ## 0.16.0
 
 ### Minor Changes

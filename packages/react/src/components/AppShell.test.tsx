@@ -125,6 +125,12 @@ describe('application shell', () => {
       </>,
     );
     expect(screen.getByTestId('shell-toggle')).toHaveClass('xgc-sidebar-toggle');
+    const indicator = screen.getByTestId('shell-toggle').querySelector('.xgc-sidebar-collapse-indicator');
+    expect(indicator).toHaveAttribute('aria-hidden', 'true');
+    expect(indicator?.textContent).toBe('');
+    expect(indicator?.querySelector('svg')).toHaveAttribute('viewBox', '0 0 16 16');
+    expect(indicator?.querySelector('svg')).toHaveAttribute('focusable', 'false');
+    expect(screen.getByTestId('shell-toggle')).toHaveAccessibleName('Collapse navigation');
     fireEvent.focus(screen.getByRole('button', { name: 'Operations' }));
     expect(onFocus).toHaveBeenCalledOnce();
     expect(screen.getByRole('button', { name: 'Operations' })).toHaveClass('product-route');

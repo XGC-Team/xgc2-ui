@@ -1,5 +1,11 @@
 # @xgc2/ui-policy
 
+## 0.16.1
+
+### Patch Changes
+
+- Keep the policy version and exact React peer aligned with the 0.16.1 sidebar and table-header fixes. Existing policy gates remain unchanged.
+
 ## 0.16.0
 
 ### Minor Changes

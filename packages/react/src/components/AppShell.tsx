@@ -240,7 +240,11 @@ export function AppSidebar({
             >
               <span className="xgc-sidebar-brand-mark" aria-hidden="true">{brandMark}</span>
               <span className="xgc-sidebar-brand-label" aria-hidden={visuallyCollapsed}>{brandLabel}</span>
-              <span className="xgc-sidebar-collapse-indicator" aria-hidden="true">‹</span>
+              <span className="xgc-sidebar-collapse-indicator" aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" focusable="false">
+                  <path d="m10 4-4 4 4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </span>
             </button>
           </div>
           <div className="xgc-sidebar-body">{children}</div>

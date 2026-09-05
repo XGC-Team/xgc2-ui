@@ -3354,10 +3354,19 @@ button.xgc-stat-card:disabled {
 }
 
 .xgc-sidebar-collapse-indicator {
-  justify-self: end;
-  font-size: var(--font-xl);
+  width: var(--size-icon-default);
+  height: var(--size-icon-default);
+  flex: 0 0 var(--size-icon-default);
+  display: grid;
+  place-items: center;
   transform: rotate(0);
   transition: transform var(--duration-fast) var(--easing-standard);
+}
+
+.xgc-sidebar-collapse-indicator > svg {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
 .xgc-sidebar-body {

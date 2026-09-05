@@ -2,16 +2,13 @@ name: Release UI packages
 
 on:
   workflow_dispatch:
-  push:
-    tags:
-      - 'v*'
 
 permissions:
   contents: write
 
-defaults:
-  run:
-    shell: bash
+concurrency:
+  group: immutable-ui-release-${{ github.ref_name }}
+  cancel-in-progress: false
 
 jobs:
   release:
@@ -24,113 +21,13 @@ jobs:
           fetch-depth: 0
       - name: Trust the workspace in the build image
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm check
-      - name: Validate annotated release tag
-        run: |
-          set -euo pipefail
-          if ! git cat-file -e "${GITHUB_REF_NAME}^{tag}" 2>/dev/null; then
-            echo "release tag ${GITHUB_REF_NAME} must be annotated" >&2
-            exit 1
-          fi
-          if [[ "$(git rev-parse HEAD)" != "$(git rev-parse "${GITHUB_REF_NAME}^{commit}")" ]]; then
-            echo "release tag ${GITHUB_REF_NAME} does not resolve to the checked-out commit" >&2
-            exit 1
-          fi
-          git fetch origin main
-          if ! git merge-base --is-ancestor "${GITHUB_REF_NAME}^{commit}" origin/main; then
-            echo "release tag ${GITHUB_REF_NAME} must resolve to a commit on main" >&2
-            exit 1
-          fi
-      - name: Pack only packages changed since the preceding immutable release
+      - name: Validate, build, and publish the immutable family
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          mkdir -p release-assets
-          gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/releases?per_page=100" > releases.json
-          previous_tag="$(node scripts/validate-release-delta.mjs --releases releases.json --scope package --print-base)"
-          for package in tokens react workflow; do
-            set +e
-            git diff --quiet "${previous_tag}" "${GITHUB_REF_NAME}" -- \
-              "packages/${package}" \
-              ":(exclude)packages/${package}/CHANGELOG.md"
-            diff_status="$?"
-            set -e
-            if [[ "${diff_status}" == "0" ]]; then
-              echo "reusing unchanged @xgc2/ui-${package} from ${previous_tag}"
-              continue
-            fi
-            if [[ "${diff_status}" != "1" ]]; then
-              echo "could not diff @xgc2/ui-${package} from ${previous_tag}" >&2
-              exit "${diff_status}"
-            fi
-            pnpm --filter "@xgc2/ui-${package}" pack --pack-destination release-assets
-          done
-          if ! compgen -G 'release-assets/*.tgz' >/dev/null; then
-            echo "release has no changed package assets" >&2
-            exit 1
-          fi
-      - name: Reject an existing release or asset namespace
-        env:
-          GH_TOKEN: ${{ github.token }}
-          EVENT_NAME: ${{ github.event_name }}
-          RUN_ATTEMPT: ${{ github.run_attempt }}
-          TAG_CREATED: ${{ github.event.created }}
-        run: |
-          set -euo pipefail
-          if [[ "${RUN_ATTEMPT}" != "1" ]]; then
-            echo "release tags are immutable; only the first run may publish" >&2
-            exit 1
-          fi
-          if [[ "${EVENT_NAME}" == "push" && "${TAG_CREATED}" != "true" ]]; then
-            echo "a tag-push release must come from a newly created tag" >&2
-            exit 1
-          fi
-          if [[ "${EVENT_NAME}" != "push" && "${EVENT_NAME}" != "workflow_dispatch" ]]; then
-            echo "unsupported release event ${EVENT_NAME}" >&2
-            exit 1
-          fi
-          release_error="$(mktemp)"
-          if gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${GITHUB_REF_NAME}" >/dev/null 2>"${release_error}"; then
-            echo "release already exists: ${GITHUB_REF_NAME}" >&2
-            exit 1
-          elif ! grep -Fq '(HTTP 404)' "${release_error}"; then
-            cat "${release_error}" >&2
-            echo "could not prove that the release namespace is unused" >&2
-            exit 1
-          fi
-          package_version="$(node -p "require('./packages/react/package.json').version")"
-          if [[ "${GITHUB_REF_NAME}" != "v${package_version}" ]]; then
-            echo "tag ${GITHUB_REF_NAME} does not match package version ${package_version}" >&2
-            exit 1
-          fi
-          expected_assets=()
-          for package in tokens react workflow; do
-            name="$(node -p "require('./packages/${package}/package.json').name.replace(/^@/, '').replace('/', '-')")"
-            version="$(node -p "require('./packages/${package}/package.json').version")"
-            asset="${name}-${version}.tgz"
-            if [[ -f "release-assets/${asset}" ]]; then
-              expected_assets+=("${asset}")
-            fi
-          done
-          mapfile -t built_assets < <(find release-assets -maxdepth 1 -type f -printf '%f\n' | sort)
-          mapfile -t expected_assets < <(printf '%s\n' "${expected_assets[@]}" | sort)
-          if [[ "${built_assets[*]}" != "${expected_assets[*]}" ]]; then
-            printf 'unexpected release assets: %s\n' "${built_assets[*]}" >&2
-            exit 1
-          fi
-          published_assets_file="$(mktemp)"
-          gh api --paginate "repos/${GITHUB_REPOSITORY}/releases?per_page=100" \
-            --jq '.[] | .assets[]? | .name' >"${published_assets_file}"
-          mapfile -t published_assets <"${published_assets_file}"
-          for asset in "${expected_assets[@]}"; do
-            if printf '%s\n' "${published_assets[@]}" | grep -Fqx -- "${asset}"; then
-              echo "asset namespace already exists: ${asset}" >&2
-              exit 1
-            fi
-          done
-      - name: Publish immutable package assets
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release create "${GITHUB_REF_NAME}" release-assets/*.tgz --verify-tag --generate-notes
+        run: >-
+          node scripts/publish-immutable-release.mjs
+          --family package
+          --source-sha "$GITHUB_SHA"
+          --evidence-dir "$RUNNER_TEMP/ui-package-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          --executor github-actions
+          --publish

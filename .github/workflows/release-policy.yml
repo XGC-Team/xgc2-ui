@@ -2,16 +2,13 @@ name: Release UI policy
 
 on:
   workflow_dispatch:
-  push:
-    tags:
-      - 'policy-v*'
 
 permissions:
   contents: write
 
-defaults:
-  run:
-    shell: bash
+concurrency:
+  group: immutable-ui-release-${{ github.ref_name }}
+  cancel-in-progress: false
 
 jobs:
   release:
@@ -24,77 +21,13 @@ jobs:
           fetch-depth: 0
       - name: Trust the workspace in the build image
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm check
-      - name: Validate annotated policy tag
-        run: |
-          set -euo pipefail
-          if ! git cat-file -e "${GITHUB_REF_NAME}^{tag}" 2>/dev/null; then
-            echo "policy tag ${GITHUB_REF_NAME} must be annotated" >&2
-            exit 1
-          fi
-          if [[ "$(git rev-parse HEAD)" != "$(git rev-parse "${GITHUB_REF_NAME}^{commit}")" ]]; then
-            echo "policy tag ${GITHUB_REF_NAME} does not resolve to the checked-out commit" >&2
-            exit 1
-          fi
-          git fetch origin main
-          if ! git merge-base --is-ancestor "${GITHUB_REF_NAME}^{commit}" origin/main; then
-            echo "policy tag ${GITHUB_REF_NAME} must resolve to a commit on main" >&2
-            exit 1
-          fi
-      - name: Require the matching immutable React package family
+      - name: Validate, build, and publish the immutable family
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/releases?per_page=100" > releases.json
-          node scripts/validate-release-delta.mjs --releases releases.json --scope policy --require-current-package
-      - name: Pack the version-locked policy
-        run: |
-          set -euo pipefail
-          mkdir -p release-assets
-          pnpm --filter @xgc2/ui-policy pack --pack-destination release-assets
-      - name: Reject an existing release or asset namespace
-        env:
-          GH_TOKEN: ${{ github.token }}
-          EVENT_NAME: ${{ github.event_name }}
-          RUN_ATTEMPT: ${{ github.run_attempt }}
-          TAG_CREATED: ${{ github.event.created }}
-        run: |
-          set -euo pipefail
-          if [[ "${RUN_ATTEMPT}" != "1" ]]; then
-            echo "policy releases are immutable; only the first run may publish" >&2
-            exit 1
-          fi
-          if [[ "${EVENT_NAME}" == "push" && "${TAG_CREATED}" != "true" ]]; then
-            echo "a policy tag-push release must come from a newly created tag" >&2
-            exit 1
-          fi
-          if [[ "${EVENT_NAME}" != "push" && "${EVENT_NAME}" != "workflow_dispatch" ]]; then
-            echo "unsupported policy release event ${EVENT_NAME}" >&2
-            exit 1
-          fi
-          version="$(node -p "require('./packages/policy/package.json').version")"
-          if [[ "${GITHUB_REF_NAME}" != "policy-v${version}" ]]; then
-            echo "tag ${GITHUB_REF_NAME} does not match policy version ${version}" >&2
-            exit 1
-          fi
-          asset="xgc2-ui-policy-${version}.tgz"
-          [[ -f "release-assets/${asset}" ]] || { echo "missing ${asset}" >&2; exit 1; }
-          [[ "$(find release-assets -maxdepth 1 -type f | wc -l)" == "1" ]] || { echo "unexpected policy assets" >&2; exit 1; }
-          release_error="$(mktemp)"
-          if gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${GITHUB_REF_NAME}" >/dev/null 2>"${release_error}"; then
-            echo "release already exists: ${GITHUB_REF_NAME}" >&2
-            exit 1
-          elif ! grep -Fq '(HTTP 404)' "${release_error}"; then
-            cat "${release_error}" >&2
-            exit 1
-          fi
-          if gh api --paginate "repos/${GITHUB_REPOSITORY}/releases?per_page=100" --jq '.[] | .assets[]? | .name' | grep -Fqx -- "${asset}"; then
-            echo "asset namespace already exists: ${asset}" >&2
-            exit 1
-          fi
-      - name: Publish immutable policy asset
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release create "${GITHUB_REF_NAME}" release-assets/*.tgz --verify-tag --generate-notes
+        run: >-
+          node scripts/publish-immutable-release.mjs
+          --family policy
+          --source-sha "$GITHUB_SHA"
+          --evidence-dir "$RUNNER_TEMP/ui-policy-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          --executor github-actions
+          --publish
