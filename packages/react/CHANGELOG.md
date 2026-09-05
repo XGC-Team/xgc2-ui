@@ -1,5 +1,11 @@
 # @xgc2/ui-react
 
+## 0.16.2
+
+### Patch Changes
+
+- Keep body-scrolling table headers and rows aligned across stable scrollbar gutters, including empty tables, selection columns, and viewport resizing.
+
 ## 0.16.1
 
 ### Patch Changes

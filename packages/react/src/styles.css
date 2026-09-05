@@ -2734,13 +2734,15 @@ button.xgc-stat-card:disabled {
 }
 
 .xgc-data-table[data-body-scroll='true'] > table > thead {
-  /* Span the table, including the body scrollbar column, so the header chrome
-   * is not replaced by a reserved gutter. Column widths stay synced in JS. */
-  width: 100% !important;
+  /* Keep full-width chrome while giving the header row the same usable width
+   * as the body. A full-width display:table redistributes the body's reserved
+   * scrollbar gutter over the measured column widths and misaligns every cell. */
+  width: 100%;
   box-sizing: border-box;
   flex: 0 0 auto;
-  display: table;
-  table-layout: fixed;
+  display: block;
+  overflow: hidden;
+  scrollbar-gutter: stable;
   background: var(--color-bg-subtle);
 }
 
@@ -2754,6 +2756,7 @@ button.xgc-stat-card:disabled {
   background: var(--color-bg-surface);
 }
 
+.xgc-data-table[data-body-scroll='true'] > table > thead > tr,
 .xgc-data-table[data-body-scroll='true'] > table > tbody > tr {
   width: 100%;
   display: table;

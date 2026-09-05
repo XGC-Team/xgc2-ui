@@ -1,5 +1,11 @@
 # @xgc2/ui-policy
 
+## 0.16.2
+
+### Patch Changes
+
+- Align the policy version and exact React peer with the 0.16.2 shared table gutter fix. Existing policy gates remain unchanged.
+
 ## 0.16.1
 
 ### Patch Changes
