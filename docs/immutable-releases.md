@@ -35,9 +35,10 @@ node scripts/publish-immutable-release.mjs \
 ```
 
 The evidence directory must be readable by the installed `gh` executable. For a
-Snap installation, use a directory beneath the user's home (for example
-`~/.cache/xgc2-ui-releases/`) because Snap's private `/tmp` cannot read the host's
-`/tmp` files. Create the parent directory first; each evidence directory itself
+Snap installation, use a non-hidden directory beneath the user's home (for example
+`~/Dev/xgc2-ui-release-evidence/`). Snap's private `/tmp` cannot read the host's
+`/tmp` files, and its home interface also refuses hidden directories such as
+`~/.cache`. Create the parent directory first; each evidence directory itself
 must be new.
 
 Omit `--publish` to produce reviewable tarballs and evidence without creating tags
