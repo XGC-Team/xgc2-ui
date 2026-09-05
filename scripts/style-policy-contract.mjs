@@ -411,6 +411,25 @@ function selectorIdentifiers(selector) {
   return [...new Set(identifiers)];
 }
 
+function isSolidDangerCommandSelector(selector) {
+  // An explicit execution-button variant is not a status-colored card. Keep
+  // this narrow enough that articles, descendants and state-inferred fills
+  // still pass through the ordinary status material prohibition.
+  const required = [
+    /\[data-xgc-layout=(['"])tile\1\]/,
+    /\[data-xgc-appearance=(['"])solid\1\]/,
+    /\[data-xgc-tone=(['"])danger\1\]/,
+  ];
+  if (!required.every((attribute) => attribute.test(selector))) return false;
+  let target = selector.trim();
+  for (const attribute of required) target = target.replace(attribute, '');
+  target = target
+    .replace(/:not\(:disabled\)/g, '')
+    .replace(/:(?:hover|active|focus-visible|disabled)\b/g, '')
+    .replace(/\[aria-pressed=(['"])(?:true|false)\1\]/g, '');
+  return target === 'button.xgc-workflow-status-card';
+}
+
 /**
  * Status is information, never a miniature decorated object. This checker is
  * intentionally selector-driven so ordinary action tones, chart colors, map
@@ -425,6 +444,9 @@ export function statusVisualContractViolations(css) {
     const identifiers = selectorIdentifiers(selector);
     const statusIdentifiers = identifiers.filter((identifier) => STATUS_TERM.test(identifier) && !STATUS_CONTROL_CONTEXT.test(identifier));
     if (statusIdentifiers.length === 0) continue;
+    const onlyExplicitCommandStatusTargets = selector.split(',').every((part) =>
+      !selectorIdentifiers(part).some((identifier) => STATUS_TERM.test(identifier) && !STATUS_CONTROL_CONTEXT.test(identifier))
+      || isSolidDangerCommandSelector(part));
 
     // Catch both compound names (`health-dot`) and nested markers
     // (`runtime-status .dot`). Once the selector is a status context, an
@@ -452,7 +474,7 @@ export function statusVisualContractViolations(css) {
         }
         if (MATERIAL_PROPERTY.test(property)) {
           if (SEMANTIC_MATERIAL.test(value)) {
-            violations.push(`semantic status material in ${selector}`);
+            if (!onlyExplicitCommandStatusTargets) violations.push(`semantic status material in ${selector}`);
           } else if (LITERAL_COLOR.test(value)) {
             violations.push(`literal status material in ${selector}`);
           }

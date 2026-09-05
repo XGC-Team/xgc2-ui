@@ -204,6 +204,7 @@ export { WorkspaceTabs } from './components/WorkspaceTabs';
 export type { WorkspaceTabItem, WorkspaceTabsProps } from './components/WorkspaceTabs';
 export { WorkflowStatusCard } from './components/WorkflowStatusCard';
 export type {
+  WorkflowStatusCardAppearance,
   WorkflowStatusCardLayout,
   WorkflowStatusCardProgress,
   WorkflowStatusCardProps,

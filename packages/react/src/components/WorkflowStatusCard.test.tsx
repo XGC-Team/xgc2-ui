@@ -114,4 +114,28 @@ describe('WorkflowStatusCard', () => {
     expect(progress).toHaveAttribute('data-xgc-tone','success');
     expect(progress).toHaveStyle({ '--xgc-progress-fill':'var(--color-service-ready)' });
   });
+
+  it('requires an explicit solid command appearance without inferring it from failed status', () => {
+    const onClick = vi.fn();
+    const common = {
+      layout:'tile' as const,metrics:{ primary:'' },progress:{ percent:50,value:50,label:'Progress' },
+      running:false,status:'failed',tone:'danger' as const,
+    };
+    const { container } = render(<>
+      <WorkflowStatusCard {...common} ariaLabel="Failed workflow" title="Failed workflow"
+        dataXgcRole="test-status" dataXgcId="failed" />
+      <WorkflowStatusCard {...common} ariaLabel="Retry" title="Retry" onClick={onClick}
+        dataXgcRole="test-command" dataXgcId="retry" />
+      <WorkflowStatusCard {...common} appearance="solid" ariaLabel="E-stop" title="E-stop"
+        dataXgcRole="test-command" dataXgcId="stop" onClick={onClick} pressed disabled />
+    </>);
+    expect(container.querySelector('[data-xgc-id="failed"]')).toHaveAttribute('data-xgc-appearance','default');
+    expect(screen.getByRole('button',{ name:'Retry' })).toHaveAttribute('data-xgc-appearance','default');
+    const stop = screen.getByRole('button',{ name:'E-stop' });
+    expect(stop).toHaveAttribute('data-xgc-appearance','solid');
+    expect(stop).toHaveAttribute('aria-pressed','true');
+    expect(stop.querySelector('[role="progressbar"]')).toHaveAttribute('aria-valuenow','50');
+    fireEvent.click(stop);
+    expect(onClick).not.toHaveBeenCalled();
+  });
 });

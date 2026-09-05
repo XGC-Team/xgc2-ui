@@ -1,5 +1,12 @@
 # @xgc2/ui-react
 
+## 0.16.6
+
+### Patch Changes
+
+- Give danger buttons with visible labels a solid destructive surface across appearances while keeping icon-only danger controls on neutral surfaces.
+- Add an explicit solid command-tile appearance without inferring destructive action from a failed status, and retain pressed relief and readable progress when disabled.
+
 ## 0.16.5
 
 ### Patch Changes

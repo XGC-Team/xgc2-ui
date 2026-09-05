@@ -1,5 +1,11 @@
 # @xgc2/ui-policy
 
+## 0.16.6
+
+### Patch Changes
+
+- Align the policy version and exact React peer with the 0.16.6 danger controls. Permit semantic material only on explicitly opted-in solid danger command tiles while retaining status decoration prohibitions.
+
 ## 0.16.5
 
 ### Patch Changes

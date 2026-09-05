@@ -4,6 +4,7 @@ import { ProgressBar, type ProgressBarTone } from './ProgressBar';
 
 export type WorkflowStatusCardTone = ProgressBarTone;
 export type WorkflowStatusCardLayout = 'default' | 'tile';
+export type WorkflowStatusCardAppearance = 'default' | 'solid';
 
 export type WorkflowStatusCardProgress = {
   /** Optional fill color independent from the card/status tone. */
@@ -20,6 +21,7 @@ export type WorkflowStatusCardProgress = {
 };
 
 export type WorkflowStatusCardProps = {
+  appearance?: WorkflowStatusCardAppearance;
   ariaLabel: string;
   busy?: boolean;
   children?: ReactNode;
@@ -42,7 +44,7 @@ export type WorkflowStatusCardProps = {
 };
 
 export function WorkflowStatusCard({
-  ariaLabel, busy, children, className, dataXgcId, dataXgcRole, disabled,
+  appearance = 'default', ariaLabel, busy, children, className, dataXgcId, dataXgcRole, disabled,
   layout = 'default', metrics, onClick, pressed, progress, runId, running, status,
   statusLabel, title, titleAttr, tone,
 }: WorkflowStatusCardProps) {
@@ -79,6 +81,7 @@ export function WorkflowStatusCard({
     'aria-label': ariaLabel,
     ...(pressed === undefined ? {} : { 'aria-pressed': pressed }),
     className: classNames('xgc-workflow-status-card', className),
+    'data-xgc-appearance': appearance,
     'data-xgc-id': dataXgcId,
     'data-xgc-layout': layout,
     'data-xgc-progress': String(percent),

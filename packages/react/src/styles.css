@@ -74,31 +74,14 @@
   border-color: color-mix(in srgb, var(--color-border-primary) 82%, var(--color-text-inverse));
 }
 
-/* Danger default: quiet white surface with solid danger text and a neutral
- * border — no translucent red film. The red material only appears on hover. */
-.xgc-button[data-tone='danger'] {
+/* A labeled destructive action uses solid material. Icon-only actions keep
+ * their ordinary control surface and express danger only through the glyph. */
+.xgc-button[data-tone='danger'][data-icon-only='true'] {
   color: var(--color-danger);
-  background: var(--xgc-control-background, var(--background-control, var(--color-bg-control)));
-  border-color: var(--color-border);
 }
 
-.xgc-button[data-tone='danger']:hover:not(:disabled) {
+.xgc-button[data-tone='danger'][data-icon-only='true']:hover:not(:disabled):not([aria-disabled='true']) {
   color: var(--color-danger-strong);
-  background: var(--color-bg-danger);
-  border-color: var(--color-border-danger);
-}
-
-.xgc-button[data-tone='danger']:active:not(:disabled) {
-  color: var(--color-danger-strong);
-  background: color-mix(in srgb, var(--color-bg-danger) 82%, var(--color-danger));
-  border-color: var(--color-border-danger);
-  box-shadow: inset 0 var(--stroke-thin) var(--stroke-strong) var(--color-shadow-overlay-soft);
-}
-
-.xgc-button[data-tone='danger']:focus-visible {
-  outline: 0;
-  border-color: var(--color-danger);
-  box-shadow: 0 0 0 var(--space-xs) color-mix(in srgb, var(--color-danger) 18%, transparent);
 }
 
 .xgc-button[data-tone='success'] {
@@ -120,19 +103,23 @@
   box-shadow: inset 0 var(--stroke-thin) var(--stroke-strong) var(--color-shadow-overlay-soft);
 }
 
-.xgc-button[data-appearance='solid'][data-tone='danger'] {
+.xgc-button[data-tone='danger']:not([data-icon-only='true']),
+button.xgc-workflow-status-card[data-xgc-layout='tile'][data-xgc-appearance='solid'][data-xgc-tone='danger'] {
   color: var(--color-text-inverse);
   background: var(--color-danger);
   border-color: color-mix(in srgb, var(--color-danger) 82%, #000000);
 }
 
-.xgc-button[data-appearance='solid'][data-tone='danger']:hover:not(:disabled) {
+.xgc-button[data-tone='danger']:not([data-icon-only='true']):hover:not(:disabled):not([aria-disabled='true']),
+button.xgc-workflow-status-card[data-xgc-layout='tile'][data-xgc-appearance='solid'][data-xgc-tone='danger']:hover:not(:disabled) {
   color: var(--color-text-inverse);
   background: color-mix(in srgb, var(--color-danger) 90%, #000000);
   border-color: color-mix(in srgb, var(--color-danger) 76%, #000000);
 }
 
-.xgc-button[data-appearance='solid'][data-tone='danger']:active:not(:disabled) {
+.xgc-button[data-tone='danger']:not([data-icon-only='true']):active:not(:disabled):not([aria-disabled='true']),
+button.xgc-workflow-status-card[data-xgc-layout='tile'][data-xgc-appearance='solid'][data-xgc-tone='danger']:active:not(:disabled),
+button.xgc-workflow-status-card[data-xgc-layout='tile'][data-xgc-appearance='solid'][data-xgc-tone='danger'][aria-pressed='true'] {
   color: var(--color-text-inverse);
   background: color-mix(in srgb, var(--color-danger) 82%, #000000);
   box-shadow: inset 0 var(--stroke-thin) var(--stroke-strong) var(--color-shadow-overlay);
@@ -182,7 +169,8 @@
     0 var(--stroke-strong) var(--space-xs) color-mix(in srgb, var(--color-shadow-overlay-soft) 60%, transparent);
 }
 
-.xgc-button[data-appearance='raised'][data-tone='default']:active:not(:disabled):not([aria-disabled='true']) {
+.xgc-button[data-appearance='raised'][data-tone='default']:active:not(:disabled):not([aria-disabled='true']),
+.xgc-button[data-appearance='raised'][data-tone='danger'][data-icon-only='true']:active:not(:disabled):not([aria-disabled='true']) {
   background: var(--color-bg-active);
   border-color: var(--color-border-hover);
 }
@@ -3682,6 +3670,18 @@ button.xgc-workflow-status-card[data-xgc-layout='tile']:disabled {
 }
 .xgc-workflow-status-card[data-xgc-layout='tile'] > .xgc-workflow-status-card-progress[data-xgc-tone='neutral'] {
   --xgc-progress-fill: var(--color-text-muted);
+}
+/* Solid danger commands use the same material as a destructive confirmation.
+ * Their progress remains independent of disabled label contrast and latch state. */
+button.xgc-workflow-status-card[data-xgc-layout='tile'][data-xgc-appearance='solid'][data-xgc-tone='danger'] {
+  --xgc-workflow-status-color: var(--color-text-inverse);
+}
+button.xgc-workflow-status-card[data-xgc-layout='tile'][data-xgc-appearance='solid'][data-xgc-tone='danger']:disabled {
+  color: color-mix(in srgb, var(--color-text-inverse) 65%, transparent);
+}
+button.xgc-workflow-status-card[data-xgc-layout='tile'][data-xgc-appearance='solid'][data-xgc-tone='danger'] > .xgc-workflow-status-card-progress {
+  --xgc-progress-track: color-mix(in srgb, var(--color-text-inverse) 24%, transparent);
+  --xgc-progress-fill: var(--color-text-inverse);
 }
 .xgc-workflow-status-card[data-xgc-layout='tile'] > .xgc-workflow-status-card-heading strong {
   max-width: 100%;

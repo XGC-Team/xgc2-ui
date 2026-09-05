@@ -261,6 +261,28 @@ test('allows plain status text and neutral structured feedback', () => {
   assert.deepEqual(statusVisualContractViolations(fixture), []);
 });
 
+test('allows solid danger material only for explicitly opted-in command tiles', () => {
+  const command = "button.xgc-workflow-status-card[data-xgc-layout='tile'][data-xgc-appearance='solid'][data-xgc-tone='danger']";
+  for (const state of ['',':hover:not(:disabled)',':active:not(:disabled)',"[aria-pressed='true']"]) {
+    assert.deepEqual(statusVisualContractViolations(`${command}${state} { background: var(--color-danger); }`), []);
+  }
+  assert.deepEqual(statusVisualContractViolations(`.xgc-button[data-tone='danger'], ${command} { background: var(--color-danger); }`), []);
+  for (const selector of [
+    command.replace('button.', 'article.'),
+    command.replace('button.', '.'),
+    command.replace("[data-xgc-layout='tile']", ''),
+    command.replace("[data-xgc-appearance='solid']", ''),
+    command.replace("[data-xgc-appearance='solid']", "[data-xgc-status='failed']"),
+    command.replace("[data-xgc-appearance='solid']", "[data-xgc-appearance='default']"),
+    command.replace("[data-xgc-tone='danger']", "[data-xgc-tone='success']"),
+    `${command} .workflow-status-card`,
+    `${command}::before`,
+    `${command}, article.workflow-status-card`,
+  ]) {
+    assert.notDeepEqual(statusVisualContractViolations(`${selector} { background: var(--color-danger); }`), [], selector);
+  }
+});
+
 test('rejects status capsules, marker names, glows, and semantic container fills', () => {
   const fixture = `
     .connection-status-pill { padding: 4px 8px; background: green; border: 1px solid green; border-radius: 999px; }
