@@ -1,0 +1,64 @@
+name: Request missing dev policy family
+# One-shot recovery request. Publishing remains owned by release-policy.yml.
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/dev-policy-release-once.yml]
+permissions:
+  contents: write
+  actions: write
+jobs:
+  request:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    steps:
+      - name: Tag the existing React family and invoke the unchanged release gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import base64, json, os, urllib.error, urllib.request
+          repository = os.environ['GITHUB_REPOSITORY']
+          if repository != 'XGC-Team/xgc2-ui':
+              raise SystemExit('wrong repository')
+          api = 'https://api.github.com/repos/' + repository
+          def request(path, value=None):
+              req = urllib.request.Request(api + path,
+                  data=None if value is None else json.dumps(value).encode(),
+                  headers={'Authorization':'Bearer ' + os.environ['GH_TOKEN'],
+                           'Accept':'application/vnd.github+json',
+                           'Content-Type':'application/json',
+                           'X-GitHub-Api-Version':'2022-11-28'},
+                  method='GET' if value is None else 'POST')
+              with urllib.request.urlopen(req, timeout=60) as response:
+                  raw = response.read()
+                  return json.loads(raw) if raw else None
+          source = '4a40e83e504d85eac934db232f10afe99414a3ba'
+          tag = 'policy-v0.15.19'
+          react_ref = request('/git/ref/tags/v0.15.19')['object']
+          if react_ref['type'] != 'tag':
+              raise SystemExit('React family is not annotated')
+          if request('/git/tags/' + react_ref['sha'])['object']['sha'] != source:
+              raise SystemExit('React family moved; refusing to publish')
+          policy = request('/contents/packages/policy/package.json?ref=' + source)
+          manifest = json.loads(base64.b64decode(policy['content']))
+          if (manifest['version'], manifest['peerDependencies']['@xgc2/ui-react']) != ('0.15.19', '0.15.19'):
+              raise SystemExit('policy family does not match the published React family')
+          for path in ('/git/ref/tags/' + tag, '/releases/tags/' + tag):
+              try:
+                  request(path)
+              except urllib.error.HTTPError as error:
+                  if error.code != 404:
+                      raise
+              else:
+                  raise SystemExit('refusing to replace an existing policy tag or release')
+          annotated = request('/git/tags', {
+              'tag':tag, 'message':'Release UI policy 0.15.19 from the matching React family',
+              'object':source, 'type':'commit',
+              'tagger':{'name':'github-actions[bot]',
+                        'email':'41898282+github-actions[bot]@users.noreply.github.com'},
+          })['sha']
+          request('/git/refs', {'ref':'refs/tags/' + tag, 'sha':annotated})
+          request('/actions/workflows/release-policy.yml/dispatches', {'ref':tag})
+          print('Requested existing release-policy.yml for ' + tag + ' at ' + source)
+          PY
