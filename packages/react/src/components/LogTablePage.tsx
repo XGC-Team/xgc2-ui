@@ -24,6 +24,8 @@ export type LogTablePageLabels = {
 export type LogTablePageProps<Row> = {
   activeTab?: string;
   columns: readonly LogTableColumn<Row>[];
+  /** Stable page/table entity for control, column and viewport identities. */
+  dataXgcId?: string;
   emptyText?: ReactNode;
   getRowId: (row: Row) => string;
   getRowProps?: (row: Row) => HTMLAttributes<HTMLDivElement>;
@@ -71,6 +73,7 @@ const defaultLabels: LogTablePageLabels = {
 export function LogTablePage<Row>({
   activeTab,
   columns,
+  dataXgcId,
   emptyText = 'No records',
   getRowId,
   getRowProps,
@@ -110,7 +113,7 @@ export function LogTablePage<Row>({
   const tabValue = activeTab ?? tabs?.[0]?.value ?? '';
 
   return (
-    <section className="xgc-log-table-page">
+    <section aria-busy={loading || undefined} className="xgc-log-table-page" data-xgc-role="log-table-page" data-xgc-id={dataXgcId}>
       {title || tabs?.length ? (
         <SectionHeader
           actions={tabs?.length ? (
@@ -129,13 +132,15 @@ export function LogTablePage<Row>({
         />
       ) : null}
 
-      <Toolbar className="xgc-log-table-toolbar">
+      <Toolbar className="xgc-log-table-toolbar" data-xgc-role="log-table-toolbar" data-xgc-id={dataXgcId}>
         <div className="xgc-log-table-toolbar-start">
           {status ? (
             <label className="xgc-log-table-filter">
-              <span>{copy.status}</span>
+              <span data-xgc-role="log-table-status-label" data-xgc-id={dataXgcId}>{copy.status}</span>
               <SelectMenu
                 ariaLabel={copy.status}
+                dataXgcRole="log-table-status"
+                dataXgcId={dataXgcId}
                 onValueChange={status.onChange}
                 options={status.options}
                 uiSize="compact"
@@ -148,26 +153,28 @@ export function LogTablePage<Row>({
           <Input
             aria-label={copy.search}
             className="xgc-log-table-search"
-            data-xgc-role={roles?.search}
+            containerProps={{ 'data-xgc-role': 'log-table-search-control', 'data-xgc-id': dataXgcId }}
+            data-xgc-role={roles?.search ?? 'log-table-search'}
+            data-xgc-id={dataXgcId}
             onValueChange={search.onChange}
             placeholder={search.placeholder}
             type="search"
             uiSize="compact"
             value={search.value}
           />
-          <Button disabled={loading} onClick={onRefresh} uiSize="compact">
+          <Button aria-busy={loading || undefined} data-xgc-role="log-table-refresh" data-xgc-id={dataXgcId} disabled={loading} onClick={onRefresh} uiSize="compact">
             {refreshIcon ? <span aria-hidden="true">{refreshIcon}</span> : null}
             {copy.refresh}
           </Button>
         </div>
       </Toolbar>
 
-      {message ? <Notice data-xgc-role={roles?.message} density="compact" tone="danger">{message}</Notice> : null}
+      {message ? <Notice data-xgc-role={roles?.message ?? 'log-table-message'} data-xgc-id={dataXgcId} density="compact" tone="danger">{message}</Notice> : null}
 
-      <div className="xgc-log-table-shell" data-xgc-role="log-table-scroll">
-        <div className="xgc-log-table" role="table" style={tableStyle}>
+      <div aria-busy={loading || undefined} className="xgc-log-table-shell" data-xgc-role="log-table-scroll" data-xgc-id={dataXgcId}>
+        <div className="xgc-log-table" data-xgc-role="log-table" data-xgc-id={dataXgcId} role="table" style={tableStyle}>
           <div className="xgc-log-table-head" role="row">
-            {safeColumns.map((column) => <span key={column.id} role="columnheader">{column.title}</span>)}
+            {safeColumns.map((column) => <span data-xgc-role="log-table-column" data-xgc-id={dataXgcId ? `${dataXgcId}:${column.id}` : undefined} key={column.id} role="columnheader">{column.title}</span>)}
           </div>
           {safeRows.map((row) => {
             const rowProps = getRowProps?.(row);
@@ -184,6 +191,8 @@ export function LogTablePage<Row>({
                 {safeColumns.map((column) => (
                   <div
                     className="xgc-log-table-cell"
+                    data-xgc-role="log-table-cell"
+                    data-xgc-id={dataXgcId ? `${dataXgcId}:${id}:${column.id}` : undefined}
                     data-width={column.width ?? 'default'}
                     data-xgc-width={column.width ?? 'default'}
                     key={column.id}
@@ -196,17 +205,19 @@ export function LogTablePage<Row>({
             );
           })}
         </div>
-        {!safeRows.length ? (
+        {!safeRows.length && !loading && !message ? (
           <EmptyState
             appearance="plain"
             className="xgc-log-table-empty"
             density="compact"
-            title={loading ? copy.loading : emptyText}
+            title={emptyText}
           />
         ) : null}
       </div>
 
       <Pagination
+        data-xgc-role="log-table-pagination"
+        data-xgc-id={dataXgcId}
         labels={paginationLabels}
         onPageChange={onPage}
         onPageSizeChange={onPageSize}

@@ -1,5 +1,14 @@
 # @xgc2/ui-policy
 
+## 0.16.7
+
+### Patch Changes
+
+- Align the policy package and exact React peer with the 0.16.7 log table controls.
+  Existing policy rules remain unchanged.
+- Updated dependencies
+  - @xgc2/ui-react@0.16.7
+
 ## 0.16.6
 
 ### Patch Changes

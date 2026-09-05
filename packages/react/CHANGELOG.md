@@ -1,5 +1,13 @@
 # @xgc2/ui-react
 
+## 0.16.7
+
+### Patch Changes
+
+- Keep log table refresh labels and headers stable during loading, expose scoped
+  control and cell identities, derive SelectMenu trigger identity from its existing
+  shell identity, and scope pagination actions to their existing entity identity.
+
 ## 0.16.6
 
 ### Patch Changes

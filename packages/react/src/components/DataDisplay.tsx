@@ -424,7 +424,7 @@ export type PaginationLabels = {
   total: string;
 };
 
-export type PaginationProps = Omit<HTMLAttributes<HTMLElement>, 'onChange'> & {
+export type PaginationProps = Omit<HTMLAttributes<HTMLElement>, 'onChange'> & DataTableDataAttributes & {
   hidePageSize?: boolean;
   labels?: Partial<PaginationLabels>;
   onPageChange: (page: number) => void;
@@ -457,6 +457,7 @@ export function Pagination({
   ...props
 }: PaginationProps) {
   const copy = { ...defaultPaginationLabels, ...labels };
+  const entityId = typeof props['data-xgc-id'] === 'string' ? props['data-xgc-id'] : undefined;
   const safePageSize = Number.isFinite(pageSize) && pageSize > 0 ? pageSize : pageSizeOptions[0] ?? 20;
   const totalPages = Math.max(1, Math.ceil(Math.max(0, total) / safePageSize));
   const currentPage = Math.max(1, Math.min(page, totalPages));
@@ -466,6 +467,8 @@ export function Pagination({
       {hidePageSize ? null : (
         <Select
           aria-label={copy.rowsPerPage}
+          data-xgc-role={entityId ? 'pagination-page-size' : undefined}
+          data-xgc-id={entityId}
           uiSize="compact"
           value={String(safePageSize)}
           onValueChange={(value) => onPageSizeChange(Number(value))}
@@ -480,6 +483,8 @@ export function Pagination({
         iconOnly
         uiSize="compact"
         aria-label={copy.previous}
+        data-xgc-role={entityId ? 'pagination-previous' : undefined}
+        data-xgc-id={entityId}
         disabled={currentPage <= 1}
         onClick={() => onPageChange(currentPage - 1)}
       ><span aria-hidden="true">‹</span></Button>
@@ -489,6 +494,8 @@ export function Pagination({
         iconOnly
         uiSize="compact"
         aria-label={copy.next}
+        data-xgc-role={entityId ? 'pagination-next' : undefined}
+        data-xgc-id={entityId}
         disabled={currentPage >= totalPages}
         onClick={() => onPageChange(currentPage + 1)}
       ><span aria-hidden="true">›</span></Button>

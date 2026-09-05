@@ -259,6 +259,8 @@ export function SelectMenu({
         aria-label={ariaLabel}
         autoFocus={autoFocus}
         className="xgc-select-trigger"
+        data-xgc-role={dataXgcRole ? `${dataXgcRole}-trigger` : undefined}
+        data-xgc-id={dataXgcId}
         data-dialog-initial-focus={autoFocus || undefined}
         disabled={disabled}
         id={id}
