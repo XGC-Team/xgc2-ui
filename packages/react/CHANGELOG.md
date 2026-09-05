@@ -1,9 +1,10 @@
 # @xgc2/ui-react
 
-## 0.16.2
+## 0.16.3
 
 ### Patch Changes
 
+- Let the first real data row retain natural column sizing so previously measured pixel widths cannot freeze table layout after a viewport resize.
 - Keep body-scrolling table headers and rows aligned across stable scrollbar gutters, including empty tables, selection columns, and viewport resizing.
 
 ## 0.16.1

@@ -1,9 +1,12 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CodeBlock, DataTable, Pagination, SortableDataTable, StatCard, StatCardButton, Toolbar } from './DataDisplay';
 
 describe('data display primitives', () => {
-  afterEach(() => vi.restoreAllMocks());
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
 
   it('preserves native table semantics inside the shared container', () => {
     render(
@@ -236,6 +239,49 @@ describe('data display primitives', () => {
     // Real data rows resume normal synchronization (widths measured from row cells).
     expect(screen.getByRole('cell', { name: 'alpha' })).toBeInTheDocument();
     expect(container.querySelector('.xgc-data-table-empty-row')).toBeNull();
+  });
+
+  it('remeasures natural data columns when the row viewport shrinks', () => {
+    let availableWidth = 240;
+    let notifyResize = () => {};
+    vi.stubGlobal('ResizeObserver', class {
+      constructor(callback: ResizeObserverCallback) {
+        notifyResize = () => callback([], this as unknown as ResizeObserver);
+      }
+      observe() {}
+      disconnect() {}
+    });
+    // jsdom has no table layout. Model the browser's natural column proportions
+    // and its preservation of explicit pixel widths as the viewport changes.
+    vi.spyOn(HTMLTableCellElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLTableCellElement) {
+      const naturalWidth = availableWidth * (this.cellIndex === 0 ? 0.25 : 0.75);
+      const width = this.style.width.endsWith('px') ? Number.parseFloat(this.style.width) : naturalWidth;
+      return new DOMRect(0, 0, width, 30);
+    });
+    const { container } = render(
+      <SortableDataTable
+        bodyScroll
+        columns={[
+          { id: 'name', header: 'Name', cell: (row) => row.name },
+          { id: 'size', header: 'Size', cell: (row) => row.size },
+        ]}
+        rowKey={(row) => row.id}
+        rows={[{ id: 'a', name: 'alpha', size: 1024 }, { id: 'b', name: 'beta', size: 2048 }]}
+      />,
+    );
+    expect(screen.getByRole('columnheader', { name: 'Name' })).toHaveStyle({ width: '60px' });
+    availableWidth = 160;
+    act(() => notifyResize());
+    expect(screen.getByRole('columnheader', { name: 'Name' })).toHaveStyle({ width: '40px' });
+    expect(screen.getByRole('columnheader', { name: 'Size' })).toHaveStyle({ width: '120px' });
+    expect(Array.from(container.querySelectorAll('tbody tr'), (row) => (
+      Array.from(row.querySelectorAll('td'), (cell) => cell.getBoundingClientRect().width)
+    ))).toEqual([[40, 120], [40, 120]]);
+    // Small per-column changes still accumulate at the table's right edge.
+    availableWidth = 159.75;
+    act(() => notifyResize());
+    expect(screen.getByRole('columnheader', { name: 'Name' })).toHaveStyle({ width: '39.9375px' });
+    expect(screen.getByRole('columnheader', { name: 'Size' })).toHaveStyle({ width: '119.8125px' });
   });
 
   it('renders an optional selection header in table mode with an empty viewport', () => {

@@ -249,9 +249,10 @@ export function SortableDataTable<Row>({
     }
     const viewport = bodyViewportRef.current;
     if (!viewport) return undefined;
-    // Width sync must only read real data rows. The empty-mode message row spans
-    // every column with one cell; measuring it would stamp that single width onto
-    // the first column header.
+    // The first real row owns natural column sizing; measured widths are applied
+    // only to headers and later rows. Writing them back to the measured row would
+    // freeze its previous pixel widths when the viewport shrinks. Never measure
+    // the empty-mode colSpan row as if it were a one-column data row.
     const firstDataRow = Array.from(viewport.rows).find(
       (row) => !row.classList.contains('xgc-data-table-empty-row'),
     );
@@ -261,7 +262,7 @@ export function SortableDataTable<Row>({
         : [];
       setBodyColumnWidths((current) => (
         current.length === nextWidths.length
-        && current.every((width, index) => Math.abs(width - (nextWidths[index] ?? width)) < 0.25)
+        && current.every((width, index) => width === nextWidths[index])
           ? current
           : nextWidths
       ));
@@ -354,7 +355,7 @@ export function SortableDataTable<Row>({
               <td colSpan={(selection ? 1 : 0) + columns.length}>{emptyMessage}</td>
             </tr>
           ) : null}
-          {visibleRows.map((row) => {
+          {visibleRows.map((row, rowIndex) => {
             const key = rowKey(row);
             const selected = selection?.selectedRowKeys.has(key) ?? false;
             const rowProps = getRowProps?.(row);
@@ -368,7 +369,7 @@ export function SortableDataTable<Row>({
                 {selection ? (
                   <td
                     className="xgc-data-table-selection"
-                    style={bodyColumnWidths[0] === undefined ? undefined : { width: bodyColumnWidths[0] }}
+                    style={rowIndex === 0 || bodyColumnWidths[0] === undefined ? undefined : { width: bodyColumnWidths[0] }}
                   >
                     <DataTableCheckbox
                       aria-label={selection.getRowLabel?.(row) ?? `Select row ${key}`}
@@ -395,7 +396,7 @@ export function SortableDataTable<Row>({
                         key={column.id}
                         style={{
                           ...cellProps?.style,
-                          ...(bodyColumnWidths[index + (selection ? 1 : 0)] === undefined
+                          ...(rowIndex === 0 || bodyColumnWidths[index + (selection ? 1 : 0)] === undefined
                             ? undefined
                             : { width: bodyColumnWidths[index + (selection ? 1 : 0)] }),
                         }}
