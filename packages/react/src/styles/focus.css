@@ -59,6 +59,19 @@
 }
 
 /*
+ * Navigation lives inside compact headers and horizontal scrollers. Paint its
+ * ring inward so focus stays complete without growing or padding the strip.
+ */
+:is(body, #root) :where(
+  .xgc-workspace-tab-select,
+  .xgc-workspace-tab-delete,
+  .xgc-workspace-tab-add,
+  .xgc-panel-view-switcher-button
+):focus-visible {
+  outline-offset: calc(-1 * var(--stroke-strong));
+}
+
+/*
  * A workspace-tab rename editor replaces a tab inside the same fixed-height
  * strip. Keep its focus indicator inside that footprint; the generic outer
  * input ring would make the editor taller than its sibling tabs and can be

@@ -169,6 +169,31 @@ body {
     0 1px 3px color-mix(in srgb, var(--color-shadow-overlay) 28%, transparent);
 }
 
+/* Persistent workspaces and compact panel views share the current material.
+ * Keep their footprint: selection is an inset surface, never an extra frame. */
+.xgc-workspace-tab,
+.xgc-panel-view-switcher-button {
+  font-weight: var(--weight-medium);
+}
+
+.xgc-panel-view-switcher[data-xgc-appearance] {
+  padding-block: var(--space-2xs);
+  border-color: transparent;
+  background: color-mix(in srgb, var(--color-bg-subtle) 65%, transparent);
+}
+
+.xgc-workspace-tab[data-xgc-active='true'],
+.xgc-panel-view-switcher[data-xgc-appearance] .xgc-panel-view-switcher-button[aria-pressed='true'] {
+  color: var(--color-text-heading);
+  background: color-mix(in srgb, var(--color-bg-control-hover) 32%, var(--color-bg-surface));
+  box-shadow: inset 0 0 0 var(--stroke-thin) var(--color-border);
+}
+
+.xgc-panel-view-switcher[data-xgc-appearance] .xgc-panel-view-switcher-button:hover:not(:disabled):not([aria-pressed='true']) {
+  color: var(--color-text-strong);
+  background: var(--color-bg-control-hover);
+}
+
 .xgc-sidebar-nav-item {
   border-radius: var(--radius-md);
   color: var(--color-text-muted);
@@ -301,6 +326,8 @@ body {
 
   :is(.xgc-tab, .xgc-tab-item)[aria-selected='true'],
   .xgc-tab-item[data-active='true'],
+  .xgc-workspace-tab[data-xgc-active='true'],
+  .xgc-panel-view-switcher[data-xgc-appearance] .xgc-panel-view-switcher-button[aria-pressed='true'],
   .xgc-sidebar-nav-item[data-active='true'] {
     box-shadow: inset 0 0 0 var(--stroke-medium) var(--color-border-strong);
   }
