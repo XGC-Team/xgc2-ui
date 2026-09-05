@@ -1,5 +1,11 @@
 # @xgc2/ui-policy
 
+## 0.16.4
+
+### Patch Changes
+
+- Align the policy version and exact React peer with the 0.16.4 command control surfaces. Existing policy gates remain unchanged.
+
 ## 0.16.3
 
 ### Patch Changes

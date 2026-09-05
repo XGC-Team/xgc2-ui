@@ -2,7 +2,7 @@ import { forwardRef, type AnchorHTMLAttributes, type ButtonHTMLAttributes } from
 import { classNames } from '../utils';
 
 export type ButtonTone = 'default' | 'primary' | 'danger' | 'success';
-export type ButtonAppearance = 'default' | 'ghost' | 'solid';
+export type ButtonAppearance = 'default' | 'ghost' | 'solid' | 'raised';
 export type ComponentSize = 'default' | 'compact';
 
 export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {

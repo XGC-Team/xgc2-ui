@@ -167,6 +167,44 @@
   opacity: var(--opacity-disabled);
 }
 
+/* Compact execution actions opt into a clean face with a short contact shadow.
+ * Tone still owns meaning; relief never changes the button or icon geometry. */
+.xgc-button[data-appearance='raised'] {
+  --xgc-control-background: var(--color-bg-control);
+  --xgc-control-color: var(--color-text-strong);
+  border-color: color-mix(in srgb, var(--color-border) 72%, var(--color-bg-control));
+  box-shadow: 0 var(--stroke-thin) var(--stroke-strong) var(--color-shadow-overlay-soft);
+}
+
+.xgc-button[data-appearance='raised']:hover:not(:disabled):not([aria-disabled='true']) {
+  box-shadow:
+    0 var(--stroke-thin) var(--stroke-strong) var(--color-shadow-overlay-soft),
+    0 var(--stroke-strong) var(--space-xs) color-mix(in srgb, var(--color-shadow-overlay-soft) 60%, transparent);
+}
+
+.xgc-button[data-appearance='raised'][data-tone='default']:active:not(:disabled):not([aria-disabled='true']) {
+  background: var(--color-bg-active);
+  border-color: var(--color-border-hover);
+}
+
+.xgc-button[data-appearance='raised']:active:not(:disabled):not([aria-disabled='true']) {
+  translate: none;
+  box-shadow: inset 0 var(--stroke-thin) var(--stroke-strong) var(--color-shadow-overlay-soft);
+  transition: none;
+}
+
+.xgc-button[data-appearance='raised']:focus-visible {
+  outline: var(--stroke-strong) solid var(--color-border-focus);
+  outline-offset: 0;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.xgc-button[data-appearance='raised']:disabled,
+.xgc-button[data-appearance='raised'][aria-disabled='true'] {
+  box-shadow: none;
+}
+
 .xgc-button:focus-visible,
 .xgc-input:focus-within,
 .xgc-sidebar-toggle:focus-visible,
@@ -3537,6 +3575,48 @@ button.xgc-stat-card:disabled {
 }
 
 button.xgc-workflow-status-card { appearance: none; cursor: pointer; }
+
+/* A clean control face and a short contact shadow give command tiles depth.
+ * Pressing changes the light, never the layout or the pointer target. */
+button.xgc-workflow-status-card[data-xgc-layout='tile'] {
+  background: var(--background-control);
+  border-color: color-mix(in srgb, var(--color-border) 72%, var(--color-bg-control));
+  box-shadow:
+    0 var(--stroke-thin) var(--stroke-strong) var(--color-shadow-overlay-soft),
+    0 var(--stroke-strong) var(--space-xs) color-mix(in srgb, var(--color-shadow-overlay-soft) 60%, transparent);
+}
+
+button.xgc-workflow-status-card[data-xgc-layout='tile']:hover:not(:disabled) {
+  background: var(--color-bg-control);
+  border-color: var(--color-border-hover);
+  box-shadow:
+    0 var(--stroke-thin) var(--stroke-strong) var(--color-shadow-overlay-soft),
+    0 var(--stroke-strong) var(--space-sm) var(--color-shadow-overlay-soft);
+}
+
+button.xgc-workflow-status-card[data-xgc-layout='tile']:active:not(:disabled),
+button.xgc-workflow-status-card[data-xgc-layout='tile'][aria-pressed='true']:not(:disabled) {
+  background: var(--color-bg-active);
+  box-shadow: inset 0 var(--stroke-thin) var(--stroke-strong) var(--color-shadow-overlay-soft);
+  transition: none;
+}
+
+button.xgc-workflow-status-card[data-xgc-layout='tile']:focus-visible {
+  outline: var(--stroke-strong) solid var(--color-border-focus);
+  outline-offset: calc(-1 * var(--stroke-strong));
+}
+
+button.xgc-workflow-status-card[data-xgc-layout='tile']:disabled {
+  /* The progress remains readable through the product's native-control reset;
+   * label color and elevation express the disabled state instead of fading. */
+  --opacity-disabled: var(--opacity-full);
+  cursor: not-allowed;
+  color: var(--color-text-faint);
+  background: var(--color-bg-control);
+  border-color: var(--color-border-muted);
+  box-shadow: none;
+  opacity: var(--opacity-full);
+}
 .xgc-workflow-status-card-progress { width: 100%; flex: 0 0 auto; margin-top: auto; }
 .xgc-workflow-status-card[data-xgc-tone='success'] { --xgc-workflow-status-color: var(--color-success); }
 .xgc-workflow-status-card[data-xgc-tone='accent'] { --xgc-workflow-status-color: var(--color-accent); }
@@ -3588,6 +3668,10 @@ button.xgc-workflow-status-card { appearance: none; cursor: pointer; }
   pointer-events: none;
 }
 .xgc-workflow-status-card[data-xgc-layout='tile'] > .xgc-workflow-status-card-progress {
+  /* Keep a quiet, continuous track visible even at zero or while disabled.
+   * Activity uses the same slot and cannot move the command label. */
+  --xgc-progress-height: var(--stroke-strong);
+  --xgc-progress-track: var(--color-border);
   position: absolute;
   right: var(--space-sm);
   bottom: var(--space-sm);
@@ -3595,6 +3679,9 @@ button.xgc-workflow-status-card { appearance: none; cursor: pointer; }
   z-index: 0;
   width: auto;
   margin-top: 0;
+}
+.xgc-workflow-status-card[data-xgc-layout='tile'] > .xgc-workflow-status-card-progress[data-xgc-tone='neutral'] {
+  --xgc-progress-fill: var(--color-text-muted);
 }
 .xgc-workflow-status-card[data-xgc-layout='tile'] > .xgc-workflow-status-card-heading strong {
   max-width: 100%;

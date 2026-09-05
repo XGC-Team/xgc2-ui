@@ -1,5 +1,12 @@
 # @xgc2/ui-react
 
+## 0.16.4
+
+### Patch Changes
+
+- Refine interactive workflow tiles with clean control surfaces, stable thin progress feedback, and readable disabled content.
+- Add an opt-in raised Button appearance for compact command controls while preserving the existing default appearance and interaction semantics.
+
 ## 0.16.3
 
 ### Patch Changes
