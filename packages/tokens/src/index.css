@@ -202,6 +202,7 @@
   --color-text-faint: #9a9288;
   --color-text-disabled: #817a72;
   --color-text-inverse: #fffaf3;
+  --color-text-on-danger: #1f1413;
   --color-accent: #d0a06f;
   --color-accent-soft: #2b2119;
   --color-selection-highlight: #f1c46f;
@@ -296,6 +297,7 @@
   --color-text-faint: #5b687c;
   --color-text-disabled: #7b8798;
   --color-text-inverse: #ffffff;
+  --color-text-on-danger: #fff0f1;
   --color-accent: #315fdc;
   --color-accent-soft: #e8eefc;
   --color-selection-highlight: #315fdc;

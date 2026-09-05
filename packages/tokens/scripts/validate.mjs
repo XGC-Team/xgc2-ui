@@ -29,6 +29,7 @@ const requiredTokens = [
   '--color-border-accent-soft',
   '--color-text',
   '--color-text-disabled',
+  '--color-text-on-danger',
   '--color-accent',
   '--color-selection-highlight',
   '--color-selection-glow',
@@ -132,8 +133,8 @@ function declarationValue(block, token) {
   return block.match(new RegExp(`${escaped}:\\s*([\\s\\S]*?);`))?.[1];
 }
 
-function luminance(hex) {
-  const channels = rgbFromHex(hex).map((channel) => {
+function luminance(hexOrChannels) {
+  const channels = (Array.isArray(hexOrChannels) ? hexOrChannels : rgbFromHex(hexOrChannels)).map((channel) => {
     const value = channel / 255;
     return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
   });
@@ -145,6 +146,38 @@ function contrast(first, second) {
   return (values[0] + 0.05) / (values[1] + 0.05);
 }
 
+// Inspect the actual shared command surfaces, including the persistent held state.
+// The supported expressions are deliberately bounded; a new material must extend
+// this validator rather than silently fall back to the idle palette.
+const controlCss = await readFile(new URL('../../react/src/styles.css', import.meta.url), 'utf8');
+const dangerButton = ".xgc-button[data-tone='danger']:not([data-icon-only='true'])";
+const dangerTile = "button.xgc-workflow-status-card[data-xgc-layout='tile'][data-xgc-appearance='solid'][data-xgc-tone='danger']";
+const dangerStates = [
+  ['idle', dangerButton],
+  ['hover', `${dangerButton}:hover:not(:disabled):not([aria-disabled='true'])`],
+  ['active', `${dangerButton}:active:not(:disabled):not([aria-disabled='true'])`],
+  ['held', `${dangerTile}[aria-pressed='true']`],
+].map(([state, selector]) => {
+  const block = [...controlCss.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+    .find((match) => match[1].split(',').some((candidate) => candidate.trim() === selector))?.[2];
+  if (!block) throw new Error(`Missing shared danger ${state} control rule`);
+  return [state, declarationValue(block, 'color'), declarationValue(block, 'background')];
+});
+
+function controlColor(expression, tokens) {
+  const token = expression?.match(/^var\((--[\w-]+)\)$/)?.[1];
+  if (token && tokens.has(token)) return rgbFromHex(tokens.get(token));
+  const mix = expression?.match(/^color-mix\(in srgb, var\((--[\w-]+)\) (\d+(?:\.\d+)?)%, (#[\da-f]{6})\)$/i);
+  if (mix && tokens.has(mix[1])) {
+    const weight = Number(mix[2]) / 100;
+    if (weight < 0 || weight > 1) throw new Error(`Invalid shared danger color mix: ${expression}`);
+    const start = rgbFromHex(tokens.get(mix[1]));
+    const end = rgbFromHex(mix[3]);
+    return start.map((channel, index) => channel * weight + end[index] * (1 - weight));
+  }
+  throw new Error(`Unsupported shared danger control color: ${expression}`);
+}
+
 const contrastContracts = [
   ['--color-text', '--color-bg-app', 7, 'body text'],
   ['--color-text', '--color-bg-control', 7, 'control text'],
@@ -152,6 +185,7 @@ const contrastContracts = [
   ['--color-text-faint', '--color-bg-surface', 4.5, 'quiet text'],
   ['--color-text-disabled', '--color-bg-surface', 3, 'disabled text'],
   ['--color-text-inverse', '--color-bg-primary', 4.5, 'primary control text'],
+  ['--color-text-on-danger', '--color-danger', 4.5, 'danger control text'],
   ['--color-border-strong', '--color-bg-control', 3, 'control boundary'],
   ['--color-border-focus', '--color-bg-control', 3, 'focus indicator'],
   ['--color-selection-highlight', '--color-bg-canvas', 3, 'spatial selection'],
@@ -231,6 +265,13 @@ for (const skin of ['dark', 'light']) {
       throw new Error(`${skin} ${role} contrast is ${ratio.toFixed(2)}:1; expected at least ${minimum}:1`);
     }
   }
+
+  const dangerContrastFailures = [];
+  for (const [state, foreground, background] of dangerStates) {
+    const ratio = contrast(controlColor(foreground, tokens), controlColor(background, tokens));
+    if (ratio < 4.5) dangerContrastFailures.push(`${skin} danger ${state} contrast is ${ratio.toFixed(2)}:1; expected at least 4.5:1`);
+  }
+  if (dangerContrastFailures.length) throw new Error(dangerContrastFailures.join('; '));
 
   for (const token of neutralFoundationTokens) {
     const value = tokens.get(token);

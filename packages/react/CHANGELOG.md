@@ -1,5 +1,11 @@
 # @xgc2/ui-react
 
+## 0.16.8
+
+### Patch Changes
+
+- Use the on-danger foreground for labeled danger buttons and explicitly solid command tiles. Preserve pressed relief, icon-only neutral surfaces, and disabled progress visibility.
+
 ## 0.16.7
 
 ### Patch Changes

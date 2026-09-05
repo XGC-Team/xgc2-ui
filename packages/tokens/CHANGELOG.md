@@ -1,5 +1,11 @@
 # @xgc2/ui-tokens
 
+## 0.10.2
+
+### Patch Changes
+
+- Add a theme-specific on-danger foreground and verify readable text across idle, hover, active, and held command states in both palettes.
+
 ## 0.10.1
 
 ### Patch Changes

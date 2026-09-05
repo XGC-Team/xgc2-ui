@@ -109,6 +109,24 @@ describe('page-family visual geometry', () => {
     expect(collapsedItem.get('justify-content')).toBeUndefined();
   });
 
+  it('paints labeled danger commands with on-danger text from the danger scale', () => {
+    const css = readFileSync(stylesPath, 'utf8');
+    const labeled = ruleDeclarations(
+      css,
+      ".xgc-button[data-tone='danger']:not([data-icon-only='true']),\nbutton.xgc-workflow-status-card[data-xgc-layout='tile'][data-xgc-appearance='solid'][data-xgc-tone='danger']",
+    );
+    expect(labeled.get('color')).toBe('var(--color-text-on-danger)');
+    expect(labeled.get('background')).toBe('var(--color-danger)');
+    const command = "button.xgc-workflow-status-card[data-xgc-layout='tile'][data-xgc-appearance='solid'][data-xgc-tone='danger']";
+    const progress = ruleDeclarations(css, `${command} > .xgc-workflow-status-card-progress`);
+    expect(progress.get('--xgc-progress-fill')).toBe('var(--color-text-on-danger)');
+    expect(progress.get('--xgc-progress-track')).toBe('color-mix(in srgb, var(--color-text-on-danger) 24%, transparent)');
+    expect(ruleDeclarations(css, `${command}:disabled`).get('color')).toBe('color-mix(in srgb, var(--color-text-on-danger) 65%, transparent)');
+    expect(css).not.toMatch(
+      /\[data-xgc-appearance='solid'\]\[data-xgc-tone='danger'\][^{]*\{[^}]*--color-text-inverse/,
+    );
+  });
+
   it('keeps every field hint label on the FormSection specimen and textarea content on input type', () => {
     const css = readFileSync(stylesPath, 'utf8');
     const field = ruleDeclarations(css, '.xgc-form-field');

@@ -9,10 +9,10 @@ const packageRoot = new URL('../', import.meta.url);
 const validatorUrl = new URL('./validate.mjs', import.meta.url);
 const tokenSource = await readFile(new URL('../src/index.css', import.meta.url), 'utf8');
 
-async function validateMutation(from, to) {
+async function validateMutation(from, to, source = tokenSource) {
   const directory = await mkdtemp(join(tmpdir(), 'xgc2-token-mutation-'));
-  const mutated = tokenSource.replace(from, to);
-  assert.notEqual(mutated, tokenSource, `mutation source was not found: ${from}`);
+  const mutated = source.replace(from, to);
+  assert.notEqual(mutated, source, `mutation source was not found: ${from}`);
   const tokenPath = join(directory, 'index.css');
   await writeFile(tokenPath, mutated);
   return spawnSync(process.execPath, [validatorUrl.pathname, '--tokens', tokenPath], {
@@ -44,3 +44,18 @@ test('full validator rejects a warm light foundation regression', async () => {
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /warm-biased/);
 });
+
+for (const [theme, previousForeground] of [['index', '#2d1f1d'], ['v016', '#291d1c']]) {
+  test(`${theme} rejects dark danger text that passes idle but fails active and held`, async () => {
+    const source = await readFile(new URL(`../src/${theme}.css`, import.meta.url), 'utf8');
+    const result = await validateMutation(
+      '--color-text-on-danger: #1f1413;',
+      `--color-text-on-danger: ${previousForeground};`,
+      source,
+    );
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /dark danger active contrast/);
+    assert.match(result.stderr, /dark danger held contrast/);
+    assert.doesNotMatch(result.stderr, /dark danger (?:idle|hover|control text) contrast/);
+  });
+}
