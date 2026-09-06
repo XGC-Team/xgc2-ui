@@ -109,6 +109,18 @@ describe('page-family visual geometry', () => {
     expect(collapsedItem.get('justify-content')).toBeUndefined();
   });
 
+  it('uses the thin progress size token for command-tile tracks', () => {
+    const css = readFileSync(stylesPath, 'utf8');
+    const progress = ruleDeclarations(
+      css,
+      ".xgc-workflow-status-card[data-xgc-layout='tile'] > .xgc-workflow-status-card-progress",
+    );
+    expect(progress.get('--xgc-progress-height')).toBe('var(--size-progress-thin)');
+    expect(css).not.toMatch(
+      /\.xgc-workflow-status-card\[data-xgc-layout='tile'\] > \.xgc-workflow-status-card-progress\s*\{[^}]*--xgc-progress-height:\s*var\(--stroke-strong\)/s,
+    );
+  });
+
   it('paints labeled danger commands with on-danger text from the danger scale', () => {
     const css = readFileSync(stylesPath, 'utf8');
     const labeled = ruleDeclarations(

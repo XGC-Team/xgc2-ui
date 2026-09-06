@@ -3657,8 +3657,9 @@ button.xgc-workflow-status-card[data-xgc-layout='tile']:disabled {
 }
 .xgc-workflow-status-card[data-xgc-layout='tile'] > .xgc-workflow-status-card-progress {
   /* Keep a quiet, continuous track visible even at zero or while disabled.
-   * Activity uses the same slot and cannot move the command label. */
-  --xgc-progress-height: var(--stroke-strong);
+   * Activity uses the same slot and cannot move the command label.
+   * Height is the thin progress size (twice --stroke-strong), not a hairline. */
+  --xgc-progress-height: var(--size-progress-thin);
   --xgc-progress-track: var(--color-border);
   position: absolute;
   right: var(--space-sm);
