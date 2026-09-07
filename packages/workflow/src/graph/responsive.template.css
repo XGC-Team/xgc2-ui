@@ -1,0 +1,4 @@
+@media (max-width: {{mobile}}px) {
+  .xgc-graph-selection { inset-inline: var(--space-sm); inset-block-end: var(--size-header-page); }
+  .xgc-graph-caption { font-size: var(--font-xs); }
+}

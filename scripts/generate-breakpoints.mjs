@@ -26,6 +26,7 @@ const artifacts = [
   ...await Promise.all([
     ['packages/react/src/responsive.template.css', 'packages/react/src/responsive.generated.css'],
     ['apps/gallery/src/responsive.template.css', 'apps/gallery/src/responsive.generated.css'],
+    ['packages/workflow/src/graph/responsive.template.css', 'packages/workflow/src/graph/responsive.generated.css'],
   ].map(async ([template, output]) => {
     let content = await readFile(new URL(template, root), 'utf8');
     for (const name of names) content = content.replaceAll(`{{${name}}}`, String(breakpoints[name]));
