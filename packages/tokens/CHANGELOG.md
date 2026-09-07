@@ -1,5 +1,11 @@
 # @xgc2/ui-tokens
 
+## 0.10.4
+
+### Patch Changes
+
+- Add `--color-progress-failed` for last-run workflow node failure fills: dark `#ff8b82`, light `#e03d3d`. Keep `--color-danger` for destructive command surfaces.
+
 ## 0.10.3
 
 ### Patch Changes

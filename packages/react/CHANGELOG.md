@@ -1,5 +1,11 @@
 # @xgc2/ui-react
 
+## 0.16.10
+
+### Patch Changes
+
+- Paint danger progress fills with `--color-progress-failed` so a workflow node failure can keep a measured red bar on a default command tile. Solid Kill / E-stop tiles still use on-danger progress. A normal stop remains the idle gray track.
+
 ## 0.16.9
 
 ### Patch Changes

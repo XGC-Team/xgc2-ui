@@ -28,6 +28,39 @@ describe('WorkflowStatusCard', () => {
     expect(card.querySelector('[role="progressbar"]')).toHaveAttribute('aria-valuenow', '50');
   });
 
+  it('keeps a measured danger fill on a default command tile after a workflow node failure', () => {
+    const { container } = render(
+      <WorkflowStatusCard
+        ariaLabel="Build"
+        dataXgcId="build"
+        dataXgcRole="panel-action-invoke"
+        layout="tile"
+        metrics={{ primary: '' }}
+        onClick={() => undefined}
+        progress={{
+          color: 'var(--color-progress-failed)',
+          max: 1,
+          percent: 100,
+          tone: 'danger',
+          value: 1,
+        }}
+        running={false}
+        status="failed"
+        title="Build"
+        tone="neutral"
+      />,
+    );
+    const button = container.querySelector('[data-xgc-role="panel-action-invoke"]')!;
+    expect(button).toHaveAttribute('data-xgc-tone', 'neutral');
+    expect(button).toHaveAttribute('data-xgc-progress', '100');
+    expect(button).toHaveAttribute('data-xgc-status', 'failed');
+    expect(button.querySelector('.xgc-progress')).toHaveAttribute('data-xgc-tone', 'danger');
+    expect(button.querySelector('.xgc-progress-fill')).toHaveStyle({
+      '--xgc-progress-fill': 'var(--color-progress-failed)',
+      '--xgc-progress-percent': '100%',
+    });
+  });
+
   it('clamps progress and becomes a native button only when actionable', () => {
     const onClick = vi.fn();
     render(

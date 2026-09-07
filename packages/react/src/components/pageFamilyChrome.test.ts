@@ -130,6 +130,15 @@ describe('page-family visual geometry', () => {
     );
   });
 
+  it('paints failed workflow-node progress with the failed token, not Kill surfaces', () => {
+    const css = readFileSync(stylesPath, 'utf8');
+    const progress = ruleDeclarations(css, ".xgc-progress[data-xgc-tone='danger']");
+    expect(progress.get('--xgc-progress-fill')).toBe('var(--color-progress-failed)');
+    expect(css).not.toMatch(
+      /\.xgc-progress\[data-xgc-tone='danger'\]\s*\{\s*--xgc-progress-fill:\s*var\(--color-danger\)/,
+    );
+  });
+
   it('paints labeled danger commands with on-danger text from the danger scale', () => {
     const css = readFileSync(stylesPath, 'utf8');
     const labeled = ruleDeclarations(

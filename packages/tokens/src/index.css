@@ -209,6 +209,7 @@
   --color-selection-glow: #efd9aa;
   --color-success: #9ab58b;
   --color-progress-measured: #7ddc9a;
+  --color-progress-failed: #ff8b82;
   --color-warning: #d8b66e;
   --color-danger: #d58b83;
   --color-danger-strong: #e2a29b;
@@ -305,6 +306,7 @@
   --color-selection-glow: #8aa4f0;
   --color-success: #18733a;
   --color-progress-measured: #19c66b;
+  --color-progress-failed: #e03d3d;
   --color-warning: #7a5200;
   --color-danger: #b42318;
   --color-danger-strong: #9a1c14;

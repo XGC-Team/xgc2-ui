@@ -32,6 +32,7 @@ const requiredTokens = [
   '--color-text-on-danger',
   '--color-accent',
   '--color-progress-measured',
+  '--color-progress-failed',
   '--color-selection-highlight',
   '--color-selection-glow',
   '--space-2xs',
@@ -260,6 +261,13 @@ for (const skin of ['dark', 'light']) {
   if (measuredProgress !== expectedMeasuredProgress) {
     throw new Error(
       `${skin} --color-progress-measured must be ${expectedMeasuredProgress}`,
+    );
+  }
+  const failedProgress = tokens.get('--color-progress-failed');
+  const expectedFailedProgress = skin === 'dark' ? '#ff8b82' : '#e03d3d';
+  if (failedProgress !== expectedFailedProgress) {
+    throw new Error(
+      `${skin} --color-progress-failed must be ${expectedFailedProgress}`,
     );
   }
   for (const [foreground, background, minimum, role] of contrastContracts) {
