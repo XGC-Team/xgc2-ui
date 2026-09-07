@@ -1,5 +1,11 @@
 # @xgc2/ui-tokens
 
+## 0.10.3
+
+### Patch Changes
+
+- Add `--color-progress-measured` for measured-complete progress fills: dark `#7ddc9a`, light `#19c66b`. Keep `--color-success` for status copy.
+
 ## 0.10.2
 
 ### Patch Changes

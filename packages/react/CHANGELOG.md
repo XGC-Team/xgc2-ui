@@ -1,5 +1,11 @@
 # @xgc2/ui-react
 
+## 0.16.9
+
+### Patch Changes
+
+- Use `--size-progress-thin` for command-tile tracks and paint success progress with `--color-progress-measured` instead of forest `--color-success`.
+
 ## 0.16.8
 
 ### Patch Changes

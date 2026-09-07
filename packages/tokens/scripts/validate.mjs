@@ -31,6 +31,7 @@ const requiredTokens = [
   '--color-text-disabled',
   '--color-text-on-danger',
   '--color-accent',
+  '--color-progress-measured',
   '--color-selection-highlight',
   '--color-selection-glow',
   '--space-2xs',
@@ -254,6 +255,13 @@ const lightNeutralAlphaTokens = [
 
 for (const skin of ['dark', 'light']) {
   const tokens = hexTokens(skinBlock(skin));
+  const measuredProgress = tokens.get('--color-progress-measured');
+  const expectedMeasuredProgress = skin === 'dark' ? '#7ddc9a' : '#19c66b';
+  if (measuredProgress !== expectedMeasuredProgress) {
+    throw new Error(
+      `${skin} --color-progress-measured must be ${expectedMeasuredProgress}`,
+    );
+  }
   for (const [foreground, background, minimum, role] of contrastContracts) {
     const foregroundValue = tokens.get(foreground);
     const backgroundValue = tokens.get(background);

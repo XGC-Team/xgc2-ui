@@ -1,5 +1,11 @@
 # @xgc2/ui-policy
 
+## 0.16.9
+
+### Patch Changes
+
+- Keep policy paired with React 0.16.9 and its exact peer dependency. Existing policy rules remain unchanged.
+
 ## 0.16.8
 
 ### Patch Changes

@@ -4356,7 +4356,7 @@ button.xgc-workflow-status-card[data-xgc-layout='tile'][data-xgc-appearance='sol
 }
 
 .xgc-progress[data-xgc-tone='neutral'] { --xgc-progress-fill: var(--color-border-hover); }
-.xgc-progress[data-xgc-tone='success'] { --xgc-progress-fill: var(--color-success); }
+.xgc-progress[data-xgc-tone='success'] { --xgc-progress-fill: var(--color-progress-measured); }
 .xgc-progress[data-xgc-tone='warning'] { --xgc-progress-fill: var(--color-warning); }
 .xgc-progress[data-xgc-tone='danger'] { --xgc-progress-fill: var(--color-danger); }
 
