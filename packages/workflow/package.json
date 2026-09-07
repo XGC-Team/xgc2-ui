@@ -13,6 +13,10 @@
       "types": "./dist/types/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./graph": {
+      "types": "./dist/types/graph/index.d.ts",
+      "import": "./dist/graph.js"
+    },
     "./styles.css": "./dist/styles.css"
   },
   "scripts": {
