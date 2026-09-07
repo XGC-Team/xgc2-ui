@@ -174,6 +174,8 @@ export function createCytoscapeRenderer(cytoscape) {
       const visible = cy.nodes(':visible');
       if (!visible.length) return;
       cy.fit(visible, 90);
+      // A sparse graph must not magnify its labels into page headings.
+      if (cy.zoom() > 1.25) cy.viewport(viewportFor({ ...camera(), zoom: 1.25 }));
       initialFitPending = false;
     };
     applyFilter();
