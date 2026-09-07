@@ -1,0 +1,66 @@
+name: PDF reader plugin acceptance
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'packages/manuscript/**'
+      - 'scripts/package-pdf-reader-plugin.mjs'
+      - '.github/workflows/pdf-reader-plugin.yml'
+permissions:
+  contents: read
+jobs:
+  reader:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24.12.0'
+      - name: Install the exact workspace package manager and locked dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          manager=$(node -p "require('./package.json').packageManager")
+          [[ "$manager" =~ ^pnpm@[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          npm install --global "$manager" --ignore-scripts --no-audit --no-fund
+          pnpm install --frozen-lockfile
+      - name: Build shared controls and validate manuscript source
+        run: |
+          set -euo pipefail
+          pnpm --filter @xgc2/ui-tokens build
+          pnpm --filter @xgc2/ui-react build
+          pnpm --filter @xgc2/ui-manuscript typecheck
+          pnpm --filter @xgc2/ui-manuscript test
+      - name: Build the real optional reader bundle
+        run: |
+          set -euo pipefail
+          pnpm --filter @xgc2/ui-manuscript exec vite build --config vite.plugin.config.ts
+          node scripts/package-pdf-reader-plugin.mjs
+      - name: Retain source identity and bounded PDF.js dependency evidence
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/source evidence/dependencies/pdfjs-dist
+          git archive HEAD | tar -x -C evidence/source
+          git rev-parse HEAD > evidence/SOURCE_COMMIT
+          if [ -d packages/manuscript/node_modules/pdfjs-dist ]; then
+            tar -chf - --exclude=standard_fonts -C packages/manuscript/node_modules/pdfjs-dist . | tar -xf - -C evidence/dependencies/pdfjs-dist
+          fi
+          if [ -d packages/manuscript/plugin-dist ]; then cp -a packages/manuscript/plugin-dist evidence/; fi
+          if [ -d artifacts/pdf-reader ]; then cp -a artifacts/pdf-reader evidence/; fi
+          tar -czf pdf-reader-evidence.tar.gz -C evidence .
+          sha256sum pdf-reader-evidence.tar.gz > pdf-reader-evidence.sha256
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: pdf-reader-${{ github.sha }}
+          path: |
+            pdf-reader-evidence.tar.gz
+            pdf-reader-evidence.sha256
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
