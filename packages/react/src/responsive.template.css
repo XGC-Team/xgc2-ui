@@ -189,31 +189,3 @@
     justify-content: flex-start;
   }
 }
-
-@container xgc-workbench (max-width: {{compact}}px) {
-  .xgc-workbench {
-    --xgc-workbench-explorer-size: var(--size-grid-column-compact);
-    --xgc-workbench-inspector-size: 0px;
-  }
-
-  .xgc-workbench-inspector {
-    display: none;
-  }
-}
-
-@container xgc-workbench (max-width: {{mobile}}px) {
-  .xgc-workbench {
-    --xgc-workbench-activity-size: 0px;
-    --xgc-workbench-explorer-size: 0px;
-    grid-template-areas:
-      "editor"
-      "bottom"
-      "status";
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .xgc-workbench-activity,
-  .xgc-workbench-explorer {
-    display: none;
-  }
-}
