@@ -168,10 +168,18 @@ export function createCytoscapeRenderer(cytoscape) {
       if (cameraFrame) return;
       cameraFrame = requestAnimationFrame(() => { cameraFrame = 0; if (!disposed) { updateLabels(); options.onCamera?.(camera()); } });
     });
+    let initialFitPending = true;
+    const fitWhenVisible = () => {
+      if (!initialFitPending || container.clientWidth <= 0 || container.clientHeight <= 0) return;
+      const visible = cy.nodes(':visible');
+      if (!visible.length) return;
+      cy.fit(visible, 90);
+      initialFitPending = false;
+    };
     applyFilter();
-    if (index.nodes.size) cy.fit(cy.nodes(':visible'), 90);
+    fitWhenVisible();
     updateLabels();
-    const resizeObserver = new ResizeObserver(() => { if (!disposed) { cy.resize(); updateLabels(); } });
+    const resizeObserver = new ResizeObserver(() => { if (!disposed) { cy.resize(); fitWhenVisible(); updateLabels(); } });
     resizeObserver.observe(container);
     return {
       setIndex(next) {
@@ -181,7 +189,7 @@ export function createCytoscapeRenderer(cytoscape) {
         positions.clear(); merged.forEach((point, id) => positions.set(id, point));
         index = next; hovered = null;
         cy.batch(() => { cy.elements().remove(); cy.add(elements(next)); });
-        cy.viewport(viewportFor(current)); detailMode = !detailMode; applyFilter();
+        cy.viewport(viewportFor(current)); detailMode = !detailMode; applyFilter(); fitWhenVisible();
       },
       setFilter(next) { filter = { ...next }; applyFilter(); },
       setSelection(ids) { selected = reconcileSelection(index, ids, filter); highlight(); },
@@ -205,7 +213,7 @@ export function createCytoscapeRenderer(cytoscape) {
         animate({ zoom: next, pan: { x: x - (x - p.x) * next / z, y: y - (y - p.y) * next / z } });
       },
       resize() { if (!disposed) cy.resize(); }, camera,
-      restore(value) { if (![value.x, value.y, value.zoom].every(Number.isFinite) || value.zoom <= 0) return; cy.stop(); cy.viewport(viewportFor({ ...value, zoom: Math.max(cy.minZoom(), Math.min(cy.maxZoom(), value.zoom)) })); },
+      restore(value) { if (![value.x, value.y, value.zoom].every(Number.isFinite) || value.zoom <= 0) return; initialFitPending = false; cy.stop(); cy.viewport(viewportFor({ ...value, zoom: Math.max(cy.minZoom(), Math.min(cy.maxZoom(), value.zoom)) })); },
       capture() { return cy.png({ output: 'base64uri', bg: theme.background, full: false, scale: 2 }); },
       destroy() { if (disposed) return; disposed = true; cancelAnimationFrame(cameraFrame); resizeObserver.disconnect(); cy.stop(); cy.destroy(); container.style.cursor = ''; },
     };
