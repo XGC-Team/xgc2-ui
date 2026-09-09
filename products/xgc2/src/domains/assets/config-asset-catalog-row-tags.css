@@ -1,0 +1,13 @@
+/* Shared catalog add-tag: square hit box, pill radius so "+" reads as a circle. */
+.config-asset-catalog-edit-tags {
+  box-sizing: border-box;
+  width: 26px;
+  min-width: 26px;
+  max-width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: var(--radius-pill);
+  flex: 0 0 26px;
+  font-size: var(--font-lg);
+  line-height: var(--line-height-none);
+}

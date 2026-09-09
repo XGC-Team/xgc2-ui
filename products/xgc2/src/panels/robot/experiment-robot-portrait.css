@@ -1,0 +1,50 @@
+/* Local illustration materials. Geometry and lighting come from one 3D view. */
+.experiment-robot-portrait {
+  --portrait-body-high: color-mix(in srgb, var(--color-bg-surface) 92%, var(--color-text-heading));
+  --portrait-body-low: color-mix(in srgb, var(--color-bg-surface) 55%, var(--color-text-heading));
+  --portrait-payload-high: var(--color-bg-surface);
+  --portrait-payload-low: color-mix(in srgb, var(--color-bg-surface) 78%, var(--color-text-heading));
+  --portrait-tire-high: color-mix(in srgb, var(--color-text-heading) 72%, var(--color-bg-surface));
+  --portrait-tire-low: var(--color-text-heading);
+  --portrait-metal-high: color-mix(in srgb, var(--color-bg-surface) 68%, var(--color-text-heading));
+  --portrait-metal-low: var(--color-text-muted);
+  --portrait-propeller-high: var(--color-text-muted);
+  --portrait-propeller-low: var(--color-text-heading);
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+  flex: 0 0 auto;
+  pointer-events: none;
+}
+
+[data-skin='dark'] .experiment-robot-portrait {
+  --portrait-body-high: color-mix(in srgb, var(--color-text-heading) 53%, var(--color-bg-surface));
+  --portrait-body-low: color-mix(in srgb, var(--color-text-heading) 22%, var(--color-bg-surface));
+  --portrait-payload-high: color-mix(in srgb, var(--color-text-heading) 80%, var(--color-bg-surface));
+  --portrait-payload-low: color-mix(in srgb, var(--color-text-heading) 48%, var(--color-bg-surface));
+  --portrait-tire-high: color-mix(in srgb, var(--color-text-heading) 24%, var(--color-bg-surface));
+  --portrait-tire-low: var(--color-bg-canvas);
+  --portrait-metal-high: var(--color-text-muted);
+  --portrait-metal-low: color-mix(in srgb, var(--color-text-heading) 24%, var(--color-bg-surface));
+  --portrait-propeller-high: color-mix(in srgb, var(--color-text-heading) 45%, var(--color-bg-surface));
+  --portrait-propeller-low: color-mix(in srgb, var(--color-text-heading) 20%, var(--color-bg-surface));
+}
+
+.experiment-robot-portrait-shadow-center { stop-color: var(--color-text-heading); stop-opacity: 0.13; }
+.experiment-robot-portrait-shadow-edge { stop-color: var(--color-text-heading); stop-opacity: 0; }
+.experiment-robot-portrait-face { stroke-width: 0; stroke-linejoin: round; }
+.experiment-robot-portrait-body {
+  transform-origin: 110px 110px;
+  transition: transform var(--duration-deliberate) var(--easing-standard);
+}
+.experiment-robot-portrait[data-selected='true'] .experiment-robot-portrait-body,
+.experiment-robot-portrait-host:is(:hover, :focus-visible) .experiment-robot-portrait-body {
+  transform: translateY(-2px);
+}
+.experiment-robot-portrait[data-motion='false'] .experiment-robot-portrait-body {
+  transition: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .experiment-robot-portrait-body { transition: none; }
+}

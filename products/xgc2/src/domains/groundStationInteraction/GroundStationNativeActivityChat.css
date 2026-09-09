@@ -1,0 +1,56 @@
+.xgc-ground-station-chat-panel.ground-station-native-chat {
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.ground-station-conversation-header-leading,
+.ground-station-conversation-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+}
+
+.ground-station-conversation-picker {
+  min-width: 0;
+  max-width: min(16rem, 45vw);
+}
+
+[data-xgc-role='ground-station-remote-dock']:empty {
+  display: none;
+}
+
+[data-xgc-role='ground-station-remote-dock']:not(:empty) {
+  display: grid;
+  gap: var(--space-md);
+  min-width: 0;
+}
+
+.ground-station-remote-message {
+  min-width: 0;
+  --remote-message-height: calc(5 * var(--size-control-compact) + 2 * var(--space-xs) + 4 * var(--space-sm) + 2 * var(--stroke-thin));
+}
+.ground-station-remote-message [data-xgc-role='ground-station-remote-dock'] {
+  box-sizing: border-box;
+  width: min(16rem, 100%);
+  height: var(--remote-message-height);
+}
+.ground-station-remote-message [data-xgc-role='ground-station-remote-dock']:empty {
+  display: block;
+}
+.ground-station-remote-message .robot-remote-window-docked {
+  width: 100%;
+  height: 100%;
+  grid-template-rows: var(--size-control-compact) var(--size-control-compact) auto;
+}
+.ground-station-remote-message-source {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-xs);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+.ground-station-remote-message-closed {
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  overflow-wrap: anywhere;
+}

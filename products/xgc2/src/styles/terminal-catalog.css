@@ -1,0 +1,13 @@
+/*
+ * Terminal Hosts catalog.
+ * Page shell uses ListPageHost + ListPage (same light shell as Experiments).
+ */
+
+.terminal-list-shell {
+  max-height: none;
+}
+
+/* Drawer body is xgc-config-form; no private form skin. */
+.terminal-form-card.xgc-config-form {
+  min-width: 0;
+}

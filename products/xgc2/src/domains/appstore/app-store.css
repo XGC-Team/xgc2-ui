@@ -1,0 +1,68 @@
+/* App Store page chrome: tabs + search fixed; only the body (cards) scrolls. */
+
+.app-store-page {
+  box-sizing: border-box;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  overflow: hidden;
+  font-size: var(--xgc-shell-ui-font-size, var(--font-base));
+}
+
+.app-store-chrome {
+  flex: 0 0 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-lg);
+  min-height: var(--size-control-default);
+}
+
+.app-store-body {
+  flex: 1 1 0;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  /* Side + bottom inset so cards are not flush against the scrollbar track. */
+  padding: 0 var(--space-lg) var(--space-lg);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+/* The shared SegmentedControl owns tab chrome and interaction states. */
+.app-store-tabs {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.app-store-search {
+  width: min(320px, 36vw);
+  flex: 0 1 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.app-store-search > .xgc-search-control {
+  flex: 1;
+  min-width: 0;
+}
+
+/* xgc-viewport-scope: app-store */
+@media (max-width: 820px) {
+  .app-store-chrome {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .app-store-search {
+    width: 100%;
+  }
+}

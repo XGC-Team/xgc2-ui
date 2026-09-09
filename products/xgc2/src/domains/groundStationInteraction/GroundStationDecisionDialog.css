@@ -1,0 +1,12 @@
+.xgc-ground-station-decision-dialog-copy {
+  display: grid;
+  gap: var(--space-xl);
+}
+
+.xgc-ground-station-decision-dialog-copy > p {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--color-text);
+  line-height: var(--line-height-normal);
+  white-space: pre-wrap;
+}

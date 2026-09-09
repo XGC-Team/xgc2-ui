@@ -1,0 +1,65 @@
+/* App Store drawer domain layout; form-section chrome comes from shared UI. */
+
+.app-store-drawer-surface {
+  width: min(560px, calc(100vw - 280px));
+}
+
+.app-store-drawer-install {
+  width: min(560px, calc(100vw - 280px));
+}
+
+/* Overview block inside the shared full-width section span. */
+.app-store-drawer-overview {
+  display: grid;
+  gap: var(--space-lg);
+  min-width: 0;
+}
+
+.app-store-drawer-description {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--xgc-shell-ui-font-size, var(--font-base));
+  line-height: var(--line-height-relaxed);
+}
+
+.app-store-drawer-tags {
+  margin-top: 0;
+  min-height: 0;
+}
+
+.app-store-drawer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  align-items: center;
+}
+
+.app-store-drawer-diff {
+  min-height: 240px;
+  max-height: min(50vh, 28rem);
+  display: flex;
+  flex-direction: column;
+}
+
+.app-store-drawer-diff pre {
+  min-height: 0;
+  max-height: none;
+  flex: 1 1 auto;
+  white-space: pre-wrap;
+}
+
+/* xgc-viewport-scope: drawer */
+@media (max-width: 820px) {
+  .app-store-drawer-surface,
+  .app-store-drawer-install {
+    width: min(620px, calc(100vw - 72px));
+  }
+}
+
+/* xgc-viewport-scope: drawer */
+@media (max-width: 720px) {
+  .app-store-drawer-surface,
+  .app-store-drawer-install {
+    width: 100vw;
+  }
+}

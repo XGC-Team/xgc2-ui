@@ -1,0 +1,406 @@
+.automation-execution-runtime-detail {
+  flex: 0 0 auto;
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  overflow: visible;
+  border-top: var(--stroke-thin) solid var(--color-border);
+}
+.automation-execution-details-panel,
+.automation-execution-nodes {
+  min-width: 0;
+  min-height: 0;
+  padding: var(--space-lg);
+  overflow: visible;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+.automation-execution-details-panel {
+  display: grid;
+  align-content: start;
+  gap: var(--space-lg);
+  background: var(--color-bg-surface);
+  border-bottom: var(--stroke-thin) solid var(--color-border);
+}
+.automation-execution-panel-label,
+.automation-execution-nodes > header {
+  min-height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+}
+.automation-execution-panel-label strong,
+.automation-execution-nodes > header strong {
+  color: var(--color-text-heading);
+  font-size: var(--font-base);
+  font-weight: var(--weight-semibold);
+}
+.automation-execution-summary {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: var(--space-md);
+  padding: var(--space-lg) var(--space-lg);
+  background: var(--color-bg-subtle);
+  border-bottom: var(--stroke-thin) solid var(--color-border);
+}
+.automation-execution-summary > div,
+.automation-execution-summary dl > div {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-xs);
+}
+.automation-execution-summary dt,
+.automation-execution-summary span,
+.automation-execution-summary small {
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.automation-execution-summary dd,
+.automation-execution-summary strong,
+.automation-execution-summary code {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--color-text-heading);
+  font-size: var(--font-md);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.automation-execution-summary code {
+  font-family: var(--font-mono);
+}
+.automation-execution-nodes {
+  display: grid;
+  align-content: start;
+  gap: var(--space-md);
+  background: var(--color-bg-canvas);
+}
+.automation-execution-node {
+  min-width: 0;
+  min-height: 52px;
+  display: block;
+  color: var(--color-text);
+  background: transparent;
+  border: 0;
+  border-bottom: var(--stroke-thin) solid var(--color-border);
+  border-radius: 0;
+}
+.automation-execution-node > summary {
+  min-width: 0;
+  min-height: 50px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-md) var(--space-lg);
+  padding: var(--space-lg) var(--space-lg);
+  cursor: pointer;
+  list-style-position: inside;
+}
+.automation-execution-node[open] > summary {
+  border-bottom: var(--stroke-thin) solid var(--color-border);
+}
+.automation-execution-node > summary > div {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-xs);
+}
+.automation-execution-node > summary > div:last-child {
+  justify-items: end;
+}
+.automation-execution-node strong,
+.automation-execution-node span,
+.automation-execution-node small,
+.automation-execution-node code {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.automation-execution-node strong {
+  color: var(--color-text-heading);
+  font-size: var(--font-base);
+}
+.automation-execution-node span,
+.automation-execution-node small,
+.automation-execution-node code {
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+}
+.automation-execution-node code {
+  font-family: var(--font-mono);
+}
+.automation-execution-node-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-sm);
+  margin: 0;
+  padding: var(--space-md) var(--space-lg) 0;
+}
+.automation-execution-node-facts > div {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-xs);
+  padding: var(--space-md) 0;
+  background: transparent;
+  border-radius: 0;
+}
+.automation-execution-node-facts dt {
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+}
+.automation-execution-node-facts dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--color-text-heading);
+  font-size: var(--font-md);
+}
+.automation-execution-node-data {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-lg) var(--space-lg);
+}
+.automation-execution-node-data > section {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: var(--space-sm);
+}
+.automation-execution-facts > div {
+  min-width: 0;
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+}
+
+.automation-execution-details-panel > .automation-execution-summary {
+  padding: var(--space-xs) 0 var(--space-lg);
+  background: transparent;
+  border: 0;
+  border-bottom: var(--stroke-thin) solid var(--color-border);
+  border-radius: 0;
+}
+
+.automation-execution-details-panel > .automation-execution-summary {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.automation-execution-details-panel > .automation-execution-summary > div {
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+}
+
+.automation-execution-facts > div > span {
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+}
+
+.automation-execution-facts > div > strong {
+  display: block;
+  margin-top: var(--space-xs);
+  overflow: hidden;
+  font-size: var(--font-md);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.automation-run-technical-details {
+  min-width: 0;
+  border-top: var(--stroke-thin) solid var(--color-border);
+  border-bottom: var(--stroke-thin) solid var(--color-border);
+}
+
+.automation-run-technical-details > summary {
+  min-height: 36px;
+  padding: var(--space-md) var(--space-lg);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: var(--font-md);
+  font-weight: var(--weight-medium);
+}
+
+.automation-run-technical-details > summary:hover {
+  color: var(--color-text-heading);
+  background: var(--color-bg-surface-hover);
+}
+
+.automation-run-technical-facts {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border: 0;
+}
+
+.automation-run-technical-facts code {
+  display: block;
+  margin-top: var(--space-xs);
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.automation-run-technical-details > .automation-execution-relationships {
+  margin: 0 var(--space-lg) var(--space-lg);
+}
+
+.automation-execution-details-panel > .automation-run-technical-details {
+  border-top: 0;
+}
+
+.automation-execution-details-panel > .automation-run-technical-details > summary {
+  padding-inline: 0;
+}
+
+.automation-execution-details-panel > .automation-run-technical-details > .automation-run-technical-facts {
+  padding-inline: 0;
+  background: transparent;
+}
+
+.automation-execution-nodes > .automation-occurrences-section {
+  margin-bottom: var(--space-md);
+  padding-bottom: var(--space-lg);
+  border-bottom: var(--stroke-thin) solid var(--color-border);
+}
+
+@container xgc-workspace (max-width: 980px) {
+  .automation-execution-runtime-detail {
+    grid-template-columns: minmax(0, 1fr);
+    overflow: visible;
+  }
+
+  .automation-execution-details-panel {
+    padding: var(--space-md);
+    border-right: 0;
+    border-bottom: var(--stroke-thin) solid var(--color-border);
+  }
+}
+
+@container xgc-workspace (max-width: 700px) {
+  .automation-execution-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: var(--space-md) var(--space-md);
+  }
+
+  .automation-execution-nodes {
+    padding: var(--space-md);
+  }
+
+  .automation-execution-node-data {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .automation-execution-facts {
+    grid-template-columns: 1fr;
+  }
+}
+
+.automation-execution-relationships,
+.automation-execution-result {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: var(--space-md);
+  padding: var(--space-lg) 0 0;
+  background: transparent;
+  border: 0;
+  border-top: var(--stroke-thin) solid var(--color-border);
+  border-radius: 0;
+}
+
+.automation-execution-relationships > header {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.automation-execution-relationships > header strong,
+.automation-execution-result > section > strong {
+  color: var(--color-text-heading);
+  font-size: var(--font-md);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.automation-execution-relationships .automation-execution-node-facts {
+  padding: 0;
+}
+
+.automation-execution-facts dt,
+.automation-execution-facts span,
+.automation-execution-facts small {
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.automation-execution-run-termination {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-md);
+  margin: 0;
+  padding: var(--space-lg) 0 0;
+  background: transparent;
+  border: 0;
+  border-top: var(--stroke-thin) solid var(--color-border-danger);
+  border-radius: 0;
+}
+
+.automation-execution-run-termination > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  color: var(--color-text-heading);
+  font-size: var(--font-md);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+.automation-execution-run-termination > header span,
+.automation-execution-run-termination > div > span {
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.automation-execution-run-termination p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-md);
+  line-height: var(--line-height-normal);
+  overflow-wrap: anywhere;
+}
+
+.automation-execution-run-termination > div {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-xs);
+}
+
+.automation-execution-run-termination code {
+  color: var(--color-text-heading);
+  font-family: var(--font-mono);
+  font-size: var(--font-sm);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.automation-execution-run-termination ul {
+  display: grid;
+  gap: var(--space-xs);
+  margin: 0;
+  padding-left: var(--space-xl);
+}

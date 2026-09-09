@@ -1,0 +1,40 @@
+.automation-rosbag-fields,
+.automation-rosbag-section {
+  min-width: 0;
+  display: grid;
+}
+
+.automation-rosbag-section {
+  gap: var(--space-md);
+}
+
+.automation-rosbag-fields {
+  gap: var(--space-xl);
+}
+
+[data-xgc-role="automation-rosbag-presets"] {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-xl);
+}
+
+[data-xgc-role="automation-rosbag-robots"] [data-xgc-role="automation-node-parameter"] {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.automation-rosbag-topic-editor {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.automation-rosbag-topic-editor > [data-xgc-role="automation-rosbag-topic-preset"] {
+  width: min(100%, 260px);
+  justify-self: end;
+}
+
+.automation-rosbag-section {
+  padding: 0;
+}

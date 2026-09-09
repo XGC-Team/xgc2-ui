@@ -1,0 +1,100 @@
+/* LogsView owns orchestration log navigation and stream layout. */
+.automation-workflow-logs {
+  min-height: 0;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: minmax(170px, 24%) minmax(0, 1fr);
+  background: var(--color-bg-surface);
+}
+
+.automation-workflow-logs .automation-workflow-logs-main {
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+
+.automation-workflow-job-logs,
+.automation-workflow-orchestration-lifecycle {
+  padding: var(--space-sm);
+}
+
+.automation-workflow-job-logs {
+  min-height: 240px;
+  flex: 1 0 240px;
+  display: flex;
+  flex-direction: column;
+  border-bottom: var(--stroke-thin) solid var(--color-border);
+}
+
+.automation-workflow-job-logs > header,
+.automation-workflow-orchestration-lifecycle > header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-sm);
+}
+
+.automation-workflow-job-logs > header > span,
+.automation-workflow-orchestration-lifecycle > header > span {
+  color: var(--color-text-muted);
+  font-size: var(--font-xs);
+}
+
+.automation-workflow-orchestration-lifecycle {
+  min-height: 240px;
+  flex: 1 0 240px;
+  display: flex;
+  flex-direction: column;
+}
+
+.automation-workflow-logs .execution-log-section {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  overflow: hidden;
+  margin-top: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.automation-workflow-logs .execution-log-section > header {
+  flex: 0 0 auto;
+}
+
+.automation-workflow-logs .execution-log-stream-grid {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+.automation-workflow-logs .execution-log-stream {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.automation-workflow-logs .execution-log-section pre {
+  flex: 1;
+  max-height: none;
+  min-height: 0;
+}
+
+@container automation-workflow (max-width: 620px) {
+  .automation-workflow-logs {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto minmax(0, 1fr);
+  }
+
+  .automation-workflow-logs .execution-log-stream-grid {
+    grid-template-columns: 1fr;
+  }
+
+}

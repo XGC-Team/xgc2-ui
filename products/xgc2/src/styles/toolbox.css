@@ -1,0 +1,254 @@
+/*
+ * Toolbox / System → Maintenance layout.
+ *
+ * Toolbar + white table page. The page fills leftover height; rows do not.
+ */
+
+.xgc-workspace-content > .toolbox-page.xgc-workspace-full-span,
+.xgc-workspace-content > [data-xgc-route-page="system"][data-xgc-route-slot="system::maintenance"]:not([hidden]) {
+  width: 100%;
+  max-width: none;
+  justify-self: stretch;
+}
+
+.toolbox-page {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-layout-default);
+  overflow: hidden;
+  font-size: var(--xgc-shell-ui-font-size, var(--font-base));
+  line-height: var(--line-height-normal);
+}
+
+.toolbox-page > [data-xgc-role="system-host-settings"] {
+  flex: 0 0 auto;
+  width: min(100%, 800px);
+  max-width: 800px;
+  align-self: start;
+}
+
+/* Default sections stay natural height (catalog). */
+.toolbox-section {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: none;
+  flex: 0 0 auto;
+  min-height: 0;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-panel-section-gap);
+  overflow: hidden;
+}
+
+/*
+ * Cleanup workspace claims remaining page height.
+ * Catalog / host policy above stay auto; this section + its table fill the rest.
+ */
+.toolbox-section[data-xgc-role="cleanup-section"] {
+  flex: 1 1 0;
+  min-height: 0;
+  height: auto;
+  max-height: none;
+  overflow: hidden;
+}
+
+.toolbox-cleanup-layout {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 0;
+  overflow: hidden;
+}
+
+.toolbox-toolbar {
+  box-sizing: border-box;
+  padding-block: var(--space-sm);
+  padding-inline: var(--stroke-strong);
+  flex: 0 0 auto;
+  width: 100%;
+  min-width: 0;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--space-panel-section-gap);
+}
+
+.toolbox-actions {
+  display: inline-flex;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--space-control-gap);
+  margin-left: auto;
+}
+
+.toolbox-summary {
+  min-width: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--space-2xs) var(--space-lg);
+  margin: 0;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--font-base);
+  line-height: var(--line-height-normal);
+}
+
+.toolbox-summary-item,
+.toolbox-summary > span {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-sm);
+  white-space: nowrap;
+}
+
+.toolbox-summary strong {
+  color: var(--color-text-heading);
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * White content page under the toolbar. It fills leftover viewport height.
+ * The shared body-scroll table is the row viewport; this region is the card,
+ * not a second scroll surface.
+ */
+.toolbox-table-region {
+  flex: 1 1 0;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--background-surface);
+  border: var(--stroke-thin) solid var(--color-border-muted);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.toolbox-cleanup-table-shell {
+  min-height: 0;
+  flex: 1 1 0;
+  width: 100%;
+  min-width: 0;
+  align-self: stretch;
+  /* Layout (flex column, fixed thead, scrolling tbody) is owned by the shared
+   * data-table body-scroll mode — do not re-declare display/overflow here. */
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  font-size: var(--xgc-shell-ui-font-size, var(--font-base));
+  line-height: var(--line-height-normal);
+}
+
+.toolbox-table-region .toolbox-cleanup-table th {
+  background: var(--color-bg-subtle);
+}
+
+/* Capability title decoration inside shared SettingRow. */
+.toolbox-capability-title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-md);
+  min-width: 0;
+}
+
+.toolbox-capability-title svg {
+  flex: 0 0 auto;
+  color: var(--color-accent);
+}
+
+.toolbox-cleanup-table {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+  font-size: inherit;
+}
+
+.toolbox-cleanup-table th {
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.toolbox-cleanup-table th:nth-child(1) { width: 2.5rem; }
+.toolbox-cleanup-table th:nth-child(2) { width: auto; }
+.toolbox-cleanup-table th:nth-child(3) { width: 6.5rem; }
+.toolbox-cleanup-table th:nth-child(4) { width: 7.5rem; }
+
+.toolbox-cleanup-table tbody tr {
+  cursor: pointer;
+}
+
+/* Selected fill only — shared inset ring stacks on collapsed table borders. */
+.toolbox-cleanup-table tbody tr[data-selected='true'] {
+  background: var(--color-bg-active);
+  box-shadow: none;
+  outline: 0;
+}
+
+.toolbox-cleanup-table tbody tr[data-selected='true']:hover {
+  background: var(--color-bg-active);
+  box-shadow: none;
+}
+
+.toolbox-cleanup-table tbody tr[data-selected='true'] > td {
+  background: inherit;
+  box-shadow: none;
+  outline: 0;
+}
+
+.toolbox-cleanup-table tbody tr[data-selected='true']:focus-visible {
+  outline: var(--stroke-thin) solid var(--color-border-focus);
+  outline-offset: calc(-1 * var(--stroke-strong));
+}
+
+.toolbox-cleanup-name {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-heading);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.toolbox-cleanup-count,
+.toolbox-cleanup-size {
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.toolbox-cleanup-size {
+  color: var(--color-text-heading);
+}
+
+.toolbox-page .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@container xgc-workspace (max-width: 640px) {
+  .toolbox-cleanup-table th:nth-child(3),
+  .toolbox-cleanup-table td:nth-child(3) {
+    display: none;
+  }
+}

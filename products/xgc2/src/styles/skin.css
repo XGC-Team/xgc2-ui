@@ -1,0 +1,44 @@
+/*
+ * XGC2 domain tokens only.
+ *
+ * Cross-product spacing, typography, radii, elevation, controls, scrollbars,
+ * and the complete light/dark skin contract are owned by @xgc2/ui-tokens.
+ * Do not mirror shared values here or introduce compatibility aliases.
+ */
+:root {
+  /* Always-dark flight instruments are domain visuals, not application skin. */
+  --color-robot-flight-accent: rgb(202, 198, 103);
+  --color-robot-flight-sky: rgba(48, 100, 162, 0.9);
+  --color-robot-flight-ground: rgb(52, 69, 87);
+  --color-robot-flight-dark-tick: rgb(149, 157, 182);
+  --color-robot-flight-surface-center: rgba(20, 25, 35, 0.95);
+  --color-robot-flight-surface-edge: rgba(15, 20, 30, 0.98);
+  --color-robot-flight-offline-center: rgba(20, 24, 31, 0.92);
+  --color-robot-flight-offline-edge: rgba(10, 13, 18, 0.98);
+  --color-robot-flight-offline-border: rgba(111, 119, 135, 0.34);
+  --color-robot-flight-header-shade: rgba(0, 0, 0, 0.54);
+  --color-robot-flight-metric-surface: rgba(13, 42, 94, 0.59);
+  --color-robot-flight-metric-border: rgba(255, 255, 255, 0.72);
+  --color-robot-flight-metric-inner: rgb(30, 49, 96);
+  --color-robot-flight-status-text: rgba(255, 255, 255, 0.95);
+  --color-robot-flight-separator: rgba(255, 255, 255, 0.12);
+  --color-robot-flight-panel-start: rgba(15, 20, 30, 0.5);
+  --color-robot-flight-panel-end: rgba(15, 20, 30, 0.82);
+  /* Opaque fill under the glass overlay, shared by the bottom bar and MODE bump. */
+  --color-robot-flight-panel-fill: rgb(15, 20, 30);
+  --color-robot-flight-panel-edge: rgba(255, 255, 255, 0.08);
+  --color-robot-flight-label: rgba(255, 255, 255, 0.52);
+  --color-robot-flight-value: rgba(255, 255, 255, 0.96);
+  --color-robot-flight-frequency-danger: #ff4444;
+  --color-robot-flight-frequency-success: #00e676;
+  --color-robot-flight-hint: rgba(255, 255, 255, 0.48);
+  --color-robot-flight-compass-surface: rgba(30, 35, 45, 0.92);
+  --color-robot-flight-compass-border: rgba(255, 255, 255, 0.8);
+  --color-robot-flight-direction-shadow: rgba(0, 0, 0, 0.8);
+  --color-robot-flight-compass-tick: rgba(255, 255, 255, 0.46);
+  --color-robot-flight-compass-tick-major: rgba(255, 255, 255, 0.82);
+  --color-robot-flight-heading-surface: rgba(0, 0, 0, 0.7);
+
+  --shadow-robot-flight-panel-edge: inset 0 var(--stroke-thin) 0 var(--color-robot-flight-panel-edge);
+  --shadow-robot-flight-direction: 0 var(--stroke-thin) var(--space-2xs) var(--color-robot-flight-direction-shadow);
+}

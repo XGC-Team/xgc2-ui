@@ -1,0 +1,26 @@
+/*
+ * System → Runtime shell.
+ * Mirrors Containers: page host fills height; main column is flex fill;
+ * leaf shared Panel owns toolbar + table scroll region.
+ */
+
+.xgc-host-runtime {
+  width: 100%;
+  max-width: none;
+}
+
+.xgc-host-runtime-main {
+  flex: 1 1 0;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  overflow: hidden;
+}
+
+.xgc-host-runtime-main > .xgc-host-runtime-section {
+  flex: 1 1 0;
+  min-height: 0;
+}

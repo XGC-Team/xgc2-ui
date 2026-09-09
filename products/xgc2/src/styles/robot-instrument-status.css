@@ -1,0 +1,107 @@
+.robot-instrument-status-icons {
+  flex: 0 0 auto;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: var(--size-icon-lg);
+  justify-content: start;
+  align-items: center;
+  gap: var(--space-2xs);
+}
+
+.robot-instrument-status-glyph {
+  box-sizing: border-box;
+  width: var(--size-icon-lg);
+  height: var(--size-icon-lg);
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.robot-instrument-status-glyph[data-xgc-placement="ground-header"] .robot-instrument-connection-group {
+  width: 100%;
+  margin-right: 0;
+}
+
+.robot-instrument-status-glyph[data-xgc-tone="muted"],
+.robot-instrument-battery[data-xgc-tone="muted"] {
+  color: var(--color-text-disabled);
+}
+
+.robot-instrument-status-glyph[data-xgc-tone="neutral"] {
+  color: var(--color-text-faint);
+}
+
+.robot-instrument-status-glyph[data-xgc-tone="success"],
+.robot-instrument-battery[data-xgc-tone="success"] {
+  color: var(--color-success);
+}
+
+.robot-instrument-status-glyph[data-xgc-tone="info"],
+.robot-instrument-battery[data-xgc-tone="info"] {
+  color: var(--color-chart-line);
+}
+
+.robot-instrument-status-glyph[data-xgc-tone="warning"],
+.robot-instrument-battery[data-xgc-tone="warning"] {
+  color: var(--color-warning);
+}
+
+.robot-instrument-status-glyph[data-xgc-tone="danger"],
+.robot-instrument-battery[data-xgc-tone="danger"] {
+  color: var(--color-danger);
+}
+
+.robot-instrument-power-details {
+  margin-left: 3px;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--font-xs);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--line-height-none);
+  white-space: nowrap;
+}
+
+.robot-instrument-connection-group {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.robot-instrument-connection-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--size-icon-sm);
+  height: var(--size-icon-sm);
+}
+
+.robot-instrument-location-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--size-icon-xs);
+  height: var(--size-icon-xs);
+}
+
+.robot-instrument-battery .shell {
+  fill: color-mix(in srgb, var(--color-bg-app) 30%, transparent);
+}
+
+.robot-instrument-battery .terminal,
+.robot-instrument-battery .level {
+  fill: currentcolor;
+}
+
+.robot-instrument-battery text {
+  fill: var(--color-text-inverse);
+  font-family: var(--font-mono);
+  text-shadow: 0 0 2px color-mix(in srgb, var(--color-bg-app) 80%, transparent);
+}
+
+@container (max-width: 320px) {
+  .robot-instrument-battery[data-xgc-placement="ground-vitals"] {
+    display: none;
+  }
+}

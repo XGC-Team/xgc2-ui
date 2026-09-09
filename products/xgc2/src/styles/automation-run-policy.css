@@ -1,0 +1,90 @@
+.automation-run-policy-setting {
+  min-width: 0;
+  flex: 0 0 auto;
+}
+
+.automation-run-policy-static-summary {
+  height: var(--size-control-default);
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  padding: 0 var(--space-md);
+  color: var(--color-text-muted);
+  font-size: var(--xgc-shell-ui-font-size);
+  font-weight: var(--weight-regular);
+  line-height: var(--size-control-navigation);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: default;
+}
+
+.automation-run-policy-summary {
+  min-width: 0;
+  max-width: var(--size-grid-column-compact);
+  gap: var(--space-md);
+  overflow: hidden;
+}
+
+.automation-run-policy-summary-label {
+  min-width: 0;
+  overflow: hidden;
+  /* Normal line-height so descenders (g/y/p) of the visible summary are not
+   * clipped by the label box; the container keeps its height and centering. */
+  line-height: var(--line-height-normal);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.automation-run-policy-chevron {
+  width: var(--size-icon-xs);
+  height: var(--size-icon-xs);
+  flex: 0 0 var(--size-icon-xs);
+  transition: transform var(--duration-quick) var(--easing-standard);
+}
+
+.automation-run-policy-chevron[data-xgc-open="true"] {
+  transform: rotate(180deg);
+}
+
+.automation-run-policy-fields {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-lg);
+  padding: var(--space-lg);
+  color: var(--color-text-muted);
+  white-space: normal;
+}
+
+.automation-run-policy-fields > [data-xgc-role$="-field"] {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-sm);
+  color: var(--color-text-softer);
+  font-size: var(--font-md);
+}
+
+.automation-run-policy-admission-mode-options {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-sm);
+  color: var(--color-text-softer);
+  font-size: var(--font-md);
+}
+
+.automation-run-policy-admission-mode-control {
+  width: 100%;
+}
+
+.automation-run-policy-admission-mode-option {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.automation-run-policy-control,
+[data-xgc-role="automation-admission-limit"] {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}

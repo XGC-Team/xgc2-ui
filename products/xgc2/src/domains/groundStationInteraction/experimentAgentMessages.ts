@@ -1,0 +1,31 @@
+import { useLocalizedText,type MessageCatalog } from '../../shared/localization/localizedText';
+export const experimentAgentZhMessages: MessageCatalog = {
+  'Controlled experiment services': '受控实验服务',
+  'Allow proposed Actions': '允许提出需审批的 Action',
+  'Station sign-in': '站点身份验证',
+  'Station fingerprint': '站点指纹',
+  'Deployment invite': '部署邀请凭证',
+  'Station credential': '站点专属凭证',
+  'Sign in': '验证并登录',
+  'Sign out and revoke delegated access': '退出并撤销派生授权',
+  'A station credential is stored; Core revalidates it on every request.': '已保存临时站点凭证；Core 会在每次请求时复核权限。',
+  'Sign-in failed. Check the configured invite and station-specific credential.': '验证失败，请核对部署邀请凭证和站点专属凭证。',
+  'Delegations': '会话授权',
+  'Refresh authorizations': '刷新授权',
+  'Revoke': '撤销',
+  'Experiment tools': '实验工具',
+  'Experiment tools are not authorized.': '实验工具尚未授权。',
+  'Experiment tools authorized': '实验工具已授权',
+  'No live delegation is listed. Reconnect with explicit consent to enroll.': '当前没有有效授权。请明确授权后新建或续接会话。',
+
+  'Frozen Action review': '冻结 Action 审批',
+  'Queued for execution': '已加入执行队列',
+  'Approval only admits a command. Check the Run for execution outcome.': '审批只将命令入队，实际执行结果必须查看 Run。',
+  'Experiment scope': '实验范围', 'Session': '执行 Session', 'Conversation': '对话',
+  'Action': '操作', 'Binding': '工作流绑定',
+  'Required capabilities': '审批人必须具备的权限',
+  'Frozen identities': '冻结身份与摘要',
+  'Admitted Run': '已入队 Run',
+  'Expires': '到期时间',
+};
+export function useExperimentAgentText() { return useLocalizedText(experimentAgentZhMessages); }

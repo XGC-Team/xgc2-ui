@@ -1,0 +1,101 @@
+/*
+ * System (host) page shell — Containers-aligned fill contract.
+ *
+ * Every System host tab stays inside the workspace viewport. Workspace chrome
+ * (width / overflow) does not change when switching Overview / Files / Runtime /
+ * Host / SSH: section switch is a desktop tab, not a web page (V12).
+ * Files / Runtime / SSH own internal table scrolling. Overview tables stay
+ * content-height and scroll inside .xgc-host-overview (do not stretch rows).
+ * Maintenance is ToolboxRoute (`system::maintenance`), not this host-page shell.
+ */
+
+.xgc-workspace-content > .xgc-host-page.xgc-workspace-full-span,
+.xgc-workspace-content > [data-xgc-route-page="system"]:not([hidden]):has(> .xgc-host-page) {
+  width: 100%;
+  max-width: none;
+  justify-self: stretch;
+}
+
+/*
+ * Host tabs own their body scroll. Do not let the workspace reserve a
+ * scrollbar gutter beside the page topbar, and do not toggle overflow with
+ * the selected section (that paints a page-level scrollbar on Overview only).
+ */
+.xgc-workspace-content:has(> .xgc-host-page.xgc-workspace-full-span),
+.xgc-workspace-content:has(> [data-xgc-route-page="system"]:not([hidden]) > .xgc-host-page) {
+  overflow: hidden;
+  scrollbar-gutter: auto;
+}
+
+.xgc-host-page {
+  box-sizing: border-box;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  font-size: var(--xgc-shell-ui-font-size, var(--font-base));
+}
+
+.xgc-host-page[data-xgc-tab="overview"] {
+  gap: var(--space-lg);
+}
+
+.xgc-host-page[data-xgc-tab="host"] {
+  align-items: center;
+}
+
+/*
+ * Parked System sections stay mounted. The wrapper is a real box (V13);
+ * [hidden] must win over flex or a parked Files/Runtime surface still owns
+ * a column and pushes Overview below the viewport.
+ */
+[data-xgc-role="system-tab-surface"] {
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+[data-xgc-role="system-tab-surface"][hidden],
+[data-xgc-role="system-tab-surface"].xgc-host-fill-workspace[hidden] {
+  display: none;
+}
+
+[data-xgc-role="system-tab-surface"][data-xgc-id="host"] {
+  flex: 0 1 auto;
+  align-items: center;
+}
+
+/*
+ * Fill host: claim remaining page height (parent already locks page height).
+ * AppShell owns the available workspace height; this child only flexes within it.
+ */
+.xgc-host-fill-workspace {
+  flex: 1 1 0;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  overflow: hidden;
+  font-size: var(--xgc-shell-ui-font-size, var(--font-base));
+}
+
+/* Generic fill section (SSH / Files helpers). Runtime uses HostRuntime.css. */
+.xgc-host-fill-section {
+  flex: 1 1 0;
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  overflow: hidden;
+  justify-self: stretch;
+}

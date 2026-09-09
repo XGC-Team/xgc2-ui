@@ -1,0 +1,7 @@
+@layer vendor, tokens, base, shell, shared;
+
+@import '@xgc2/ui-react/styles.css' layer(vendor);
+@import '@xgc2/ui-workflow/styles.css' layer(vendor);
+@import '@xterm/xterm/css/xterm.css' layer(vendor);
+@import 'react-grid-layout/css/styles.css' layer(vendor);
+@import 'react-resizable/css/styles.css' layer(vendor);

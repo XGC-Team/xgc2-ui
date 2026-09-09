@@ -1,0 +1,33 @@
+/*
+ * Host policy on System → Host.
+ * Settings contract: ConfigSection rows use the family two-column FormField
+ * layout (label left, control right); this panel only sizes the page shell.
+ */
+.xgc-host-settings {
+  box-sizing: border-box;
+  width: min(100%, 800px);
+  max-width: 800px;
+  margin-inline: auto;
+  justify-self: center;
+}
+
+.xgc-host-performance-control {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.xgc-host-performance-field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  margin: 0;
+  min-width: 0;
+}
+
+.xgc-host-performance-control [data-xgc-role="maintenance-performance-mode"] {
+  width: var(--size-workspace-tab-max);
+  max-width: 100%;
+  min-width: 0;
+}

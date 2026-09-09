@@ -4,3 +4,9 @@ storybook-static/
 coverage/
 *.tgz
 .DS_Store
+
+# Preserve the Research frontend dependency artifacts during source relocation.
+!products/research-os/vendor/*.tgz
+*.tsbuildinfo
+
+__pycache__/

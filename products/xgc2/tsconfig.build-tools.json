@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["DOM", "DOM.Iterable", "ES2022"],
+    "allowJs": false,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "types": ["node"],
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true
+  },
+  "include": [
+    "finalModuleProvenancePlugin.ts",
+    "finalModuleProvenancePlugin.test.ts",
+    "markPromptHerdrBridgePlugin.ts",
+    "markPromptHerdrBridgePlugin.test.ts",
+    "vite.config.ts",
+    "vite.config.test.ts"
+  ]
+}

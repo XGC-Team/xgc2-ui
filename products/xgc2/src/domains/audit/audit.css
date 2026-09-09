@@ -1,0 +1,41 @@
+/*
+ * Audit logs page (all 5 sidebar tabs share LogTablePage).
+ * Shell + domain accents only; table chrome lives in LogTablePage.css.
+ */
+
+/* Full workspace width — same contract as Containers / Operations / Host tables. */
+.xgc-workspace-content > .audit-page.xgc-workspace-full-span,
+.xgc-workspace-content > [data-xgc-route-page="audit"]:not([hidden]) {
+  width: 100%;
+  max-width: none;
+  justify-self: stretch;
+}
+
+.audit-page {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  font-size: var(--xgc-shell-ui-font-size, var(--font-base));
+  line-height: var(--line-height-normal);
+}
+
+.audit-page > .audit-log-table-page {
+  flex: 1 1 0;
+  width: 100%;
+  min-height: 0;
+}
+
+.audit-category {
+  color: var(--color-text-muted);
+  text-transform: capitalize;
+}
+
+/* Stable digit widths keep date/time columns easy to compare; the shared log
+ * table continues to own row density, header, hover, scroll and pager chrome. */
+.audit-timestamp {
+  font-variant-numeric: tabular-nums;
+}

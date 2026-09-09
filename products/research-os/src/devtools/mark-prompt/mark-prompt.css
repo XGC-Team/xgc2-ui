@@ -1,0 +1,198 @@
+[class~="dev-annotation-layer"] {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  pointer-events: none;
+}
+
+.dev-annotation-layer[data-xgc-enabled="true"] {
+  cursor: crosshair;
+  pointer-events: auto;
+}
+
+.dev-annotation-target-outline {
+  position: fixed;
+  z-index: 0;
+  box-sizing: border-box;
+  border-radius: var(--radius-sm);
+  pointer-events: none;
+}
+
+.dev-annotation-target-outline[data-mark-phase="hover"] {
+  background: color-mix(in srgb, var(--color-accent) 7%, transparent);
+  border: var(--stroke-thin) solid var(--color-accent);
+  outline: 2px dashed color-mix(in srgb, var(--color-accent) 78%, white);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-bg-canvas) 72%, transparent);
+}
+
+.dev-annotation-target-outline[data-mark-phase="selected"] {
+  background: color-mix(in srgb, var(--color-warning) 6%, transparent);
+  border: 2px solid var(--color-warning);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-warning) 34%, transparent);
+}
+
+.dev-annotation-target-caption {
+  position: fixed;
+  z-index: 2;
+  box-sizing: border-box;
+  width: min(560px, calc(100vw - 16px));
+  max-width: calc(100vw - 16px);
+  padding: 3px var(--space-sm);
+  overflow: hidden;
+  color: var(--color-bg-chrome);
+  background: var(--color-accent);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-floating);
+  font-family: var(--font-mono);
+  font-size: var(--font-sm);
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dev-annotation-target-index {
+  position: absolute;
+  left: -9px;
+  top: -9px;
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  color: var(--color-bg-chrome);
+  background: var(--color-warning);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-floating);
+  font-size: var(--font-sm);
+  font-weight: var(--weight-bold);
+  line-height: 1;
+}
+
+[class~="dev-annotation-pin"] {
+  position: fixed;
+  z-index: 1;
+  display: flex;
+  box-sizing: border-box;
+  align-items: center;
+  align-content: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  width: min(520px, calc(100vw - 16px));
+  min-width: min(148px, calc(100vw - 16px));
+  min-height: 30px;
+  padding: 0 var(--space-sm);
+  max-width: calc(100vw - 16px);
+  color: var(--color-text);
+  background: var(--color-bg-surface);
+  border: var(--stroke-thin) solid var(--color-border);
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-floating);
+  pointer-events: auto;
+}
+
+.dev-annotation-pin-index {
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-pill);
+  color: var(--color-text-inverse);
+  background: var(--color-bg-primary);
+  font-family: var(--font-sans);
+  font-size: var(--font-sm);
+  font-weight: var(--weight-semibold);
+  line-height: var(--line-height-none);
+  font-variant-numeric: tabular-nums;
+  flex: 0 0 auto;
+}
+
+.dev-annotation-pin input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  color: var(--color-text);
+  background: transparent;
+  caret-color: var(--color-text);
+  font-size: var(--font-base);
+}
+
+.dev-annotation-pin input::selection {
+  color: var(--color-text-inverse);
+  background: var(--color-bg-primary);
+}
+
+.dev-annotation-pin button {
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  background: transparent;
+  cursor: pointer;
+}
+
+.dev-annotation-pin button:hover {
+  background: var(--color-bg-surface-hover);
+}
+
+.dev-annotation-toolbar {
+  position: fixed;
+  z-index: var(--z-portaled-control);
+  display: flex;
+  box-sizing: border-box;
+  flex-direction: row;
+  align-items: center;
+  width: max-content;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100vh - 16px);
+  overflow: visible;
+  padding: var(--space-xs);
+  background: var(--color-bg-surface);
+  border: var(--stroke-thin) solid var(--color-border);
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-floating);
+  user-select: none;
+  touch-action: none;
+}
+
+.mark-prompt-toolbar-row {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.mark-prompt-toolbar-row .xgc-control-button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+/* Default/primary use different shared font weights; reserve one mode slot. */
+.mark-prompt-toggle {
+  width: 80px;
+}
+
+.mark-prompt-target {
+  flex: 1 1 96px;
+  width: 136px;
+  min-width: 96px;
+  max-width: 136px;
+}
+
+.dev-annotation-drag-handle {
+  width: 16px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  color: var(--color-text-muted);
+  cursor: grab;
+}
+
+.dev-annotation-drag-handle:active {
+  cursor: grabbing;
+}

@@ -1,0 +1,20 @@
+/*
+ * One row, all canvas. The workflow selector lives in the panel top bar; zoom
+ * sits on the shared Experiment startup graph.
+ */
+.ros-panel-whiteboard-view {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.ros-panel-whiteboard-view > .experiment-startup-graph {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}

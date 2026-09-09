@@ -1,0 +1,362 @@
+.automation-editor-run-inspector {
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 0;
+  display: grid;
+  grid-template-rows: 44px minmax(0, 1fr);
+  overflow: hidden;
+  background: var(--color-bg-surface);
+}
+
+.automation-editor-run-inspector-header {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) auto 30px;
+  align-items: center;
+  gap: var(--space-lg);
+  padding: var(--space-sm) var(--space-md) var(--space-sm) var(--space-lg);
+  border-bottom: var(--stroke-thin) solid var(--color-border);
+}
+
+.automation-editor-run-inspector-title {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.automation-editor-run-inspector-title > div {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-2xs);
+}
+
+.automation-editor-run-inspector-title strong,
+.automation-editor-run-inspector-title span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.automation-editor-run-inspector-title strong {
+  color: var(--color-text-heading);
+  font-size: var(--font-md);
+}
+
+.automation-editor-run-inspector-title span {
+  color: var(--color-text-muted);
+  font-size: var(--font-xs);
+}
+
+.automation-editor-run-inspector-tabs {
+  flex: 0 0 auto;
+}
+
+.automation-editor-run-inspector-tab-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.automation-editor-run-inspector-error-count {
+  color: var(--color-danger);
+  font-size: var(--font-xs);
+}
+
+.automation-editor-run-inspector-close {
+  --xgc-control-height: var(--size-control-navigation);
+}
+
+.automation-editor-run-inspector-body {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--color-bg-subtle);
+}
+
+.automation-editor-node-data {
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.automation-editor-node-facts {
+  min-width: 0;
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-xl);
+  margin: 0;
+  padding: var(--space-sm) var(--space-lg);
+  overflow-x: auto;
+  background: var(--color-bg-surface);
+  border-bottom: var(--stroke-thin) solid var(--color-border);
+}
+
+.automation-editor-node-facts > div {
+  flex: none;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-xs);
+}
+
+.automation-editor-node-facts dt,
+.automation-editor-node-facts dd {
+  margin: 0;
+  font-size: var(--font-xs);
+  white-space: nowrap;
+}
+
+.automation-editor-node-facts dt {
+  color: var(--color-text-muted);
+}
+
+.automation-editor-node-facts dd {
+  color: var(--color-text-heading);
+  font-family: var(--font-mono);
+}
+
+.automation-editor-node-data-panes {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  overflow: hidden;
+}
+
+.automation-editor-node-data-panes[data-xgc-trigger="true"] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.automation-editor-node-data-panes > *:not(:last-child) {
+  border-right: var(--stroke-thin) solid var(--color-border-strong);
+}
+
+.automation-editor-node-data-panes > .automation-runtime-value-panel {
+  min-width: 0;
+  min-height: 0;
+  padding: var(--space-lg);
+  overflow: auto;
+}
+
+.automation-editor-detail-empty {
+  min-height: 0;
+  display: grid;
+  place-content: center;
+  gap: var(--space-xs);
+  padding: var(--space-2xl);
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+  text-align: center;
+}
+
+.automation-editor-detail-empty strong {
+  color: var(--color-text-heading);
+  font-size: var(--font-md);
+}
+
+.automation-editor-log-viewer {
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: 42px minmax(0, 1fr);
+  overflow: hidden;
+  background: var(--color-bg-subtle);
+}
+
+.automation-editor-log-toolbar {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xl);
+  padding: var(--space-sm) var(--space-lg);
+  background: var(--color-bg-surface);
+  border-bottom: var(--stroke-thin) solid var(--color-border);
+}
+
+.automation-editor-log-toolbar > label {
+  min-width: min(300px, 48%);
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  color: var(--color-text-muted);
+  font-size: var(--font-xs);
+}
+
+.automation-editor-log-toolbar select {
+  min-width: 0;
+  height: 28px;
+  flex: 1;
+  padding: 0 var(--space-2xl) 0 var(--space-md);
+  color: var(--color-text);
+  background: var(--color-bg-control);
+  border: var(--stroke-thin) solid var(--color-border);
+  border-radius: var(--radius-control);
+  font: inherit;
+  font-size: var(--font-xs);
+}
+
+.automation-editor-log-source-detail {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: 0;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: 0;
+  font-size: var(--font-xs);
+  white-space: nowrap;
+}
+
+.automation-editor-log-source-detail > strong {
+  color: var(--color-text-heading);
+  font-weight: var(--weight-semibold);
+}
+
+.automation-editor-log-viewer > .execution-log-section {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: var(--space-md) var(--space-lg) var(--space-lg);
+  overflow: hidden;
+}
+
+.automation-editor-log-viewer > .execution-log-section > header {
+  min-height: 28px;
+  flex: none;
+  justify-content: flex-end;
+}
+
+.automation-editor-log-viewer > .execution-log-section > header > div {
+  display: none;
+}
+
+.automation-editor-log-viewer .execution-log-notice {
+  flex: none;
+}
+
+.automation-editor-log-viewer .execution-log-stream-grid {
+  min-height: 0;
+  flex: 1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.automation-editor-log-viewer .execution-log-stream {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.automation-editor-log-viewer .execution-log-stream > pre {
+  min-height: 0;
+  max-height: none;
+  flex: 1;
+  border-radius: var(--radius-sm);
+}
+
+.automation-editor-log-source-issues {
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  max-height: none;
+  display: block;
+  padding: 0;
+  overflow: auto;
+  background: var(--color-bg-subtle);
+  border: 0;
+}
+
+.automation-editor-log-source-issues ul {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.automation-editor-log-source-issues li {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: var(--space-md);
+  padding: var(--space-lg) var(--space-lg);
+  color: var(--color-danger);
+  background: transparent;
+  border: 0;
+  border-bottom: var(--stroke-thin) solid var(--color-border);
+  border-radius: 0;
+  font-size: var(--font-sm);
+  line-height: var(--line-height-relaxed);
+}
+
+.automation-editor-log-source-issues li > div {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-2xs);
+}
+
+.automation-editor-log-source-issues li strong {
+  color: var(--color-text-heading);
+}
+
+.automation-editor-log-source-issues li span {
+  overflow-wrap: anywhere;
+}
+
+@container automation-editor-logs (max-width: 900px) {
+  .automation-editor-run-inspector-header {
+    gap: var(--space-md);
+  }
+
+  .automation-editor-node-data-panes {
+    grid-template-columns: minmax(0, 1fr);
+    overflow: auto;
+  }
+
+  .automation-editor-node-data-panes > * {
+    min-height: 150px;
+  }
+
+  .automation-editor-node-data-panes > *:not(:last-child) {
+    border-right: 0;
+    border-bottom: var(--stroke-thin) solid var(--color-border-strong);
+  }
+}
+
+@container automation-editor-logs (max-width: 620px) {
+  .automation-editor-run-inspector-title span {
+    display: none;
+  }
+
+  .automation-editor-run-inspector-header {
+    grid-template-columns: minmax(90px, 1fr) auto 28px;
+  }
+
+  .automation-editor-log-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+    gap: var(--space-sm);
+  }
+
+  .automation-editor-log-viewer {
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .automation-editor-log-toolbar > label {
+    min-width: 0;
+  }
+
+  .automation-editor-log-viewer .execution-log-stream-grid {
+    grid-template-columns: minmax(0, 1fr);
+    overflow: auto;
+  }
+}

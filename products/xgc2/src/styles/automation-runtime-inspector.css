@@ -1,0 +1,145 @@
+.automation-inspector {
+  min-height: 0;
+  padding: var(--space-lg);
+  overflow: auto;
+  background: var(--color-bg-chrome);
+  border-left: var(--stroke-thin) solid var(--color-border);
+}
+.automation-inspector h4 {
+  margin: 0 0 var(--space-lg);
+  color: var(--color-text-heading);
+  font-size: var(--font-base);
+}
+.automation-inspector > div > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+.automation-inspector > div > header > strong {
+  display: block;
+}
+.automation-inspector > div > header > span:not(.automation-node-pane-title) {
+  display: block;
+  color: var(--color-text-muted);
+  font-size: var(--font-xs);
+}
+.automation-inspector > div > header > strong {
+  margin-top: var(--space-2xs);
+  font-size: var(--font-base);
+}
+.automation-inspector textarea {
+  min-height: 90px;
+  font-family: var(--font-mono);
+  font-size: var(--font-sm);
+}
+.automation-runtime-panel-header {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-lg);
+}
+.automation-runtime-panel-actions {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-md);
+}
+.automation-runtime-source-select {
+  width: min(180px, 18vw);
+  min-width: 120px;
+  flex: 0 1 180px;
+}
+.automation-runtime-data-view {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+.automation-runtime-view-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-md);
+}
+.automation-runtime-search {
+  width: 100%;
+  min-width: 0;
+}
+.automation-runtime-value-panel {
+  min-width: 0;
+  min-height: 0;
+}
+.automation-runtime-view-body {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.automation-runtime-json {
+  max-height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.automation-runtime-json pre {
+  min-height: 0;
+  flex: 1 1 auto;
+  white-space: pre-wrap;
+}
+.automation-runtime-table-layout {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+.automation-runtime-table-wrap {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+}
+
+.automation-node-dialog-columns > .automation-node-runtime-panel {
+  overflow: hidden;
+}
+.automation-runtime-table {
+  table-layout: fixed;
+  font-size: var(--font-xs);
+}
+.automation-runtime-table td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.automation-runtime-table tr[draggable="true"] {
+  cursor: grab;
+}
+.automation-runtime-table tr[draggable="true"]:hover td {
+  background: var(--color-bg-control-hover);
+}
+.automation-runtime-table tr[draggable="true"]:active {
+  cursor: grabbing;
+}
+.automation-runtime-table th:nth-child(2),
+.automation-runtime-table td:nth-child(2) {
+  width: 62px;
+  color: var(--color-text-muted);
+}
+.automation-runtime-table td code {
+  color: var(--color-accent);
+  font-size: var(--font-xs);
+}
+.automation-runtime-truncated {
+  display: block;
+  padding: var(--space-md);
+  color: var(--color-text-muted);
+  border-top: var(--stroke-thin) solid var(--color-border);
+  font-size: var(--font-xs);
+}

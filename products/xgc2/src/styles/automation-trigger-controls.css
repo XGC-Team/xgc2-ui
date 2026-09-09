@@ -1,0 +1,211 @@
+/* Bottom dock for trigger entrypoint + actions. Shell is the floating chrome. */
+.automation-trigger-controls-surface[data-xgc-layout="shell"] {
+  position: absolute;
+  z-index: var(--z-popover);
+  top: auto;
+  left: 50%;
+  bottom: calc(var(--size-shell-chrome) + var(--space-xl));
+  width: max-content;
+  max-width: min(calc(var(--size-grid-column-wide) * 3), calc(100% - var(--space-xl) * 2));
+  max-height: min(42vh, var(--size-code-viewport-default));
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  overflow: auto;
+  color: var(--color-text);
+  background: color-mix(in srgb, var(--color-bg-surface) 96%, transparent);
+  border: var(--stroke-thin) solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-floating);
+  transform: translateX(-50%);
+}
+
+.automation-trigger-controls-surface[data-xgc-callout="true"] {
+  width: max-content;
+  max-width: min(calc(var(--size-grid-column-default) * 2), calc(100% - var(--space-xl) * 2));
+}
+
+/* Embedded group stays a real box so the trigger role is markable; wrap with the dock. */
+.automation-trigger-controls-surface[data-xgc-layout="embedded"] {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: inherit;
+}
+
+.automation-trigger-controls-surface[data-xgc-layout="embedded"][data-xgc-callout="true"] {
+  display: inline-flex;
+  align-items: center;
+  width: max-content;
+  max-width: min(calc(var(--size-grid-column-default) * 2), calc(100% - var(--space-xl) * 2));
+  padding: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+.automation-trigger-controls-entrypoint-panel {
+  gap: var(--space-md);
+}
+
+/* The canvas dock is only a host for trigger inputs/actions. Target context is
+ * already owned by the global selector, so this domain surface adds no second
+ * card, border, or explanatory label around the controls. */
+.automation-trigger-controls-surface.automation-trigger-controls-entrypoint-panel[data-xgc-layout="shell"] {
+  padding: 0;
+  overflow: visible;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.automation-trigger-controls-entrypoint-selector {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-control-gap);
+  min-width: var(--size-grid-column-compact);
+  max-width: var(--size-grid-column-default);
+  flex: 0 1 var(--size-grid-column-default);
+}
+
+.automation-trigger-controls-toolbar {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.automation-trigger-controls-surface[data-xgc-callout="true"] > strong,
+.automation-trigger-controls-listener strong {
+  color: var(--color-text-heading);
+  font-size: var(--font-sm);
+  font-weight: var(--weight-strong);
+  white-space: nowrap;
+}
+
+.automation-trigger-controls-status {
+  flex: 0 0 auto;
+  font-size: var(--font-xs);
+  font-weight: var(--weight-strong);
+  text-transform: uppercase;
+}
+
+.automation-trigger-controls-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+/* Full-width secondary rows under the primary button strip. */
+.automation-trigger-controls-credential,
+.automation-trigger-controls-listener,
+.automation-trigger-controls-surface[data-xgc-layout="shell"] > .automation-trigger-controls-notice {
+  flex: 1 1 100%;
+  width: 100%;
+}
+
+.automation-trigger-controls-credential,
+.automation-trigger-controls-listener {
+  display: grid;
+  gap: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: var(--stroke-thin) solid var(--color-border);
+}
+
+.automation-trigger-controls-credential code {
+  min-width: 0;
+  padding: var(--space-sm) var(--space-md);
+  overflow-wrap: anywhere;
+  color: var(--color-text-strong);
+  background: var(--color-bg-subtle);
+  border-radius: var(--radius-control);
+  font-family: var(--font-mono);
+  font-size: var(--font-xs);
+}
+
+.automation-trigger-controls-credential .xgc-control-button,
+.automation-trigger-controls-listener > .xgc-control-button {
+  justify-self: start;
+}
+
+.automation-trigger-controls-listener-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.automation-trigger-controls-listener-expiry {
+  color: var(--color-text-muted);
+  font-size: var(--font-xs);
+  white-space: nowrap;
+}
+
+.automation-trigger-controls-listener-expiry[hidden] {
+  display: none;
+}
+
+.automation-trigger-controls-listener-start {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.automation-trigger-controls-listener-start .xgc-input-control {
+  --xgc-control-height: var(--size-control-compact);
+  --xgc-control-input-padding-inline: var(--space-sm);
+  width: calc(var(--size-control-default) * 3);
+}
+
+.automation-trigger-controls-payload {
+  width: 100%;
+  min-width: 0;
+}
+
+/* TextareaControl applies both class names on the same wrapper span. */
+.automation-trigger-controls-payload.xgc-textarea-control textarea,
+.automation-trigger-controls-payload .xgc-textarea-control textarea {
+  width: 100%;
+  min-height: calc(var(--size-control-default) * 3);
+  resize: vertical;
+  font-family: var(--font-mono);
+  font-size: var(--font-sm);
+  line-height: var(--line-height-relaxed);
+}
+
+@container xgc-workspace (max-width: 720px) {
+  .automation-trigger-controls-surface[data-xgc-layout="shell"] {
+    left: var(--space-md);
+    right: var(--space-md);
+    bottom: calc(var(--size-shell-chrome) + var(--space-lg));
+    width: auto;
+    max-width: none;
+    transform: none;
+  }
+
+  .automation-trigger-controls-entrypoint-selector {
+    min-width: 0;
+    max-width: none;
+    flex: 1 1 100%;
+  }
+
+  .automation-trigger-controls-toolbar,
+  .automation-trigger-controls-actions {
+    width: 100%;
+  }
+
+  .automation-trigger-controls-listener-row,
+  .automation-trigger-controls-listener-start {
+    width: 100%;
+  }
+
+  .automation-trigger-controls-listener-start .xgc-input-control {
+    width: 100%;
+    flex: 1 1 auto;
+  }
+}

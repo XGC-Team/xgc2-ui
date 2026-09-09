@@ -1,0 +1,156 @@
+/*
+ * Settings page shell.
+ * ConfigSection/FormField chrome is shared; this file only sizes the page and
+ * de-emphasizes boxed cards so sections read as full-width groups.
+ */
+.settings-page {
+  width: 100%;
+  display: grid;
+  align-content: start;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/*
+ * Park puts Settings inside product-route-surface, which is the
+ * workspace-content child. Cap and center that surface. Inner
+ * `.xgc-workspace-full-span { justify-self: center }` is a no-op once
+ * the surface is already 800px and left-aligned.
+ */
+.xgc-workspace-content > .settings-page.xgc-workspace-full-span,
+.xgc-workspace-content > [data-xgc-route-page="settings"]:not([hidden]) {
+  width: min(100%, 800px);
+  justify-self: center;
+}
+
+.settings-layout {
+  /* width:100% + max-width keeps the track stable when sections collapse. */
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 800px;
+  justify-self: center;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-xs);
+}
+
+/* Drop the shared body --space-xs so the last form row matches siblings. */
+.settings-layout > [data-xgc-layout-family='form-settings'] > [data-xgc-role='config-section-body'] {
+  padding-block-end: 0;
+}
+
+/* Nested fold labels are ConfigSection body direct children. They use the
+ * same toggle language as the section header (chevron + title), not a fake
+ * select. Expanded extras are sibling FormFields, not a T3 wrapper. */
+.settings-layout > [data-xgc-layout-family='form-settings'] > [data-xgc-role='config-section-body'] > [data-xgc-role='config-section-disclosure'] {
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(200px, 320px);
+  align-items: center;
+  gap: var(--space-lg);
+  padding: var(--space-sm) 0;
+  border-bottom: var(--stroke-thin) solid var(--color-border-muted);
+  background: transparent;
+}
+
+.settings-layout > [data-xgc-layout-family='form-settings'] > [data-xgc-role='config-section-body'] > [data-xgc-role='config-section-disclosure']:last-child,
+.settings-layout > [data-xgc-layout-family='form-settings'] > [data-xgc-role='config-section-body'] > .xgc-form-actions:last-child {
+  border-bottom: 0;
+}
+
+.settings-layout > [data-xgc-layout-family='form-settings'] > [data-xgc-role='config-section-body'] > [data-xgc-role='config-section-disclosure']:has([aria-expanded='true']) {
+  border-bottom-color: var(--color-border);
+}
+
+/* Nested fields line up with the fold title; 320px controls stay on the Language track.
+ * FormActions stay un-indented so a 320px justify-self-end row can share that column. */
+.settings-layout > [data-xgc-layout-family='form-settings'] > [data-xgc-role='config-section-body']:has(> [data-xgc-role='config-section-disclosure']) > .xgc-form-field {
+  padding-inline-start: calc(14px + var(--space-md));
+}
+
+.settings-layout > [data-xgc-layout-family='form-settings'] > [data-xgc-role='config-section-body'] > [data-xgc-role='native-provider-config-actions'] {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 320px;
+  min-width: 0;
+  justify-self: end;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-md);
+}
+
+.settings-layout > [data-xgc-layout-family='form-settings'] > [data-xgc-role='config-section-body'] > [data-xgc-role='native-provider-config-actions'] > [data-xgc-role] {
+  width: 100%;
+  min-width: 0;
+}
+
+.config-section-disclosure-toggle {
+  min-width: 0;
+  min-height: var(--size-control-default);
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  appearance: none;
+  font: inherit;
+  text-align: left;
+}
+
+.config-section-disclosure-title {
+  min-width: 0;
+  color: var(--color-text-heading);
+  font-size: var(--font-base);
+  font-weight: var(--weight-regular);
+  line-height: var(--line-height-tight);
+}
+
+.config-section-disclosure-status {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 320px;
+  min-width: 0;
+  min-height: var(--size-control-default);
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  background: transparent;
+  font-size: var(--font-base);
+  font-weight: var(--weight-regular);
+  line-height: var(--line-height-tight);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.config-section-disclosure-chevron {
+  flex: 0 0 auto;
+  color: var(--color-text-faint);
+  transition: transform var(--duration-quick) var(--easing-standard);
+}
+
+.config-section-disclosure-toggle[aria-expanded='false'] .config-section-disclosure-chevron {
+  transform: rotate(-90deg);
+}
+
+.settings-layout > [data-xgc-layout-family='form-settings'] > [data-xgc-role='config-section-body'] > .xgc-form-actions {
+  padding-block: var(--space-sm);
+}
+
+@media (max-width: 720px) {
+  .settings-layout > [data-xgc-layout-family='form-settings'] > [data-xgc-role='config-section-body'] > [data-xgc-role='config-section-disclosure'] {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .config-section-disclosure-status,
+  .settings-layout > [data-xgc-layout-family='form-settings'] > [data-xgc-role='config-section-body'] > [data-xgc-role='native-provider-config-actions'] {
+    justify-self: start;
+    max-width: none;
+  }
+}

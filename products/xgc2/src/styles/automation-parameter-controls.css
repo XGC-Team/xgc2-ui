@@ -1,0 +1,236 @@
+.automation-run-parameter-empty {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-md);
+  line-height: var(--line-height-relaxed);
+}
+[data-xgc-role="automation-run-parameter-error"] {
+  margin-bottom: var(--space-lg);
+  padding: var(--space-md) var(--space-lg);
+}
+.automation-node-settings,
+.automation-node-identity-parameters,
+.automation-trigger-parameters,
+.automation-trigger-schedule {
+  display: grid;
+  align-content: start;
+  gap: var(--space-xl);
+}
+.automation-node-parameters-editor {
+  display: grid;
+  align-content: start;
+  gap: var(--space-xl);
+}
+.automation-parameter-fields {
+  display: grid;
+  align-content: start;
+  gap: var(--space-xl);
+}
+.automation-call-parameters {
+  display: grid;
+  align-content: start;
+  gap: var(--space-xl);
+}
+.automation-call-parameters > section {
+  min-width: 0;
+  padding: var(--space-xl);
+  display: grid;
+  gap: var(--space-lg);
+  background: var(--color-bg-control);
+  border: var(--stroke-thin) solid var(--color-border);
+  border-radius: var(--radius-surface);
+}
+.automation-call-parameters > section > h3,
+.automation-call-parameters > section > header > h3 {
+  margin: 0;
+  color: var(--color-text-heading);
+  font-size: var(--font-md);
+  font-weight: var(--weight-semibold);
+}
+.automation-call-parameters > section > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+.automation-call-parameters > section > header small {
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+}
+.automation-call-parameters > section > p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+  line-height: var(--line-height-relaxed);
+}
+.automation-call-input-fields {
+  display: grid;
+  /* Match the shared FormSection dual-column field geometry. */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-lg) var(--space-xl);
+}
+
+.automation-call-input-fields > .automation-parameter-schema-form {
+  display: grid;
+  grid-template-columns: subgrid;
+  grid-column: 1 / -1;
+  gap: inherit;
+}
+
+.automation-call-input-fields > .automation-parameter-schema-form > * {
+  min-width: 0;
+}
+
+.automation-call-input-fields .automation-boolean-field {
+  align-self: start;
+  padding: var(--space-sm) 0;
+}
+.automation-call-advanced {
+  min-width: 0;
+}
+.automation-call-advanced > summary {
+  min-height: 36px;
+  padding: var(--space-md) 0 0;
+  display: flex;
+  align-items: center;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: var(--font-sm);
+  font-weight: var(--weight-medium);
+  text-decoration: none;
+}
+.automation-call-advanced > div {
+  padding-top: var(--space-lg);
+}
+.automation-parameter-group {
+  min-width: 0;
+  overflow: hidden;
+  background: var(--color-bg-control);
+  border: var(--stroke-thin) solid var(--color-border);
+  border-radius: var(--radius-surface);
+}
+.automation-parameter-group > summary {
+  min-height: 36px;
+  padding: var(--space-md) var(--space-lg);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  color: var(--color-text-heading);
+  cursor: pointer;
+  list-style-position: inside;
+  user-select: none;
+}
+.automation-parameter-group > summary::marker {
+  color: var(--color-text-muted);
+}
+.automation-parameter-group > summary span {
+  margin-right: auto;
+  font-size: var(--font-base);
+  font-weight: var(--weight-semibold);
+}
+.automation-parameter-group > summary small {
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+  font-weight: var(--weight-regular);
+}
+.automation-parameter-group[open] > summary {
+  border-bottom: var(--stroke-thin) solid var(--color-border);
+}
+.automation-parameter-group-content {
+  padding: var(--space-lg);
+  display: grid;
+  gap: var(--space-xl);
+}
+.automation-parameter-groups {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-lg);
+}
+.automation-parameter-binding-field {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-md);
+}
+.automation-parameter-mode-row {
+  justify-self: end;
+}
+.automation-parameter-binding-field[data-xgc-mode-placement="label-row"] {
+  position: relative;
+}
+[data-xgc-role="automation-node-parameter-binding"][data-xgc-mode="expression"][data-xgc-id$="/rosMasterUri"] {
+  grid-column: 1 / -1;
+}
+.automation-parameter-binding-field[data-xgc-mode-placement="label-row"] > .automation-parameter-mode-row {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 1;
+  height: var(--size-control-compact);
+  display: flex;
+  align-items: center;
+  justify-self: unset;
+}
+.automation-parameter-binding-field[data-xgc-mode-placement="label-row"] label {
+  min-height: var(--size-control-compact);
+  display: inline-flex;
+  align-items: center;
+  padding-right: 12rem;
+  box-sizing: border-box;
+}
+.automation-parameter-mode-switch {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.automation-parameter-mode-switch > button {
+  width: 100%;
+  justify-content: center;
+}
+.automation-boolean-field {
+  cursor: pointer;
+}
+.automation-boolean-field[data-disabled="true"] {
+  cursor: default;
+}
+.automation-parameter-expression > .xgc-textarea-control {
+  min-height: 72px;
+}
+.automation-parameter-expression > .xgc-textarea-control textarea {
+  font-family: var(--font-mono);
+  font-size: var(--font-sm);
+  line-height: var(--line-height-relaxed);
+}
+.automation-json-terminal-template > .xgc-textarea-control {
+  min-height: 220px;
+  background: var(--color-bg-code);
+}
+.automation-json-terminal-template > .xgc-textarea-control textarea {
+  min-height: 218px;
+  font-family: var(--font-mono);
+  font-size: var(--font-sm);
+  line-height: var(--line-height-relaxed);
+  tab-size: 2;
+}
+.automation-parameter-expression > .xgc-textarea-control:has(textarea[data-drag-active="true"]) {
+  border-color: var(--color-accent);
+  box-shadow: var(--shadow-ring-accent-soft);
+}
+[data-xgc-role="automation-call-wait"] {
+  font-size: var(--font-sm);
+}
+.automation-parameter-fields > p {
+  margin: 0;
+  padding: var(--space-xl);
+  color: var(--color-text-muted);
+  border: var(--stroke-thin) dashed var(--color-border-strong);
+  border-radius: var(--radius-control);
+  font-size: var(--font-sm);
+  line-height: var(--line-height-relaxed);
+}
+.automation-trigger-schedule > p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+  line-height: var(--line-height-relaxed);
+}

@@ -1,12 +1,12 @@
 # XGC2 Web UI Contract
 
-This document is normative for every XGC2 web frontend. Product CSS may lay out domain content, but it must not redefine these interaction and chrome conventions.
+This document governs the shared UI packages and frontends using the XGC2 family. Co-location in this repository does not impose a common product shell: XGC2 preserves its existing controls and behavior, while Research OS maintains its Atlas frontend independently. Research product composition is defined in `products/research-os/DESIGN_SYSTEM.md`. Consumers of shared controls must preserve those controls' interaction and chrome contracts.
 
 ## Shared foundation
 
 - New and migrated frontends use React and consume an immutable `@xgc2/ui-react` release.
 - Repeated interaction patterns belong in the shared package before products copy them.
-- Product repositories own routes, APIs, authentication, and domain state; the shared package owns visual language, accessibility, and reusable behavior.
+- Product frontend projects own routes, APIs, authentication, and domain state; the shared package owns visual language, accessibility, and reusable behavior.
 
 ## Page and panel chrome
 

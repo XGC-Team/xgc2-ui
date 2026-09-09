@@ -1,0 +1,176 @@
+/* Reserve a stable gutter only when the experiment workspace can scroll.
+   GCS mode is overflow-hidden and edge-to-edge — a stable gutter would leave a
+   permanent right strip with no scrollbar to fill it. */
+.app-shell:not([data-xgc-mode="ground-station"]) .xgc-workspace-content:has(> [class~="experiment-grid"].dashboard-grid),
+.app-shell:not([data-xgc-mode="ground-station"]) .xgc-workspace-content:has([data-xgc-role="experiment-dashboard-surface"]:not([hidden]) [class~="experiment-grid"].dashboard-grid) {
+  scrollbar-gutter: stable;
+}
+
+.app-shell:not([data-xgc-mode="ground-station"]) .xgc-workspace-content:has(> [data-xgc-role="experiment-dashboard-canvas"]),
+.app-shell:not([data-xgc-mode="ground-station"]) .xgc-workspace-content:has([data-xgc-role="experiment-dashboard-surface"]:not([hidden]) [data-xgc-role="experiment-dashboard-canvas"]) {
+  padding: 0;
+}
+
+/* Parked Experiment route is a workspace-content child. Do not use
+ * xgc-workspace-full-span on the surface itself: that class caps width at
+ * 1280px and is why the dashboard collapsed to a centered strip after GCS
+ * or browser zoom. Box model lives in workspace-layout.css. */
+[data-xgc-role="experiment-route-surface"] > .xgc-workspace-full-span {
+  width: min(100%, var(--workspace-content-max));
+  justify-self: center;
+}
+
+[data-xgc-role="experiment-dashboard-surface"]:not([hidden]) {
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.app-shell[data-xgc-mode="ground-station"] [data-xgc-role="experiment-route-surface"],
+.app-shell[data-xgc-mode="ground-station"] [data-xgc-role="experiment-dashboard-surface"] {
+  min-height: 0;
+  height: 100%;
+  width: 100%;
+}
+
+/*
+ * Parked dashboard tabs stay mounted. The visible tab must be in the height
+ * chain for Config and GCS: otherwise the wrapper is content-sized, the grid
+ * sees height 0 and never mounts, and switching to the experiment page shows
+ * an empty surface.
+ */
+[data-xgc-role="experiment-dashboard-surface"]:not([hidden]) [data-xgc-role="experiment-dashboard-tab-surface"]:not([hidden]) {
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+}
+
+[data-xgc-role="experiment-dashboard-tab-surface"][hidden] {
+  display: none;
+}
+
+.app-shell:not([data-xgc-mode="ground-station"]) [data-xgc-role="experiment-dashboard-canvas"],
+.app-shell:not([data-xgc-mode="ground-station"]) [data-xgc-role="experiment-dashboard-canvas"] > .dashboard-layout-shell,
+.app-shell:not([data-xgc-mode="ground-station"]) [data-xgc-role="experiment-dashboard-canvas"] .dashboard-layout {
+  /* Workspace padding is zeroed for dashboard canvas — fill below shared chrome. */
+  min-height: 100%;
+}
+
+.dashboard-layout-shell,
+.dashboard-layout {
+  grid-column: 1 / -1;
+  width: 100%;
+}
+
+.dashboard-experiment-health-warning {
+  grid-column: 1 / -1;
+  margin: var(--space-md);
+}
+
+.dashboard-layout {
+  min-height: 360px;
+}
+
+.experiment-grid.dashboard-grid,
+.experiment-grid.dashboard-grid > .dashboard-layout-shell,
+.dashboard-layout,
+.dashboard-layout > .react-grid-item,
+.dashboard-layout > .react-grid-item.cssTransforms,
+.dashboard-layout > .dashboard-layout-item {
+  animation: none;
+  /* Vendor RGL eases width/transform 200ms. That lag is the HUD snap after the
+   * sidebar has already interpolated. Tiles follow via container-relative %. */
+  transition: none;
+}
+
+.dashboard-layout-shell[data-xgc-layout-motion="true"] .dashboard-layout-item,
+.dashboard-layout-shell[data-xgc-layout-motion="true"] .react-grid-item {
+  transition:
+    left var(--duration-fast) var(--easing-standard),
+    width var(--duration-fast) var(--easing-standard),
+    top var(--duration-fast) var(--easing-standard),
+    height var(--duration-fast) var(--easing-standard),
+    transform var(--duration-fast) var(--easing-standard);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-layout-shell[data-xgc-layout-motion="true"] .dashboard-layout-item,
+  .dashboard-layout-shell[data-xgc-layout-motion="true"] .react-grid-item {
+    transition: none;
+  }
+}
+
+.dashboard-layout-item {
+  min-width: 0;
+}
+
+.xgc-panel-workflow-open {
+  --xgc-control-button-padding-inline: var(--space-lg);
+  position: absolute;
+  z-index: var(--z-canvas-controls);
+  bottom: var(--space-md);
+  left: 50%;
+  max-width: calc(100% - var(--space-xl));
+  display: none;
+  opacity: var(--opacity-hidden);
+  box-shadow: var(--shadow-popover);
+  pointer-events: none;
+  transform: translate(-50%, var(--space-sm));
+  transition:
+    opacity var(--duration-quick) var(--easing-standard),
+    transform var(--duration-quick) var(--easing-standard);
+  white-space: nowrap;
+}
+
+.xgc-panel-frame:has([data-xgc-workflow-view-active="true"]) .xgc-panel-workflow-open {
+  display: inline-flex;
+}
+
+.xgc-panel-frame:has([data-xgc-workflow-view-active="true"]):hover .xgc-panel-workflow-open,
+.xgc-panel-frame:has([data-xgc-workflow-view-active="true"]) .xgc-panel-workflow-open:focus-visible {
+  opacity: var(--opacity-full);
+  pointer-events: auto;
+  transform: translate(-50%, 0);
+}
+
+.app-shell[data-xgc-mode="ground-station"] .experiment-grid.dashboard-grid {
+  --xgc-workspace-gap-x: 0px;
+  --xgc-workspace-gap-y: 0px;
+  gap: 0;
+  height: 100%;
+  align-content: stretch;
+}
+
+.app-shell[data-xgc-mode="ground-station"] .experiment-grid.dashboard-grid > .dashboard-layout-shell {
+  height: 100%;
+  min-height: 0;
+}
+
+.app-shell[data-xgc-mode="ground-station"] .dashboard-layout {
+  min-height: 100%;
+  height: 100%;
+  /* Left leading frame only. Topbar already draws the shared bottom edge;
+   * a second layout border-top stacked as a dark GCS-only bar. Panels paint
+   * trailing right/bottom seams. */
+  border-top: 0;
+  border-left: var(--stroke-thin) solid var(--xgc-gcs-panel-seam);
+  background: transparent;
+}
+
+.app-shell[data-xgc-mode="ground-station"] .dashboard-layout-item {
+  overflow: hidden;
+  background: transparent;
+}
+
+.app-shell[data-xgc-mode="ground-station"] .dashboard-layout-item > .xgc-panel-frame {
+  width: 100%;
+  height: 100%;
+}

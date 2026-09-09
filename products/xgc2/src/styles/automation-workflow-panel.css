@@ -1,0 +1,194 @@
+.automation-workflow-panel {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: var(--color-text-soft);
+  background: transparent;
+  container-name: automation-workflow;
+  container-type: inline-size;
+}
+.automation-workflow-controls-view,
+.automation-workflow-workflow-view,
+.automation-workflow-history-view,
+.automation-workflow-logs-view {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.automation-workflow-controls-view {
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+  container: automation-controls / size;
+}
+.xgc-control-action-grid.automation-workflow-controls-grid {
+  --automation-control-density: var(--control-density-cols);
+  --automation-control-cols: var(--control-cols);
+  --automation-control-rows: var(--control-rows);
+  --automation-control-tile: max(0px, min(
+    calc(
+      (100cqi - 2 * var(--control-pad) - (var(--automation-control-density) - 1) * var(--control-gap))
+      / var(--automation-control-density)
+    ),
+    calc(
+      (100cqb - 2 * var(--control-pad) - (var(--automation-control-rows) - 1) * var(--control-gap))
+      / var(--automation-control-rows)
+    )
+  ));
+  /* One edge sizes both axes. The grid wraps its square action cluster;
+   * unused space belongs to the saved panel, outside the grid's equal inset. */
+  width: max-content;
+  height: max-content;
+  max-width: 100%;
+  flex: 0 0 auto;
+  align-self: flex-start;
+  grid-template-columns: repeat(var(--automation-control-cols), var(--automation-control-tile));
+  grid-auto-rows: var(--automation-control-tile);
+  align-content: start;
+}
+
+@container automation-controls (max-width: 300px) {
+  .xgc-control-action-grid.automation-workflow-controls-grid {
+    /* These effective values do not compete with authored inline variables. */
+    --automation-control-density: 2;
+    --automation-control-cols: var(--control-narrow-cols);
+    --automation-control-rows: var(--control-narrow-rows);
+  }
+}
+
+@container automation-controls (max-width: 180px) {
+  .xgc-control-action-grid.automation-workflow-controls-grid {
+    --automation-control-density: 1;
+    --automation-control-cols: 1;
+    --automation-control-rows: var(--control-stacked-rows);
+  }
+}
+
+.automation-workflow-workflow-view,
+.automation-workflow-history-view,
+.automation-workflow-logs-view {
+  overflow: auto;
+  background: var(--color-bg-canvas);
+}
+.automation-workflow-workflow-view > .automation-graph {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+.automation-workflow-history-view > .automation-executions-view,
+.automation-workflow-logs-view > .automation-editor-logs {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+.automation-workflow-history-view > .automation-executions-view {
+  display: flex;
+  overflow: hidden;
+  background: var(--color-bg-canvas);
+}
+.automation-workflow-history-view .automation-execution-list {
+  width: clamp(180px, 28%, 280px);
+  flex: 0 0 clamp(180px, 28%, 280px);
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-sm);
+  overflow: auto;
+  border-right: var(--stroke-thin) solid var(--color-border-strong);
+  background: var(--color-bg-surface);
+}
+.automation-workflow-history-header,
+.automation-workflow-logs-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  color: var(--color-text-heading);
+}
+.automation-workflow-history-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2xs);
+  width: 100%;
+  padding: var(--space-sm);
+  border: var(--stroke-thin) solid var(--color-border);
+  color: var(--color-text-soft);
+  background: transparent;
+  text-align: left;
+}
+.automation-workflow-history-row[data-xgc-selected="true"] {
+  border-color: var(--color-accent);
+  background: var(--color-bg-canvas);
+}
+.automation-workflow-history-empty {
+  color: var(--color-text-muted);
+}
+.automation-workflow-history-view .automation-execution-main {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--space-md);
+}
+.automation-workflow-history-detail,
+.automation-workflow-log-inspector {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  min-width: 0;
+  min-height: 0;
+  padding: var(--space-md);
+  background: var(--color-bg-surface);
+}
+.automation-workflow-history-detail > header {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  color: var(--color-text-heading);
+}
+.automation-workflow-history-actions,
+.automation-workflow-log-node-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+.automation-workflow-log-inspector {
+  height: 100%;
+  overflow: auto;
+}
+.automation-workflow-log-inspector > [data-xgc-role="automation-workflow-run-logs"] {
+  min-height: 0;
+  overflow: auto;
+}
+.automation-workflow-runtime-error {
+  flex: 0 0 auto;
+}
+.automation-workflow-header-actions {
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+.automation-workflow-header-selector {
+  margin-left: auto;
+  min-width: 0;
+  width: var(--size-grid-column-compact);
+}
+.automation-workflow-header-actions > [data-xgc-role="automation-workflow-view-switcher"] {
+  flex: 0 0 auto;
+}
+
+.automation-workflow-header-select {
+  width: 100%;
+  min-width: 0;
+}
+.automation-workflow-empty {
+  min-height: 0;
+}

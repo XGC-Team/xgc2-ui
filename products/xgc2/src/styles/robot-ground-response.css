@@ -1,0 +1,84 @@
+.robot-response-metric[data-xgc-axis] {
+  min-width: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  align-content: stretch;
+  gap: 1px;
+}
+
+.robot-response-metric .robot-list-metric-body {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(12px, 1fr);
+  align-content: stretch;
+  gap: 1px;
+}
+
+.robot-response-metric[data-xgc-presentation="trend"] .robot-list-metric-body {
+  grid-template-rows: minmax(12px, 1fr);
+}
+
+.robot-response-metric[data-xgc-presentation="values"] .robot-list-metric-body {
+  grid-template-rows: auto;
+  align-content: center;
+}
+
+.robot-response-metric .robot-response-values {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-xs);
+  font-size: var(--font-xs);
+}
+
+.robot-response-values .command {
+  color: var(--color-warning);
+}
+
+.robot-response-values .actual {
+  color: var(--color-chart-line);
+}
+
+.robot-response-trend {
+  width: 100%;
+  height: 100%;
+  min-height: 12px;
+  overflow: visible;
+}
+
+.robot-response-trend[data-xgc-visible='false'] {
+  display: none;
+}
+
+.robot-response-trend line,
+.robot-response-trend polyline {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+}
+
+.robot-response-trend .zero {
+  stroke: var(--color-border-muted);
+  stroke-width: 1;
+}
+
+.robot-response-trend polyline {
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.robot-response-trend .command {
+  stroke: var(--color-warning);
+}
+
+.robot-response-trend .actual {
+  stroke: var(--color-chart-line);
+}
+
+.robot-response-trend circle.command {
+  fill: var(--color-warning);
+}
+
+.robot-response-trend circle.actual {
+  fill: var(--color-chart-line);
+}

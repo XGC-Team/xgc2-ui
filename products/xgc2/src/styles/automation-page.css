@@ -1,0 +1,9 @@
+.automation-page-duplicate-drawer.config-drawer {
+  width: min(440px, 100vw);
+}
+
+.automation-page-duplicate-form {
+  display: grid;
+  align-content: start;
+  gap: var(--space-xl);
+}

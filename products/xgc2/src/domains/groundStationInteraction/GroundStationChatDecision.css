@@ -1,0 +1,75 @@
+/* DecisionCard owns authorization materials; this file lays out GCS content. */
+.xgc-ground-station-decision-operation {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-2xs);
+}
+
+.xgc-ground-station-decision-summary {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.xgc-ground-station-decision-origin {
+  margin: 0;
+  color: color-mix(in srgb, var(--xgc-decision-fg) 72%, transparent);
+  font-size: var(--font-sm);
+  font-weight: var(--weight-regular);
+  overflow-wrap: anywhere;
+}
+
+.xgc-ground-station-decision-message {
+  margin: 0;
+  color: var(--xgc-decision-fg);
+  font-size: var(--font-base);
+  line-height: var(--line-height-normal);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.xgc-ground-station-decision-request .xgc-ground-station-decision-deadline,
+.xgc-ground-station-decision-request .xgc-ground-station-decision-closed,
+.xgc-ground-station-decision-outcome {
+  color: color-mix(in srgb, var(--xgc-decision-fg) 78%, transparent);
+}
+
+.xgc-ground-station-decision-outcome {
+  font-size: var(--font-sm);
+  font-weight: var(--weight-medium);
+}
+
+.xgc-ground-station-decision-request .xgc-ground-station-decision-deadline[data-xgc-expired="true"] {
+  color: var(--color-danger);
+}
+
+.xgc-ground-station-decision-request [data-xgc-role="ground-station-decision-reason-label"],
+.xgc-ground-station-decision-request [data-xgc-role="ground-station-decision-form-label"],
+.xgc-ground-station-decision-request [data-xgc-role="ground-station-decision-form-field"] {
+  color: color-mix(in srgb, var(--xgc-decision-fg) 82%, transparent);
+}
+
+.xgc-ground-station-response-values {
+  display: grid;
+  gap: var(--space-sm);
+  margin: 0;
+  min-width: 0;
+}
+
+.xgc-ground-station-response-field {
+  display: grid;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.xgc-ground-station-response-field > dt {
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.xgc-ground-station-response-field > dd {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

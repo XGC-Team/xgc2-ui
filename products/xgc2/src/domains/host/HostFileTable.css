@@ -1,0 +1,45 @@
+/*
+ * Host file list table — shell font, denser rows, sticky header.
+ */
+
+.xgc-host-file-list {
+  height: 100%;
+  min-height: 0;
+  position: relative;
+  z-index: var(--z-raised);
+  align-self: stretch;
+  /* Layout (flex column, fixed thead, scrolling tbody) is owned by the shared
+   * data-table body-scroll mode — do not re-declare display/overflow here,
+   * or the shell layer silently overrides it and the scrollbar swallows the
+   * header again. */
+  font-size: var(--font-base);
+}
+
+.xgc-host-file-name {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 0;
+  overflow: hidden;
+  color: var(--color-text-heading);
+  background: transparent;
+  border: 0;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.xgc-host-file-name span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.xgc-host-file-ops {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+}

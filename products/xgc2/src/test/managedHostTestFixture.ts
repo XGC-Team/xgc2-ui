@@ -1,0 +1,106 @@
+import type { AgentEffective,ManagedHost } from '../domains/managedHost/managedHostPublic';
+
+export function agentEffectiveFixture(enabled = false): AgentEffective {
+  return {
+    Product: {
+      Docker: enabled,
+      AppStore: enabled,
+      Operations: enabled,
+      Automations: enabled,
+      UserScripts: enabled,
+      Calibration: enabled,
+    },
+    Terminal: {
+      LocalShell: enabled,
+      RemoteSSH: enabled,
+      TerminalVisible: enabled,
+      HostsTabVisible: enabled,
+    },
+    System: {
+      Overview: enabled,
+      Files: enabled,
+      Processes: enabled,
+      Network: enabled,
+      MaintenanceCleanup: enabled,
+      SSHService: enabled,
+      Firewall: enabled,
+      HostLogs: enabled,
+      SystemVisible: enabled,
+      RuntimeTabVisible: enabled,
+      MaintenanceVisible: enabled,
+    },
+    Experiment: { WorldCameraEdgeProcess: enabled },
+    Robot: {
+      PX4Multirotor: { Models: { MocapRotor: enabled } },
+      UnitreeB2: { EdgeCompute: enabled,ManipulatorARXR5A: enabled },
+    },
+    AgentLink: { ComputeProvider: enabled },
+    Automation: {
+      Nodes: {
+        CoreFlow: enabled,
+        ManualTriggers: enabled,
+        CallGraph: enabled,
+        ScheduledTriggers: enabled,
+        FormSubmissionTriggers: enabled,
+        ChatMessageTriggers: enabled,
+        WebhookTriggers: enabled,
+        Process: enabled,
+        GroundStation: enabled,
+        ScreenRecordingRequests: enabled,
+        MCP: enabled,
+        ROS1: enabled,
+        ROS2: enabled,
+        Robot: enabled,
+        Simulation: enabled,
+        Media: enabled,
+        Visualization: enabled,
+        Analysis: enabled,
+        ExperimentRobotContext: enabled,
+        UserScripts: enabled,
+        CalibrationRender: enabled,
+      },
+    },
+    Surfaces: {
+      Operations: enabled,
+      Automations: enabled,
+      Terminal: enabled,
+      System: enabled,
+      AppStore: enabled,
+      Containers: enabled,
+    },
+  };
+}
+
+export function managedHostFixture(overrides: Partial<ManagedHost> = {}): ManagedHost {
+  return {
+    id: 'agent-a',
+    displayName: 'Agent A',
+    buildIdentity: 'xgc2-agent-dev',
+    productId: 'agent-dev',
+    profileDigest: `sha256:${'a'.repeat(64)}`,
+    providerRegistryDigest: `sha256:${'b'.repeat(64)}`,
+    advertisedManagementEndpoint: '127.0.0.1:9090',
+    publicKeyFingerprint: 'c'.repeat(64),
+    enrollment: 'enrolled',
+    connectivity: 'ready',
+    managementConnection: 'idle',
+    effectiveProfile: agentEffectiveFixture(),
+    capabilityManifest: {
+      host: { arch: 'amd64',os: 'linux',distro: 'ubuntu',hostname: 'agent-a' },
+      middleware: {},
+      execution: {
+        canRunProcess: true,
+        canRunDocker: false,
+        canCopyFiles: true,
+        canInstallApt: false,
+        canInstallPip: false,
+        canRunRosdep: false,
+        canManageSystemd: true,
+      },
+      devices: { serial: [],can: [],camera: [],lidar: [],gpu: [] },
+      network: { interfaces: [],ips: [],openPorts: [] },
+      security: { sandboxLevel: 'trusted-lan',allowedRoots: [],highRiskAllowed: false },
+    },
+    ...overrides,
+  };
+}

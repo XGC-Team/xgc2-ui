@@ -1,0 +1,91 @@
+[class~="react-resizable-handle"] {
+  opacity: var(--opacity-hidden);
+}
+
+.xgc-panel-frame[data-xgc-editing="true"] .react-resizable-handle,
+.dashboard-layout-item:hover .react-resizable-handle {
+  opacity: var(--opacity-full);
+}
+
+/* Experiment panels inherit every visual and interaction rule from the shared
+ * WorkspacePanel. This product class only establishes a container-query scope
+ * for domain content that changes composition with its own panel width. */
+.xgc-panel-frame {
+  container: experiment-panel / inline-size;
+}
+
+/* XGC's legacy ControlButton is still used for domain actions. Keep only its
+ * square geometry here; WorkspacePanel owns the header height and material. */
+.xgc-panel-frame-action,
+.xgc-panel-runtime-action {
+  --xgc-control-height: var(--size-control-compact);
+  flex: 0 0 var(--xgc-control-height);
+  width: var(--xgc-control-height);
+  min-width: var(--xgc-control-height);
+  max-width: var(--xgc-control-height);
+  aspect-ratio: 1 / 1;
+}
+
+/* Experiment exception: keep header actions, never a visible panel title.
+ * Clip the shared title slot out of flow so it does not leave a blank flex
+ * item. Do not restore a visible panel subtitle here. */
+.xgc-panel-frame-header > :first-child:not(.xgc-panel-frame-actions) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.xgc-panel-frame-actions {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  justify-content: stretch;
+  width: 100%;
+}
+
+.xgc-panel-frame-leading,
+.xgc-panel-frame-status,
+.xgc-panel-frame-trailing {
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.xgc-panel-frame-leading {
+  grid-column: 1;
+  justify-content: flex-start;
+}
+
+/* Clip long status copy, but keep the shared focus halo (stroke-strong).
+ * overflow: hidden chops Robot assets header search flush to this slot. */
+.xgc-panel-frame-status {
+  grid-column: 2;
+  justify-content: center;
+  overflow: clip;
+  overflow-clip-margin: var(--stroke-strong);
+}
+
+.xgc-panel-frame-trailing {
+  grid-column: 3;
+  justify-content: flex-end;
+}
+
+.xgc-panel-frame-trailing [data-xgc-role="robot-instruments-connection"] {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  height: 100%;
+}
+
+/* A projection with no header actions gives its full height to content.
+ * Edit restores the same header and stable drag/configuration identities. */
+.xgc-panel-frame-header[hidden] {
+  display: none;
+}

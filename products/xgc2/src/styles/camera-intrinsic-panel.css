@@ -1,0 +1,874 @@
+.panels-camera-intrinsic-layout {
+  grid-template-columns: minmax(0, 1fr) clamp(260px, 34cqi, 352px);
+  column-gap: var(--space-md);
+  background: var(--color-bg-surface);
+  font-size: var(--font-base);
+  line-height: var(--line-height-normal);
+}
+
+.panels-camera-intrinsic-stage-layout {
+  grid-template-rows: minmax(0, 1fr);
+  padding: var(--space-md) 0 var(--space-md) var(--space-md);
+  background: var(--color-bg-surface);
+}
+
+.panels-camera-intrinsic-live-preview {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.panels-camera-intrinsic-raw-live {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.panels-camera-intrinsic-raw-live > * {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  object-fit: contain;
+}
+
+.panels-camera-intrinsic-detection-preview {
+  position: relative;
+  flex: 0 0 auto;
+  overflow: hidden;
+}
+
+.panels-camera-intrinsic-detection-preview > img,
+.panels-camera-intrinsic-detection-preview > .panels-camera-calibration-image-placeholder {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+}
+
+.panels-camera-intrinsic-detection-preview > img {
+  display: block;
+  object-fit: contain;
+}
+
+.panels-camera-intrinsic-source {
+  gap: var(--space-sm);
+}
+
+.panels-camera-intrinsic-hint {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-base);
+  line-height: var(--line-height-relaxed);
+}
+
+.panels-camera-intrinsic-source-meta {
+  color: var(--color-text-muted);
+  font: var(--font-base)/var(--line-height-normal) var(--font-mono);
+}
+
+.panels-camera-intrinsic-inspector {
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-md) var(--space-md) 0;
+  border-left: 0;
+  scrollbar-gutter: auto;
+}
+
+.panels-camera-intrinsic-card {
+  display: grid;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  background: var(--color-bg-subtle);
+  border: var(--stroke-thin) solid var(--color-border);
+  border-radius: var(--radius-control);
+}
+
+.panels-camera-intrinsic-card > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.panels-camera-intrinsic-card > header > div {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: var(--font-base);
+}
+
+.panels-camera-intrinsic-card > header > div {
+  color: var(--color-text-heading);
+}
+
+.panels-camera-intrinsic-card > header > span {
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--font-base);
+  font-weight: var(--weight-regular);
+  line-height: var(--line-height-normal);
+}
+
+.panels-camera-intrinsic-bars {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-md) var(--space-lg);
+}
+
+.panels-camera-intrinsic-detection-summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.panels-camera-intrinsic-detection-summary strong {
+  color: var(--color-text-heading);
+  font: var(--font-base)/var(--line-height-normal) var(--font-mono);
+}
+
+.panels-camera-intrinsic-detection-summary[data-xgc-detected="true"] strong {
+  color: var(--color-success);
+}
+
+.panels-camera-intrinsic-detection-summary span {
+  color: var(--color-text-muted);
+  font-size: var(--font-base);
+  text-align: right;
+}
+
+.panels-camera-intrinsic-bars label {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-xs);
+}
+
+.panels-camera-intrinsic-bars label > span {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-xs);
+  color: var(--color-text-muted);
+  font-size: var(--font-base);
+  line-height: var(--line-height-normal);
+}
+
+.panels-camera-intrinsic-bars label b {
+  color: var(--color-text-heading);
+  font-family: var(--font-mono);
+  font-size: var(--font-base);
+  font-weight: var(--weight-regular);
+}
+
+.panels-camera-intrinsic-guidance {
+  --guide-board-transform: translate3d(0, 0, 0);
+  display: grid;
+  grid-template-columns: minmax(112px, 0.8fr) minmax(0, 1.2fr);
+  align-items: center;
+  gap: var(--space-md);
+  margin-top: var(--space-sm);
+}
+
+.panels-camera-intrinsic-guidance-demo {
+  min-width: 0;
+  display: grid;
+  place-items: center;
+}
+
+.panels-camera-intrinsic-guidance-viewfinder {
+  position: relative;
+  width: min(100%, 148px);
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border: var(--stroke-thin) solid var(--color-border-muted);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-canvas);
+  perspective: 180px;
+}
+
+.panels-camera-intrinsic-guidance-corner {
+  position: absolute;
+  z-index: 3;
+  width: 8px;
+  height: 8px;
+  border-color: var(--color-accent);
+  border-style: solid;
+}
+
+.panels-camera-intrinsic-guidance-corner[data-corner="top-left"] {
+  inset: 7px auto auto 7px;
+  border-width: var(--stroke-thin) 0 0 var(--stroke-thin);
+}
+
+.panels-camera-intrinsic-guidance-corner[data-corner="top-right"] {
+  inset: 7px 7px auto auto;
+  border-width: var(--stroke-thin) var(--stroke-thin) 0 0;
+}
+
+.panels-camera-intrinsic-guidance-corner[data-corner="bottom-left"] {
+  inset: auto auto 7px 7px;
+  border-width: 0 0 var(--stroke-thin) var(--stroke-thin);
+}
+
+.panels-camera-intrinsic-guidance-corner[data-corner="bottom-right"] {
+  inset: auto 7px 7px auto;
+  border-width: 0 var(--stroke-thin) var(--stroke-thin) 0;
+}
+
+.panels-camera-intrinsic-guidance-board {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 32%;
+  aspect-ratio: 1;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  border: var(--stroke-thin) solid var(--color-text-muted);
+  background: white;
+  opacity: var(--opacity-full);
+  transform: translate(-50%, -50%) var(--guide-board-transform);
+  transform-style: preserve-3d;
+  will-change: transform;
+  box-shadow: none;
+  animation: camera-intrinsic-guidance-action calc(var(--duration-deliberate) * 8) var(--easing-standard) infinite alternate;
+}
+
+.panels-camera-intrinsic-guidance-board i:nth-child(odd) {
+  background: black;
+}
+
+.panels-camera-intrinsic-guidance-board i:nth-child(even) {
+  background: white;
+}
+
+.panels-camera-intrinsic-guidance-camera {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 2;
+  color: var(--color-accent);
+  filter: drop-shadow(0 0 1px var(--color-bg-canvas));
+  transform: translate(-50%, -50%);
+}
+
+.panels-camera-intrinsic-guidance[data-mode="frame-left"] {
+  --guide-board-transform: translate3d(-105%, 0, 0);
+}
+
+.panels-camera-intrinsic-guidance[data-mode="frame-right"] {
+  --guide-board-transform: translate3d(105%, 0, 0);
+}
+
+.panels-camera-intrinsic-guidance[data-mode="frame-top"] {
+  --guide-board-transform: translate3d(0, -38%, 0);
+}
+
+.panels-camera-intrinsic-guidance[data-mode="frame-bottom"] {
+  --guide-board-transform: translate3d(0, 38%, 0);
+}
+
+.panels-camera-intrinsic-guidance[data-mode="camera-left"] {
+  --guide-board-transform: rotateY(28deg);
+}
+
+.panels-camera-intrinsic-guidance[data-mode="camera-right"] {
+  --guide-board-transform: rotateY(-28deg);
+}
+
+.panels-camera-intrinsic-guidance[data-mode="camera-above"] {
+  --guide-board-transform: rotateX(-28deg);
+}
+
+.panels-camera-intrinsic-guidance[data-mode="camera-below"] {
+  --guide-board-transform: rotateX(28deg);
+}
+
+.panels-camera-intrinsic-guidance[data-mode="tilt"] {
+  --guide-board-transform: rotateX(14deg) rotateY(-20deg);
+}
+
+.panels-camera-intrinsic-guidance[data-mode="closer"] .panels-camera-intrinsic-guidance-board {
+  animation: camera-intrinsic-guidance-closer calc(var(--duration-deliberate) * 8) var(--easing-standard) infinite alternate;
+}
+
+.panels-camera-intrinsic-guidance[data-mode="frame-center"] .panels-camera-intrinsic-guidance-board {
+  animation: none;
+}
+
+.panels-camera-intrinsic-guidance[data-mode="complete"] .panels-camera-intrinsic-guidance-board {
+  animation: camera-intrinsic-guidance-complete calc(var(--duration-deliberate) * 8) var(--easing-standard) infinite alternate;
+}
+
+.panels-camera-intrinsic-guidance-copy {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-xs);
+}
+
+.panels-camera-intrinsic-guidance-title {
+  color: var(--color-text-muted);
+  font-size: var(--font-base);
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.panels-camera-intrinsic-guidance-instruction {
+  color: var(--color-text-muted);
+  font-size: var(--font-base);
+  line-height: var(--line-height-normal);
+  white-space: normal;
+}
+
+@keyframes camera-intrinsic-guidance-closer {
+  from { transform: translate(-50%, -50%) var(--guide-board-transform) scale(0.78); }
+  to { transform: translate(-50%, -50%) var(--guide-board-transform) scale(1.08); }
+}
+
+@keyframes camera-intrinsic-guidance-action {
+  from { transform: translate(-50%, -50%); }
+  to { transform: translate(-50%, -50%) var(--guide-board-transform); }
+}
+
+@keyframes camera-intrinsic-guidance-complete {
+  from { transform: translate(-50%, -50%) scale(0.94); }
+  to { transform: translate(-50%, -50%) scale(1.04); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panels-camera-intrinsic-guidance-board {
+    animation: none;
+    transform: translate(-50%, -50%) var(--guide-board-transform);
+  }
+}
+
+.panels-camera-intrinsic-empty,
+.panels-camera-intrinsic-readiness,
+.panels-camera-intrinsic-pose {
+  color: var(--color-text-muted);
+  font-size: var(--font-base);
+}
+
+.panels-camera-intrinsic-readiness {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding-top: var(--space-sm);
+  border-top: var(--stroke-thin) solid var(--color-border-muted);
+}
+
+.panels-camera-intrinsic-readiness[data-xgc-ready="true"] {
+  color: var(--color-success);
+}
+
+.panels-camera-intrinsic-readiness[data-xgc-running="true"] {
+  color: var(--color-accent);
+}
+
+.panels-camera-intrinsic-coverage,
+.panels-camera-intrinsic-result,
+.panels-camera-intrinsic-actions {
+  flex: 0 0 auto;
+}
+
+.panels-camera-intrinsic-guide {
+  /* Measured two-row checklist and complete-state footprint. */
+  --camera-intrinsic-guide-list-min-height: 64px;
+  min-height: 104px;
+  flex: 1 1 0;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.panels-camera-intrinsic-guide ol {
+  min-height: var(--camera-intrinsic-guide-list-min-height);
+  max-height: none;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-xs);
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+}
+
+.panels-camera-intrinsic-guide-complete {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  color: var(--color-success);
+  font-size: var(--font-base);
+}
+
+.panels-camera-intrinsic-guide button {
+  width: 100%;
+  min-height: 27px;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-sm);
+  color: var(--color-text-muted);
+  text-align: left;
+  background: var(--color-bg-control);
+  border: var(--stroke-thin) solid var(--color-border-muted);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+}
+
+.panels-camera-intrinsic-guide button:disabled {
+  cursor: not-allowed;
+  opacity: var(--opacity-disabled);
+}
+
+.panels-camera-intrinsic-target-label,
+.panels-camera-intrinsic-validation-view-label {
+  overflow: hidden;
+  font-family: var(--font-sans);
+  font-size: var(--font-base);
+  font-weight: var(--weight-regular);
+  line-height: var(--line-height-normal);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.panels-camera-intrinsic-target-label {
+  color: var(--color-text-heading);
+}
+
+.panels-camera-intrinsic-guide button em {
+  color: var(--color-warning);
+  font: normal var(--font-base)/var(--line-height-normal) var(--font-mono);
+}
+
+.panels-camera-intrinsic-guide button[data-done="true"] > .panels-camera-intrinsic-target-icon {
+  color: var(--color-success);
+}
+
+.panels-camera-intrinsic-guide button[data-next="true"] {
+  border-color: color-mix(in srgb, var(--color-warning) 54%, var(--color-border));
+}
+
+.panels-camera-intrinsic-guide button[aria-current="step"] {
+  background: var(--color-bg-active);
+  border-color: var(--color-accent);
+}
+
+.panels-camera-intrinsic-pose {
+  overflow: hidden;
+  font-family: var(--font-mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.panels-camera-intrinsic-actions .xgc-control-button {
+  justify-content: center;
+  gap: var(--space-sm);
+}
+
+.panels-camera-intrinsic-layout[data-mode="physical"] {
+  column-gap: var(--space-sm);
+}
+
+.panels-camera-intrinsic-layout[data-mode="physical"] .panels-camera-intrinsic-stage-layout {
+  padding: var(--space-sm) 0 var(--space-sm) var(--space-sm);
+}
+
+.panels-camera-intrinsic-layout[data-mode="physical"] .panels-camera-intrinsic-inspector {
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-sm) var(--space-sm) 0;
+}
+
+.panels-camera-intrinsic-layout[data-mode="physical"] .panels-camera-intrinsic-card {
+  gap: var(--space-sm);
+  padding: var(--space-sm);
+}
+
+.panels-camera-intrinsic-layout[data-mode="physical"] .panels-camera-intrinsic-detection-summary span {
+  max-width: 52%;
+}
+
+.panels-camera-intrinsic-layout[data-mode="physical"] .panels-camera-intrinsic-actions {
+  gap: var(--space-xs);
+}
+
+@container camera-calibration (max-width: 620px) {
+  .panels-camera-intrinsic-layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(180px, 1fr) minmax(180px, 50cqh);
+    column-gap: 0;
+    row-gap: var(--space-md);
+  }
+
+  .panels-camera-intrinsic-stage-layout {
+    padding: var(--space-md) var(--space-md) 0;
+  }
+
+  .panels-camera-intrinsic-inspector {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(240px, 1fr));
+    align-items: start;
+    padding: 0 var(--space-md) var(--space-md);
+    border-top: 0;
+    border-left: 0;
+  }
+
+  .panels-camera-intrinsic-actions {
+    grid-column: 1 / -1;
+  }
+
+  .panels-camera-intrinsic-guide ol {
+    max-height: var(--camera-intrinsic-guide-list-min-height);
+  }
+
+  .panels-camera-intrinsic-details {
+    display: none;
+  }
+
+  .panels-camera-intrinsic-layout[data-mode="physical"] {
+    row-gap: var(--space-sm);
+  }
+
+  .panels-camera-intrinsic-layout[data-mode="physical"] .panels-camera-intrinsic-stage-layout {
+    padding: var(--space-sm) var(--space-sm) 0;
+  }
+
+  .panels-camera-intrinsic-layout[data-mode="physical"] .panels-camera-intrinsic-inspector {
+    padding: 0 var(--space-sm) var(--space-sm);
+  }
+}
+
+@container camera-calibration (max-height: 440px) {
+  .panels-camera-intrinsic-layout .panels-camera-calibration-frame-meta,
+  .panels-camera-intrinsic-hint,
+  .panels-camera-intrinsic-details {
+    display: none;
+  }
+
+  .panels-camera-intrinsic-stage-layout {
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .panels-camera-intrinsic-inspector {
+    gap: var(--space-sm);
+    padding-block: var(--space-sm);
+    padding-inline: 0 var(--space-sm);
+  }
+}
+
+.panels-camera-intrinsic-validation {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) clamp(300px, 31cqi, 420px);
+  gap: var(--space-md);
+  padding: var(--space-md);
+  overflow: hidden;
+  color: var(--color-text);
+  background: var(--color-bg-surface);
+  font-size: var(--font-base);
+  line-height: var(--line-height-normal);
+  container: camera-intrinsic-validation / size;
+}
+
+.panels-camera-intrinsic-validation-main,
+.panels-camera-intrinsic-validation-side,
+.panels-camera-intrinsic-validation-live {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.panels-camera-intrinsic-validation-main {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: var(--space-sm);
+  border: var(--stroke-thin) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-bg-subtle);
+}
+
+.panels-camera-intrinsic-validation[data-has-report="false"]
+  .panels-camera-intrinsic-validation-main {
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.panels-camera-intrinsic-validation-empty {
+  width: 100%;
+  height: 100%;
+  place-self: stretch;
+  place-content: center;
+  justify-items: center;
+  text-align: center;
+}
+
+.panels-camera-intrinsic-validation-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-md) 0;
+}
+
+.panels-camera-intrinsic-validation-heading-title {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.panels-camera-intrinsic-validation-heading-title,
+.panels-camera-intrinsic-validation-controls > header {
+  color: var(--color-text-heading);
+  font-size: var(--font-base);
+  line-height: var(--line-height-normal);
+}
+
+.panels-camera-intrinsic-card > header strong,
+.panels-camera-intrinsic-validation-heading-title strong,
+.panels-camera-intrinsic-validation-controls > header strong,
+.panels-camera-intrinsic-validation-gallery > header strong {
+  font-size: var(--font-base);
+  font-weight: var(--weight-bold);
+  line-height: var(--line-height-normal);
+}
+
+.panels-camera-intrinsic-validation-field > label {
+  font-size: var(--font-base);
+  line-height: var(--line-height-normal);
+}
+
+.panels-camera-intrinsic-validation-heading-actions {
+  min-width: 0;
+  display: flex;
+  align-items: start;
+  gap: var(--space-md);
+  overflow: hidden;
+}
+
+.panels-camera-intrinsic-validation-heading dl {
+  min-width: 0;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: var(--space-md);
+  margin: 0;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.panels-camera-intrinsic-validation-heading dl > div {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-xs);
+}
+
+.panels-camera-intrinsic-validation-heading dt,
+.panels-camera-intrinsic-validation-heading dd {
+  font-family: var(--font-sans);
+  font-size: var(--font-base);
+  font-weight: var(--weight-regular);
+  line-height: var(--line-height-normal);
+}
+
+.panels-camera-intrinsic-validation-heading dt {
+  color: var(--color-text-muted);
+}
+
+.panels-camera-intrinsic-validation-heading dd {
+  margin: 0;
+  color: var(--color-text-heading);
+}
+
+.panels-camera-intrinsic-validation-image-stage {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  display: grid;
+  padding: 0 var(--space-md) var(--space-md);
+  overflow: hidden;
+  touch-action: none;
+}
+
+.panels-camera-intrinsic-validation-image-stage[data-zoomed="true"] {
+  cursor: grab;
+}
+
+.panels-camera-intrinsic-validation-image-stage[data-dragging="true"] {
+  cursor: grabbing;
+}
+
+.panels-camera-intrinsic-validation-zoom-surface {
+  min-width: 100%;
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+}
+
+.panels-camera-intrinsic-validation-zoom-surface img {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  display: block;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+}
+
+.panels-camera-intrinsic-validation-zoom-controls {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+  padding: 0 var(--space-md) var(--space-md);
+}
+
+.panels-camera-intrinsic-validation-zoom-controls > .xgc-control-button {
+  flex: 0 0 auto;
+  min-width: 6rem;
+}
+
+.panels-camera-intrinsic-validation-controls,
+.panels-camera-intrinsic-validation-live,
+.panels-camera-intrinsic-validation-gallery {
+  overflow: hidden;
+}
+
+.panels-camera-intrinsic-validation-gallery {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.panels-camera-intrinsic-validation-gallery > header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) 0;
+}
+
+.panels-camera-intrinsic-validation-gallery > div {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+  gap: var(--space-xs);
+  padding: var(--space-sm) 0;
+  overflow: auto;
+}
+
+.panels-camera-intrinsic-validation-gallery button {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-xs);
+  color: var(--color-text-muted);
+  text-align: left;
+  background: var(--color-bg-control);
+  border: var(--stroke-thin) solid var(--color-border-muted);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+}
+
+.panels-camera-intrinsic-validation-gallery button:disabled {
+  opacity: var(--opacity-full);
+  cursor: default;
+}
+
+.panels-camera-intrinsic-validation-gallery button.is-active {
+  color: var(--color-text-heading);
+  background: var(--color-bg-active);
+  border-color: var(--color-accent);
+}
+
+.panels-camera-intrinsic-validation-gallery img,
+.panels-camera-intrinsic-validation-view-placeholder {
+  width: 56px;
+  height: 36px;
+}
+
+.panels-camera-intrinsic-validation-gallery img {
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+}
+
+.panels-camera-intrinsic-validation-view-placeholder {
+  display: grid;
+  place-items: center;
+  color: var(--color-text-muted);
+  background: var(--color-bg-canvas);
+  border: var(--stroke-thin) dashed var(--color-border-muted);
+  border-radius: var(--radius-sm);
+}
+
+.panels-camera-intrinsic-validation-side {
+  display: grid;
+  grid-template-rows: auto auto minmax(180px, 1fr);
+  gap: var(--space-sm);
+  padding-inline: var(--space-md);
+}
+
+.panels-camera-intrinsic-validation-live {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  align-self: start;
+}
+
+.panels-camera-intrinsic-validation-live > * {
+  width: 100%;
+  height: 100%;
+}
+
+.panels-camera-intrinsic-validation-controls {
+  display: grid;
+  gap: var(--space-sm);
+  padding: var(--space-md) 0;
+}
+
+.panels-camera-intrinsic-validation-controls > header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.panels-camera-intrinsic-validation-controls > .xgc-control-button {
+  justify-content: center;
+}
+
+@container camera-intrinsic-validation (max-width: 760px) {
+  .panels-camera-intrinsic-validation {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(360px, 1fr) auto;
+    overflow: auto;
+  }
+
+  .panels-camera-intrinsic-validation-side {
+    grid-template-columns: minmax(260px, 1fr) minmax(280px, 1fr);
+    grid-template-rows: auto auto;
+  }
+
+  .panels-camera-intrinsic-validation-gallery {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .panels-camera-intrinsic-validation-gallery > div {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .panels-camera-intrinsic-validation-live {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .panels-camera-intrinsic-validation-controls {
+    grid-column: 2;
+    grid-row: 1;
+  }
+}

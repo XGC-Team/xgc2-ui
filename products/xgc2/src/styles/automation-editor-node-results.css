@@ -1,0 +1,122 @@
+/* NodeResults owns the execution-result table and node status presentation. */
+.automation-editor-node-results {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: 28px minmax(0, 1fr);
+  overflow: hidden;
+}
+.automation-editor-node-results > header {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(150px, 24%) 110px 62px;
+  align-items: center;
+  gap: 0;
+  padding: 0 var(--space-lg) 0 var(--space-xl);
+  color: var(--color-text-muted);
+  background: var(--color-bg-subtle);
+  border-bottom: var(--stroke-thin) solid var(--color-border);
+  font-size: var(--font-xs);
+  font-style: normal;
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+.automation-editor-run-pane[data-xgc-density="compact"] .automation-editor-node-results > header {
+  display: flex;
+  justify-content: space-between;
+}
+.automation-editor-node-results > header strong {
+  color: var(--color-text-muted);
+  font-size: inherit;
+}
+.automation-editor-node-results > ol {
+  min-width: 0;
+  min-height: 0;
+  display: block;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  list-style: none;
+}
+.automation-editor-node-result {
+  min-width: 0;
+  min-height: 0;
+  overflow: visible;
+  background: transparent;
+  border: 0;
+  border-bottom: var(--stroke-thin) solid var(--color-border-muted);
+  border-radius: 0;
+}
+.automation-editor-node-result > .automation-editor-node-result-action {
+  --xgc-control-height: auto;
+  --xgc-control-button-padding-block: var(--space-sm);
+  --xgc-control-button-padding-inline: var(--space-lg);
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  display: grid;
+  grid-template-columns: minmax(204px, 1fr) minmax(150px, 24%) 110px 62px;
+  align-items: center;
+  gap: var(--space-lg);
+  text-align: left;
+}
+.automation-editor-run-pane[data-xgc-density="compact"] .automation-editor-node-result > .automation-editor-node-result-action {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+.automation-editor-node-name {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-2xs);
+}
+.automation-editor-node-name strong,
+.automation-editor-node-name code {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.automation-editor-node-name strong {
+  color: var(--color-text-heading);
+  font-size: var(--font-sm);
+  font-weight: var(--weight-semibold);
+}
+.automation-editor-node-name code {
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--font-xs);
+}
+.automation-editor-run-pane[data-xgc-density="compact"] .automation-editor-node-name code {
+  display: none;
+}
+.automation-editor-node-status,
+.automation-editor-node-result time,
+.automation-editor-node-attempt {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.automation-editor-node-result time,
+.automation-editor-node-attempt {
+  color: var(--color-text-muted);
+  font-size: var(--font-xs);
+}
+.automation-editor-node-status {
+  justify-self: start;
+  max-width: 100%;
+}
+.automation-editor-node-error-icon {
+  color: var(--color-danger);
+}
+.automation-editor-node-attempt {
+  text-align: center;
+}
+.automation-editor-node-results-empty {
+  padding: var(--space-xl);
+  color: var(--color-text-muted);
+  border: 0;
+  font-size: var(--font-sm);
+  text-align: center;
+}

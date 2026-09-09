@@ -1,0 +1,36 @@
+// Exercise the actual marker without sending commands to an agent.
+import {chromium} from 'playwright'
+import assert from 'node:assert/strict'
+const browser=await chromium.launch({headless:true,executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE||'/usr/bin/google-chrome'})
+const page=await browser.newPage({viewport:{width:1440,height:1000},permissions:['clipboard-read','clipboard-write']})
+const errors=[],commands=[]
+page.on('pageerror',e=>errors.push(e.message))
+page.on('request',r=>{if(r.method()==='POST'&&r.url().includes('/mark-prompt/command'))commands.push(r.url())})
+try{
+ await page.goto('http://localhost:5173');const dock=page.locator('.dev-annotation-toolbar');await dock.waitFor()
+ for(const role of ['toggle','target-trigger','send','copy','land'])assert.equal(await dock.locator(`[data-xgc-role="mark-prompt-${role}"]`).count(),1)
+ await page.locator('[data-xgc-role="mark-prompt-target-trigger"]').click()
+ const menu=page.getByRole('listbox',{name:'Herdr pane'});await menu.waitFor()
+ assert.notEqual(await menu.evaluate(el=>getComputedStyle(el).backgroundColor),'rgba(0, 0, 0, 0)')
+ await page.keyboard.press('Escape')
+ const handle=await page.locator('.dev-annotation-drag-handle').boundingBox();const before=await dock.boundingBox()
+ await page.mouse.move(handle.x+8,handle.y+10);await page.mouse.down();await page.mouse.move(handle.x-150,handle.y-160,{steps:8});await page.mouse.up()
+ const after=await dock.boundingBox();assert.ok(after.y<before.y-100)
+ await page.locator('[data-xgc-role="mark-prompt-toggle"]').click()
+ const target=await page.getByRole('navigation',{name:'主导航'}).getByRole('button',{name:'知识库',exact:true}).boundingBox()
+ await page.mouse.move(target.x+60,target.y+15);await page.mouse.click(target.x+60,target.y+15)
+ const input=page.locator('.dev-annotation-layer input');await input.fill('统一知识库控件间距')
+ await page.reload();await page.locator('[data-xgc-role="mark-prompt-toggle"]').click();await page.locator('.dev-annotation-layer input').waitFor();assert.equal(await page.locator('.dev-annotation-layer input').inputValue(),'统一知识库控件间距')
+ await page.locator('[data-xgc-role="mark-prompt-copy"]').click()
+ const prompt=await page.evaluate(()=>navigator.clipboard.readText());assert.ok(prompt.includes('统一知识库控件间距'));assert.match(prompt,/selector/i)
+ assert.equal(await page.locator('.dev-annotation-layer input').count(),0)
+ await page.mouse.click(target.x+60,target.y+15);await page.locator('.dev-annotation-layer input').fill('删除标记验证')
+ await page.locator('[data-xgc-role="mark-prompt-remove"]').click();assert.equal(await page.locator('.dev-annotation-layer input').count(),0)
+ await page.locator('[data-xgc-role="mark-prompt-toggle"]').click()
+ const rootToken=await page.locator('html').evaluate(el=>getComputedStyle(el).getPropertyValue('--space-xs'))
+ const light=await dock.evaluate(el=>getComputedStyle(el).backgroundColor)
+ await page.getByRole('button',{name:'切换主题',exact:true}).click();assert.notEqual(await dock.evaluate(el=>getComputedStyle(el).backgroundColor),light)
+ assert.equal(await page.locator('html').evaluate(el=>getComputedStyle(el).getPropertyValue('--space-xs')),rootToken)
+ assert.deepEqual(errors,[]);assert.deepEqual(commands,[])
+ console.log('PASS original toolbar, portaled selector, drag, annotate, copy, persistence, removal and isolated light/dark styles; no commands sent')
+}finally{await browser.close()}

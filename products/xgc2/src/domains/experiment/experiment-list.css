@@ -1,0 +1,18 @@
+.experiment-list-folder-name {
+  color: var(--color-text-heading);
+  font-size: inherit;
+  font-weight: var(--weight-regular);
+}
+
+/*
+ * Running reuses the same neutral outer highlight as a selected instrument.
+ * Shared ListPage keeps ownership of the opaque idle/hover/selected fills;
+ * these rules only strengthen the card edge and its halo. Keyboard focus stays
+ * on inner controls.
+ */
+.experiment-list-page .experiment-row[data-xgc-running='true'],
+.experiment-list-page .experiment-row[data-xgc-running='true']:hover,
+.experiment-list-page .experiment-row[data-xgc-running='true'][data-xgc-selected='true'] {
+  border-color: var(--color-selection-highlight);
+  box-shadow: var(--shadow-selection-highlight-halo);
+}

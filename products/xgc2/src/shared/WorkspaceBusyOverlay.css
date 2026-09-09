@@ -1,0 +1,48 @@
+[data-xgc-role="workspace-busy-overlay"],
+[data-xgc-role="product-web-bootstrap-status"][role="status"] {
+  position: absolute;
+  inset: 0;
+  grid-column: 1;
+  grid-row: 1;
+  z-index: 6;
+  display: grid;
+  place-items: center;
+  isolation: isolate;
+  overflow: hidden;
+  pointer-events: auto;
+  touch-action: none;
+  user-select: none;
+  cursor: wait;
+  background: color-mix(in srgb, var(--background-app, var(--color-bg-app)) 72%, transparent);
+  backdrop-filter: blur(18px) saturate(1.15);
+  -webkit-backdrop-filter: blur(18px) saturate(1.15);
+}
+
+[data-xgc-role="product-web-bootstrap-status"][role="status"] {
+  position: fixed;
+  z-index: 20;
+}
+
+.xgc-workspace-busy-ring {
+  box-sizing: border-box;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--color-border-muted) 65%, transparent);
+  border-top-color: var(--color-border-focus, var(--color-accent));
+  animation: xgc-workspace-busy-spin calc(var(--duration-deliberate) * 3) linear infinite;
+}
+
+@keyframes xgc-workspace-busy-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .xgc-workspace-busy-ring {
+    animation: none;
+    border-top-color: var(--color-border-focus, var(--color-accent));
+    opacity: var(--opacity-full);
+  }
+}

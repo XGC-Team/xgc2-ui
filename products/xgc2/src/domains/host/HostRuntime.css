@@ -1,0 +1,246 @@
+/*
+ * Processes / Network — table contract aligned with Files (HostFileTable).
+ * OpsSection body: toolbar row, then one scrollable OpsTable with sticky head.
+ */
+
+.xgc-host-runtime-section {
+  width: 100%;
+  max-width: none;
+  align-self: stretch;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow: hidden;
+  justify-self: stretch;
+}
+
+/*
+ * Single toolbar row: search (left) · view switches / actions (right).
+ */
+.xgc-host-runtime-toolbar {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  position: relative;
+  z-index: var(--z-sticky);
+  min-height: var(--size-control-default);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: nowrap;
+  gap: var(--space-lg) var(--space-lg);
+  flex: 0 0 auto;
+  /* Compact search and actions share one borderless strip, with a
+   * single hairline separating the table. */
+  padding-block: var(--space-sm);
+  padding-inline: var(--stroke-strong);
+  background: transparent;
+  border-bottom: var(--stroke-thin) solid var(--color-border-muted);
+}
+
+.xgc-host-runtime-toolbar-left,
+.xgc-host-runtime-toolbar-right {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: var(--space-md);
+}
+
+.xgc-host-runtime-toolbar-left {
+  flex: 1 1 auto;
+  overflow: visible;
+}
+
+.xgc-host-runtime-toolbar-right {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+.xgc-host-runtime-toolbar-right .xgc-host-runtime-view-tabs {
+  flex: 0 0 auto;
+}
+
+.xgc-host-runtime-search {
+  width: min(22rem, 100%);
+  min-width: 0;
+  flex: 0 1 auto;
+}
+
+.xgc-host-runtime-toolbar-right > .xgc-control-button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.xgc-host-runtime-list-wrap {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/*
+ * Same surface as the shared-backed host file table:
+ * bordered scrollport, sticky head row, denser chrome rows.
+ */
+.xgc-host-runtime-list {
+  height: 100%;
+  min-height: 0;
+  position: relative;
+  z-index: var(--z-raised);
+  align-self: stretch;
+  flex: 1 1 0;
+  /* Layout (flex column, fixed thead, scrolling tbody) is owned by the shared
+   * data-table body-scroll mode — do not re-declare display/overflow here. */
+  font-size: var(--xgc-shell-ui-font-size, var(--font-base));
+}
+
+.xgc-host-process-row,
+.xgc-host-port-row,
+.xgc-host-interface-row,
+.xgc-host-route-row,
+.xgc-host-remote-access-row {
+  min-height: var(--size-control-default);
+  display: grid;
+  align-items: center;
+  gap: var(--space-md);
+  padding: 0 var(--space-lg);
+  color: var(--color-text-heading);
+  background: var(--color-bg-chrome);
+  border: 0;
+  border-bottom: var(--stroke-thin) solid var(--color-border-muted);
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+}
+
+.xgc-host-runtime-list-head {
+  min-height: var(--size-control-compact);
+  position: sticky;
+  top: 0;
+  z-index: var(--z-raised);
+  color: var(--color-text-muted);
+  background: var(--color-bg-subtle);
+  font-size: var(--font-sm);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+.xgc-host-process-row:last-child,
+.xgc-host-port-row:last-child,
+.xgc-host-interface-row:last-child,
+.xgc-host-route-row:last-child,
+.xgc-host-remote-access-row:last-child {
+  border-bottom: 0;
+}
+
+.xgc-host-process-row:hover,
+.xgc-host-port-row:hover,
+.xgc-host-interface-row:hover,
+.xgc-host-route-row:hover,
+.xgc-host-remote-access-row:hover {
+  background: var(--color-bg-surface-hover);
+}
+
+.xgc-host-runtime-list-head:hover {
+  background: var(--color-bg-subtle);
+}
+
+.xgc-host-process-row em,
+.xgc-host-port-row em,
+.xgc-host-interface-row em,
+.xgc-host-route-row em,
+.xgc-host-remote-access-row em,
+.xgc-host-process-row strong,
+.xgc-host-port-row strong,
+.xgc-host-interface-row strong,
+.xgc-host-route-row strong,
+.xgc-host-remote-access-row strong,
+.xgc-host-process-row span,
+.xgc-host-port-row span,
+.xgc-host-interface-row span,
+.xgc-host-route-row span,
+.xgc-host-remote-access-row span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-base);
+}
+
+.xgc-host-process-row em,
+.xgc-host-port-row em,
+.xgc-host-interface-row em,
+.xgc-host-route-row em,
+.xgc-host-remote-access-row em {
+  color: var(--color-text-muted);
+  font-style: normal;
+}
+
+.xgc-host-process-row p {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-heading);
+  font-size: var(--font-base);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.xgc-host-process-ops {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+}
+
+@container xgc-workspace (max-width: 1050px) {
+  .xgc-host-runtime-toolbar {
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+
+  .xgc-host-runtime-toolbar-left,
+  .xgc-host-runtime-toolbar-right {
+    width: 100%;
+  }
+
+  .xgc-host-runtime-toolbar-left {
+    overflow: visible;
+  }
+
+  .xgc-host-runtime-toolbar-right {
+    margin-left: 0;
+  }
+
+  .xgc-host-runtime-search {
+    width: auto;
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+}
+
+@container xgc-workspace (max-width: 720px) {
+  .xgc-host-runtime-toolbar {
+    max-height: none;
+    flex-wrap: wrap;
+    align-items: stretch;
+  }
+
+  .xgc-host-runtime-toolbar-left,
+  .xgc-host-runtime-toolbar-right {
+    width: 100%;
+  }
+
+  .xgc-host-runtime-toolbar-right {
+    margin-left: 0;
+  }
+
+  .xgc-host-runtime-search {
+    width: 100%;
+    min-width: 0;
+  }
+}

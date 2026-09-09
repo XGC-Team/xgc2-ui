@@ -1,0 +1,351 @@
+/* Lock the Home workspace to the visible content box. Masonry row-spans plus
+ * row-gap used to grow past the viewport and force page scroll. */
+.xgc-workspace-content:has(> .home-page.xgc-workspace-full-span),
+.xgc-workspace-content:has(> [data-xgc-route-page="home"]:not([hidden])) {
+  overflow: hidden;
+}
+
+.home-page {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.home-gallery {
+  flex: 1 1 0;
+  min-height: 0;
+  height: 100%;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  grid-template-rows: minmax(0, 1fr);
+  grid-auto-flow: dense;
+  align-items: stretch;
+  column-gap: var(--space-xl);
+  row-gap: var(--space-md);
+}
+
+/* Home cards are shared Panels; this class now carries only grid placement.
+ * Chrome (surface, border, radius, shadow, header) comes from Panel. */
+.home-gallery-card {
+  min-width: 0;
+  min-height: 0;
+}
+
+.home-gallery-card[data-xgc-columns="wide"] {
+  grid-column: span 2;
+}
+
+.home-gallery-card[data-xgc-columns="full"] {
+  grid-column: 1 / -1;
+}
+
+.home-gallery-card[data-xgc-rows="feature"] {
+  grid-row: 1;
+  height: 100%;
+}
+
+.home-library-panel {
+  min-height: 0;
+}
+
+.home-library-search {
+  width: min(320px, 36%);
+  min-width: 240px;
+}
+
+.home-library-empty,
+.home-player.home-player--empty {
+  min-height: 0;
+  height: 100%;
+  background: transparent;
+  box-shadow: none;
+  filter: none;
+}
+
+.home-library-body {
+  min-height: 0;
+  height: 100%;
+  display: grid;
+  grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  align-items: stretch;
+  gap: var(--space-xs);
+  overflow: hidden;
+}
+
+.home-library-body > * {
+  min-height: 0;
+}
+
+.home-recording-list {
+  --xgc-list-folder-gap: var(--space-xs);
+  --xgc-list-folder-item-gap: var(--space-xs);
+  /* One nest step under the folder title; do not generalize to ListFolder. */
+  --home-recording-row-indent: var(--space-lg);
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: auto;
+  font-family: var(--font-sans);
+}
+
+.home-recording-list [data-xgc-role="recording-folder"],
+.home-recording-list [data-xgc-role="recording-folder-toggle"] {
+  min-width: 0;
+}
+
+.home-recording-list [data-xgc-role="recording-folder-toggle"] {
+  gap: var(--space-sm);
+  padding: var(--space-2xs) var(--space-sm);
+  border-radius: var(--radius-control);
+  transition: background var(--duration-fast) var(--easing-standard);
+}
+
+.home-recording-list [data-xgc-role="recording-folder-toggle"]:hover {
+  background: var(--color-bg-surface-hover);
+}
+
+.home-recording-folder-title {
+  color: var(--color-text-heading);
+  font-family: var(--font-sans);
+  font-size: var(--font-base);
+  font-weight: var(--weight-regular);
+  line-height: var(--line-height-tight);
+}
+
+/* UA ul indent is domain-local; shared ListFolder stays a div. */
+.home-recording-list ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.home-recording-list li {
+  min-width: 0;
+  width: 100%;
+}
+
+.home-recording-row {
+  box-sizing: border-box;
+  width: calc(100% - var(--home-recording-row-indent));
+  margin-inline-start: var(--home-recording-row-indent);
+  min-width: 0;
+  height: auto;
+  min-height: var(--size-control-compact);
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0;
+  padding: var(--space-2xs) var(--space-sm);
+  text-align: left;
+  cursor: pointer;
+  background: transparent;
+  border: var(--stroke-thin) solid transparent;
+  border-radius: var(--radius-control);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: var(--font-base);
+  font-weight: var(--weight-regular);
+  line-height: var(--line-height-tight);
+  transition: border-color var(--duration-fast) var(--easing-standard), background var(--duration-fast) var(--easing-standard);
+}
+
+.home-recording-row:hover {
+  background: var(--color-bg-surface-hover);
+}
+
+.home-recording-row:focus-visible {
+  outline: var(--stroke-strong) solid var(--color-border-focus);
+  outline-offset: 0;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.home-recording-row[aria-pressed="true"] {
+  background: var(--color-bg-selected);
+  border-color: var(--color-border-primary);
+}
+
+.home-recording-main {
+  flex: 1 1 0;
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+}
+
+.home-recording-name {
+  display: block;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: var(--font-base);
+  font-weight: var(--weight-regular);
+  line-height: var(--line-height-tight);
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.home-recording-meta {
+  flex: 0 0 auto;
+  min-width: 0;
+  max-width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: var(--space-sm);
+  row-gap: var(--space-2xs);
+  color: var(--color-text-muted);
+  font-family: var(--font-sans);
+  font-size: var(--font-sm);
+  font-weight: var(--weight-regular);
+  line-height: var(--line-height-tight);
+}
+
+.home-player {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  overflow: hidden;
+}
+
+.home-player--empty {
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: var(--font-base);
+}
+
+.home-player-stage {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 0;
+  width: 100%;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: var(--color-bg-canvas);
+  border-radius: var(--radius-control);
+}
+
+.home-player-video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: var(--color-bg-canvas);
+}
+
+.home-player-message {
+  margin: 0;
+  padding: var(--space-xl);
+  color: var(--color-text-muted);
+  font-size: var(--font-base);
+}
+
+.home-player-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.home-player-confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.home-bag-plot {
+  gap: var(--space-sm);
+}
+
+.home-bag-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.home-bag-field {
+  max-width: 100%;
+  border: var(--stroke-thin) solid transparent;
+}
+
+.home-bag-field[aria-pressed="true"] {
+  background: var(--color-bg-selected);
+  border-color: var(--color-border-primary);
+}
+
+.home-bag-chart {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.home-bag-chart svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+@container xgc-workspace (max-width: 760px) {
+  .home-gallery {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .home-gallery-card[data-xgc-columns="wide"],
+  .home-gallery-card[data-xgc-columns="full"] {
+    grid-column: auto;
+  }
+
+  .home-gallery-card[data-xgc-rows="feature"],
+  .home-gallery-card[data-xgc-rows="large"],
+  .home-gallery-card[data-xgc-rows="analysis"] {
+    grid-row: auto;
+  }
+
+  .home-library-search {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .home-library-body {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 30%) minmax(0, 1fr);
+    overflow: hidden;
+  }
+
+  .home-recording-list {
+    max-height: none;
+    height: 100%;
+    padding-right: 0;
+    border-right: 0;
+    border-bottom: var(--stroke-thin) solid var(--color-border-muted);
+  }
+
+  .home-player {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+}

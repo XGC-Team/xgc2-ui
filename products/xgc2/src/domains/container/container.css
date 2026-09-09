@@ -1,0 +1,822 @@
+/*
+ * Containers domain layout.
+ * Shared OperatorWorkspace / Panel / Toolbar / SortableDataTable own the base chrome.
+ *
+ * Scroll contract: page height locked; filters/forms fixed; only table rows scroll.
+ * Use flex (not multi-row grid) so a missing notices block still lets main fill height.
+ *
+ * Horizontal: left-align with shell topbar tabs (not a centered ops column).
+ * Ports/Created need the full workspace content width.
+ */
+
+/*
+ * Break centered full-span max so content shares the workspace left edge with topbar.
+ * Tighten block inset vs the global workspace margin (32px) — filters/table sit closer
+ * to the shell chrome and bottom edge without changing other pages.
+ */
+/* Product.Docker-owned layout and controls. */
+.xgc-workspace-content:has(> .container-page.xgc-workspace-full-span),
+.xgc-workspace-content:has(> [data-xgc-route-page="containers"]:not([hidden])) {
+  padding-block: var(--space-lg);
+}
+
+.xgc-workspace-content > .container-page.xgc-workspace-full-span,
+.xgc-workspace-content > [data-xgc-route-page="containers"]:not([hidden]) {
+  width: 100%;
+  max-width: none;
+  justify-self: stretch;
+}
+
+.container-page {
+  /* The parent content box owns chrome and inset subtraction. */
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  /* Notices → main: keep tighter than default ops gap. */
+  gap: var(--space-md);
+  overflow: hidden;
+}
+
+.container-runtime-notices {
+  flex: 0 0 auto;
+  width: 100%;
+  min-width: 0;
+  align-self: stretch;
+  display: grid;
+  align-content: start;
+  gap: var(--space-md);
+}
+
+.container-main {
+  flex: 1 1 0;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  overflow: hidden;
+}
+
+/*
+ * Full content width, left-aligned with shell chrome (filter strip under topbar tabs).
+ * Fill remaining height so only the table scrolls.
+ */
+.container-page .container-section {
+  flex: 1 1 0;
+  width: 100%;
+  max-width: none;
+  align-self: stretch;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow: hidden;
+}
+
+.container-section-content {
+  height: 100%;
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  /* Filter strip / inline forms → table: dense operator-workspace rhythm. */
+  gap: var(--space-sm);
+  overflow: hidden;
+}
+
+/* Filters / create toolbars stay put; table+footer panel is the only flex fill. */
+.container-section-content > .container-table-toolbar {
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+/* Images / networks / volumes: table scroll region + pagination share one chrome. */
+.container-section-content > .container-table-panel {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Containers list tab still scrolls the bare table shell. */
+.container-section-content > .container-data-table-shell {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+/*
+ * Foundation SegmentedControl beside Search/ControlButton.
+ * Lock strip height so long labels (Restarting) or empty result views never
+ * stretch the list toolbar vertically.
+ */
+.container-state-filter {
+  box-sizing: border-box;
+  width: max-content;
+  max-width: 100%;
+  height: var(--size-control-default);
+  max-height: var(--size-control-default);
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  background: var(--color-bg-subtle);
+  border-color: var(--color-border);
+}
+
+/*
+ * Single toolbar row: state tabs (left) · search / refresh / create (right).
+ * Containers list keeps a single line; multi-action toolbars (images / networks /
+ * volumes) use .container-table-toolbar-multi so buttons are not clipped.
+ */
+.container-table-toolbar {
+  width: 100%;
+  min-width: 0;
+  min-height: var(--size-control-default);
+  max-height: calc(var(--size-control-default) + var(--space-xs));
+  justify-content: space-between;
+  flex-wrap: nowrap;
+  gap: var(--space-lg) var(--space-lg);
+  align-items: center;
+}
+
+/* Multi-action toolbars (images / networks / volumes): wrap instead of clipping. */
+.container-table-toolbar-multi {
+  max-height: none;
+  flex-wrap: wrap;
+  height: auto;
+  row-gap: var(--space-md);
+  align-items: center;
+}
+
+.container-table-toolbar-multi .container-toolbar-left {
+  flex-wrap: wrap;
+  overflow: visible;
+}
+
+.container-toolbar-left,
+.container-toolbar-right,
+.container-actions {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+}
+
+.container-toolbar-left {
+  flex: 1 1 auto;
+  gap: var(--space-md);
+  overflow: hidden;
+}
+
+.container-toolbar-right {
+  flex: 0 0 auto;
+  gap: var(--space-md);
+  margin-left: auto;
+}
+
+/*
+ * Toolbar text actions (Compose Refresh/Create, Images Pull/…):
+ * Match default ControlButton metrics used on Containers / Compose tabs.
+ */
+.container-toolbar-text-action {
+  box-sizing: border-box;
+  height: var(--size-control-default);
+  min-height: var(--size-control-default);
+  max-height: var(--size-control-default);
+  min-width: 5.5rem;
+  justify-content: center;
+  padding: 0 var(--space-lg);
+  font-size: var(--xgc-shell-ui-font-size, var(--font-base));
+  font-weight: var(--weight-regular);
+  line-height: var(--line-height-none);
+  white-space: nowrap;
+}
+
+/* Multi-action rows: keep control height/font, size width to the label. */
+.container-table-toolbar-multi .container-toolbar-text-action {
+  min-width: 0;
+}
+
+.container-search {
+  width: min(280px, 36vw);
+}
+
+/* Inline fields inside shared Toolbar (images / networks / volumes). */
+.container-inline-fields {
+  flex: 1 1 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-md);
+  min-width: 0;
+}
+
+.container-inline-field {
+  width: min(220px, 100%);
+  min-width: 0;
+}
+
+.container-inline-field-wide {
+  width: min(420px, 100%);
+  flex: 1 1 240px;
+}
+
+.container-hidden-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/*
+ * Image/network status + image tag cells: plain table text only.
+ * No pill chrome / tinted backgrounds (annotation: status tags as normal text).
+ */
+.container-image-status,
+.container-image-tag {
+  display: inline;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--color-text);
+  font-size: inherit;
+  line-height: inherit;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.container-image-status[data-xgc-status="used"],
+.container-image-status[data-xgc-status="unused"] {
+  color: var(--color-text);
+  border: 0;
+  background: transparent;
+}
+
+/*
+ * Table + pagination share one bordered panel so the footer left edge
+ * ("0 selected · Showing 1–13 of 13") lines up with column text and never
+ * sits outside the toolbar/table chrome.
+ */
+.container-table-panel {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--color-bg-surface);
+  border: var(--stroke-thin) solid var(--color-border);
+  border-radius: var(--radius-control);
+}
+
+.container-table-panel > .container-data-table-shell {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+/*
+ * Footer grid: left summary | right pager.
+ * Column 1 is minmax(0,1fr) so "Showing 1–5 of 5" / "N selected · …" can ellipsis
+ * without ever overflowing past the page-size / prev-next controls.
+ * Horizontal inset matches table cells (--space-lg).
+ */
+.container-table-panel > .container-image-footer,
+.container-image-footer {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--space-lg);
+  min-height: calc(var(--size-control-default) + var(--space-sm) * 2);
+  padding: var(--space-sm) var(--space-lg);
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--xgc-shell-ui-font-size, var(--font-base));
+  line-height: var(--line-height-none);
+  background: var(--color-bg-subtle);
+  border-top: var(--stroke-thin) solid var(--color-border);
+}
+
+.container-image-footer-summary {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+}
+
+.container-image-footer-pagination {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.container-row-open-button {
+  min-width: 0;
+  max-width: 100%;
+  padding: 0;
+  text-align: left;
+}
+
+.container-row-open-button.container-code-cell {
+  font-family: var(--font-mono);
+  color: var(--color-text-muted);
+}
+
+.container-row-open-button.container-code-cell:hover {
+  color: var(--color-text-heading);
+}
+
+.container-compose-file-editor {
+  min-height: 180px;
+}
+
+.container-compose-file-editor > textarea,
+.container-list-field > textarea,
+.container-detail-output pre,
+.container-code-cell {
+  font-family: var(--font-mono);
+}
+
+/* Shared SortableDataTable owns semantics, row chrome, and overflow. */
+.container-data-table-shell {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  background: var(--color-bg-surface);
+  font-size: var(--xgc-shell-ui-font-size, var(--font-base));
+  line-height: var(--line-height-normal);
+}
+
+.container-data-table {
+  width: 100%;
+  min-width: 1100px;
+}
+
+.container-code-cell {
+  color: var(--color-text-muted);
+}
+
+/* Row operations: icon-only compact buttons, state left → delete right. */
+.container-actions {
+  gap: var(--space-xs);
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+}
+
+.container-form-body {
+  min-height: 0;
+  display: grid;
+  align-content: start;
+  gap: var(--space-lg);
+  padding: var(--space-xl);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.container-list-field {
+  min-height: 72px;
+}
+
+/*
+ * Logs / inspect: use shared .config-drawer-extra-wide for width.
+ * Title size: shell header is chrome-scale; log panels lead with container name.
+ */
+.container-output-drawer.config-drawer > header strong {
+  font-size: var(--font-xl);
+  font-weight: var(--weight-semibold);
+  line-height: var(--line-height-tight);
+}
+
+/* No subtitle row under the title for this drawer family. */
+.container-output-drawer.config-drawer > header > div:first-child > span {
+  display: none;
+}
+
+/*
+ * Logs body: drawer chrome padding + inset terminal window (not edge-flush
+ * plain text). Matches Terminal page’s console-stack pattern: bordered card
+ * around a dark xterm surface.
+ */
+.container-detail-output {
+  box-sizing: border-box;
+  height: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  gap: 0;
+  padding: var(--space-lg) var(--space-xl);
+  overflow: hidden;
+  background: var(--color-bg-chrome);
+}
+
+/* Compose YAML: readable mono pre, not xterm (file content, not process log). */
+.container-detail-yaml {
+  box-sizing: border-box;
+  height: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: var(--space-md);
+  padding: var(--space-lg) var(--space-xl);
+  overflow: hidden;
+  background: var(--color-bg-chrome);
+}
+
+.container-yaml-view {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: var(--space-md);
+}
+
+.container-yaml-path {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--font-md);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.container-yaml-pre {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.container-yaml-pre pre {
+  min-height: 0;
+  max-height: none;
+  flex: 1 1 auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  white-space: pre;
+}
+
+/* Outer flex host so the window can fill remaining drawer height. */
+.container-terminal-shell {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+}
+
+/*
+ * Inset terminal window. Always-dark surface via skin terminal tokens;
+ * re-scope global scrollbar tokens for contrast (base scrollbar rules).
+ */
+.container-terminal-window {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  overflow: hidden;
+  background: var(--color-terminal-bg);
+  border: var(--stroke-thin) solid var(--color-border-strong, var(--color-border));
+  border-radius: var(--radius-surface);
+  box-shadow: inset 0 0 0 var(--stroke-thin) var(--color-terminal-inset-glow);
+}
+
+.container-terminal-log {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  /* Right padding leaves room for the thin token scrollbar without clipping glyphs. */
+  padding: var(--space-md) 0 var(--space-md) var(--space-lg);
+  background: var(--color-terminal-bg);
+}
+
+.container-terminal-log .xterm {
+  height: 100%;
+  padding: 0;
+}
+
+/*
+ * xterm 6 uses a custom VS Code slider (class .slider) — that is the square
+ * block the operator saw. Hide native viewport overflow and restyle the
+ * custom slider to a thin pill (same tokens as the app chrome scrollbar).
+ */
+.container-terminal-log .xterm-viewport {
+  overflow: hidden !important;
+  background-color: transparent !important;
+}
+
+.container-terminal-log .xterm-screen {
+  background-color: transparent !important;
+}
+
+.container-terminal-log .xterm-scrollable-element > .scrollbar.vertical {
+  width: var(--size-scrollbar) !important;
+  right: var(--space-2xs) !important;
+}
+
+.container-terminal-log .xterm-scrollable-element > .scrollbar > .slider {
+  /* JS sets inline width on the slider; force thin pill geometry. */
+  left: 50% !important;
+  width: calc(var(--size-scrollbar) - var(--stroke-scrollbar-inset) * 2) !important;
+  margin-left: calc((var(--size-scrollbar) - var(--stroke-scrollbar-inset) * 2) / -2) !important;
+  border-radius: var(--radius-scrollbar) !important;
+}
+
+/* Structured inspect summary (operator facts first; raw JSON optional). */
+.container-detail-inspect {
+  box-sizing: border-box;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  padding: var(--space-lg) var(--space-xl);
+  overflow: auto;
+  overscroll-behavior: contain;
+  background: var(--color-bg-surface);
+}
+
+.container-inspect-summary {
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+/* Mutual-exclusive Summary | JSON — same compact strip as workflow node I/O. */
+.container-inspect-view-tabs {
+  flex: 0 0 auto;
+  align-self: flex-start;
+}
+
+.container-inspect-facts {
+  margin: 0;
+  min-width: 0;
+  display: grid;
+  gap: 0;
+  border-top: var(--stroke-thin) solid var(--color-border-muted);
+}
+
+.container-inspect-fact {
+  min-height: 36px;
+  display: grid;
+  grid-template-columns: minmax(110px, 0.35fr) minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-lg);
+  padding: var(--space-md) 0;
+  border-bottom: var(--stroke-thin) solid var(--color-border-muted);
+}
+
+.container-inspect-fact dt {
+  color: var(--color-text-muted);
+  font-size: var(--font-base);
+  font-weight: var(--weight-regular);
+}
+
+.container-inspect-fact dd {
+  margin: 0;
+  min-width: 0;
+  color: var(--color-text-heading);
+  font-size: var(--font-base);
+  line-height: var(--line-height-relaxed);
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
+/*
+ * Plain preformatted JSON (workflow automation-runtime-json pattern).
+ * Not xterm — terminal fit needs a non-zero layout box and is overkill here.
+ */
+.container-inspect-json {
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.container-inspect-json pre {
+  min-height: 0;
+  max-height: none;
+  flex: 1 1 auto;
+  overscroll-behavior: contain;
+  white-space: pre-wrap;
+  word-break: break-word;
+  tab-size: 2;
+}
+
+/* Networks: name open + system tag; inspect endpoints table. */
+.container-network-name-cell {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-md);
+  max-width: 100%;
+}
+
+/*
+ * System marker: plain muted text — matches image status plain cells so the
+ * networks table core stays one density.
+ */
+.container-network-system-tag {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  color: var(--color-text-muted);
+  background: transparent;
+  font-size: inherit;
+  font-weight: var(--weight-regular);
+  line-height: inherit;
+  white-space: nowrap;
+}
+
+.container-network-labels {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-muted);
+}
+
+.container-network-inspect-body {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-xl);
+  align-content: start;
+}
+
+.container-network-endpoints {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-md);
+}
+
+.container-network-endpoints > strong {
+  color: var(--color-text-heading);
+  font-size: var(--font-base);
+}
+
+.container-network-endpoints-empty {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-base);
+}
+
+.container-network-endpoint-table {
+  min-width: 0;
+  display: grid;
+  gap: 0;
+  overflow: auto;
+  border: var(--stroke-thin) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-bg-surface);
+}
+
+.container-network-endpoint-head,
+.container-network-endpoint-row {
+  display: grid;
+  grid-template-columns: minmax(100px, 1.1fr) minmax(110px, 1fr) minmax(110px, 1fr) minmax(120px, .9fr) minmax(90px, .7fr);
+  gap: var(--space-md);
+  align-items: center;
+  padding: var(--space-md) var(--space-lg);
+  font-size: var(--font-base);
+}
+
+.container-network-endpoint-head-actions,
+.container-network-endpoint-row-actions {
+  grid-template-columns: minmax(100px, 1.1fr) minmax(100px, 1fr) minmax(100px, 1fr) minmax(110px, .85fr) minmax(80px, .65fr) minmax(56px, auto);
+}
+
+.container-network-endpoint-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.container-network-connect {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-lg);
+  padding-top: var(--space-xs);
+  border-top: var(--stroke-thin) solid var(--color-border-muted);
+}
+
+.container-network-connect > strong {
+  color: var(--color-text-heading);
+  font-size: var(--font-base);
+}
+
+.container-network-connect-form {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-lg);
+}
+
+.container-network-connect-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.container-network-endpoint-head {
+  color: var(--color-text-muted);
+  background: var(--color-bg-subtle);
+  border-bottom: var(--stroke-thin) solid var(--color-border);
+}
+
+.container-network-endpoint-row {
+  border-bottom: var(--stroke-thin) solid var(--color-border-muted);
+}
+
+.container-network-endpoint-row:last-child {
+  border-bottom: 0;
+}
+
+.container-network-endpoint-row span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@container xgc-workspace (max-width: 900px) {
+  .container-table-toolbar {
+    flex-wrap: wrap;
+    max-height: none;
+    align-items: center;
+  }
+
+  .container-toolbar-left,
+  .container-toolbar-right,
+  .container-inline-fields {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .container-toolbar-right {
+    justify-content: flex-end;
+  }
+
+  .container-search,
+  .container-inline-field,
+  .container-inline-field-wide {
+    flex: 1 1 auto;
+    width: auto;
+    min-width: min(180px, 100%);
+  }
+
+  .container-state-filter {
+    max-width: 100%;
+  }
+
+  .container-table-panel > .container-image-footer,
+  .container-image-footer {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: var(--space-sm);
+  }
+
+}

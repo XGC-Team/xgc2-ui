@@ -1,0 +1,16 @@
+export {
+  chmodHostFile,
+  chownHostFile,
+  compressHostFile,
+  copyHostFile,
+  createHostFile,
+  deleteHostFile,
+  downloadHostFile,
+  getHostFileContent,
+  getHostFiles,
+  getHostRecycle,
+  moveHostFile,
+  restoreHostRecycle,
+  saveHostFileContent,
+  uploadHostFile,
+} from './hostFileService';

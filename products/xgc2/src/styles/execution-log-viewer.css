@@ -1,0 +1,59 @@
+.execution-log-section {
+  margin-top: var(--space-xl);
+}
+.execution-log-notice {
+  margin-bottom: var(--space-lg);
+  padding: var(--space-md) var(--space-lg);
+}
+.execution-log-section > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-lg);
+}
+.execution-log-section h3 {
+  margin: 0 0 var(--space-md);
+  color: var(--color-text-heading);
+  font-size: var(--font-base);
+}
+.execution-log-output pre {
+  max-height: 300px;
+  white-space: pre-wrap;
+}
+.execution-log-section > header > div > h3,
+.execution-log-section > header > div > span {
+  display: block;
+}
+.execution-log-section > header > div > span {
+  margin: -4px 0 var(--space-md);
+  color: var(--color-text-muted);
+  font-size: var(--font-xs);
+}
+.execution-log-stream-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-md);
+}
+.execution-log-section[data-xgc-layout="tabs"] .execution-log-stream-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+.execution-log-stream {
+  min-width: 0;
+}
+.execution-log-stream > strong {
+  display: block;
+  margin-bottom: var(--space-sm);
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--font-sm);
+}
+.execution-log-stream > .execution-log-output,
+.execution-log-stream > .execution-log-output pre {
+  min-height: 92px;
+}
+
+@container xgc-workspace (max-width: 900px) {
+  .execution-log-stream-grid {
+    grid-template-columns: 1fr;
+  }
+}

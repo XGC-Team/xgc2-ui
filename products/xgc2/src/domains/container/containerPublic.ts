@@ -1,0 +1,1 @@
+export { productDockerOwnerIdentity } from './dockerProductIdentity';

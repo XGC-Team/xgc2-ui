@@ -1,0 +1,155 @@
+.rosbag-plot {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  display: grid;
+  grid-template-columns: minmax(12rem, 18rem) minmax(0, 1fr);
+  gap: var(--space-sm);
+  padding: var(--space-sm);
+  --rosbag-plot-s0: var(--color-chart-line);
+  --rosbag-plot-s1: var(--color-accent);
+  --rosbag-plot-s2: var(--color-success);
+  --rosbag-plot-s3: var(--color-warning);
+  --rosbag-plot-s4: var(--color-danger);
+  --rosbag-plot-s5: var(--color-chart-axis);
+}
+
+.rosbag-plot-sidebar,
+.rosbag-plot-stage,
+.rosbag-plot-tree,
+.rosbag-plot-fields {
+  min-width: 0;
+  min-height: 0;
+}
+
+.rosbag-plot-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  overflow: auto;
+}
+
+.rosbag-plot-hint {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+}
+
+.rosbag-plot-tree,
+.rosbag-plot-fields {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rosbag-plot-tree {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+}
+
+.rosbag-plot-topic-toggle,
+.rosbag-plot-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xs);
+  width: 100%;
+  margin: 0;
+  padding: var(--space-2xs) var(--space-xs);
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: grab;
+}
+
+.rosbag-plot-topic-toggle {
+  cursor: pointer;
+  font-weight: var(--weight-semibold);
+}
+
+.rosbag-plot-topic-toggle small,
+.rosbag-plot-field {
+  font-family: var(--font-mono);
+  font-size: var(--font-xs);
+}
+
+.rosbag-plot-fields {
+  padding-left: var(--space-sm);
+}
+
+.rosbag-plot-stage {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  overflow: auto;
+}
+
+.rosbag-plot-pane {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+}
+
+.rosbag-plot-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  min-height: 0;
+  font-family: var(--font-mono);
+  font-size: var(--font-xs);
+}
+
+.rosbag-plot-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+}
+
+.rosbag-plot-legend span::before {
+  content: '';
+  width: 12px;
+  height: 2px;
+  background: var(--rosbag-plot-s0);
+}
+
+.rosbag-plot-legend span[data-series="1"]::before { background: var(--rosbag-plot-s1); }
+.rosbag-plot-legend span[data-series="2"]::before { background: var(--rosbag-plot-s2); }
+.rosbag-plot-legend span[data-series="3"]::before { background: var(--rosbag-plot-s3); }
+.rosbag-plot-legend span[data-series="4"]::before { background: var(--rosbag-plot-s4); }
+.rosbag-plot-legend span[data-series="5"]::before { background: var(--rosbag-plot-s5); }
+
+.rosbag-plot-chart {
+  width: 100%;
+  height: 180px;
+  display: block;
+}
+
+.rosbag-plot-plot-area {
+  fill: color-mix(in srgb, var(--color-bg-control) 55%, transparent);
+}
+
+.rosbag-plot-line {
+  stroke: var(--rosbag-plot-s0);
+  stroke-width: 1.5;
+}
+
+.rosbag-plot-line[data-series="1"] { stroke: var(--rosbag-plot-s1); }
+.rosbag-plot-line[data-series="2"] { stroke: var(--rosbag-plot-s2); }
+.rosbag-plot-line[data-series="3"] { stroke: var(--rosbag-plot-s3); }
+.rosbag-plot-line[data-series="4"] { stroke: var(--rosbag-plot-s4); }
+.rosbag-plot-line[data-series="5"] { stroke: var(--rosbag-plot-s5); }
+
+.rosbag-plot-axis {
+  fill: var(--color-chart-label);
+  font-size: 10px;
+}
+
+.rosbag-plot-readout {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--font-xs);
+}

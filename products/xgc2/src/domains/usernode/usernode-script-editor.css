@@ -1,0 +1,170 @@
+/*
+ * User script detail: toolbar + highlighted source that fills leftover
+ * workspace height. Product-owned classes only; shared textarea chrome stays.
+ */
+
+/*
+ * Catalog ListPageHost uses family `justify-self: center`, which only
+ * works as a grid child (Experiments / Hosts). This wrapper is a column
+ * flex under the stretched Terminal route, so that self-alignment is a
+ * no-op and the 1180px host would sit on the left. Center on the flex
+ * cross axis. Do not stretch this page the way the PTY three-column does.
+ */
+[data-xgc-role="terminal-usernode-scripts-page"] {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+[data-xgc-role="terminal-usernode-scripts-page"] > [data-xgc-role="usernode-assets-page"] {
+  flex: 1 1 auto;
+  min-height: 0;
+  align-self: center;
+  margin-inline: auto;
+}
+
+[data-xgc-role="usernode-assets-page"]:has([data-xgc-role="usernode-asset-detail"]) {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: clip;
+  overflow-clip-margin: var(--stroke-strong);
+}
+
+[data-xgc-role="usernode-asset-detail"] {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: min(1120px, 100%);
+  margin-inline: auto;
+  align-self: center;
+}
+
+.usernode-script-workspace {
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.usernode-script-toolbar {
+  min-width: 0;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  min-height: var(--size-control-default);
+}
+
+.usernode-script-search {
+  width: min(280px, 100%);
+  flex: 0 1 auto;
+}
+
+.usernode-script-search-status {
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+  white-space: nowrap;
+}
+
+.usernode-script-toolbar-start {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.usernode-script-identity {
+  flex: 0 0 auto;
+  display: grid;
+  gap: var(--space-md);
+}
+
+.usernode-source-field {
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.usernode-source-editor.xgc-textarea-control {
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  height: 100%;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  font-family: var(--font-mono);
+  font-size: var(--font-lg);
+  line-height: var(--line-height-relaxed);
+  background: var(--color-bg-control);
+}
+
+.usernode-source-highlight,
+.usernode-source-input {
+  grid-area: 1 / 1;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  font: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
+  tab-size: 4;
+  white-space: pre;
+  overflow: auto;
+}
+
+.usernode-source-highlight {
+  pointer-events: none;
+  padding: var(--space-md) var(--space-lg);
+  border: var(--stroke-thin) solid transparent;
+  border-radius: var(--radius-control);
+  color: var(--color-text);
+  background: transparent;
+}
+
+.usernode-source-highlight > code {
+  font: inherit;
+}
+
+.usernode-source-input,
+.usernode-source-input:hover:not(:disabled):not(:read-only),
+.usernode-source-input:focus-visible {
+  color: transparent;
+  caret-color: var(--color-text);
+  background: transparent;
+  resize: none;
+  z-index: 1;
+}
+
+.usernode-source-input::selection {
+  color: transparent;
+  background: color-mix(in srgb, var(--color-accent) 28%, transparent);
+}
+
+.usernode-source-editor[data-disabled='true'] {
+  opacity: var(--opacity-disabled);
+}
+
+.usernode-source-editor[data-disabled='true'] .usernode-source-input:disabled {
+  /* Keep the code text fully readable while surrounding chrome is dimmed. */
+  opacity: var(--opacity-full);
+}
+
+.usernode-source-match {
+  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+}
+
+.usernode-source-match-active {
+  background: color-mix(in srgb, var(--color-accent) 32%, transparent);
+}

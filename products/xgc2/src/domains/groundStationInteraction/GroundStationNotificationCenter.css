@@ -1,0 +1,8 @@
+.xgc-ground-station-notifications { display: grid; gap: var(--space-lg); align-content: start; }
+.xgc-ground-station-notifications section { min-width: 0; }
+.xgc-ground-station-notifications h3 { font-size: var(--font-sm); color: var(--color-text-muted); margin: 0 0 var(--space-sm); }
+.xgc-ground-station-notification-entry { min-width: 0; padding: var(--space-sm); border-bottom: 1px solid var(--color-border); overflow-wrap: anywhere; }
+.xgc-ground-station-notification-entry[data-xgc-unread] { border-inline-start: 2px solid var(--color-accent); }
+.xgc-ground-station-notification-entry p { margin: var(--space-xs) 0; white-space: pre-wrap; }
+.xgc-ground-station-notification-meta { display: flex; flex-wrap: wrap; gap: var(--space-sm); font-size: var(--font-xs); color: var(--color-text-muted); }
+.xgc-ground-station-notification-actions { display: flex; flex-wrap: wrap; gap: var(--space-xs); margin-top: var(--space-xs); }

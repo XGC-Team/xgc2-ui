@@ -1,0 +1,53 @@
+.xgc-host-file-drawer header {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.xgc-host-file-drawer-body {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.xgc-host-file-editor {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.xgc-host-file-editor textarea {
+  height: 100%;
+  min-height: 0;
+  overflow: auto;
+  resize: none;
+  font-family: var(--font-mono);
+  line-height: var(--line-height-relaxed);
+}
+
+.xgc-host-recycle-list {
+  min-height: 0;
+}
+
+.xgc-host-recycle-row {
+  min-width: 680px;
+  min-height: 34px;
+  display: grid;
+  grid-template-columns: minmax(120px, 0.8fr) minmax(0, 1.6fr) 90px 150px 92px;
+  align-items: center;
+  gap: var(--space-md);
+  padding: 0 var(--space-md);
+  border-bottom: var(--stroke-thin) solid var(--color-border-muted);
+}
+
+.xgc-host-recycle-row span,
+.xgc-host-recycle-row em,
+.xgc-host-recycle-row strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.xgc-host-recycle-row em,
+.xgc-host-recycle-row strong {
+  color: var(--color-text-muted);
+  font-size: var(--font-base);
+  font-style: normal;
+}

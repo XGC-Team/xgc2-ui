@@ -1,0 +1,111 @@
+/* Files browser: path toolbar + actions + scrollable table. */
+
+.xgc-host-files-section {
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  min-height: 0;
+  align-self: stretch;
+  /* No section title — topbar tab already names Files. */
+  gap: 0;
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.xgc-host-file-toolbar,
+.xgc-host-file-actions {
+  box-sizing: border-box;
+  position: relative;
+  z-index: var(--z-sticky);
+  flex: 0 0 auto;
+  min-width: 0;
+  min-height: var(--size-control-default);
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  /* Compact path and file actions stay on borderless strips, each
+   * separated by one hairline. */
+  padding-block: var(--space-sm);
+  padding-inline: var(--stroke-strong);
+  background: transparent;
+  border-bottom: var(--stroke-thin) solid var(--color-border-muted);
+}
+
+.xgc-host-file-nav,
+.xgc-host-path-row,
+.xgc-host-file-search-group,
+.xgc-host-file-action-buttons {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.xgc-host-file-nav {
+  flex: 0 0 auto;
+}
+
+.xgc-host-file-nav .xgc-control-button,
+.xgc-host-path-row .xgc-control-button,
+.xgc-host-file-action-buttons > .xgc-control-button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.xgc-host-path-row {
+  flex: 1 1 auto;
+}
+
+.xgc-host-path-control {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.xgc-host-file-search {
+  width: min(22rem, 100%);
+  min-width: 0;
+  flex: 0 1 auto;
+}
+
+.xgc-host-file-search-group {
+  flex: 1 1 auto;
+}
+
+.xgc-host-file-action-buttons {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+.xgc-host-upload-input {
+  display: none;
+}
+
+/* Table is the only scroll surface. */
+.xgc-host-files-section .xgc-host-file-list {
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+@container xgc-workspace (max-width: 860px) {
+  .xgc-host-file-toolbar,
+  .xgc-host-file-actions {
+    flex-wrap: wrap;
+  }
+
+  .xgc-host-path-row {
+    width: 100%;
+  }
+
+  .xgc-host-file-search {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .xgc-host-file-search-group {
+    width: 100%;
+  }
+
+  .xgc-host-file-action-buttons {
+    margin-left: auto;
+  }
+
+}

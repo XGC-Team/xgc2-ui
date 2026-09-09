@@ -33,3 +33,16 @@ jobs:
           gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/releases?per_page=100" > releases.json
           node scripts/validate-release-delta.mjs --releases releases.json
       - run: pnpm check
+
+  research-frontend:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/xgc-team/xgc2-images/xgc2-build-noble-dev:1.0.0
+    defaults:
+      run:
+        working-directory: products/research-os
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - run: npm ci --no-audit --no-fund
+      - run: npm test
+      - run: npm run build

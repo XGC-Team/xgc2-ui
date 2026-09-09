@@ -1,0 +1,70 @@
+/* AppSidebar, its collapse control, nav items, selection skin, scroll behavior,
+ * theme surface and dimensions are owned by @xgc2/ui-react. */
+.brand-glyph {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  color: var(--color-text-inverse);
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-sm);
+}
+
+.nav-item,
+.nav-section-item {
+  font-weight: var(--weight-regular);
+}
+
+.nav-group {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-2xs);
+}
+
+.nav-section {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-2xs);
+  padding: 0 0 var(--space-2xs) var(--space-lg);
+}
+
+/* Primary (…Automations) | Operations is product information architecture. */
+.nav-divider {
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  align-self: stretch;
+  height: 0;
+  margin: var(--space-sm) var(--space-md);
+  padding: 0;
+  border: 0;
+  border-top: var(--stroke-thin) solid var(--color-border);
+  background: transparent;
+  pointer-events: none;
+}
+
+.nav-block {
+  min-width: 0;
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.sidebar-bottom {
+  padding: 0;
+  border-top: 0;
+}
+
+.target-selector-strip {
+  height: var(--size-shell-chrome);
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  padding: var(--space-xs) var(--space-lg);
+  /* The single hairline above the footer lives on .xgc-sidebar-footer. */
+}
+
+.target-selector-control {
+  max-width: 100%;
+  flex: 1 1 auto;
+}

@@ -1,0 +1,30 @@
+.xgc-config-form {
+  min-height: 100%;
+  display: grid;
+  align-content: start;
+  gap: var(--space-xl);
+  /* Config forms live in right drawers — match shell/drawer UI type scale. */
+  font-size: var(--xgc-shell-ui-font-size, var(--font-base));
+}
+
+.panel-config-parameter-schema > .automation-parameter-schema-form,
+.robot-asset-inventory-fields > [data-xgc-role="robot-asset-unitree-b2"],
+.usernode-input-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-lg) var(--space-xl);
+}
+
+.usernode-input-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* xgc-viewport-scope: drawer */
+@media (max-width: 720px) {
+  .panel-config-parameter-schema > .automation-parameter-schema-form,
+  .robot-asset-inventory-fields > [data-xgc-role="robot-asset-unitree-b2"],
+  .usernode-input-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

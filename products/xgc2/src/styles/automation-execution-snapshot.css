@@ -1,0 +1,15 @@
+.automation-execution-snapshot-view {
+  min-width: 0;
+  display: grid;
+  grid-template-rows: minmax(300px, 42vh);
+  overflow: hidden;
+  background: var(--color-bg-canvas);
+  border-bottom: var(--stroke-thin) solid var(--color-border);
+}
+
+.automation-execution-snapshot-canvas,
+.automation-execution-snapshot-canvas > .automation-graph {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}

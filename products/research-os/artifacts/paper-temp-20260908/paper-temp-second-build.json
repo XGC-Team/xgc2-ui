@@ -1,0 +1,31 @@
+{
+  "data": {
+    "schemaVersion": "xgc.research.manuscript/v1",
+    "buildId": "build_37ce02d79caf96737fdc62b7",
+    "taskId": "build-57cdf50d-53e3-48be-80cb-9176d8d678e2",
+    "status": "succeeded",
+    "outputs": [
+      {
+        "artifactRef": "cas://sha256/e3b2f479befd64b8b7faeec7e84e9ff979eb5573546ccbea332a1127cdbe5639",
+        "mediaType": "application/pdf",
+        "digest": "e3b2f479befd64b8b7faeec7e84e9ff979eb5573546ccbea332a1127cdbe5639",
+        "sizeBytes": 21877
+      },
+      {
+        "artifactRef": "cas://sha256/dc832fc52ff8d622f807ef7c16fc81017d05a99e8191ae7361e325aa9078210f",
+        "mediaType": "application/gzip",
+        "digest": "dc832fc52ff8d622f807ef7c16fc81017d05a99e8191ae7361e325aa9078210f",
+        "sizeBytes": 2962
+      },
+      {
+        "artifactRef": "cas://sha256/a4d04f86b31496660b11950f34f17e73f237cc124937799e893d131afb14609d",
+        "mediaType": "text/plain",
+        "digest": "a4d04f86b31496660b11950f34f17e73f237cc124937799e893d131afb14609d",
+        "sizeBytes": 3611
+      }
+    ],
+    "logArtifactRef": "cas://sha256/758f88453f741b65a2727704a66a5c5b417a45f87cdaf793555d3f09569ddec2",
+    "startedAt": "2026-09-08T08:43:23.503533771Z",
+    "completedAt": "2026-09-08T08:43:24.216527668Z"
+  }
+}

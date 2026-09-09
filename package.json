@@ -17,7 +17,13 @@
     "validate:release": "node --test scripts/release-contract.test.mjs scripts/validate-release-delta.test.mjs scripts/publish-immutable-release.test.mjs",
     "validate:style-policy": "pnpm check:breakpoints && node --test scripts/style-policy-contract.test.mjs && node scripts/validate-style-policy.mjs",
     "typecheck": "pnpm --filter @xgc2/ui-tokens build && pnpm --filter @xgc2/ui-react build && pnpm --filter @xgc2/ui-workflow build && pnpm --filter @xgc2/ui-manuscript build && pnpm -r --if-present typecheck",
-    "version-packages": "changeset version"
+    "version-packages": "changeset version",
+    "build:xgc2": "python3 scripts/product-frontend.py xgc2 build",
+    "test:xgc2": "python3 scripts/product-frontend.py xgc2 test",
+    "install:xgc2": "python3 scripts/product-frontend.py xgc2 install",
+    "build:research-os": "python3 scripts/product-frontend.py research-os build",
+    "test:research-os": "python3 scripts/product-frontend.py research-os test",
+    "install:research-os": "python3 scripts/product-frontend.py research-os install"
   },
   "devDependencies": {
     "@changesets/cli": "3.0.0"

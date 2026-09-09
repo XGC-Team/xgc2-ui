@@ -1,0 +1,9 @@
+.xgc-host-ssh-config-form {
+  display: grid;
+  align-content: start;
+  gap: var(--space-lg);
+}
+
+.xgc-host-ssh-config-control {
+  width: 100%;
+}

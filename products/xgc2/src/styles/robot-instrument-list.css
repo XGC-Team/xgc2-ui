@@ -1,0 +1,546 @@
+.robot-instrument-grid[data-xgc-layout="list"] .robot-instrument-card {
+  /* Shared label band for flight + ground list metric tiles. */
+  --robot-list-metric-label-height: 11px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  height: 100%;
+  max-height: var(--robot-instrument-list-row-max-height);
+  min-width: 0;
+  min-height: 0;
+  /* Header topbar + 4x2 body. Do not restore --robot-list-identity-width. */
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  align-items: stretch;
+  gap: 0;
+  padding: var(--stroke-thin) var(--space-2xs);
+  overflow: hidden;
+  border-radius: var(--radius-control);
+}
+
+/* Selection is a neutral full-card outline; status semantics stay in the header glyph track. */
+.robot-instrument-grid[data-xgc-layout="list"] .robot-instrument-card[aria-pressed="true"] {
+  border-color: var(--color-selection-highlight);
+  box-shadow: var(--shadow-selection-highlight-halo);
+}
+
+.robot-instrument-grid[data-xgc-layout="list"] .robot-instrument-card[data-xgc-chassis-hold="true"] {
+  border-color: var(--color-danger);
+  box-shadow:
+    0 0 10px var(--stroke-thin) color-mix(in srgb, var(--color-danger) 76%, transparent),
+    0 0 18px var(--stroke-thin) color-mix(in srgb, var(--color-danger) 42%, transparent);
+}
+
+.robot-instrument-grid[data-xgc-layout="list"] .robot-instrument-card > header {
+  /* One-line topbar with enough height for the three semantic status glyphs. */
+  box-sizing: border-box;
+  height: var(--robot-list-topbar-height);
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  align-items: center;
+  justify-content: start;
+  gap: var(--space-xs);
+  padding: var(--stroke-thin) var(--space-xs);
+  overflow: hidden;
+  white-space: nowrap;
+  border-right: 0;
+  border-bottom: var(--stroke-thin) solid var(--color-border-muted);
+}
+
+.robot-instrument-grid[data-xgc-layout="list"] .robot-list-header-trailing {
+  min-width: 0;
+  min-inline-size: 5rem;
+  width: max-content;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-xs);
+  justify-self: end;
+}
+
+.robot-instrument-grid[data-xgc-layout="list"] .robot-card-identity {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--space-sm);
+  width: auto;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  text-align: left;
+}
+
+.robot-instrument-grid[data-xgc-layout="list"] .robot-card-identity > strong {
+  flex: 0 1 auto;
+  width: auto;
+  min-width: 0;
+  text-align: left;
+}
+
+.robot-instrument-grid[data-xgc-layout="list"] .robot-card-identity > .robot-instrument-source-badge {
+  position: static;
+  top: auto;
+  right: auto;
+  flex: 0 0 auto;
+  z-index: auto;
+}
+
+.robot-instrument-grid[data-xgc-layout="list"] .robot-list-primary-state {
+  min-width: 0;
+  min-height: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--space-xs);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+/* Live rows use the normal heading ink; faults stay danger text. No card fill. */
+.robot-instrument-grid[data-xgc-layout="list"] .robot-instrument-card[data-xgc-status="online"] .robot-list-primary-state {
+  color: var(--color-text-heading);
+}
+
+.robot-instrument-grid[data-xgc-layout="list"] .robot-instrument-card[data-xgc-health="fault"] .robot-list-primary-state {
+  color: var(--color-danger);
+}
+
+.robot-instrument-grid[data-xgc-layout="list"] .robot-list-primary-state i {
+  color: var(--color-border-strong);
+  font-style: normal;
+}
+
+.robot-instrument-grid[data-xgc-layout="list"] .robot-list-flight-state,
+.robot-instrument-grid[data-xgc-layout="list"] .robot-list-ground-state {
+  min-width: 0;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--space-sm);
+}
+
+.robot-instrument-grid[data-xgc-layout="list"] .robot-card-identity > strong,
+.robot-instrument-grid[data-xgc-layout="list"] .robot-list-header-word {
+  font-family: var(--font-sans);
+  font-size: var(--font-sm);
+  font-weight: var(--weight-regular);
+  line-height: var(--line-height-none);
+  pointer-events: auto;
+}
+
+.robot-instrument-grid[data-xgc-layout="list"] .robot-list-flight-secondary,
+.robot-instrument-grid[data-xgc-layout="list"] .robot-list-ground-secondary {
+  min-width: 0;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--space-xs);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.robot-instrument-grid[data-xgc-layout="list"] .robot-list-header-status {
+  min-width: 0;
+  flex: 0 0 auto;
+}
+
+.robot-instrument-grid[data-xgc-layout="list"] .robot-list-flight-secondary i,
+.robot-instrument-grid[data-xgc-layout="list"] .robot-list-ground-secondary i {
+  color: var(--color-border-strong);
+  font-style: normal;
+}
+
+.robot-instrument-grid[data-xgc-layout="list"] .robot-list-ground-meta {
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.robot-instrument-grid[data-xgc-layout="list"] .robot-list-flight-primary-state[data-xgc-tone="success"],
+.robot-instrument-grid[data-xgc-layout="list"] .robot-list-flight-primary-state [data-xgc-tone="success"],
+.robot-instrument-grid[data-xgc-layout="list"] .robot-list-header-word[data-xgc-tone="success"] {
+  color: var(--color-robot-flight-frequency-success);
+}
+
+.robot-instrument-grid[data-xgc-layout="list"] .robot-list-header-word[data-xgc-tone="danger"] {
+  color: var(--color-robot-flight-frequency-danger);
+}
+
+/*
+ * Mask tile uses the same dt/dd chrome as other list metrics.
+ * Selector must beat generic `dl > div > dt` (display:flex; space-between),
+ * or p/v/a/y/yr spread to the tile edges instead of sitting as one group.
+ */
+.robot-instrument-grid[data-xgc-layout="list"] .robot-instrument-card dl > div.robot-metric-setpoint-mask > .robot-setpoint-mask-labels,
+.robot-instrument-grid[data-xgc-layout="list"] .robot-instrument-card dl > div.robot-metric-setpoint-mask > .robot-setpoint-mask-states-row {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: center;
+  align-items: center;
+  flex: 1 1 auto;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  height: 100%;
+  margin: 0;
+  overflow: visible;
+  white-space: nowrap;
+  text-overflow: clip;
+  pointer-events: auto;
+}
+
+.robot-instrument-grid[data-xgc-layout="list"] .robot-instrument-card dl > div.robot-metric-setpoint-mask > .robot-setpoint-mask-labels {
+  column-gap: var(--space-2xs);
+}
+
+.robot-instrument-grid[data-xgc-layout="list"] .robot-instrument-card dl > div.robot-metric-setpoint-mask > .robot-setpoint-mask-states-row {
+  column-gap: 0;
+}
+
+/* Inherit shared dt color/size from .robot-instrument-card dt / list overrides. */
+.robot-instrument-grid[data-xgc-layout="list"] .robot-metric-setpoint-mask > dt,
+.robot-instrument-grid[data-xgc-layout="list"] .robot-metric-setpoint-mask > dd {
+  overflow: visible;
+  pointer-events: auto;
+}
+
+.robot-instrument-grid[data-xgc-layout="list"] .robot-setpoint-mask-label {
+  min-width: 0;
+  text-align: center;
+  text-transform: lowercase;
+  pointer-events: auto;
+}
+
+.robot-instrument-grid[data-xgc-layout="list"] .robot-setpoint-mask-states {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+}
+
+.robot-instrument-grid[data-xgc-layout="list"] .robot-setpoint-mask-sep {
+  flex: 0 0 auto;
+  min-width: 0;
+  color: var(--color-text-faint);
+  font: var(--font-xs)/var(--line-height-none) var(--font-mono);
+  pointer-events: none;
+}
+
+.robot-instrument-grid[data-xgc-layout="list"] .robot-setpoint-mask-state {
+  min-width: 1ch;
+  color: var(--color-text-faint);
+  font: var(--font-xs)/var(--line-height-none) var(--font-mono);
+  text-align: center;
+}
+
+.robot-instrument-grid[data-xgc-layout="list"] .robot-setpoint-mask-state[data-xgc-state="unmasked"] {
+  color: var(--color-success);
+}
+
+.robot-instrument-grid[data-xgc-layout="list"] .robot-setpoint-mask-state[data-xgc-state="masked"] {
+  color: var(--color-text-faint);
+}
+
+.robot-instrument-grid[data-xgc-layout="list"] .robot-instrument-card > header strong,
+.robot-instrument-grid[data-xgc-layout="list"] .robot-instrument-card dd {
+  line-height: var(--line-height-none);
+}
+
+.robot-instrument-grid[data-xgc-layout="list"] .robot-instrument-card dd {
+  font-size: var(--font-xs);
+}
+
+.robot-instrument-grid[data-xgc-layout="list"] .robot-instrument-card > header small,
+.robot-instrument-grid[data-xgc-layout="list"] .robot-status-text,
+.robot-instrument-grid[data-xgc-layout="list"] .robot-instrument-card dt {
+  font-size: var(--font-xs);
+  line-height: var(--line-height-none);
+}
+
+.robot-instrument-grid[data-xgc-layout="list"] .robot-instrument-card dl {
+  min-height: 0;
+  height: 100%;
+  grid-auto-flow: row;
+  align-items: stretch;
+  /* One owner for inner tracks: gap shows the muted line between tiles only. */
+  gap: var(--stroke-thin);
+  background: var(--color-border-muted);
+  overflow: hidden;
+}
+
+.robot-instrument-grid[data-xgc-layout="list"] .robot-instrument-card[data-xgc-platform="flight"] dl,
+.robot-instrument-grid[data-xgc-layout="list"] .robot-instrument-card[data-xgc-platform="ground"] dl {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+}
+
+/*
+ * Unified list metric chrome: fixed-height label row + flexible body.
+ * Every tile (plain value, scalar readout, response compare, mask) must use
+ * exactly one dt + one dd so labels share one horizontal band.
+ */
+.robot-instrument-grid[data-xgc-layout="list"] .robot-instrument-card dl > div {
+  container: robot-list-metric / inline-size;
+  min-height: 0;
+  height: 100%;
+  display: grid;
+  grid-template-rows: var(--robot-list-metric-label-height) minmax(0, 1fr);
+  align-content: stretch;
+  align-items: stretch;
+  gap: 0;
+  padding: var(--stroke-thin) var(--space-xs);
+  overflow: hidden;
+  background: var(--color-bg-surface);
+  border: 0;
+  border-radius: 0;
+}
+
+.robot-instrument-grid[data-xgc-layout="list"] .robot-instrument-card:hover dl > div {
+  background: var(--color-bg-surface-hover);
+}
+
+.robot-instrument-grid[data-xgc-layout="list"] .robot-metric-vector-value {
+  /* Sign + 2 integer + 2 fraction slots per axis; the three numbers center as one group. */
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: center;
+  align-items: center;
+  column-gap: 0;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  font-family: var(--font-mono);
+  font-size: clamp(7px, 10cqi, var(--font-xs));
+  font-variant-numeric: tabular-nums;
+  line-height: var(--line-height-none);
+  white-space: pre;
+}
+
+.robot-instrument-grid[data-xgc-layout="list"] .robot-metric-vector-gap {
+  flex: 0 0 auto;
+  white-space: pre;
+}
+
+.robot-instrument-grid[data-xgc-layout="list"] .robot-metric-vector-axis {
+  box-sizing: content-box;
+  flex: 1 1 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 5fr);
+  align-items: baseline;
+  min-width: 0;
+  max-width: 6ch;
+  overflow: visible;
+}
+
+.robot-instrument-grid[data-xgc-layout="list"] .robot-metric-vector-axis .robot-list-metric-sign {
+  box-sizing: content-box;
+  width: auto;
+  min-width: 0;
+  overflow: visible;
+  text-align: right;
+}
+
+.robot-instrument-grid[data-xgc-layout="list"] .robot-metric-vector-axis .robot-list-metric-digits {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) max-content minmax(0, 2fr);
+  align-items: baseline;
+  min-width: 0;
+  overflow: visible;
+  white-space: nowrap;
+}
+
+.robot-instrument-grid[data-xgc-layout="list"] .robot-metric-vector-int {
+  min-width: 0;
+  overflow: visible;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.robot-instrument-grid[data-xgc-layout="list"] .robot-metric-vector-axis[data-xgc-empty="true"] .robot-metric-vector-int {
+  grid-column: 1 / -1;
+  text-align: center;
+}
+
+.robot-instrument-grid[data-xgc-layout="list"] .robot-metric-vector-dot {
+  flex: 0 0 auto;
+}
+
+.robot-instrument-grid[data-xgc-layout="list"] .robot-metric-vector-frac {
+  min-width: 0;
+  overflow: visible;
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+}
+
+.robot-instrument-grid[data-xgc-layout="list"] .robot-instrument-card dl > div > dt {
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  max-height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2xs);
+  /* Title left / rate right must not sit on the tile chrome. Never zero this. */
+  padding-inline: var(--space-2xs);
+  overflow: hidden;
+  white-space: nowrap;
+  /* Eight metric slots: gray labels, black body. Rate sits with the title. */
+  color: var(--color-text-muted);
+}
+
+.robot-instrument-grid[data-xgc-layout="list"] .robot-list-metric-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: clip;
+  font-size: clamp(8px, 11cqi, var(--font-xs));
+  white-space: nowrap;
+}
+
+.robot-instrument-grid[data-xgc-layout="list"] .robot-list-metric-readout {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.robot-instrument-grid[data-xgc-layout="list"] .robot-list-metric-readout:has(> .robot-metric-vector-value) {
+  overflow: visible;
+}
+
+.robot-instrument-grid[data-xgc-layout="list"] .robot-list-metric-rate {
+  flex: 0 0 auto;
+  margin-left: auto;
+  overflow: visible;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: clamp(7px, 10cqi, var(--font-xs));
+  font-variant-numeric: tabular-nums;
+  line-height: var(--line-height-none);
+  text-align: right;
+  white-space: nowrap;
+}
+
+/*
+ * Sign + digits + optional unit. Scalars keep the unit on this row so the
+ * title stays short; three-number tiles put the unit on the title instead.
+ */
+.robot-instrument-grid[data-xgc-layout="list"] .robot-list-metric-value {
+  display: inline-grid;
+  grid-template-columns: 1ch max-content max-content;
+  align-items: baseline;
+  column-gap: var(--space-2xs);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--line-height-none);
+  white-space: nowrap;
+}
+
+.robot-instrument-grid[data-xgc-layout="list"] .robot-list-metric-sign {
+  min-width: 0;
+  text-align: right;
+  line-height: inherit;
+}
+
+.robot-instrument-grid[data-xgc-layout="list"] .robot-list-metric-digits {
+  min-width: 0;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: clip;
+  line-height: inherit;
+}
+
+.robot-instrument-grid[data-xgc-layout="list"] .robot-list-metric-unit {
+  min-width: 0;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  line-height: inherit;
+  white-space: pre;
+}
+
+.robot-instrument-grid[data-xgc-layout="list"] .robot-instrument-card dl > div > dd {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  color: var(--color-text-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+.robot-instrument-grid[data-xgc-layout="list"] .robot-list-metric-body {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  place-items: center;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.robot-instrument-grid[data-xgc-layout="list"][data-xgc-density="comfortable"] .robot-instrument-card dt {
+  font-size: var(--font-xs);
+}
+
+/* Keep all eight metrics in their canonical 4x2 order at narrow panel widths. */
+@container (max-width: 32rem) {
+  .robot-instrument-grid[data-xgc-layout="list"] .robot-instrument-card {
+    padding-inline: 0;
+  }
+
+  .robot-instrument-grid[data-xgc-layout="list"] .robot-instrument-card dl {
+    min-height: 0;
+  }
+
+  .robot-instrument-grid[data-xgc-layout="list"] .robot-instrument-card dl > div {
+    padding-inline: 0;
+  }
+
+  .robot-instrument-grid[data-xgc-layout="list"] .robot-instrument-card dl > div > dt {
+    padding-inline: var(--space-2xs);
+  }
+
+  .robot-instrument-grid[data-xgc-layout="list"] .robot-metric-vector-axis {
+    min-width: 0;
+  }
+
+  .robot-instrument-grid[data-xgc-layout="list"] .robot-metric-vector-axis .robot-list-metric-digits {
+    min-width: 0;
+  }
+
+  .robot-instrument-grid[data-xgc-layout="list"] .robot-metric-vector-axis .robot-list-metric-sign {
+    overflow: visible;
+  }
+
+  .robot-instrument-grid[data-xgc-layout="list"] .robot-instrument-card dt,
+  .robot-instrument-grid[data-xgc-layout="list"] .robot-instrument-card dd {
+    font-size: var(--font-xs);
+  }
+
+  .robot-instrument-grid[data-xgc-layout="list"] .robot-instrument-card dl > div > dt {
+    overflow: hidden;
+  }
+
+  .robot-instrument-grid[data-xgc-layout="list"] .robot-list-metric-title {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: clip;
+  }
+}

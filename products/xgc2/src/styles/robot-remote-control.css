@@ -1,0 +1,267 @@
+/*
+ * Launcher is the Robot control header trailing icon (same slot/size as Run).
+ * Open controllers dock into Ground station chat when that host exists;
+ * otherwise they float above the Experiment surface (never document.body).
+ */
+.robot-remote-window-layer {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  pointer-events: none;
+}
+
+.robot-remote-window {
+  position: absolute;
+  width: min(310px, calc(100vw - 32px));
+  padding: var(--space-md);
+  display: grid;
+  gap: var(--space-md);
+  pointer-events: auto;
+  user-select: none;
+  touch-action: none;
+  isolation: isolate;
+  contain: layout style paint;
+  border: var(--stroke-thin) solid var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  color: var(--color-text);
+  background: var(--color-bg-surface);
+  box-shadow: var(--shadow-card);
+}
+
+.robot-remote-window:focus,
+.robot-remote-window:focus-visible {
+  outline: 0;
+}
+
+.robot-remote-window .robot-remote-control-key {
+  transition: none;
+}
+
+.robot-remote-window .robot-remote-control-key:focus,
+.robot-remote-window .robot-remote-control-key:focus-visible {
+  outline: 0;
+  box-shadow: none;
+  border-color: var(--xgc-control-border-color, var(--color-border));
+}
+
+/*
+ * Shared .xgc-button only paints :active, then 120ms-transitions back to idle.
+ * Latch/gear selection lives on aria-pressed; keep that inset down for the
+ * whole hold, including hover, so the pad does not flash like a web click.
+ */
+.robot-remote-window .robot-remote-control-key:active:not(:disabled):not([data-tone='danger']),
+.robot-remote-window .robot-remote-control-key[aria-pressed='true'],
+.robot-remote-window .robot-remote-control-key[aria-pressed='true']:hover:not(:disabled),
+.robot-remote-window .robot-remote-control-key[aria-pressed='true']:active:not(:disabled),
+.robot-remote-window .robot-remote-control-key[aria-pressed='true']:focus,
+.robot-remote-window .robot-remote-control-key[aria-pressed='true']:focus-visible {
+  background: var(--color-bg-active);
+  border-color: var(--color-border-hover);
+  box-shadow: inset 0 var(--stroke-thin) var(--stroke-strong) var(--color-shadow-overlay-soft);
+}
+
+.robot-remote-window .robot-remote-control-key:active:not(:disabled):not([data-tone='danger']),
+.robot-remote-window .robot-remote-control-key[aria-pressed='true']:not([data-tone='danger']) {
+  color: var(--color-text-strong);
+}
+
+.robot-remote-window > header,
+.robot-remote-window > header > div {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.robot-remote-window > header {
+  justify-content: space-between;
+  cursor: grab;
+}
+
+.robot-remote-window[data-xgc-dragging='true'],
+.robot-remote-window[data-xgc-dragging='true'] > header {
+  cursor: grabbing;
+}
+
+.robot-remote-window > header .xgc-control-button {
+  cursor: pointer;
+}
+
+.robot-remote-window > header span {
+  min-width: 18px;
+  font-size: var(--font-sm);
+  text-align: center;
+}
+
+.robot-remote-window-docked {
+  position: relative;
+  inset: auto;
+}
+
+.robot-remote-window-message {
+  --remote-key-foreground: var(--color-text-inverse);
+  --remote-key-selected-foreground: var(--color-text-strong);
+  box-sizing: border-box;
+  width: min(var(--remote-window-width, 16rem), 100%);
+  padding: var(--space-sm);
+  gap: var(--space-sm);
+  grid-template-rows: var(--size-control-compact) var(--size-control-compact) auto;
+  border: var(--stroke-thin) solid var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: none;
+  color: var(--remote-key-foreground);
+  background: var(--color-bg-code);
+}
+
+[data-skin='light'] .robot-remote-window-message {
+  background: var(--color-text-strong);
+}
+
+.robot-remote-window-message > header > div {
+  min-width: 0;
+}
+
+.robot-remote-target-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-sm);
+}
+
+.robot-remote-window-message .robot-remote-gears,
+.robot-remote-window-message .robot-remote-directions {
+  gap: var(--space-xs);
+}
+
+.robot-remote-window-message .robot-remote-directions .xgc-control-button {
+  min-width: var(--size-control-compact);
+  min-height: var(--size-control-compact);
+}
+
+.robot-remote-shortcuts {
+  grid-area: shortcuts;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  border-collapse: separate;
+  border-spacing: var(--space-xs) 0;
+  table-layout: fixed;
+  overflow: hidden;
+  color: inherit;
+  font-size: var(--font-sm);
+  line-height: var(--line-height-tight);
+  pointer-events: auto;
+}
+
+.robot-remote-shortcuts tr {
+  height: 25%;
+}
+
+.robot-remote-shortcuts th,
+.robot-remote-shortcuts td {
+  width: 50%;
+  padding: 0;
+  border: 0;
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  text-align: center;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.robot-remote-shortcuts td {
+  text-transform: lowercase;
+}
+
+.robot-remote-window-docked > header,
+.robot-remote-window-docked[data-xgc-dragging='true'],
+.robot-remote-window-docked[data-xgc-dragging='true'] > header {
+  cursor: default;
+}
+
+.robot-remote-targets {
+  min-width: 0;
+}
+
+.robot-remote-targets-names {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-soft);
+  font-size: var(--font-md);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.robot-remote-gears {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-sm);
+}
+
+.robot-remote-gears .xgc-control-button {
+  min-width: 0;
+  font-size: var(--font-sm);
+}
+
+.robot-remote-directions {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  grid-template-rows: repeat(3, var(--size-control-compact));
+  grid-template-areas:
+    ". forward . yaw-left yaw-right"
+    "left stop right shortcuts shortcuts"
+    ". backward . shortcuts shortcuts";
+  gap: var(--space-sm);
+  align-items: stretch;
+}
+
+.robot-remote-forward { grid-area: forward; }
+.robot-remote-backward { grid-area: backward; }
+.robot-remote-left { grid-area: left; }
+.robot-remote-right { grid-area: right; }
+.robot-remote-yaw-left { grid-area: yaw-left; }
+.robot-remote-yaw-right { grid-area: yaw-right; }
+.robot-remote-stop { grid-area: stop; }
+
+.robot-remote-directions .xgc-control-button {
+  width: 100%;
+  min-width: 42px;
+  min-height: 42px;
+}
+
+/* Inverse control surfaces always pair their foreground and background. */
+.robot-remote-window-message .robot-remote-control-key {
+  --xgc-control-background: transparent;
+  --xgc-control-color: var(--remote-key-foreground);
+  --xgc-control-hover-background: color-mix(in srgb, var(--remote-key-foreground) 12%, transparent);
+  --xgc-control-hover-color: var(--remote-key-foreground);
+  --xgc-control-border-color: color-mix(in srgb, var(--remote-key-foreground) 24%, transparent);
+  --xgc-control-hover-border-color: var(--xgc-control-border-color);
+  --control-icon-color: var(--remote-key-foreground);
+  border: 0;
+  border-radius: var(--radius-control);
+}
+.robot-remote-window-message .robot-remote-control-key:hover:not(:disabled):not([aria-pressed='true']):not(:active) {
+  color: var(--remote-key-foreground);
+  background: var(--xgc-control-hover-background);
+}
+.robot-remote-window-message .robot-remote-control-key:active:not(:disabled),
+.robot-remote-window-message .robot-remote-control-key[aria-pressed='true'],
+.robot-remote-window-message .robot-remote-control-key[aria-pressed='true']:not([data-tone='danger']),
+.robot-remote-window-message .robot-remote-control-key[aria-pressed='true']:hover:not(:disabled),
+.robot-remote-window-message .robot-remote-control-key[aria-pressed='true']:active:not(:disabled),
+.robot-remote-window-message .robot-remote-control-key[aria-pressed='true']:focus-visible {
+  background: var(--remote-key-foreground);
+  color: var(--remote-key-selected-foreground);
+  --control-icon-color: var(--remote-key-selected-foreground);
+  border-color: var(--remote-key-foreground);
+}
+.robot-remote-window-message .robot-remote-control-key[aria-pressed='true'] svg {
+  color: inherit;
+}
+
+[data-skin='dark'] .robot-remote-window-message {
+  --remote-key-foreground: var(--color-text-strong);
+  --remote-key-selected-foreground: var(--color-bg-surface);
+}

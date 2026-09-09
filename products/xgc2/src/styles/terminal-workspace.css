@@ -1,0 +1,549 @@
+/* Terminal workspace layout. Interactive chrome and plain state text come
+ * from the shared foundation; this file owns only domain composition.
+ *
+ * Three-column shell: Targets (robots + hosts) | Console | User scripts.
+ * Fills the page viewport; rails scroll independently of the console.
+ */
+
+/* Match Experiments / asset pages: Terminal starts on the shared workspace
+ * content line instead of crowding the topbar with a reduced private inset. */
+.xgc-workspace-content:has(> .terminal-page.xgc-workspace-full-span),
+.xgc-workspace-content:has(> [data-xgc-route-page="terminal"]:not([hidden])) {
+  padding: var(--space-layout-spacious);
+}
+
+.xgc-workspace-content > .terminal-page.xgc-workspace-full-span,
+.xgc-workspace-content > [data-xgc-route-page="terminal"]:not([hidden]) {
+  width: 100%;
+  max-width: none;
+  justify-self: stretch;
+}
+
+.terminal-page {
+  /* AppShell already provides the content box below chrome and inside its inset. */
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  max-height: 100%;
+  display: grid;
+  /*
+   * Default: one grow track so the panel sits flush with equal outer inset.
+   * (Older layout always reserved row 1 for an access note + gap, which left
+   * an 8px empty strip above the workspace when no notice was shown.)
+   */
+  grid-template-rows: minmax(0, 1fr);
+  gap: 0;
+  overflow: clip;
+  overflow-clip-margin: var(--stroke-strong);
+}
+
+/* Notice present: auto chrome row + grow track (same pattern as container-page). */
+.terminal-page:has(> .terminal-access-note) {
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: var(--space-md);
+}
+
+.terminal-page[hidden],
+.terminal-workspace[hidden] {
+  display: none;
+}
+
+/*
+ * Workspace always lands on the grow track (sole row, or row 2 after a notice).
+ * A single minmax(0,1fr) row keeps xterm FitAddon measuring full height when
+ * there is no access note — do not pin grid-row:2 unconditionally.
+ */
+.terminal-page > .terminal-workspace {
+  min-height: 0;
+  height: 100%;
+}
+
+/* Hosts / User scripts catalog tabs fill the page when the workspace is hidden. */
+.terminal-page > :not(.terminal-access-note):not(.terminal-workspace) {
+  grid-row: 1 / -1;
+  min-height: 0;
+}
+
+/* When the access notice is present, catalogs must stay on the grow track only
+ * (row 2). Spanning 1 / -1 would paint over the warning note. */
+.terminal-page:has(> .terminal-access-note) > :not(.terminal-access-note):not(.terminal-workspace) {
+  grid-row: 2;
+}
+
+.terminal-workspace {
+  /* Targets identify hosts; scripts need room for full invocation commands. */
+  --terminal-col-targets: minmax(200px, 240px);
+  --terminal-col-scripts: minmax(320px, 400px);
+  --terminal-col-console: minmax(0, 1fr);
+  --terminal-col-gap: var(--space-2xl);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  row-gap: var(--space-md);
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow: clip;
+  overflow-clip-margin: var(--stroke-strong);
+}
+
+.terminal-access-note {
+  font-size: var(--font-base);
+}
+
+/*
+ * One chrome row for Targets | sessions | User scripts. A single hairline
+ * on this bar; session tabs stay in the center track and do not span rails.
+ */
+.terminal-chrome {
+  display: grid;
+  grid-template-columns:
+    var(--terminal-col-targets)
+    var(--terminal-col-console)
+    var(--terminal-col-scripts);
+  column-gap: var(--terminal-col-gap);
+  align-items: center;
+  min-width: 0;
+  height: var(--size-control-panel-header);
+  overflow: clip;
+  overflow-clip-margin: var(--stroke-strong);
+}
+
+.terminal-chrome:not(:has(> [data-xgc-role="terminal-user-scripts-heading"])) {
+  grid-template-columns: var(--terminal-col-targets) var(--terminal-col-console);
+}
+
+.terminal-column-heading,
+.terminal-toolbar {
+  box-sizing: border-box;
+  min-width: 0;
+  height: 100%;
+  margin: 0;
+}
+
+.terminal-column-heading {
+  display: flex;
+  align-items: center;
+  padding-inline: var(--space-xs);
+  color: var(--color-text-heading);
+  font-size: var(--font-base);
+  font-weight: var(--weight-strong);
+  line-height: var(--line-height-tight);
+}
+
+[data-xgc-role="terminal-targets-heading"] {
+  padding-inline: var(--space-xs);
+}
+
+[data-xgc-role="terminal-user-scripts-heading"] {
+  padding-inline: var(--space-xs);
+}
+
+.terminal-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.terminal-body-content {
+  display: grid;
+  grid-template-columns:
+    var(--terminal-col-targets)
+    var(--terminal-col-console)
+    var(--terminal-col-scripts);
+  column-gap: var(--terminal-col-gap);
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  padding: 0;
+  overflow: clip;
+  overflow-clip-margin: var(--stroke-strong);
+}
+
+.terminal-body-content:not(:has(> .terminal-user-scripts-rail)) {
+  grid-template-columns: var(--terminal-col-targets) var(--terminal-col-console);
+}
+
+/* Body rails under the toolbar labels — flat, same shell. */
+.terminal-rail {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  overflow: clip;
+  overflow-clip-margin: var(--stroke-strong);
+}
+
+.terminal-targets-rail {
+  padding-inline: 0;
+}
+
+.terminal-user-scripts-rail {
+  padding-inline: 0;
+}
+
+.terminal-rail-body {
+  display: grid;
+  align-content: start;
+  gap: var(--space-sm);
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  /* Leave room for first/last row focus inside the independently scrolled rail. */
+  padding: var(--space-xs);
+}
+
+.terminal-rail-empty {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+  line-height: var(--line-height-normal);
+}
+
+.terminal-usernode-script-empty {
+  width: calc(100% - var(--terminal-tree-indent));
+  margin-left: var(--terminal-tree-indent);
+}
+
+.terminal-usernode-scripts-body {
+  min-height: 0;
+  overflow: auto;
+  padding: var(--space-sm) 0;
+}
+
+[data-xgc-role="terminal-usernode-scripts-page"] {
+  height: 100%;
+  min-height: 0;
+}
+
+.terminal-host-tree strong,
+.terminal-user-scripts-tree strong {
+  color: var(--color-text-softer);
+  font-size: var(--font-base);
+  font-weight: var(--weight-medium);
+}
+
+.terminal-sidebar-group {
+  /* One clear nest step under the group title (chevron + gap ≈ 20px). */
+  --terminal-tree-indent: var(--space-2xl);
+  display: grid;
+  gap: var(--space-xs);
+}
+
+/* Layout-only overrides on shared ControlButton. */
+.terminal-sidebar-group-title.xgc-control-button {
+  width: 100%;
+  justify-content: flex-start;
+  gap: var(--space-sm);
+  /* Root of the tree: flush left so the child indent reads clearly. */
+  padding-inline: var(--space-2xs) var(--space-xs);
+}
+
+.terminal-sidebar-group-title.xgc-control-button strong {
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--font-base);
+  font-weight: var(--weight-medium);
+  /* Compact Button inherits --line-height-none; that clips "group" / "Ungrouped". */
+  line-height: var(--line-height-tight);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.terminal-sidebar-group-title svg {
+  flex: 0 0 auto;
+  transition: transform var(--duration-quick) var(--easing-standard);
+}
+
+.terminal-sidebar-group-title svg[data-xgc-collapsed="true"] {
+  transform: rotate(-90deg);
+}
+
+/* Tree leaves use the shared ghost appearance; this scope owns layout only. */
+.terminal-sidebar-item.xgc-control-button {
+  /* margin (not padding): ControlButton owns padding via shorthand. */
+  box-sizing: border-box;
+  width: calc(100% - var(--terminal-tree-indent));
+  margin-left: var(--terminal-tree-indent);
+  justify-content: flex-start;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Two-line tree leaves: title + muted detail (hosts: name/endpoint, scripts: name/summary). */
+.terminal-targets-rail .terminal-sidebar-host.xgc-control-button,
+.terminal-user-scripts-rail .terminal-usernode-script.xgc-control-button,
+.terminal-usernode-scripts-body .terminal-usernode-script.xgc-control-button {
+  height: auto;
+  min-height: var(--size-control-compact);
+  align-items: flex-start;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
+  line-height: var(--line-height-normal);
+  padding-block: var(--space-sm);
+  text-align: left;
+}
+
+.terminal-sidebar-host-copy,
+.terminal-usernode-script-copy {
+  min-width: 0;
+  width: 100%;
+  display: grid;
+  gap: var(--space-2xs);
+  text-align: left;
+}
+
+.terminal-sidebar-host-name,
+.terminal-usernode-script-name {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-heading);
+  font-weight: var(--weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.terminal-sidebar-host-endpoint,
+.terminal-usernode-script-summary {
+  min-width: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  line-height: var(--line-height-normal);
+}
+
+.terminal-sidebar-host-endpoint {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Script summaries may contain shell text; keep the full detail readable. */
+.terminal-usernode-script-summary {
+  display: block;
+  width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+.terminal-console-card {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  padding: 0;
+  background: transparent;
+}
+
+.terminal-console-stack {
+  position: relative;
+  z-index: var(--z-raised);
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  /* Always-dark terminal surface (independent of light/dark shell skin). */
+  background: var(--color-terminal-bg);
+  border: var(--stroke-thin) solid var(--color-border);
+  border-radius: var(--radius-control);
+  overflow: hidden;
+}
+
+.terminal-console-stack[data-xgc-layout="grid"] {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr));
+  /* Cells use their own border, so the grid needs no outer gutter. */
+  gap: var(--stroke-thin);
+  padding: 0;
+  overflow: auto;
+}
+
+.terminal-session-cell {
+  min-width: 0;
+  min-height: 260px;
+  display: grid;
+  /* Header auto; body consumes the rest (grid layout with visible chrome). */
+  grid-template-rows: auto minmax(0, 1fr);
+  background: var(--color-terminal-bg);
+  border: var(--stroke-thin) solid var(--color-border);
+  border-radius: var(--radius-control);
+  overflow: hidden;
+}
+
+.terminal-console-stack[data-xgc-layout="tabs"] .terminal-session-cell {
+  position: absolute;
+  inset: 0;
+  display: none;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  /*
+   * Tabs hide the per-cell header (tabs strip owns chrome). With header
+   * display:none the body would otherwise land in the first fixed track and
+   * collapse to ~one control-height line — the black strip in the screenshot.
+   */
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.terminal-console-stack[data-xgc-layout="tabs"] .terminal-session-cell[data-xgc-active="true"] {
+  display: grid;
+}
+
+.terminal-session-cell[data-xgc-active="true"] {
+  border-color: var(--color-border-primary);
+}
+
+.terminal-session-cell header {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: 0 var(--space-md);
+  color: var(--color-text-softer);
+  background: var(--color-bg-chrome);
+  border-bottom: var(--stroke-thin) solid var(--color-border);
+}
+
+.terminal-console-stack[data-xgc-layout="tabs"] .terminal-session-cell header {
+  display: none;
+}
+
+.terminal-session-cell header .terminal-session-title-button.xgc-control-button {
+  min-width: 0;
+  width: auto;
+  flex: 0 1 auto;
+  justify-content: flex-start;
+  padding-inline: 0;
+  color: var(--color-text-heading);
+}
+
+.terminal-session-cell header .terminal-session-title-button strong {
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--font-base);
+  font-weight: var(--weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.terminal-session-cell header .terminal-session-close-button.xgc-control-button {
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+
+.terminal-session-body {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  /* Explicit minmax track child: fill the cell body, never shrink to content. */
+  align-self: stretch;
+  height: 100%;
+  overflow: hidden;
+  background: var(--color-terminal-bg);
+}
+
+/* Tabs: body is the sole grid item — claim the full cell. */
+.terminal-console-stack[data-xgc-layout="tabs"] .terminal-session-body {
+  grid-row: 1;
+  min-height: 0;
+}
+
+.xterm-session {
+  position: absolute;
+  inset: 0;
+  display: none;
+  min-width: 0;
+  min-height: 0;
+  padding: var(--space-xs);
+  box-sizing: border-box;
+  background: var(--color-terminal-bg);
+}
+
+.xterm-session[data-xgc-active="true"] {
+  display: block;
+}
+
+/* Fill the fitted host so multi-line scrollback is visible, not a single prompt. */
+.xterm-session .xterm,
+.xterm-session .xterm-viewport,
+.xterm-session .xterm-screen {
+  width: 100%;
+  height: 100%;
+}
+
+.terminal-empty {
+  height: 100%;
+  min-height: 0;
+}
+
+/* On narrow workspaces the console leads; both auxiliary directories sit
+ * below it. Headings and their content share the same grid column. The DOM
+ * and mounted PTYs remain unchanged when the workspace is resized. */
+@container xgc-workspace (max-width: 960px) {
+  .terminal-workspace {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: var(--size-control-panel-header) minmax(260px, 1fr) var(--size-control-panel-header) minmax(120px, 26vh);
+    column-gap: var(--space-lg);
+    overflow: auto;
+  }
+
+  .terminal-chrome,
+  .terminal-body-content,
+  .terminal-body-content:not(:has(> .terminal-user-scripts-rail)) {
+    display: contents;
+  }
+
+  .terminal-toolbar {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    border-block-end: var(--stroke-thin) solid var(--color-border-muted);
+  }
+
+  .terminal-console-card {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  [data-xgc-role="terminal-targets-heading"] {
+    grid-column: 1;
+    grid-row: 3;
+    padding-inline: var(--space-xs);
+  }
+
+  [data-xgc-role="terminal-user-scripts-heading"] {
+    grid-column: 2;
+    grid-row: 3;
+    padding-inline: var(--space-xs);
+  }
+
+  .terminal-targets-rail {
+    grid-column: 1;
+    grid-row: 4;
+  }
+
+  .terminal-user-scripts-rail {
+    grid-column: 2;
+    grid-row: 4;
+  }
+
+  .terminal-targets-rail,
+  .terminal-user-scripts-rail {
+    padding-inline: 0;
+    border-inline: 0;
+  }
+
+  .terminal-workspace:not(:has(.terminal-user-scripts-rail)) .terminal-targets-rail,
+  .terminal-workspace:not(:has(.terminal-user-scripts-rail)) [data-xgc-role="terminal-targets-heading"] {
+    grid-column: 1 / -1;
+  }
+}
+

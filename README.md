@@ -1,6 +1,14 @@
 # XGC2 UI
 
-Shared design tokens, React components, and application-shell primitives for XGC2 web products.
+Shared UI packages and two independently maintained product frontends.
+
+- `products/xgc2`: XGC2 frontend migration candidate; cutover is pending while the existing frontend has active writers. The backend checkout remains its current source authority until that cutover.
+- `products/research-os`: Research OS frontend source, preserving the Atlas workbench layout.
+- `packages/`: reusable libraries; product frontends are not forced into a common shell.
+
+Each product keeps its own npm lock and build/test entry. These directories are intentionally outside the library pnpm workspace. The designer reference remains outside this repository in the local `Dev/ui` project.
+
+See [Product frontends](docs/product-frontends.md) for build ownership and commands.
 
 The normative family-wide rules live in [DESIGN_CONTRACT.md](./DESIGN_CONTRACT.md). Product-specific CSS may not override those interaction and chrome conventions.
 

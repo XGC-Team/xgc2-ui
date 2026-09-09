@@ -1,0 +1,155 @@
+/* AutomationEditorLogs owns the resizable console shell and collapsed header. */
+.automation-editor-logs {
+  position: absolute;
+  z-index: var(--z-popover);
+  container-name: automation-editor-logs;
+  container-type: inline-size;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: var(--automation-editor-logs-height);
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: calc(var(--size-shell-chrome) - 1px) minmax(0, 1fr);
+  overflow: visible;
+  color: var(--color-text);
+  background: var(--color-bg-surface);
+  /* Docked console is part of the workspace chrome: one muted hairline, no
+   * floating-box shadow. */
+  border-top: var(--stroke-thin) solid var(--color-border-muted);
+  box-shadow: none;
+}
+.automation-editor-logs[data-xgc-expanded="false"] {
+  grid-template-rows: calc(var(--size-shell-chrome) - 1px);
+  overflow: hidden;
+}
+.automation-editor-logs-resize-handle {
+  position: absolute;
+  z-index: var(--z-sticky);
+  top: -4px;
+  right: 0;
+  left: 0;
+  height: 8px;
+  cursor: ns-resize;
+  touch-action: none;
+}
+.automation-editor-logs-resize-handle::after {
+  position: absolute;
+  top: 3px;
+  right: 0;
+  left: 0;
+  height: 2px;
+  content: '';
+  background: transparent;
+  transition: background var(--duration-fast) var(--easing-standard);
+}
+.automation-editor-logs-resize-handle:hover::after,
+.automation-editor-logs-resize-handle:focus-visible::after {
+  background: var(--color-accent);
+}
+.automation-editor-logs-resize-handle:focus-visible {
+  outline: 0;
+}
+.automation-editor-logs-header,
+.automation-editor-logs-toggle {
+  min-width: 0;
+  min-height: 0;
+}
+.automation-editor-logs-toggle {
+  --xgc-control-height: calc(var(--size-shell-chrome) - 1px);
+  --xgc-control-button-padding-inline: var(--space-lg);
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-lg);
+  text-align: left;
+}
+.automation-editor-logs-toggle:focus-visible {
+  outline: var(--stroke-strong) solid var(--color-accent);
+  outline-offset: -2px;
+}
+.automation-editor-logs-title,
+.automation-editor-logs-summary,
+.automation-editor-logs-error-count {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+.automation-editor-logs-title {
+  color: var(--color-text-heading);
+}
+.automation-editor-logs-title strong {
+  font-size: var(--xgc-shell-ui-font-size);
+  font-weight: var(--weight-regular);
+  line-height: var(--line-height-none);
+}
+.automation-editor-logs-summary {
+  justify-content: flex-end;
+  gap: var(--space-md);
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+}
+.automation-editor-logs-summary > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.automation-editor-logs-error-count {
+  gap: var(--space-xs);
+  color: var(--color-danger);
+  font-weight: var(--weight-strong);
+}
+.automation-editor-logs-body {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  grid-template: none;
+  align-content: normal;
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+  background: var(--color-bg-subtle);
+  border-top: var(--stroke-thin) solid var(--color-border-muted);
+}
+.automation-editor-logs-empty {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: var(--space-md);
+  padding: var(--space-2xl) var(--space-2xl);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+.automation-editor-logs-empty::before {
+  width: 34px;
+  height: 34px;
+  margin-bottom: var(--space-2xs);
+  content: '';
+  background: radial-gradient(circle, color-mix(in srgb, var(--color-accent) 20%, transparent), transparent 68%);
+  border: var(--stroke-thin) solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+}
+.automation-editor-logs-empty strong {
+  color: var(--color-text-heading);
+  font-size: var(--font-base);
+}
+.automation-editor-logs-empty span {
+  max-width: 440px;
+  font-size: var(--font-sm);
+  line-height: var(--line-height-relaxed);
+}
+@container automation-editor-logs (max-width: 620px) {
+  .automation-editor-logs-summary > span:first-child {
+    display: none;
+  }
+
+  .automation-editor-logs[data-xgc-detail="open"] .automation-editor-run-pane {
+    display: none;
+  }
+}

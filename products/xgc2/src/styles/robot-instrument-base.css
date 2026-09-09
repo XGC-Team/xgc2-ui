@@ -1,0 +1,120 @@
+.robot-instrument-card > header {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-lg);
+}
+
+.robot-instrument-card > header > div {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-2xs);
+}
+
+.robot-instrument-card > header strong,
+.robot-instrument-card > header small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.robot-instrument-card > header strong {
+  color: var(--color-text-heading);
+  font-size: var(--font-lg);
+}
+
+.robot-instrument-card > header small {
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+}
+
+.robot-status-text {
+  flex: 0 0 auto;
+  font-size: var(--font-sm);
+  font-weight: var(--weight-semibold);
+  text-transform: lowercase;
+}
+
+.robot-instrument-card dl {
+  min-width: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-sm);
+}
+
+.robot-instrument-card dl > div {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-2xs);
+  padding: var(--space-sm) var(--space-sm);
+  background: var(--color-bg-subtle);
+  border: var(--stroke-thin) solid var(--color-border-muted);
+  border-radius: var(--radius-control);
+}
+
+.robot-instrument-card dt,
+.robot-instrument-card dd {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.robot-instrument-card dt {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+}
+
+.robot-instrument-card dd {
+  color: var(--color-text-heading);
+  font-family: var(--font-mono);
+  font-size: var(--font-md);
+}
+
+.robot-instrument-grid[data-xgc-layout="list"] {
+  /*
+   * Compact fixed row height, packed at the top. Equal 1fr rows used to stretch a
+   * single robot to the full panel height and look vertically centered in empty space.
+   * Track height is fixed so wheel scrolling always lands on a complete row (same
+   * whole-item wheel contract as single/double). Items-per-page comes from config.
+   *
+   * Flatten 5880b21d used 72px when identity was a side column sharing that
+   * border-box with the 4x2. Identity is now a one-line topbar, so add that
+   * band and keep 72px for the historical 4x2 body. Do not use the 4bad03f3
+   * 128px raise.
+   */
+  --robot-list-historical-compact-row: 70px;
+  --robot-list-topbar-line-height: 20px;
+  --robot-list-topbar-height: var(--robot-list-topbar-line-height);
+  --robot-instrument-list-row-max-height: calc(
+    var(--robot-list-historical-compact-row) + var(--robot-list-topbar-height)
+  );
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: none;
+  grid-auto-rows: var(--robot-instrument-list-row-max-height);
+  align-content: start;
+  gap: var(--space-2xs);
+  overflow: auto;
+  overflow-x: hidden;
+  overflow-anchor: none;
+  overscroll-behavior-y: contain;
+  scroll-behavior: auto;
+  scroll-snap-type: none;
+  scrollbar-gutter: stable both-edges;
+}
+
+.robot-instruments-panel[data-xgc-mode="list"] {
+  gap: 0;
+  padding: 0;
+}

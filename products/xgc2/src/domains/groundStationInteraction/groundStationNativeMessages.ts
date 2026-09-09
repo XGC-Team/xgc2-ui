@@ -1,0 +1,37 @@
+import { useLocalizedText,type MessageCatalog } from '../../shared/localization/localizedText';
+
+const messages: MessageCatalog = {
+  'Connect assistant': '连接助手',
+  'Connect': '连接',
+  'Reconnect': '重新连接',
+  'Workspace': '工作区',
+  'Retry': '重试',
+  'Configure a native provider in Settings to connect to this Experiment.': '在设置中配置原生提供商，即可连接此实验。',
+  'Reload conversation': '重新读取对话',
+  'Conversations': '会话',
+  'New conversation': '新建会话',
+  'Refresh': '刷新',
+  'Conversation history': '历史会话',
+  'Archived': '已归档',
+  'Load older': '加载更早会话',
+  'Restore conversation': '恢复会话',
+  'Archive conversation': '归档会话',
+  'End agent': '结束 Agent',
+  'Enable experiment tools on reconnect': '重连时启用实验工具',
+  'Reconnect with these permissions': '按此权限重新连接',
+  'Experiment workspace': '实验工程目录',
+  'New conversations use this directory. Existing conversations keep their workspace.': '新会话使用此目录，已有会话保留原来的工作空间。',
+  'Choose workspace': '选择工程目录',
+  'Save workspace': '保存工程目录',
+  'Conversation name': '会话名称',
+  'Save name': '保存名称',
+  'Apply tool permissions': '应用工具权限',
+  'Enable experiment tools': '启用实验工具',
+  'Approval policy': '授权策略',
+  'Ask each time': '每次询问',
+  'Allow this action · 5 min / 10 uses': '自动允许此操作 · 5分钟 / 10次',
+  'Deny this action · 5 min / 10 uses': '自动拒绝此操作 · 5分钟 / 10次',
+  'This request needs an individual decision.': '此请求需要单独处理。',
+};
+
+export function useGroundStationNativeText() { return useLocalizedText(messages); }

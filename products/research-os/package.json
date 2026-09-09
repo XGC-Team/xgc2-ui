@@ -1,0 +1,48 @@
+{
+  "name": "atlas-workbench",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "lint:review": "eslint src/features/resources/PDFReader.tsx src/features/resources/pdf-annotations.ts src/features/resources/FilesPage.tsx src/features/chat/ConnectionStatus.tsx src/features/chat/ChatPage.tsx src/features/chat/Session.tsx src/components/RightPanelActions.tsx src/components/BrowserPanel.tsx src/components/DocumentPanel.tsx src/components/PDFReader.tsx src/components/ui.tsx tests/pdf-annotations.test.ts",
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "@fontsource-variable/inter": "^5.1.0",
+    "@fontsource/jetbrains-mono": "^5.1.1",
+    "@xgc2/native-agent": "file:vendor/xgc2-native-agent-0.1.0-locale.tgz",
+    "@xgc2/ui-react": "file:vendor/xgc2-ui-react-0.16.10.tgz",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0",
+    "clsx": "^2.1.1",
+    "d3-force": "^3.0.0",
+    "framer-motion": "^11.11.17",
+    "lucide-react": "^0.454.0",
+    "pdfjs-dist": "^4.10.38",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
+    "tailwind-merge": "^2.5.4",
+    "zustand": "^5.0.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.0.0",
+    "@types/d3-force": "^3.0.10",
+    "@types/node": "^22.20.1",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^4.3.3",
+    "eslint": "^10.4.0",
+    "playwright": "^1.63.0",
+    "tailwindcss": "^4.0.0",
+    "typescript": "~5.6.3",
+    "typescript-eslint": "^8.59.3",
+    "vite": "^5.4.10",
+    "vitest": "^4.1.6"
+  }
+}

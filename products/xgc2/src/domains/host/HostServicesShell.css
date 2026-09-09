@@ -1,0 +1,15 @@
+.xgc-host-services {
+  width: 100%;
+  max-width: none;
+}
+
+/* SSH + Firewall stack: keep sections stretch inside the locked page height. */
+.xgc-host-services > .xgc-host-ssh-section,
+.xgc-host-services > .xgc-host-firewall-section {
+  flex: 0 1 auto;
+  min-height: 0;
+}
+
+.xgc-host-services > .xgc-host-fill-section {
+  flex: 1 1 0;
+}

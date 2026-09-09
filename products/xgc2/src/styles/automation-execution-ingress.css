@@ -1,0 +1,94 @@
+.automation-execution-ingress-transition-ledger {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  align-content: start;
+  gap: var(--space-md);
+  padding: var(--space-lg) var(--space-lg);
+  overflow: auto;
+  background: var(--color-bg-surface);
+  border-bottom: var(--stroke-thin) solid var(--color-border);
+}
+
+.automation-execution-ingress-transition-ledger > header,
+.automation-execution-ingress-transition > header {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.automation-execution-ingress-transition-ledger > header strong {
+  color: var(--color-text-heading);
+  font-size: var(--font-md);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+.automation-execution-ingress-transition > header strong {
+  color: var(--color-text-heading);
+  font-size: var(--font-md);
+  font-family: var(--font-mono);
+}
+
+.automation-execution-ingress-transition-ledger > header span,
+.automation-execution-ingress-transition > header span {
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+}
+
+.automation-execution-ingress-transition-list {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-md);
+}
+
+.automation-execution-ingress-transition {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-md);
+  padding: var(--space-lg);
+  background: var(--color-bg-control);
+  border: var(--stroke-thin) solid var(--color-border);
+  border-radius: var(--radius-control);
+}
+
+.automation-execution-ingress-transition dl {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+  gap: var(--space-md);
+  margin: 0;
+}
+
+.automation-execution-ingress-transition dl > div {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-xs);
+}
+
+.automation-execution-ingress-transition dt {
+  color: var(--color-text-faint);
+  font-size: var(--font-sm);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+.automation-execution-ingress-transition dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--color-text-heading);
+  font-size: var(--font-sm);
+}
+
+.automation-execution-ingress-transition code {
+  font-family: var(--font-mono);
+}
+
+.automation-execution-ingress-transitions-load-more {
+  justify-self: start;
+}

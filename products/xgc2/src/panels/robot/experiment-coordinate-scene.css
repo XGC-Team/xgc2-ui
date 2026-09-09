@@ -1,0 +1,298 @@
+.experiment-coordinate-scene {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: clamp(24px, 4cqi, 56px);
+  min-width: 0;
+  width: 100%;
+  container-type: inline-size;
+  container-name: experiment-coordinate-scene;
+}
+
+/* Each illustration is an open doorway, with a stationary hit area. */
+.experiment-coordinate-scene-entry {
+  appearance: none;
+  display: grid;
+  grid-template-columns: minmax(0, 150px) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-md);
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-md) 0;
+  border: 0;
+  border-radius: var(--radius-lg);
+  color: var(--color-text-heading);
+  background: transparent;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.experiment-coordinate-scene-entry:focus-visible {
+  outline: var(--stroke-strong) solid var(--color-border-focus);
+  outline-offset: var(--space-xs);
+}
+
+.experiment-coordinate-scene-start {
+  margin-block-start: 0;
+}
+
+.experiment-coordinate-scene-art {
+  display: block;
+  width: 100%;
+  height: auto;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.experiment-coordinate-scene-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  min-width: 0;
+  padding-block: var(--space-lg);
+}
+
+.experiment-coordinate-scene-eyebrow {
+  color: var(--color-text-muted);
+  font-size: var(--font-xs);
+  line-height: var(--line-height-tight);
+  letter-spacing: var(--tracking-label);
+}
+
+.experiment-coordinate-scene-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  color: var(--color-text-heading);
+  font-size: var(--font-lg);
+  font-weight: var(--weight-regular);
+  line-height: var(--line-height-tight);
+  letter-spacing: -0.025em;
+}
+
+
+.experiment-coordinate-scene-arrow {
+  flex: 0 0 auto;
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: var(--opacity-deemphasized);
+  transition: transform var(--duration-deliberate) var(--easing-standard), opacity var(--duration-deliberate) var(--easing-standard);
+}
+
+.experiment-coordinate-scene-entry:is(:hover, :focus-visible) .experiment-coordinate-scene-arrow {
+  transform: translate(2px, -2px);
+  opacity: var(--opacity-full);
+}
+
+.experiment-coordinate-scene-light-center {
+  stop-color: var(--color-text-heading);
+  stop-opacity: 0.075;
+}
+
+.experiment-coordinate-scene-light-edge {
+  stop-color: var(--color-text-heading);
+  stop-opacity: 0;
+}
+
+.experiment-coordinate-scene-glass-light {
+  stop-color: color-mix(in srgb, var(--color-bg-surface) 75%, var(--color-text-heading));
+  stop-opacity: 0.32;
+}
+
+.experiment-coordinate-scene-glass-low {
+  stop-color: var(--color-text-heading);
+  stop-opacity: 0.045;
+}
+
+.experiment-coordinate-scene-core-light {
+  stop-color: var(--color-bg-surface);
+}
+
+.experiment-coordinate-scene-core-mid {
+  stop-color: color-mix(in srgb, var(--color-bg-surface) 70%, var(--color-text-heading));
+}
+
+.experiment-coordinate-scene-core-low {
+  stop-color: color-mix(in srgb, var(--color-bg-surface) 32%, var(--color-text-heading));
+}
+
+.experiment-coordinate-scene-shadow-center {
+  stop-color: var(--color-text-heading);
+  stop-opacity: 0.2;
+}
+
+.experiment-coordinate-scene-shadow-edge {
+  stop-color: var(--color-text-heading);
+  stop-opacity: 0;
+}
+
+.experiment-coordinate-scene-floor {
+  fill: none;
+  stroke-width: 0.65;
+  stroke: color-mix(in srgb, var(--color-text-heading) 9%, transparent);
+}
+
+.experiment-coordinate-scene-back-edge,
+.experiment-coordinate-scene-glass-edge {
+  fill: none;
+  stroke-width: 0.7;
+  stroke-linejoin: round;
+  stroke: color-mix(in srgb, var(--color-text-heading) 16%, transparent);
+}
+
+.experiment-coordinate-scene-back-edge {
+  stroke-dasharray: 2 5;
+  stroke: color-mix(in srgb, var(--color-text-heading) 12%, transparent);
+}
+
+.experiment-coordinate-scene-axis,
+.experiment-coordinate-scene-inner-axis {
+  fill: none;
+  stroke-width: 1.15;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke: color-mix(in srgb, var(--color-text-heading) 64%, transparent);
+}
+
+.experiment-coordinate-scene-inner-axis {
+  stroke-dasharray: 2 4;
+  stroke-width: 0.75;
+  stroke: color-mix(in srgb, var(--color-text-heading) 20%, transparent);
+}
+
+.experiment-coordinate-scene-core,
+.experiment-coordinate-scene-marker-shell {
+  stroke: color-mix(in srgb, var(--color-text-heading) 30%, transparent);
+  stroke-width: 0.7;
+}
+
+.experiment-coordinate-scene-core-glint {
+  fill: color-mix(in srgb, var(--color-bg-surface) 88%, transparent);
+}
+
+.experiment-coordinate-scene-axis-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  fill: color-mix(in srgb, var(--color-text-muted) 66%, transparent);
+}
+
+.experiment-coordinate-scene-starting-grid {
+  stroke: color-mix(in srgb, var(--color-text-heading) 15%, transparent);
+}
+
+.experiment-coordinate-scene-constellation {
+  fill: none;
+  stroke-width: 0.8;
+  stroke-dasharray: 2 5;
+  stroke: color-mix(in srgb, var(--color-text-heading) 22%, transparent);
+}
+
+.experiment-coordinate-scene-marker-ring {
+  fill: var(--color-bg-surface);
+  fill-opacity: 0.2;
+  stroke: var(--color-text-heading);
+  stroke-width: 0.8;
+  stroke-opacity: 0.22;
+}
+
+.experiment-coordinate-scene-marker-heading {
+  fill: color-mix(in srgb, var(--color-text-heading) 58%, transparent);
+}
+
+.experiment-coordinate-scene-marker-glint {
+  fill: none;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke: color-mix(in srgb, var(--color-bg-surface) 72%, transparent);
+}
+
+.experiment-coordinate-scene-origin-attention,
+.experiment-coordinate-scene-start-attention {
+  transition: transform var(--duration-deliberate) var(--easing-standard);
+  transform-origin: 150px 160px;
+}
+
+.experiment-coordinate-scene-entry:is(:hover, :focus-visible) .experiment-coordinate-scene-origin-attention {
+  transform: translateY(-4px) rotate(-2deg);
+}
+
+.experiment-coordinate-scene-entry:is(:hover, :focus-visible) .experiment-coordinate-scene-start-attention {
+  transform: translateY(-4px);
+}
+
+.experiment-coordinate-scene[data-motion='true'] .experiment-coordinate-scene-origin-float {
+  animation: experiment-coordinate-scene-suspend calc(var(--duration-deliberate) * 32) var(--easing-standard) infinite;
+}
+
+.experiment-coordinate-scene[data-motion='true'] .experiment-coordinate-scene-start-marker {
+  animation: experiment-coordinate-scene-suspend calc(var(--duration-deliberate) * 28) var(--easing-standard) infinite;
+}
+
+.experiment-coordinate-scene[data-motion='true'] .experiment-coordinate-scene-start-marker-back {
+  animation-delay: calc(var(--duration-deliberate) * -9);
+}
+
+.experiment-coordinate-scene[data-motion='true'] .experiment-coordinate-scene-start-marker-middle {
+  animation-delay: calc(var(--duration-deliberate) * -18);
+}
+
+.experiment-coordinate-scene-entry:is(:hover, :focus-visible) .experiment-coordinate-scene-origin-float,
+.experiment-coordinate-scene-entry:is(:hover, :focus-visible) .experiment-coordinate-scene-start-marker {
+  animation-play-state: paused;
+}
+
+@keyframes experiment-coordinate-scene-suspend {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+@container experiment-coordinate-scene (max-width: 680px) {
+  .experiment-coordinate-scene-entry {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+    gap: 0;
+  }
+
+  .experiment-coordinate-scene-art {
+    max-width: 132px;
+  }
+
+  .experiment-coordinate-scene-copy {
+    align-items: center;
+    text-align: center;
+    padding-block-start: 0;
+  }
+
+  .experiment-coordinate-scene-start {
+    margin-block-start: 0;
+  }
+}
+
+@container experiment-coordinate-scene (max-width: 400px) {
+  .experiment-coordinate-scene-title {
+    font-size: var(--font-lg);
+  }
+
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .experiment-coordinate-scene[data-motion] .experiment-coordinate-scene-origin-float,
+  .experiment-coordinate-scene[data-motion] .experiment-coordinate-scene-start-marker {
+    animation: none;
+  }
+
+  .experiment-coordinate-scene-origin-attention,
+  .experiment-coordinate-scene-start-attention,
+  .experiment-coordinate-scene-arrow {
+    transition: none;
+  }
+}

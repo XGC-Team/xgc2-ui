@@ -1,0 +1,84 @@
+/*
+ * Process grid tracks — same density language as Files table rows.
+ * Wide command column scrolls inside the shared OpsTable surface.
+ */
+.xgc-host-process-row {
+  min-width: 1150px;
+  font-family: inherit;
+  font-size: var(--xgc-shell-ui-font-size, var(--font-base));
+  font-weight: var(--weight-regular);
+  line-height: var(--line-height-normal);
+  grid-template-columns:
+    52px
+    minmax(100px, 1.1fr)
+    104px
+    84px
+    64px
+    52px
+    82px
+    118px
+    60px
+    100px
+    minmax(120px, 1.6fr)
+    90px;
+}
+
+/* Process values are peers in a data row; none carries heading emphasis. */
+.xgc-host-process-row:not(.xgc-host-runtime-list-head) > :is(span, em, p) {
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+}
+
+.xgc-host-process-sort {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  font: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.xgc-host-process-sort:hover,
+.xgc-host-process-sort[data-xgc-active="true"] {
+  color: var(--color-text-heading);
+}
+
+.xgc-host-process-sort span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.xgc-host-process-sort-icon {
+  width: 0;
+  flex: 0 0 0;
+  overflow: hidden;
+  opacity: var(--opacity-hidden);
+}
+
+.xgc-host-process-sort:is(:hover, :focus-visible, [data-xgc-active="true"]) .xgc-host-process-sort-icon {
+  width: 12px;
+  flex-basis: 12px;
+  opacity: var(--opacity-full);
+}
+
+.xgc-host-process-ops-label {
+  justify-self: end;
+  text-align: right;
+}
+
+.xgc-host-process-row[data-xgc-focused="true"] {
+  background: var(--color-bg-active);
+}

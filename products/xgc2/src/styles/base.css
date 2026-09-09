@@ -1,0 +1,50 @@
+html,
+body,
+#root {
+  height: 100%;
+  overflow: hidden;
+}
+
+/*
+ * Packaged operator stations default to restricted page text selection while
+ * development defaults to enabled. Settings -> Tools persists an explicit
+ * override on this document contract. Form fields, logs, code, and opt-in
+ * [data-xgc-selectable] remain selectable in restricted mode.
+ */
+html[data-xgc-text-selection="restricted"],
+html[data-xgc-text-selection="restricted"] body,
+html[data-xgc-text-selection="restricted"] #root {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+body {
+  background: var(--background-app, var(--color-bg-app));
+}
+
+body :is(
+  input:not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]):not([type="image"]),
+  textarea,
+  pre,
+  code,
+  samp,
+  kbd,
+  [role="log"],
+  [data-xgc-selectable],
+  [contenteditable]:not([contenteditable="false"])
+) {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+
+@media (max-width: 720px) {
+  html,
+  body,
+  #root {
+    height: auto;
+    min-height: 100%;
+    overflow: visible;
+  }
+}

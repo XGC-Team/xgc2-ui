@@ -1,0 +1,71 @@
+/* CoreFlow condition editor owns its parameter rows and value controls. */
+.automation-condition-editor {
+  display: grid;
+  gap: var(--space-md);
+}
+
+.automation-condition-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.automation-condition-list {
+  display: grid;
+  gap: var(--space-md);
+}
+
+.automation-condition-row {
+  display: grid;
+  gap: var(--space-md);
+  padding: var(--space-lg);
+  border: var(--stroke-thin) solid var(--color-border);
+  border-radius: var(--radius-surface);
+  background: var(--color-bg-control);
+}
+
+.automation-condition-row-header {
+  min-height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.automation-condition-row-header > strong {
+  color: var(--color-text-heading);
+  font-size: var(--font-base);
+  font-weight: var(--weight-semibold);
+}
+
+.automation-condition-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(112px, 0.4fr) minmax(0, 1fr) 28px;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.automation-condition-controls > [data-xgc-control] {
+  width: 100%;
+  min-width: 0;
+}
+
+.automation-condition-expression input {
+  font-family: var(--font-mono);
+  font-size: var(--font-sm);
+}
+
+.automation-condition-expression:has(input[data-drag-active="true"]) {
+  border-color: var(--color-accent);
+  box-shadow: var(--shadow-ring-accent-soft);
+}
+
+.automation-condition-remove {
+  align-self: center;
+  justify-self: end;
+}
+
+.automation-condition-add {
+  justify-self: start;
+}

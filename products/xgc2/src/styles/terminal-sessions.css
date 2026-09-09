@@ -1,0 +1,80 @@
+/* WorkspaceTabs owns selection, closing, keyboard behavior and internal scroll. */
+
+.terminal-session-tabs {
+  --xgc-workspace-tabs-height: var(--size-control-compact);
+  position: relative;
+  z-index: var(--z-popover);
+  /* Own the flexible part of the PTY toolbar; the layout switch stays visible. */
+  width: 100%;
+  container-type: inline-size;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: var(--size-control-compact);
+  height: var(--size-control-compact);
+}
+
+/* Hug title + close. Do not use --size-workspace-tab-max as width — that
+ * stretches "Direct shell" to 240px. Cap so long names ellipsis and Close
+ * still fits the strip. connecting / closed may widen the tab. */
+.terminal-session-tabs [data-xgc-role="terminal-session-tab"] {
+  width: auto;
+  max-width: min(var(--size-workspace-tab-max), 100cqi);
+  flex: 0 0 auto;
+}
+
+/* Reverse this product's title/status pair through the public tab role slot. */
+.terminal-session-tabs [data-xgc-role="terminal-session-tab-select"] {
+  flex-direction: row-reverse;
+  justify-content: flex-end;
+  flex: 0 1 auto;
+  width: auto;
+  max-width: min(var(--size-workspace-tab-content-max), 100cqi);
+}
+
+/*
+ * Status shares the tab title type line.
+ * StatusText defaults (sm / medium / tight) and <small> sit on a different
+ * baseline than WorkspaceTabs (--font-base / regular / none).
+ */
+.terminal-session-attention {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: var(--space-sm);
+  min-width: 0;
+  font-size: var(--font-base);
+  font-weight: var(--weight-regular);
+  line-height: var(--line-height-none);
+}
+
+.terminal-session-attention .terminal-session-status {
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+}
+
+/* Layout-only: shared ControlButton supplies chrome / focus / danger tone. */
+.terminal-session-tabs [data-xgc-role="terminal-session-tab-close"] {
+  margin-right: var(--space-xs);
+  flex: 0 0 auto;
+}
+
+/*
+ * Layout switch is text-only Tabs / Grid. Height matches session tabs;
+ * type matches WorkspaceTabs / breadcrumb (sans / base / regular / none).
+ */
+.terminal-layout-toggle {
+  box-sizing: border-box;
+  width: max-content;
+  max-width: 100%;
+  height: var(--size-control-compact);
+  max-height: var(--size-control-compact);
+  flex: 0 0 auto;
+}
+
+.terminal-layout-toggle [data-xgc-role="terminal-layout-toggle-option"] {
+  font-family: var(--font-sans);
+  font-size: var(--font-base);
+  font-weight: var(--weight-regular);
+  line-height: var(--line-height-none);
+}

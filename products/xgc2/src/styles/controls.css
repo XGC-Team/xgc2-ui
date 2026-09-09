@@ -1,0 +1,27 @@
+.xgc-textarea-control {
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  display: block;
+  border: 0;
+  background: transparent;
+}
+
+:where(html) :is(input, select, textarea)[aria-invalid="true"] {
+  border-color: var(--color-border-danger);
+}
+
+:where(html) :is(input, select, textarea, button):disabled,
+:where(html) :is(button, [role="button"])[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: var(--opacity-disabled);
+}
+
+:where(html) :is(input, textarea)[readonly] {
+  color: var(--color-text-muted);
+  cursor: default;
+}
+
+:where(html) :is(button, [role="button"])[aria-busy="true"] {
+  cursor: progress;
+}

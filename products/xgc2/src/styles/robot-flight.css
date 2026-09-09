@@ -1,0 +1,609 @@
+.robot-flight-instrument {
+  /* Instrument labels are calibrated to the HUD rulers and 62px footer.
+   * Application typography may grow without changing these measured tracks. */
+  --robot-flight-font-label: 9px;
+  --robot-flight-font-readout: 10px;
+  --robot-flight-font-heading: 12px;
+  --robot-flight-font-emphasis: 13px;
+  --robot-flight-status-pedestal-width: 132px;
+  --robot-flight-status-pedestal-height: 20px;
+  --robot-flight-panel-inline-inset: 2px;
+  --robot-flight-accent: var(--color-robot-flight-accent);
+  --robot-flight-sky: var(--color-robot-flight-sky);
+  --robot-flight-ground: var(--color-robot-flight-ground);
+  --robot-flight-dark-tick: var(--color-robot-flight-dark-tick);
+  /* Measured instrument geometry stays local; spatial rhythm is not a size scale. */
+  --robot-flight-roll-pointer-half-width: 5px;
+  --robot-flight-roll-pointer-height: 6px;
+  --robot-flight-heading-pointer-half-width: 4px;
+  --robot-flight-heading-pointer-height: 6px;
+  --robot-flight-layer-base: 2;
+  --robot-flight-layer-attitude: 8;
+  --robot-flight-layer-roll: 12;
+  --robot-flight-layer-pointer: 14;
+  --robot-flight-layer-overlay: 18;
+  --robot-flight-layer-status: 20;
+  --robot-flight-layer-compass: 24;
+  --robot-flight-layer-reticle: 30;
+  container-type: inline-size;
+  box-sizing: border-box;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 300px;
+  overflow: hidden;
+  user-select: none;
+  font-size: var(--robot-flight-font-heading);
+  line-height: var(--line-height-none);
+  color: var(--color-robot-flight-value);
+  background: radial-gradient(circle at center, var(--color-robot-flight-surface-center), var(--color-robot-flight-surface-edge));
+  /* The containing Robot card already owns the surface boundary. A second
+   * silver bezel here made the embedded HUD look double-framed. */
+  border: 0;
+  border-radius: var(--radius-card);
+  box-shadow: none;
+}
+.robot-flight-instrument[data-xgc-embedded="true"] {
+  min-height: 0;
+  height: 100%;
+  /* The card owns the rounded clip. A second radius here leaves a white
+   * anti-aliased crescent against the framed Panel. */
+  border-radius: 0;
+}
+
+.robot-flight-instrument[data-xgc-health="idle"] .robot-flight-sky,
+.robot-flight-instrument[data-xgc-health="idle"] .robot-flight-ground,
+.robot-flight-instrument[data-xgc-health="idle"] .robot-flight-yaw-compass,
+.robot-flight-instrument[data-xgc-connection="offline"] .robot-flight-sky,
+.robot-flight-instrument[data-xgc-connection="offline"] .robot-flight-ground,
+.robot-flight-instrument[data-xgc-connection="offline"] .robot-flight-yaw-compass {
+  opacity: var(--opacity-disabled);
+}
+
+.robot-flight-instrument-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: var(--robot-flight-layer-status);
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: 0 var(--space-md);
+  background: linear-gradient(to bottom, var(--color-robot-flight-header-shade), transparent);
+}
+
+.robot-flight-instrument-header strong {
+  overflow: hidden;
+  font-size: var(--robot-flight-font-heading);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.robot-flight-instrument-attitude,
+.robot-flight-sky,
+.robot-flight-ground {
+  position: absolute;
+  inset: 0;
+}
+
+.robot-flight-sky {
+  background: var(--robot-flight-sky);
+}
+
+.robot-flight-ground {
+  background: var(--robot-flight-ground);
+}
+
+.robot-flight-pitch-ladder {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: var(--robot-flight-layer-attitude);
+  width: 150px;
+  height: 150px;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.robot-flight-pitch-mark {
+  pointer-events: auto;
+}
+
+/* `<g>` has no painted geometry. With the ladder at pointer-events:none,
+ * Chrome often omits the group from elementsFromPoint; clicks land on the HUD.
+ * Painted descendants (and the transparent hit rect) must re-enable hit-testing. */
+.robot-flight-pitch-mark text,
+.robot-flight-pitch-mark line,
+.robot-flight-pitch-mark-hit {
+  pointer-events: auto;
+}
+
+.robot-flight-pitch-mark-hit {
+  fill: transparent;
+  stroke: none;
+}
+
+.robot-flight-pitch-ladder text {
+  font-size: var(--robot-flight-font-label);
+  font-weight: var(--weight-bold);
+  dominant-baseline: middle;
+  fill: var(--color-robot-flight-value);
+}
+
+.robot-flight-pitch-ladder line {
+  stroke: var(--color-robot-flight-value);
+  stroke-width: var(--stroke-thin);
+  shape-rendering: crispEdges;
+}
+
+.robot-flight-pitch-mark[data-xgc-region="horizon"] line {
+  stroke-width: var(--stroke-strong);
+}
+
+.robot-flight-pitch-mark[data-xgc-region="sky"] text,
+.robot-flight-pitch-mark[data-xgc-region="sky"] line {
+  fill: var(--robot-flight-dark-tick);
+  stroke: var(--robot-flight-dark-tick);
+}
+
+.robot-flight-center-mark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: var(--robot-flight-layer-reticle);
+  overflow: visible;
+  transform: translate(-50%, -50%);
+}
+
+.robot-flight-center-mark line {
+  stroke: var(--robot-flight-accent);
+  stroke-width: var(--stroke-strong);
+}
+
+.robot-flight-center-mark circle {
+  fill: var(--robot-flight-accent);
+}
+
+.robot-flight-roll-indicator {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: var(--robot-flight-layer-roll);
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+
+.robot-flight-roll-arc {
+  position: absolute;
+  top: -50px;
+  left: -50px;
+}
+
+.robot-flight-roll-tick {
+  position: absolute;
+  left: -0.5px;
+  top: -44px;
+  width: 1px;
+  height: 4px;
+  background: var(--color-robot-flight-value);
+  opacity: var(--opacity-secondary);
+  transform-origin: center 44px;
+}
+
+.robot-flight-roll-tick[data-xgc-emphasis="major"] {
+  left: -0.6px;
+  width: 1.2px;
+  height: 6px;
+  opacity: var(--opacity-full);
+}
+
+.robot-flight-roll-arrow {
+  position: absolute;
+  top: -44px;
+  left: -5px;
+  z-index: var(--robot-flight-layer-pointer);
+  width: 0;
+  height: 0;
+  border-left: var(--robot-flight-roll-pointer-half-width) solid transparent;
+  border-right: var(--robot-flight-roll-pointer-half-width) solid transparent;
+  border-top: var(--robot-flight-roll-pointer-height) solid var(--robot-flight-accent);
+  transform-origin: center 44px;
+}
+
+.robot-flight-metric-ruler {
+  position: absolute;
+  top: 34px;
+  z-index: var(--robot-flight-layer-overlay);
+  width: 40px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  background: var(--color-robot-flight-metric-surface);
+  border: var(--stroke-thin) solid var(--color-robot-flight-metric-border);
+  border-radius: var(--radius-sm);
+}
+
+.robot-flight-metric-ruler[data-xgc-side="left"] {
+  left: 10px;
+}
+
+.robot-flight-metric-ruler[data-xgc-side="right"] {
+  right: 10px;
+}
+
+.robot-flight-metric-ruler span {
+  width: calc(100% - 5px);
+  height: calc(100% - 5px);
+  display: grid;
+  place-items: center;
+  background: var(--color-robot-flight-metric-inner);
+  border-radius: var(--radius-sm);
+}
+
+.robot-flight-metric-ruler strong {
+  font-size: var(--robot-flight-font-readout);
+  line-height: var(--line-height-none);
+}
+
+.robot-flight-metric-ruler small {
+  font-size: var(--robot-flight-font-label);
+  opacity: var(--opacity-full);
+  line-height: var(--line-height-none);
+}
+
+.robot-flight-bottom-status {
+  box-sizing: border-box;
+  position: absolute;
+  /* Overlap the panel top edge so both surfaces read as one continuous outline. */
+  bottom: 63px;
+  left: 50%;
+  z-index: var(--robot-flight-layer-status);
+  /* The HUD pedestal reserves 8px per side independently of UI density. */
+  width: min(var(--robot-flight-status-pedestal-width), calc(100% - 16px - (var(--robot-flight-panel-inline-inset) * 2) - (var(--stroke-thin) * 2)));
+  height: var(--robot-flight-status-pedestal-height);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-2xs) var(--space-md) var(--space-xs);
+  transform: translateX(-50%);
+}
+
+.robot-flight-bottom-status[data-xgc-columns="3"] {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.robot-flight-bottom-status span {
+  min-width: 0;
+  overflow: hidden;
+  padding: 0;
+  text-align: center;
+  color: var(--color-robot-flight-status-text);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  font-size: var(--robot-flight-font-label);
+  font-weight: var(--weight-bold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.robot-flight-bottom-status span[data-xgc-tone="danger"] {
+  color: var(--color-robot-flight-frequency-danger);
+}
+
+.robot-flight-bottom-status span[data-xgc-tone="success"] {
+  color: var(--color-robot-flight-frequency-success);
+}
+
+.robot-instrument-grid[data-xgc-layout="single"] .robot-flight-instrument {
+  --robot-flight-status-pedestal-width: 168px;
+}
+
+.robot-instrument-grid[data-xgc-layout="single"] .robot-flight-instrument:not([data-xgc-role="robot-ground-instrument"]) {
+  --robot-flight-status-pedestal-width: 252px;
+}
+
+.robot-instrument-grid[data-xgc-layout="single"] .robot-flight-bottom-status {
+  gap: var(--space-lg);
+  padding-inline: var(--space-lg);
+}
+
+.robot-instrument-grid[data-xgc-layout="double"] .robot-flight-instrument {
+  --robot-flight-status-pedestal-width: 132px;
+}
+
+.robot-instrument-grid[data-xgc-layout="double"] .robot-flight-instrument:not([data-xgc-role="robot-ground-instrument"]) {
+  --robot-flight-status-pedestal-width: 200px;
+}
+
+.robot-instrument-grid[data-xgc-layout="double"] .robot-flight-bottom-status {
+  gap: var(--space-xs);
+  padding-inline: var(--space-md);
+}
+
+.robot-instrument-grid[data-xgc-layout="double"] .robot-flight-bottom-status[data-xgc-columns="3"] {
+  gap: var(--space-sm);
+}
+
+.robot-flight-bottom-panel {
+  position: absolute;
+  left: var(--robot-flight-panel-inline-inset);
+  right: var(--robot-flight-panel-inline-inset);
+  bottom: 2px;
+  z-index: var(--robot-flight-layer-overlay);
+  height: 62px;
+  background-color: var(--color-robot-flight-panel-fill);
+  background-image: linear-gradient(to bottom, var(--color-robot-flight-panel-start), var(--color-robot-flight-panel-end));
+  border: var(--stroke-thin) solid var(--color-robot-flight-separator);
+  border-radius: var(--radius-surface) var(--radius-surface) var(--radius-card) var(--radius-card);
+  box-shadow: var(--shadow-robot-flight-panel-edge);
+}
+
+.robot-flight-bottom-panel::before {
+  content: '';
+  box-sizing: border-box;
+  position: absolute;
+  top: calc(var(--robot-flight-status-pedestal-height) * -1);
+  left: 50%;
+  width: min(var(--robot-flight-status-pedestal-width), calc(100% - 16px));
+  height: calc(var(--robot-flight-status-pedestal-height) + 3px);
+  background-color: var(--color-robot-flight-panel-fill);
+  background-image: linear-gradient(to bottom, color-mix(in srgb, var(--color-robot-flight-panel-start) 94%, var(--color-robot-flight-value)), var(--color-robot-flight-panel-start) 100%);
+  border: var(--stroke-thin) solid var(--color-robot-flight-separator);
+  border-bottom: 0;
+  border-radius: var(--radius-card) var(--radius-card) 0 0;
+  box-shadow: 0 -3px 10px color-mix(in srgb, var(--color-robot-flight-separator) 28%, transparent);
+  transform: translateX(-50%);
+}
+
+/* Left rates and right criticals share one scannable column grammar. */
+.robot-flight-frequency-list,
+.robot-flight-status-list {
+  position: absolute;
+  bottom: 5px;
+  display: grid;
+  gap: var(--space-2xs);
+  /* Hug content — do not force a wide column that spaces label and reading apart. */
+  width: max-content;
+  max-width: 40%;
+}
+
+.robot-flight-frequency-list {
+  left: 8px;
+  /* Shared label track sized to LPOS/VPOS, so LSP keeps the same left edge. */
+  grid-template-columns: max-content minmax(0, auto);
+  column-gap: 3px;
+  justify-items: start;
+}
+
+.robot-flight-status-list {
+  right: 8px;
+}
+
+.robot-flight-frequency-list > span {
+  /* Markable host: keep a box. Children still occupy the shared label/value tracks. */
+  display: grid;
+  grid-template-columns: subgrid;
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.robot-flight-status-list span {
+  display: flex;
+  align-items: baseline;
+  /* Tight pack: label immediately followed by reading (not space-between). */
+  justify-content: flex-start;
+  gap: 3px;
+  min-width: 0;
+}
+
+.robot-flight-frequency-list small,
+.robot-flight-status-list small {
+  color: var(--color-robot-flight-label);
+  font-size: var(--robot-flight-font-label);
+  font-weight: var(--weight-semibold);
+  text-align: start;
+}
+
+.robot-flight-frequency-list small {
+  justify-self: start;
+}
+
+.robot-flight-frequency-label-full,
+.robot-flight-frequency-value-full {
+  display: none;
+}
+
+.robot-flight-frequency-value-compact,
+.robot-flight-frequency-value-full {
+  white-space: pre;
+}
+
+.robot-flight-frequency-unit {
+  white-space: pre;
+}
+
+.robot-instrument-grid[data-xgc-layout="single"] .robot-flight-frequency-label-compact,
+.robot-instrument-grid[data-xgc-layout="single"] .robot-flight-frequency-value-compact {
+  display: none;
+}
+
+.robot-instrument-grid[data-xgc-layout="single"] .robot-flight-frequency-label-full,
+.robot-instrument-grid[data-xgc-layout="single"] .robot-flight-frequency-value-full {
+  display: inline;
+}
+
+.robot-flight-status-list small {
+  flex: 0 0 auto;
+}
+
+.robot-flight-frequency-list strong,
+.robot-flight-status-list strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-robot-flight-value);
+  font-size: var(--robot-flight-font-label);
+  font-variant-numeric: tabular-nums;
+  text-align: start;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.robot-flight-frequency-list strong {
+  justify-self: start;
+}
+
+.robot-flight-status-list strong {
+  flex: 0 0 auto;
+}
+
+.robot-flight-frequency-value[data-xgc-tone="danger"],
+.robot-flight-status-value[data-xgc-tone="danger"] {
+  color: var(--color-robot-flight-frequency-danger);
+}
+
+.robot-flight-frequency-value[data-xgc-tone="success"] {
+  color: var(--color-robot-flight-frequency-success);
+}
+
+.robot-flight-hud-center {
+  position: absolute;
+  /* Align the single climb row with the first row of both four-line side lists. */
+  bottom: 39px;
+  left: 50%;
+  z-index: var(--robot-flight-layer-base);
+  display: grid;
+  gap: var(--space-2xs);
+  width: 88px;
+  text-align: center;
+  transform: translateX(-50%);
+}
+
+.robot-flight-hud-center div {
+  min-height: var(--robot-flight-font-emphasis);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  font-size: var(--robot-flight-font-label);
+  font-weight: var(--weight-bold);
+}
+
+.robot-flight-hud-center small {
+  color: var(--color-robot-flight-hint);
+  font-size: var(--robot-flight-font-label);
+}
+
+.robot-flight-climb-readout {
+  white-space: pre;
+}
+
+.robot-flight-climb-direction {
+  min-width: 1em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--robot-flight-font-emphasis);
+  font-weight: var(--weight-bold);
+  line-height: var(--line-height-none);
+  color: var(--color-robot-flight-value);
+}
+
+.robot-flight-yaw-compass {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  z-index: var(--robot-flight-layer-compass);
+  width: 68px;
+  height: 34px;
+  overflow: hidden;
+  transform: translateX(-50%);
+}
+
+.robot-flight-compass-bg,
+.robot-flight-compass-dial {
+  position: absolute;
+  inset: 0;
+  width: 68px;
+  height: 68px;
+  border-radius: var(--radius-pill);
+}
+
+.robot-flight-compass-bg {
+  background: var(--color-robot-flight-compass-surface);
+  border: var(--stroke-thin) solid var(--color-robot-flight-compass-border);
+}
+
+.robot-flight-compass-dial {
+  transform-origin: center center;
+}
+
+.robot-flight-direction {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  transform: translate(-50%, -50%);
+}
+
+.robot-flight-direction[data-xgc-direction="n"] { translate: 0 -27px; }
+.robot-flight-direction[data-xgc-direction="e"] { translate: 27px 0; }
+.robot-flight-direction[data-xgc-direction="s"] { translate: 0 27px; }
+.robot-flight-direction[data-xgc-direction="w"] { translate: -27px 0; }
+
+.robot-flight-direction b {
+  display: block;
+  width: 100%;
+  height: 100%;
+  color: var(--color-robot-flight-value);
+  text-align: center;
+  font-size: var(--robot-flight-font-label);
+  line-height: var(--size-icon-xs);
+  text-shadow: var(--shadow-robot-flight-direction);
+}
+
+.robot-flight-compass-tick {
+  position: absolute;
+  left: calc(50% - 0.5px);
+  top: 2px;
+  width: 1px;
+  height: 3px;
+  background: var(--color-robot-flight-compass-tick);
+  transform-origin: center 32px;
+}
+
+.robot-flight-compass-tick[data-xgc-emphasis="major"] {
+  left: calc(50% - 0.75px);
+  width: 1.5px;
+  height: 5px;
+  background: var(--color-robot-flight-compass-tick-major);
+}
+
+.robot-flight-heading-triangle {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-left: var(--robot-flight-heading-pointer-half-width) solid transparent;
+  border-right: var(--robot-flight-heading-pointer-half-width) solid transparent;
+  border-bottom: var(--robot-flight-heading-pointer-height) solid var(--robot-flight-accent);
+  transform: translateX(-50%);
+}
+
+.robot-flight-yaw-compass > strong {
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  padding: var(--space-2xs) var(--space-sm);
+  color: var(--color-robot-flight-value);
+  background: var(--color-robot-flight-heading-surface);
+  border-radius: var(--radius-xs);
+  font-size: var(--robot-flight-font-label);
+  transform: translateX(-50%);
+}

@@ -1,0 +1,77 @@
+.xgc-ground-station-chat-launcher,
+.xgc-ground-station-chat-panel {
+  position: fixed;
+  right: var(--space-xl);
+  bottom: calc(var(--size-header-page) + var(--space-lg));
+  z-index: var(--z-popover);
+}
+
+.xgc-ground-station-chat-launcher.xgc-control-button {
+  --xgc-control-height: var(--size-control-default);
+}
+
+.xgc-ground-station-chat-panel {
+  width: min(
+    calc(var(--size-grid-column-wide) + var(--space-3xl)),
+    calc(100vw - var(--space-3xl))
+  );
+  height: min(
+    calc(var(--size-grid-column-wide) + var(--size-header-page) * 2),
+    calc(100dvh - var(--size-header-page) * 2)
+  );
+  min-height: 0;
+}
+
+.xgc-ground-station-chat-surface {
+  height: 100%;
+  box-shadow: var(--shadow-floating);
+}
+
+.xgc-ground-station-chat-panel[data-xgc-presentation="panel"] {
+  position: relative;
+  right: auto;
+  bottom: auto;
+  z-index: auto;
+  width: 100%;
+  max-height: none;
+  min-height: 0;
+  height: 100%;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+}
+
+/* Keep the embedded feed inside PanelFrame so its composer remains visible. */
+.xgc-panel-frame:has(> .xgc-panel-frame-body .xgc-ground-station-chat-panel[data-xgc-presentation="panel"]) > .xgc-panel-frame-body {
+  min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.xgc-panel-frame:has(> .xgc-panel-frame-body .xgc-ground-station-chat-panel[data-xgc-presentation="panel"]) > .xgc-panel-frame-body > .xgc-ground-station-chat-panel {
+  min-height: 0;
+  height: 100%;
+  max-height: 100%;
+}
+
+[data-xgc-role="experiment-dashboard-canvas"] .xgc-panel-frame:has(.xgc-ground-station-chat-panel[data-xgc-presentation="panel"]) .xgc-panel-frame-body {
+  min-height: 0;
+}
+
+.xgc-ground-station-chat-footer {
+  min-width: 0;
+}
+
+[data-xgc-role="ground-station-chat-footer"] > [data-xgc-role="ground-station-chat-composer"][data-xgc-id="local"] {
+  border-top: 0;
+}
+
+/* xgc-viewport-scope: overlay */
+@media (max-width: 720px) {
+  .xgc-ground-station-chat-launcher,
+  .xgc-ground-station-chat-panel {
+    right: var(--space-md);
+    bottom: var(--size-header-page);
+  }
+}

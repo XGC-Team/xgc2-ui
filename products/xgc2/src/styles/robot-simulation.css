@@ -1,0 +1,17 @@
+.robot-simulation-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin-left: auto;
+}
+
+.robot-instruments-panel[data-xgc-mode="workflow"] {
+  padding: 0;
+}
+
+.robot-simulation-workflow {
+  position: relative;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+}

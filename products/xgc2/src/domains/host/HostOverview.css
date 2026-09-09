@@ -1,0 +1,322 @@
+/*
+ * System Overview layout.
+ * Tables stay content-height. Stretching Host / NIC / process grids to fill
+ * the workspace inflates implicit rows and deforms the tables.
+ */
+
+.xgc-host-overview {
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  overflow: auto;
+  font-family: var(--font-sans);
+  font-size: var(--font-base);
+  font-weight: var(--weight-regular);
+  line-height: var(--line-height-normal);
+}
+
+.xgc-host-overview > .board-page,
+.xgc-host-overview-board {
+  flex: 0 0 auto;
+  height: auto;
+  max-height: none;
+  min-height: 0;
+  grid-template-rows: auto;
+  gap: var(--space-lg);
+  align-content: start;
+  width: 100%;
+  max-width: none;
+  overflow: visible;
+}
+
+.xgc-host-overview-refresh-select {
+  min-width: 11rem;
+}
+
+.xgc-host-overview-toolbar {
+  box-sizing: border-box;
+  padding-inline: var(--stroke-strong);
+  flex: 0 0 auto;
+  width: 100%;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-md);
+}
+
+.xgc-host-resource-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  gap: var(--space-md);
+}
+
+.xgc-host-resource-card,
+.xgc-host-trend-card {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+
+.xgc-host-overview .resource-bar {
+  height: 100%;
+  gap: var(--space-sm);
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+
+.xgc-host-overview .resource-bar strong {
+  font-size: var(--font-base);
+  font-weight: var(--weight-regular);
+}
+
+.xgc-host-overview .resource-bar span {
+  font-size: var(--font-base);
+  font-variant-numeric: tabular-nums;
+}
+
+[data-xgc-role="system-overview-trend"] .xgc-system-io-chart-grid {
+  min-height: 180px;
+  height: 180px;
+}
+
+[data-xgc-role="system-overview-trend"] .xgc-system-io-chart {
+  min-height: 160px;
+  padding: 0;
+}
+
+[data-xgc-role="system-overview-trend"] .xgc-system-io-chart-legend {
+  padding-inline: 0;
+}
+
+.xgc-host-overview-split {
+  flex: 0 0 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 30rem), 1fr));
+  gap: var(--space-lg);
+  align-items: start;
+}
+
+[data-xgc-role="system-overview-basic"] .info-table,
+[data-xgc-role="system-overview-network"] .xgc-host-overview-table-card,
+[data-xgc-role="system-overview-tops"] .xgc-host-overview-table-card {
+  flex: 0 0 auto;
+  height: auto;
+  min-height: 0;
+  align-content: start;
+}
+
+.xgc-host-overview-tops {
+  flex: 0 0 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+  gap: var(--space-lg);
+  align-items: start;
+}
+
+.xgc-host-overview .info-table {
+  gap: 0;
+  /* Full-width tables share the current Panel header inset. */
+  padding: 0 var(--space-panel-padding);
+  background: transparent;
+  border: 0;
+  overflow: auto;
+}
+
+.xgc-host-overview .info-row {
+  min-height: var(--size-control-compact);
+  gap: var(--space-lg);
+  grid-template-columns: minmax(110px, 150px) minmax(0, 1fr);
+}
+
+.xgc-host-overview .info-row:last-child {
+  border-bottom: 0;
+}
+
+.xgc-host-overview .info-row dt,
+.xgc-host-overview .info-row dd {
+  font-size: var(--font-base);
+}
+
+.xgc-host-overview .info-row dd {
+  font-family: var(--font-sans);
+  font-weight: var(--weight-regular);
+}
+
+.xgc-host-overview-table {
+  display: grid;
+  gap: 0;
+  align-content: start;
+  background: transparent;
+  border: 0;
+  overflow: hidden;
+  font-variant-numeric: tabular-nums;
+}
+
+.xgc-host-overview-table-card {
+  height: auto;
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto;
+  align-content: start;
+  background: transparent;
+  border: 0;
+  overflow: hidden;
+}
+
+.xgc-host-overview-table-card[data-xgc-paginated="true"] {
+  grid-template-rows: auto var(--size-control-compact);
+}
+
+.xgc-host-overview-table-card .xgc-host-overview-table {
+  border: 0;
+  border-radius: 0;
+}
+
+.xgc-host-overview-pagination {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  box-sizing: border-box;
+  height: var(--size-control-compact);
+  min-height: var(--size-control-compact);
+  gap: var(--space-sm);
+  padding: 0 var(--space-panel-padding);
+  color: var(--color-text-muted);
+  border-top: var(--stroke-thin) solid var(--color-border-muted);
+  background: var(--color-bg-subtle);
+  font-size: var(--font-base);
+  font-variant-numeric: tabular-nums;
+}
+
+.xgc-host-overview-pagination-button {
+  width: var(--size-icon-lg);
+  min-width: var(--size-icon-lg);
+  height: var(--size-icon-lg);
+}
+
+.xgc-host-overview-pagination-label {
+  min-width: 5ch;
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: var(--space-xs);
+  white-space: nowrap;
+}
+
+.xgc-host-overview-pagination-label strong {
+  color: var(--color-text-heading);
+  font-weight: var(--weight-regular);
+}
+
+.xgc-host-overview-table-head,
+.xgc-host-overview-table-row,
+button.xgc-host-overview-table-row.xgc-host-overview-process-link {
+  display: grid;
+  gap: var(--space-sm);
+  align-items: center;
+  box-sizing: border-box;
+  height: var(--size-control-compact);
+  min-height: var(--size-control-compact);
+  padding: 0 var(--space-panel-padding);
+  border-bottom: var(--stroke-thin) solid var(--color-border-muted);
+  overflow: hidden;
+}
+
+.xgc-host-overview-table-head > *,
+.xgc-host-overview-table-row > * {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.xgc-host-overview-table-row:last-child {
+  border-bottom: 0;
+}
+
+button.xgc-host-overview-table-row.xgc-host-overview-process-link {
+  width: 100%;
+  margin: 0;
+  justify-content: stretch;
+  color: inherit;
+  background: var(--color-bg-surface);
+  border-radius: 0;
+  box-shadow: none;
+  border-top: 0;
+  border-right: 0;
+  border-left: 0;
+  font: inherit;
+  font-size: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+button.xgc-host-overview-table-row.xgc-host-overview-process-link:hover,
+button.xgc-host-overview-table-row.xgc-host-overview-process-link:focus-visible {
+  background: var(--color-bg-surface-hover);
+}
+
+button.xgc-host-overview-table-row.xgc-host-overview-process-link:focus-visible {
+  position: relative;
+  z-index: var(--z-raised);
+  outline: var(--stroke-strong) solid var(--color-border-focus);
+  outline-offset: calc(-1 * var(--stroke-strong));
+}
+
+/* NIC: name | state | address | rx | tx — keep all five cells on one line */
+[data-xgc-role="system-overview-nics"] .xgc-host-overview-table-head,
+[data-xgc-role="system-overview-nics"] .xgc-host-overview-table-row {
+  grid-template-columns: minmax(3.5rem, 0.7fr) 2.5rem minmax(4.5rem, 1fr) repeat(2, minmax(5.25rem, 1fr));
+}
+
+/* Process: pid | name | metric | secondary — one complete row per process.
+ * Shared tracks align the head and rows; 4rem fits 7-digit pids. */
+[data-xgc-role="system-overview-cpu-table"] .xgc-host-overview-table-head,
+[data-xgc-role="system-overview-cpu-table"] .xgc-host-overview-table-row,
+[data-xgc-role="system-overview-mem-table"] .xgc-host-overview-table-head,
+[data-xgc-role="system-overview-mem-table"] .xgc-host-overview-table-row,
+[data-xgc-role="system-overview-net-table"] .xgc-host-overview-table-head,
+[data-xgc-role="system-overview-net-table"] .xgc-host-overview-table-row {
+  grid-template-columns: 4rem minmax(0, 1fr) 4.5rem 4.5rem;
+}
+
+.xgc-host-overview-table-head {
+  color: var(--color-text-muted);
+  font-size: var(--font-base);
+  background: var(--color-bg-subtle, transparent);
+}
+
+.xgc-host-overview-table-row strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: var(--weight-regular);
+}
+
+.xgc-host-overview-table-row em {
+  color: inherit;
+  font: inherit;
+}
+
+.xgc-host-overview-placeholder-row {
+  color: var(--color-text-muted);
+}
+
+.xgc-host-overview-muted {
+  margin: 0;
+  padding: var(--space-lg) var(--space-panel-padding);
+  color: var(--color-text-muted);
+  background: var(--color-bg-surface);
+  border: var(--stroke-thin) solid var(--color-border);
+  border-radius: var(--radius-surface);
+  font-size: var(--font-base);
+}

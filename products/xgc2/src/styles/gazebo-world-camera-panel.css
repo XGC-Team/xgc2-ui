@@ -1,0 +1,213 @@
+/*
+ * Same header contract as ROS / Lichtblick / camera calibration:
+ * view switcher stays on the left; run/stop cluster is pushed right.
+ */
+.gazebo-world-camera-panel-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex: 0 0 auto;
+}
+
+.gazebo-world-camera-panel-header-actions [data-xgc-role="gazebo-world-camera-view-switcher"] {
+  flex: 0 0 auto;
+}
+
+/* First runtime action (extrinsic calibration) starts the right-side run cluster. */
+.gazebo-world-camera-panel-header-actions .xgc-panel-runtime-action:first-of-type {
+  margin-left: auto;
+}
+
+/*
+ * Calibration is an image-annotation workspace, not a compact confirmation
+ * dialog. Keep the product chrome available and use the rest of the viewport.
+ */
+.gazebo-world-camera-calibration-backdrop {
+  box-sizing: border-box;
+  inset-block-start: var(--size-shell-chrome);
+  inset-inline-start: calc(var(--size-sidebar-expanded) + var(--stroke-thin));
+  padding: var(--space-lg);
+}
+
+body:has(.sidebar[data-collapsed='true']) .gazebo-world-camera-calibration-backdrop {
+  inset-inline-start: calc(var(--size-sidebar-collapsed) + var(--stroke-thin));
+}
+
+body:has(.app-shell[data-xgc-mode='ground-station']) .gazebo-world-camera-calibration-backdrop {
+  inset-inline-start: 0;
+}
+
+.gazebo-world-camera-calibration-dialog {
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.gazebo-world-camera-calibration-dialog > div {
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+@media (max-width: 720px) {
+  .gazebo-world-camera-calibration-backdrop,
+  body:has(.sidebar[data-collapsed='true']) .gazebo-world-camera-calibration-backdrop {
+    inset-inline-start: 0;
+    padding: var(--space-md);
+  }
+}
+
+/*
+ * Height chain: PanelFrame is not a flex column by default, so percentage
+ * heights on nested shells can collapse and leave empty copy sitting low in
+ * the panel. Make this panel's frame a column, pin the body to the remaining
+ * space, then absolute-fill workspace layers so stopped copy can flex-center.
+ */
+.xgc-panel-frame:has(> .xgc-panel-frame-body [data-xgc-role="gazebo-world-camera-workspace"]) {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.xgc-panel-frame:has(> .xgc-panel-frame-body [data-xgc-role="gazebo-world-camera-workspace"]) > .xgc-panel-frame-body {
+  position: relative;
+  flex: 1 1 auto;
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  overflow: hidden;
+  background: transparent;
+}
+
+.gazebo-world-camera-panel-workspace,
+.gazebo-world-camera-panel-image-view,
+.gazebo-world-camera-panel-workflow {
+  position: absolute;
+  inset: 0;
+  width: auto;
+  height: auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.gazebo-world-camera-panel-workspace,
+[data-xgc-role="gazebo-world-camera-workspace"] {
+  display: flex;
+  flex-direction: column;
+  background: transparent;
+}
+
+.gazebo-world-camera-panel-image-view {
+  display: grid;
+  isolation: isolate;
+  background: transparent;
+}
+
+/*
+ * Fill the panel body. Letterboxing (contain + intrinsic 16:9 box) left a
+ * second light pad around the stream; cover crops the unused axis instead.
+ */
+.gazebo-world-camera-panel-image-view .camera-video-panel-root,
+.gazebo-world-camera-panel-image-view .camera-video-panel-stream {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  background: transparent;
+}
+
+.gazebo-world-camera-panel-image-view .camera-video-panel-stream {
+  justify-self: stretch;
+  align-self: stretch;
+  object-fit: cover;
+  object-position: center center;
+}
+
+.gazebo-world-camera-panel-image-view[hidden] {
+  display: none;
+}
+
+.gazebo-world-camera-intrinsic-select {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.gazebo-world-camera-intrinsic-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.gazebo-world-camera-pose-editor {
+  position: absolute;
+  top: var(--space-lg);
+  right: var(--space-lg);
+  z-index: 2;
+  width: min(340px, calc(100% - 2 * var(--space-lg)));
+  max-height: calc(100% - 2 * var(--space-lg));
+  box-sizing: border-box;
+  display: grid;
+  gap: var(--space-lg);
+  padding: var(--space-lg);
+  overflow: auto;
+  color: var(--color-text);
+  background: color-mix(in srgb, var(--color-bg-surface) 94%, transparent);
+  border: var(--stroke-thin) solid var(--color-border-strong);
+  border-radius: var(--radius-floating);
+  box-shadow: var(--shadow-dialog);
+  backdrop-filter: blur(8px);
+}
+
+.gazebo-world-camera-pose-editor > header,
+.gazebo-world-camera-pose-editor > footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.gazebo-world-camera-pose-editor > header {
+  justify-content: space-between;
+}
+
+.gazebo-world-camera-pose-editor > header > strong {
+  min-width: 0;
+}
+
+.gazebo-world-camera-pose-description {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-base);
+  line-height: var(--line-height-normal);
+}
+
+.gazebo-world-camera-pose-editor > footer {
+  justify-content: flex-end;
+}
+
+.gazebo-world-camera-pose-fields {
+  display: grid;
+  gap: var(--space-md);
+}
+
+.gazebo-world-camera-pose-row {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-xs);
+}
+
+.gazebo-world-camera-pose-row-label {
+  color: var(--color-text-muted);
+  font-size: var(--font-base);
+  line-height: var(--line-height-tight);
+}
+
+.gazebo-world-camera-panel-workflow {
+  /* position:absolute + inset come from the shared workspace shell rules. */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}

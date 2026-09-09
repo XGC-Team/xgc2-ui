@@ -1,0 +1,25 @@
+.app-shell[data-xgc-mode="ground-station"] {
+  --xgc-gcs-panel-seam: var(--color-border-muted);
+}
+
+/* Same width interpolation as sidebar-toggle collapse. display:none / a 1fr
+ * grid snap is the Config→GCS jump the operator compared to that animation. */
+.app-shell[data-xgc-mode="ground-station"] .sidebar,
+.app-shell[data-xgc-mode="ground-station"] .sidebar[data-collapsed="true"] {
+  width: 0;
+  min-width: 0;
+  overflow: hidden;
+  border-inline-end-width: 0;
+  pointer-events: none;
+  /* Keep the family width tween; add the 1px seam so GCS does not snap the rail. */
+  transition:
+    width var(--duration-fast) var(--easing-standard),
+    border-inline-end-width var(--duration-fast) var(--easing-standard);
+}
+
+.app-shell[data-xgc-mode="ground-station"] .xgc-workspace-content {
+  padding: 0;
+  overflow: hidden;
+  /* No scroll surface in GCS wall mode — do not reserve classic scrollbar width. */
+  scrollbar-gutter: auto;
+}

@@ -1,0 +1,157 @@
+.robot-assets-global-error {
+  margin: var(--space-lg);
+}
+
+/* Keep chassis filtering at the left edge while sort and New retain the
+ * catalog action edge. This is Robot-domain composition over ListPage's
+ * existing controls slot, not a second shared toolbar implementation. */
+.robot-asset-list-filters,
+.robot-asset-list-view-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.robot-asset-list-view-controls {
+  margin-left: auto;
+}
+
+/* Robot kinds expose different attribute counts and value lengths. Let each
+ * card follow its content instead of forcing eight-field PX4 cards into the
+ * same height as three-field inventory cards. */
+.robot-asset-card {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--space-xl);
+  padding: var(--space-xl);
+  cursor: default;
+}
+
+.robot-asset-card:hover {
+  background: var(--color-bg-control);
+  border-color: var(--color-border-hover);
+}
+
+.robot-asset-card-body {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-lg);
+}
+
+.robot-asset-card-title {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.robot-asset-card-title strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-heading);
+  font-family: var(--font-sans);
+  font-size: var(--font-base);
+  font-weight: var(--weight-regular);
+  /* Match icon box height so flex centering is optical, not skewed by tall line-box. */
+  line-height: var(--size-icon-lg);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.robot-asset-card-icon {
+  display: block;
+  flex: 0 0 var(--size-icon-sm);
+  width: var(--size-icon-sm);
+  height: var(--size-icon-sm);
+  color: var(--color-text-muted);
+}
+
+/*
+ * Keep the desktop four-column rhythm, but allow rows and values to use their
+ * natural height. No nested border — the row already provides card chrome.
+ */
+.robot-asset-card-attrs {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-auto-rows: min-content;
+  gap: var(--space-lg) var(--space-xl);
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+}
+
+@media (max-width: 720px) {
+  .robot-asset-card {
+    min-height: 0;
+  }
+
+  .robot-asset-card-attrs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: none;
+  }
+}
+
+.robot-asset-card-attr {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-xs);
+}
+
+.robot-asset-card-attr dt {
+  margin: 0;
+  color: var(--color-text-faint);
+  font-size: var(--font-sm);
+  line-height: var(--line-height-control);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+}
+
+.robot-asset-card-attr dd {
+  margin: 0;
+  min-width: 0;
+  overflow: visible;
+  color: var(--color-text-heading);
+  font-size: var(--font-base);
+  font-weight: var(--weight-regular);
+  line-height: var(--line-height-normal);
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.robot-asset-card-attr dd code {
+  color: inherit;
+  font-family: var(--font-mono);
+  font-size: inherit;
+}
+
+.robot-asset-card-actions {
+  justify-self: end;
+  align-self: start;
+  padding-top: var(--space-2xs);
+}
+
+.robot-asset-card-actions [data-xgc-role="robot-asset-connectivity"][data-xgc-state="success"] {
+  color: var(--color-success);
+}
+
+.robot-asset-card-actions [data-xgc-role="robot-asset-connectivity"][data-xgc-state="warning"] {
+  color: var(--color-warning);
+}
+
+.robot-asset-card-actions [data-xgc-role="robot-asset-connectivity"][data-xgc-state="danger"] {
+  color: var(--color-danger);
+}
+
+.robot-asset-card-actions [data-xgc-role="robot-asset-connectivity"] [data-xgc-spinning="true"] {
+  animation: robot-asset-connectivity-spin calc(var(--duration-deliberate) * 3) linear infinite;
+}
+
+@keyframes robot-asset-connectivity-spin {
+  to { transform: rotate(360deg); }
+}

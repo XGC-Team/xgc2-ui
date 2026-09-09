@@ -1,0 +1,111 @@
+.app-shell .xgc-workspace-content:has(> [data-xgc-route-page="automations"]:not([hidden]) [data-xgc-role="automation-definition-detail"]) {
+  padding: 0;
+  overflow: hidden;
+}
+.app-shell .xgc-workspace-content > [data-xgc-route-page="automations"]:not([hidden]) [data-xgc-role="automation-definition-detail"].xgc-workspace-full-span {
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  min-height: 0;
+  justify-self: stretch;
+}
+.automation-workflow-host {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  color: var(--color-text);
+  background: var(--color-bg-canvas);
+  isolation: isolate;
+}
+.automation-workflow-canvas,
+.automation-workflow-canvas > .automation-graph {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.automation-workspace-editor {
+  --automation-editor-logs-height: var(--size-shell-chrome);
+  position: absolute;
+  inset: 0;
+  min-width: 0;
+  min-height: 0;
+}
+.automation-workspace-editor[data-xgc-logs-expanded="true"] {
+  --automation-editor-logs-height: clamp(320px, 46vh, 520px);
+}
+.automation-workspace-editor > .automation-workflow-canvas {
+  inset: 0 0 var(--automation-editor-logs-height);
+  height: auto;
+}
+.automation-pane-tabs {
+  width: 190px;
+  height: var(--size-control-default);
+  flex: 0 0 190px;
+}
+.automation-pane-tabs > button {
+  flex: 1 1 0;
+  min-width: 0;
+  justify-content: center;
+}
+.automation-workspace-view-switch {
+  position: static;
+  width: 150px;
+  flex-basis: 150px;
+}
+.automation-workspace-topbar {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding-inline-start: var(--space-lg);
+  border-inline-start: var(--stroke-thin) solid var(--color-border-muted);
+}
+.automation-workspace-settings {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding-inline: var(--space-md);
+  border-inline-start: var(--stroke-thin) solid var(--color-border-muted);
+}
+.automation-workspace-command-control {
+  width: 76px;
+  min-width: 76px;
+  max-width: 76px;
+}
+.automation-canvas-message {
+  position: absolute;
+  z-index: var(--z-notification);
+  top: 64px;
+  left: 50%;
+  max-width: min(620px, calc(100% - 30px));
+  box-shadow: var(--shadow-card);
+  transform: translateX(-50%);
+}
+.page-topbar-actions .automation-workspace-command-control [data-xgc-spinning="true"],
+[data-xgc-role="automation-definitions-page"] [data-xgc-spinning="true"],
+[data-xgc-role="automation-definition-detail"] [data-xgc-spinning="true"] {
+  animation: automation-spin calc(var(--duration-deliberate) * 3) linear infinite;
+}
+@keyframes automation-spin {
+  to { transform: rotate(360deg); }
+}
+.automation-resource-state {
+  position: relative;
+  height: 100%;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  padding: var(--space-xl);
+  overflow: auto;
+  color: var(--color-text);
+}
+
+.automation-resource-empty {
+  min-height: 150px;
+  gap: var(--space-sm);
+  padding: var(--space-2xl);
+}

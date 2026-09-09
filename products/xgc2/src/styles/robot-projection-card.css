@@ -1,0 +1,110 @@
+.robot-instrument-card {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: var(--space-md);
+  padding: var(--space-md);
+  color: var(--color-text-soft);
+  text-align: left;
+  background: var(--color-bg-surface);
+  border: var(--stroke-thin) solid var(--color-border);
+  border-radius: var(--radius-surface);
+  cursor: pointer;
+  outline: 0;
+}
+
+.robot-selectable-robot {
+  position: relative;
+  isolation: isolate;
+}
+
+/* An always-sim robot keeps its SITL link even in a physical Session. The mark
+   sits over the card instead of in its grid rows so the instrument layout below
+   is unchanged, and it never eats the card's own selection pointer events. */
+.robot-instrument-source-badge {
+  position: absolute;
+  top: var(--space-xs);
+  right: var(--space-xs);
+  z-index: var(--z-popover);
+  pointer-events: none;
+}
+
+.robot-instrument-card:hover {
+  background: var(--color-bg-surface-hover);
+  border-color: var(--color-border-hover);
+}
+
+/*
+ * Selection uses the card's own border + outer glow only.
+ * An inset ring sits inside the padding box, breaks into dashed segments, and
+ * paints over gauges/labels — keep highlight on the true outer edge instead.
+ */
+.robot-instrument-card[aria-pressed="true"] {
+  border-color: var(--color-selection-highlight);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-selection-highlight-halo);
+}
+
+/* Chassis hold uses the same outer halo as selection, but danger-colored so
+ * looking at a UGV instrument still reminds the operator that E-stop is latched. */
+.robot-instrument-card[data-xgc-chassis-hold="true"] {
+  border-color: var(--color-danger);
+  box-shadow:
+    0 0 10px var(--stroke-thin) color-mix(in srgb, var(--color-danger) 76%, transparent),
+    0 0 18px var(--stroke-thin) color-mix(in srgb, var(--color-danger) 42%, transparent);
+}
+
+.robot-instrument-card:focus-visible:not([aria-pressed="true"]) {
+  border-color: var(--color-border-focus);
+  box-shadow: var(--shadow-focus);
+}
+
+/* Hover facts use family tooltip chrome plus this overlay host. */
+.robot-instrument-detail-overlay {
+  pointer-events: auto;
+  max-width: min(52ch, calc(100vw - var(--space-xl)));
+}
+
+.robot-instrument-detail {
+  margin: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+}
+
+.robot-instrument-detail-row {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr) max-content;
+  column-gap: var(--space-md);
+  align-items: baseline;
+}
+
+.robot-instrument-detail-row dt {
+  color: var(--color-text-muted);
+  font-weight: var(--weight-regular);
+}
+
+.robot-instrument-detail-row dd {
+  margin: 0;
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  text-align: end;
+  white-space: nowrap;
+}
+
+.robot-instrument-detail-diagnostic {
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.robot-instrument-detail-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+  margin-block-start: var(--space-xs);
+}

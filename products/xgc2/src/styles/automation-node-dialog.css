@@ -1,0 +1,184 @@
+.automation-node-dialog-backdrop {
+  position: absolute;
+  padding: var(--space-lg);
+}
+/* One product chrome row owns title + Run. Shared Modal header is close-only. */
+.automation-node-dialog {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  gap: 0;
+  overflow: hidden;
+  padding: 0;
+}
+.automation-node-dialog > header {
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  right: 0;
+  box-sizing: border-box;
+  width: auto;
+  height: var(--size-header-page);
+  min-height: var(--size-header-page);
+  max-height: var(--size-header-page);
+  padding: 0 var(--space-md);
+  background: transparent;
+  border: 0;
+}
+.automation-node-dialog > header > div {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+.automation-node-dialog > header + * {
+  min-height: 0;
+  overflow: hidden;
+  display: grid;
+}
+.automation-node-dialog-content {
+  height: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: var(--size-header-page) minmax(0, 1fr);
+}
+.automation-node-dialog-chrome {
+  box-sizing: border-box;
+  min-width: 0;
+  height: var(--size-header-page);
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: 0 calc(var(--size-header-page) + var(--space-md)) 0 var(--space-xl);
+  border-bottom: var(--stroke-thin) solid var(--color-border-muted);
+}
+.automation-node-dialog-title {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.automation-node-dialog :is(.automation-node-dialog-title, .automation-node-pane-title) {
+  color: var(--color-text-heading);
+  font-family: var(--font-sans);
+  font-size: var(--xgc-shell-ui-font-size, var(--font-base));
+  font-weight: var(--weight-regular);
+  line-height: var(--line-height-control);
+}
+.automation-node-dialog-runtime {
+  min-width: 0;
+  margin-left: auto;
+  flex: 0 0 auto;
+  justify-content: flex-end;
+}
+.automation-node-dialog-columns {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(220px, .9fr) minmax(340px, 1.25fr) minmax(220px, .9fr);
+}
+.automation-node-dialog-columns[data-xgc-pane-count="2"] {
+  grid-template-columns: minmax(360px, 1.25fr) minmax(280px, .9fr);
+}
+.automation-node-dialog-columns > section {
+  min-width: 0;
+  min-height: 0;
+  padding: var(--space-xl);
+  overflow: auto;
+  border-right: var(--stroke-thin) solid var(--color-border);
+}
+.automation-node-dialog-columns > section:last-child {
+  border-right: 0;
+}
+.automation-node-dialog-columns > .automation-node-runtime-panel {
+  padding: 0 var(--space-xl) var(--space-xl);
+}
+.automation-node-dialog-columns > .automation-inspector {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  padding: 0 var(--space-xl) var(--space-xl);
+  overflow: hidden;
+  background: var(--color-bg-chrome);
+  border-left: 0;
+}
+.automation-node-runtime-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+.automation-node-inspector {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+/* Beat the leftover .automation-inspector > div > header rules so this
+ * chrome row matches INPUT / OUTPUT exactly. */
+.automation-node-dialog .automation-node-inspector-header {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-lg);
+  margin-bottom: 0;
+  padding: 0;
+}
+.automation-node-dialog .automation-node-inspector-header .automation-node-pane-title {
+  display: inline;
+  margin-top: 0;
+}
+.automation-node-inspector-actions {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-md);
+}
+.automation-node-dialog
+  [data-xgc-role="automation-node-property-panel"][data-xgc-id$=":parameters"] .automation-node-parameter-field {
+  font-size: var(--font-base);
+}
+.automation-node-dialog
+  [data-xgc-role="automation-node-property-panel"][data-xgc-id$=":parameters"] .automation-node-parameter-field > label {
+  font-weight: var(--weight-regular);
+  line-height: var(--line-height-tight);
+}
+.automation-node-property-panel {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  align-content: start;
+  gap: var(--space-xl);
+  /* Reserve the shared control focus shadow inside this scroll port on every
+   * edge. Without this inset, the first or last field can be clipped by the
+   * panel's overflow boundary while focused. */
+  padding: var(--space-xs);
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+@container xgc-workspace (max-width: 980px) {
+  .automation-node-dialog-columns {
+    grid-template-columns: minmax(220px, 1fr) minmax(320px, 1.2fr) minmax(220px, 1fr);
+    overflow-x: auto;
+  }
+
+  .automation-node-dialog-columns[data-xgc-pane-count="2"] {
+    grid-template-columns: minmax(320px, 1.2fr) minmax(240px, 1fr);
+  }
+}
+
+@container xgc-workspace (max-width: 700px) {
+  .automation-node-dialog-backdrop {
+    padding: var(--space-md);
+  }
+}

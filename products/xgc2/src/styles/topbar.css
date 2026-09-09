@@ -1,0 +1,335 @@
+/* Match left sidebar items: shared chrome uses --xgc-shell-ui-font-size, not heading lg. */
+
+/*
+ * Frameless Electron uses the in-app topbar as the window move handle.
+ * Browsers ignore -webkit-app-region. Keep controls no-drag so tabs,
+ * menus, and buttons stay clickable.
+ */
+[data-xgc-role="app-topbar"] {
+  -webkit-app-region: drag;
+  cursor: default;
+}
+
+[data-xgc-role="app-topbar"] button,
+[data-xgc-role="app-topbar"] button *,
+[data-xgc-role="app-topbar"] a,
+[data-xgc-role="app-topbar"] a *,
+[data-xgc-role="app-topbar"] input,
+[data-xgc-role="app-topbar"] textarea,
+[data-xgc-role="app-topbar"] select,
+[data-xgc-role="app-topbar"] [role="button"],
+[data-xgc-role="app-topbar"] [role="button"] *,
+[data-xgc-role="app-topbar"] [role="tab"],
+[data-xgc-role="app-topbar"] [role="tab"] *,
+[data-xgc-role="app-topbar"] [role="combobox"],
+[data-xgc-role="app-topbar"] [role="listbox"],
+[data-xgc-role="app-topbar"] [data-xgc-interactive],
+[data-xgc-role="app-topbar"] .experiment-topbar-slot,
+[data-xgc-role="app-topbar"] .experiment-topbar-slot *,
+[data-xgc-role="app-topbar"] .page-topbar-actions,
+[data-xgc-role="app-topbar"] .page-topbar-actions *,
+[data-xgc-role="app-window-controls"],
+[data-xgc-role="app-window-controls"] * {
+  -webkit-app-region: no-drag;
+}
+
+[data-xgc-role="app-topbar"] button,
+[data-xgc-role="app-topbar"] [role="button"],
+[data-xgc-role="app-window-controls"] button {
+  cursor: pointer;
+}
+
+[data-xgc-role="app-window-controls"] {
+  flex: 0 0 auto;
+  align-self: stretch;
+  display: flex;
+  align-items: stretch;
+  order: 100;
+  margin-inline-start: var(--space-md);
+  margin-inline-end: calc(-1 * var(--space-panel-padding));
+  gap: 0;
+}
+
+.topbar[data-xgc-role="app-topbar"] [data-xgc-role="app-window-minimize"],
+.topbar[data-xgc-role="app-topbar"] [data-xgc-role="app-window-maximize"],
+.topbar[data-xgc-role="app-topbar"] [data-xgc-role="app-window-close"] {
+  width: var(--size-header-page);
+  min-width: var(--size-header-page);
+  height: var(--size-header-page);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.topbar[data-xgc-role="app-topbar"] [data-xgc-role="app-window-close"]:hover,
+.topbar[data-xgc-role="app-topbar"] [data-xgc-role="app-window-close"]:focus-visible {
+  background: var(--color-danger);
+  color: var(--color-text-inverse);
+}
+
+.topbar h1,
+.topbar-page-title {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  font-family: var(--font-sans);
+  font-size: var(--xgc-shell-ui-font-size, var(--font-base));
+  font-weight: var(--weight-regular);
+  line-height: var(--line-height-control);
+  color: var(--color-text-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topbar-catalog-title {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+
+.topbar-catalog-title:hover {
+  color: var(--color-accent);
+}
+
+.topbar-catalog-trail {
+  min-width: 0;
+  flex: 1 1 auto;
+  --xgc-breadcrumb-item-max-width: 22rem;
+}
+
+[data-xgc-role="product-breadcrumbs"] {
+  font-family: var(--font-sans);
+  font-size: var(--xgc-shell-ui-font-size, var(--font-base));
+  font-weight: var(--weight-regular);
+  line-height: var(--line-height-control);
+  color: var(--color-text-muted);
+}
+
+/* The ancestor is a native button while the current item is a span. Keep the
+ * two breadcrumb faces on one theme-owned typography and height contract. */
+[data-xgc-role="product-breadcrumbs"] [data-xgc-role="page-title-back"],
+[data-xgc-role="product-breadcrumbs"] [data-xgc-role="page-title-current"],
+[data-xgc-role="product-breadcrumbs"] [data-xgc-role="page-title-current"][aria-current="page"] {
+  appearance: none;
+  min-height: var(--size-control-compact);
+  height: auto;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
+  text-transform: none;
+  color: inherit;
+}
+
+.topbar > :has(> .experiment-topbar-slot, > .page-topbar-actions) {
+  flex: 1 1 auto;
+  overflow: visible;
+}
+
+.topbar-actions {
+  min-width: 0;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-md);
+  overflow: hidden;
+}
+
+.topbar-actions .xgc-control-button {
+  flex: 0 0 auto;
+}
+
+.page-topbar-actions {
+  min-width: 0;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-md);
+}
+
+.page-topbar-actions:empty {
+  display: none;
+}
+
+.experiment-topbar-slot {
+  min-width: 0;
+  flex: 1 1 auto;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.experiment-topbar-slot:empty {
+  display: none;
+}
+
+.experiment-topbar-context {
+  min-width: 0;
+  flex: 1 1 auto;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  color: var(--color-text-muted);
+}
+
+.experiment-topbar-context [data-xgc-role="experiment-dashboard-tabs"] {
+  --xgc-workspace-tabs-height: var(--size-control-default);
+  min-width: 0;
+  width: max-content;
+  max-width: 100%;
+  min-height: var(--size-control-default);
+  height: auto;
+  flex: 0 1 auto;
+  font-family: var(--font-sans);
+  font-size: var(--xgc-shell-ui-font-size, var(--font-base));
+  font-weight: var(--weight-regular);
+  line-height: var(--line-height-control);
+  color: var(--color-text-muted);
+  /* No strip chrome / left rule — tabs sit flat in the topbar. */
+  border: 0;
+  padding: 0;
+  overflow: visible;
+}
+
+.experiment-topbar-context [data-xgc-role="experiment-dashboard-tabs-scroll"] {
+  display: inline-grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  align-items: center;
+  min-height: var(--size-control-default);
+  height: auto;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+/*
+ * Rename replaces one tab with the shared Input inside the horizontally
+ * scrolling strip. Keep the editor visually in the tab family; the shared
+ * workspace-tab focus contract keeps its ring inside the same fixed
+ * footprint; this product layer only supplies tab-family geometry and type.
+ */
+.experiment-topbar-context [data-xgc-role="experiment-dashboard-tabs-scroll"] > [data-size="compact"] {
+  --xgc-control-input-padding-inline: var(--space-md);
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: var(--line-height-control);
+}
+
+[data-xgc-role="experiment-dashboard-tab"] {
+  min-width: 0;
+  min-height: var(--size-control-default);
+  height: auto;
+}
+
+/* Equal columns follow the longest 12-character name; do not use the 190px input token. */
+[data-xgc-role="experiment-dashboard-tab-control"] {
+  box-sizing: border-box;
+  flex: 1 1 auto;
+  justify-content: center;
+  width: auto;
+  min-width: 0;
+  max-width: none;
+  min-height: var(--size-control-default);
+  height: auto;
+  overflow: visible;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: var(--line-height-control);
+}
+
+/* Flat action row: no nested command shell that clips primary blue fills. */
+.experiment-topbar-actions {
+  /* Measured product command track; deliberately not derived from spacing. */
+  --experiment-topbar-command-track: 80px;
+  flex: 0 0 auto;
+  align-self: center;
+  min-width: max-content;
+  max-width: none;
+  overflow: visible;
+  gap: var(--space-md);
+}
+
+/*
+ * Compact run-mode combobox uses an intrinsic label measure.
+ * fill + a product min-width beat the shared compact 190px so the chip
+ * cannot paint over Run.
+ */
+.experiment-run-mode-control {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  width: 112px;
+  min-width: 112px;
+  max-width: 112px;
+  overflow: hidden;
+}
+
+[data-xgc-role="experiment-run-mode"],
+[data-xgc-role="experiment-run-mode-select"],
+[data-xgc-role="experiment-gcs-mode"] {
+  font-family: var(--font-sans);
+  font-size: var(--xgc-shell-ui-font-size, var(--font-base));
+  font-weight: var(--weight-regular);
+  line-height: var(--line-height-control);
+}
+
+[data-xgc-role="experiment-run-mode"] {
+  min-height: var(--size-control-default);
+  height: auto;
+  overflow: visible;
+}
+
+[data-xgc-role="experiment-run-mode-select"] [aria-haspopup="listbox"] {
+  min-height: var(--size-control-default);
+  height: auto;
+  overflow: visible;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+}
+
+.experiment-run-mode-select,
+.experiment-run-mode-control > .experiment-run-mode-select[data-xgc-compact="true"] {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* The live Session is frozen in a run mode the Experiment no longer declares.
+   The control keeps showing the Session's real mode and says so loudly. */
+.experiment-run-mode-control[data-xgc-state="undeclared"] .experiment-run-mode-select {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+/* Run / GCS / Edit sit directly in the flex row with equal fixed tracks. */
+.experiment-topbar-actions > .experiment-topbar-command {
+  box-sizing: border-box;
+  flex: 0 0 var(--experiment-topbar-command-track);
+  width: var(--experiment-topbar-command-track);
+  min-width: var(--experiment-topbar-command-track);
+  max-width: var(--experiment-topbar-command-track);
+  min-height: var(--size-control-default);
+  justify-content: center;
+  white-space: nowrap;
+}
+
+[data-xgc-role="experiment-gcs-mode"] {
+  min-height: var(--size-control-default);
+  height: auto;
+  overflow: visible;
+}

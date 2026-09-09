@@ -1,0 +1,215 @@
+.automation-occurrences-node-count {
+  flex: 0 0 auto;
+  margin-left: auto;
+  color: var(--color-text-muted);
+  font-size: var(--font-xs);
+  line-height: var(--line-height-tight);
+  font-variant-numeric: tabular-nums;
+}
+
+.automation-occurrences-section {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: var(--space-md);
+}
+
+.automation-occurrences-section > header,
+.automation-occurrences-attempts > header {
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-lg);
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+}
+
+.automation-occurrences-section > header strong,
+.automation-occurrences-attempts > header strong {
+  color: var(--color-text-heading);
+  font-size: var(--font-md);
+}
+
+.automation-occurrences-aggregate-list {
+  display: grid;
+  gap: var(--space-md);
+}
+
+.automation-occurrences-aggregate-list > .xgc-control-button {
+  --xgc-control-height: auto;
+  --xgc-control-button-padding-block: var(--space-md);
+  --xgc-control-button-padding-inline: var(--space-lg);
+  min-width: 0;
+  min-height: 52px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-lg);
+  text-align: left;
+}
+
+.automation-occurrences-aggregate-list > button > span {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-xs);
+}
+
+.automation-occurrences-aggregate-list > button > span:last-child {
+  justify-items: end;
+}
+
+.automation-occurrences-aggregate-list strong {
+  color: var(--color-text-heading);
+  font-size: var(--font-md);
+}
+
+.automation-occurrences-aggregate-list code,
+.automation-occurrences-aggregate-list small {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--font-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.automation-occurrences-drawer {
+  width: min(680px, 100%);
+}
+
+.automation-occurrences-body {
+  display: grid;
+  align-content: start;
+  gap: var(--space-lg);
+  padding: var(--space-lg);
+  overflow: auto;
+}
+
+.automation-occurrences-card {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-md);
+  padding: var(--space-lg) 0;
+  border-bottom: var(--stroke-thin) solid var(--color-border-muted);
+}
+
+.automation-occurrences-card > header,
+.automation-occurrences-attempt {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-lg);
+}
+
+.automation-occurrences-card > header > div,
+.automation-occurrences-attempt > div {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-xs);
+}
+
+.automation-occurrences-card > header code,
+.automation-occurrences-attempt code,
+.automation-occurrences-facts code {
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--font-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.automation-occurrences-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-sm);
+  margin: 0;
+}
+
+.automation-occurrences-facts > div {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-xs);
+  padding: var(--space-sm) 0;
+}
+
+.automation-occurrences-facts dt {
+  color: var(--color-text-muted);
+  font-size: var(--font-xs);
+}
+
+.automation-occurrences-facts dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--color-text-heading);
+  font-size: var(--font-sm);
+}
+
+.automation-occurrences-attempts {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.automation-occurrences-attempt {
+  padding: var(--space-md) 0;
+  border-bottom: var(--stroke-thin) solid var(--color-border-muted);
+}
+
+.automation-occurrences-attempt > div:last-child {
+  justify-items: end;
+}
+
+.automation-occurrences-attempt small {
+  color: var(--color-text-muted);
+  font-size: var(--font-xs);
+}
+
+.automation-occurrences-public-data {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-md);
+}
+
+.automation-occurrences-public-data > section {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: var(--space-sm);
+}
+
+.automation-occurrences-public-data > section > strong {
+  color: var(--color-text-heading);
+  font-size: var(--font-sm);
+}
+
+.automation-occurrences-empty {
+  display: grid;
+  place-content: center;
+  gap: var(--space-sm);
+  min-height: 160px;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.automation-occurrences-technical {
+  min-width: 0;
+  border-top: var(--stroke-thin) solid var(--color-border-muted);
+}
+.automation-occurrences-technical > summary {
+  padding: var(--space-md) 0;
+  cursor: pointer;
+  color: var(--color-text-muted);
+}
+.automation-occurrences-technical .automation-occurrences-facts code {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.automation-occurrences-card[aria-current="true"] > header {
+  color: var(--color-text-heading);
+  text-decoration: underline;
+  text-underline-offset: var(--space-xs);
+}

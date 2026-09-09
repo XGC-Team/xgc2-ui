@@ -1,0 +1,76 @@
+/* RosBasicServicesPanelOptionsEditor owns ROS Control panel layout authoring in the gear drawer. */
+
+.ros-panel-options-services {
+  display: grid;
+  gap: var(--space-sm);
+  width: 100%;
+  min-width: 0;
+}
+
+/*
+ * Full-width service row (one line, not a multi-row card):
+ *   name | Auto start | Show | [↑ ↓]
+ * This dense service list keeps both independent decisions on the same line.
+ */
+.ros-panel-options-service {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--space-md) var(--space-lg);
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: var(--space-sm) var(--space-lg);
+  border: var(--stroke-thin) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-bg-surface);
+}
+
+.ros-panel-options-service[data-xgc-hidden="true"] {
+  border-color: var(--color-border-muted);
+  background: var(--color-bg-subtle);
+}
+
+.ros-panel-options-service[data-xgc-hidden="true"] .ros-panel-options-service-name {
+  color: var(--color-text-muted);
+}
+
+.ros-panel-options-service-name {
+  min-width: 0;
+  color: var(--color-text-heading);
+  /* Match drawer / shell UI scale (not a larger local display size). */
+  font-size: var(--xgc-shell-ui-font-size, var(--font-base));
+  font-weight: var(--weight-regular);
+  line-height: var(--line-height-tight);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ros-panel-options-service-fields {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--space-lg);
+  min-width: 0;
+}
+
+.ros-panel-options-service-fields > [data-xgc-role="tooltip-trigger"] {
+  display: block;
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 0;
+}
+
+.ros-panel-options-service-auto-start,
+.ros-panel-options-service-visibility {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.ros-panel-options-service-reorder {
+  display: flex;
+  flex-shrink: 0;
+  gap: var(--space-xs);
+}

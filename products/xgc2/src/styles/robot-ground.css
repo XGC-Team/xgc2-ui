@@ -1,0 +1,25 @@
+.robot-flight-instrument[data-xgc-role="robot-ground-instrument"] .robot-ground-identity {
+  overflow: hidden;
+  font-size: var(--font-base);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.robot-flight-instrument[data-xgc-role="robot-ground-instrument"] .robot-ground-header-status,
+.robot-flight-instrument[data-xgc-role="robot-ground-instrument"] .robot-ground-header-status.robot-instrument-status-icons {
+  min-width: max-content;
+}
+
+/* Scout: one chassis mode on the status pedestal. Mecanum: no pedestal bump. */
+.robot-flight-instrument[data-xgc-role="robot-ground-instrument"][data-xgc-pedestal="chassis"] .robot-flight-bottom-status {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.robot-flight-instrument[data-xgc-role="robot-ground-instrument"][data-xgc-pedestal="none"] .robot-flight-bottom-panel::before {
+  content: none;
+  display: none;
+}
+
+/* Labels share a left edge; each reading follows its label (3px). Do not
+   add a second value column — that left-aligns the numbers and opens a
+   hole after Vx / ω. Shared flight status-list flex already does this. */

@@ -1,0 +1,114 @@
+/* Recording control panel layout only. Buttons, notices and inputs keep their
+   shared control skins. */
+
+.recording-control-panel {
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-sm);
+  overflow: auto;
+}
+
+.recording-control-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.recording-control-state {
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+}
+
+.recording-control-actions {
+  display: flex;
+  gap: var(--space-xs);
+}
+
+.recording-control-topics,
+.recording-control-preview,
+.recording-control-artifacts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.recording-control-topic-scope {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.recording-control-topic-title {
+  margin: 0;
+  font-size: var(--font-sm);
+  font-weight: var(--weight-semibold);
+}
+
+.recording-control-topic-hint,
+.recording-control-topic-empty,
+.recording-control-empty {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+}
+
+.recording-control-topic-refusal {
+  margin: 0;
+  color: var(--color-danger);
+  font-size: var(--font-sm);
+}
+
+.recording-control-topic-list,
+.recording-control-artifact-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  min-width: 0;
+}
+
+.recording-control-topic-item,
+.recording-control-artifact {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.recording-control-topic-name,
+.recording-control-artifact-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+  font-size: var(--font-sm);
+}
+
+.recording-control-topic-add {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.recording-control-artifacts-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xs);
+}
+
+.recording-control-artifact-meta {
+  color: var(--color-text-muted);
+  font-size: var(--font-xs);
+  white-space: nowrap;
+}
