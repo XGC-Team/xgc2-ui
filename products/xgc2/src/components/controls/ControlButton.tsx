@@ -1,15 +1,14 @@
-import { Button, ButtonLink } from '@xgc2/ui-react';
+import { Button, ButtonLink, type ButtonAppearance } from '@xgc2/ui-react';
 import { forwardRef } from 'react';
 import type { AnchorHTMLAttributes,ButtonHTMLAttributes } from 'react';
 import { controlClassNames,type ControlSize } from './controlFoundation';
 
 export type ControlTone = 'default' | 'primary' | 'danger' | 'success';
-export type ControlAppearance = 'default' | 'ghost' | 'solid' | 'raised';
 
 export type ControlButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   size?: ControlSize;
   tone?: ControlTone;
-  appearance?: ControlAppearance;
+  appearance?: ButtonAppearance;
   iconOnly?: boolean;
   dataXgcRole?: string;
   dataXgcId?: string;
@@ -57,7 +56,7 @@ export const ControlButton = forwardRef<HTMLButtonElement,ControlButtonProps>(fu
 export type ControlLinkProps = AnchorHTMLAttributes<HTMLAnchorElement> & {
   size?: ControlSize;
   tone?: ControlTone;
-  appearance?: ControlAppearance;
+  appearance?: ButtonAppearance;
   iconOnly?: boolean;
   dataXgcRole?: string;
   dataXgcId?: string;

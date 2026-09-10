@@ -1,6 +1,7 @@
 import './styles.css';
 import './responsive.generated.css';
 import './styles-v016.css';
+import './styles/button-inverse.css';
 
 export { AppShell, AppSidebar, ResponsiveSplit, SidebarNav, SidebarNavItem, Topbar } from './components/AppShell';
 export type {

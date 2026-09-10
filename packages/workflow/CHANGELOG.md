@@ -1,5 +1,12 @@
 # @xgc2/ui-workflow
 
+## 0.4.1
+
+### Patch Changes
+
+- Export the shared evidence graph canvas, renderer contract, inspector, and versioned selection model through `@xgc2/ui-workflow/graph`.
+- Fit a hidden graph when it first becomes visible and bound automatic zoom for sparse views while preserving the camera across data updates.
+
 ## 0.4.0
 
 ### Minor Changes

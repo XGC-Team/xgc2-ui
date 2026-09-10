@@ -1,5 +1,9 @@
 # @xgc2/ui-policy
 
+## 0.16.11
+
+- Provide the shared inverse button appearance with immediate held-state feedback and matching policy ownership.
+
 ## 0.16.10
 
 ### Patch Changes
