@@ -1,5 +1,9 @@
 # @xgc2/ui-react
 
+## 0.16.12
+
+- Reuse the Drawer owner's semantic identity on discard summaries and change lists. Anonymous drawers do not declare markable roles.
+
 ## 0.16.11
 
 - Provide the shared inverse button appearance with immediate held-state feedback and matching policy ownership.

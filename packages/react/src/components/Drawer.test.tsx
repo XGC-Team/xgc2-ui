@@ -36,6 +36,7 @@ describe('Drawer', () => {
         closeOnBackdrop
         dirty
         discardChanges={['Name: A → B']}
+        dialogProps={{ 'data-xgc-id': 'settings' }}
         onClose={onClose}
         showClose={false}
         title="Edit settings"
@@ -43,7 +44,10 @@ describe('Drawer', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-    expect(await screen.findByRole('alertdialog', { name: 'Discard unsaved changes?' })).toHaveTextContent('Name: A → B');
+    const confirmation = await screen.findByRole('alertdialog', { name: 'Discard unsaved changes?' });
+    expect(confirmation).toHaveTextContent('Name: A → B');
+    expect(confirmation.querySelector('[data-xgc-role="config-drawer-discard-summary"]')).toHaveAttribute('data-xgc-id', 'settings');
+    expect(confirmation.querySelector('[data-xgc-role="config-drawer-discard-changes"]')).toHaveAttribute('data-xgc-id', 'settings');
     fireEvent.click(screen.getByRole('button', { name: 'Keep editing' }));
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
     expect(onClose).not.toHaveBeenCalled();

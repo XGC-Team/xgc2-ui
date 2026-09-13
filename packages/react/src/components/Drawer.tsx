@@ -85,6 +85,7 @@ export function Drawer({
   const drawerRef = useRef<HTMLElement>(null);
   const titleId = useId();
   const descriptionId = useId();
+  const discardOwnerId = dialogProps?.['data-xgc-id'];
   const confirmation = useConfirmationDialog();
   const dirtyRef = useRef(dirty);
   const discardChangesRef = useRef(discardChanges);
@@ -103,10 +104,10 @@ export function Drawer({
         cancelLabel: discardCancelLabel,
         confirmLabel: discardConfirmLabel,
         message: (
-          <div className="xgc-drawer-discard-summary" data-xgc-role="config-drawer-discard-summary">
+          <div className="xgc-drawer-discard-summary" data-xgc-role={discardOwnerId === undefined ? undefined : 'config-drawer-discard-summary'} data-xgc-id={discardOwnerId}>
             {discardMessage ? <div>{discardMessage}</div> : null}
             {changes.length ? (
-              <ul data-xgc-role="config-drawer-discard-changes">{changes.map((change) => <li key={change}>{change}</li>)}</ul>
+              <ul data-xgc-role={discardOwnerId === undefined ? undefined : 'config-drawer-discard-changes'} data-xgc-id={discardOwnerId}>{changes.map((change) => <li key={change}>{change}</li>)}</ul>
             ) : null}
           </div>
         ),
@@ -120,6 +121,7 @@ export function Drawer({
     discardCancelLabel,
     discardConfirmLabel,
     discardMessage,
+    discardOwnerId,
     discardTitle,
     dismissible,
     onClose,
