@@ -7,41 +7,41 @@ import { NativeConversation, NativeComposerControls } from '@xgc2/native-agent/r
 import { emptyStream } from '@xgc2/native-agent/state'
 import { useNativeAgentSession } from './Session'
 import { useWorkbench } from '../../store'
-import { intakePDF, type Project } from '../../lib/api'
+import { type Project } from '../../lib/api'
 import { looksLikeUrl, normalizeWebUrl } from '../../lib/web'
 import { ResearchWorkspace } from '../projects/ResearchWorkspace'
-/* 空态 = 书刊扉页：日期刊头 + 衬线问候 + 编号起手式目录，逐行 stagger 入场 */
+import { submitIntake } from '../projects/intake-queue'
+import { IntakePanel } from '../projects/IntakePanel'
 const rise={hidden:{opacity:0,y:10},show:{opacity:1,y:0,transition:{duration:0.45,ease:[0.2,0.8,0.2,1]}}}
 const SUGGESTIONS=["总结一篇论文的贡献与证据","对比两条技术路线","起草手稿的相关工作段落","审查我的数学推导"]
 export function ChatPage({projects}:{projects:Project[]}) {
-  const s=useNativeAgentSession();const {activeNav,locale}=useWorkbench()
+  const s=useNativeAgentSession();const {activeNav,locale,projectId}=useWorkbench()
   const empty=useMemo(()=>emptyStream('',s.selectedProfile?.provider||'codex'),[s.selectedProfile?.provider])
   const connected=Boolean(s.session)
   const providers=connected?(s.currentProvider?[s.currentProvider]:[]):(s.settings?.providers.filter(p=>p.enabled)||[])
   const date=new Date().toLocaleDateString(locale==='zh'?'zh-CN':'en-US',{year:'numeric',month:'long',day:'numeric',weekday:'long'})
-  /* 材料投入口：拖入论文 PDF 走 intake 归档管线，拖入链接进草稿；其余类型如实提示 */
   const [dragging,setDragging]=useState(false),[intakeNote,setIntakeNote]=useState('')
   const onDrop=(e:React.DragEvent)=>{e.preventDefault();setDragging(false);setIntakeNote('')
     const files=[...e.dataTransfer.files]
     const text=e.dataTransfer.getData('text/uri-list')||e.dataTransfer.getData('text/plain')
-    if(!files.length&&text&&looksLikeUrl(text)){try{s.appendDraft(`[${new URL(normalizeWebUrl(text)).host}](${normalizeWebUrl(text)})`)}catch{setIntakeNote(tr('地址无效。'))}return}
-    if(!files.length)return
+    if(!files.length&&text&&looksLikeUrl(text)){try{s.appendDraft(`[${new URL(normalizeWebUrl(text)).host}](${normalizeWebUrl(text)})`,projectId)}catch{setIntakeNote(tr('地址无效。'))}return}
+    const targetProject=projectId
     for(const file of files){
-      if(file.type==='application/pdf'||file.name.toLowerCase().endsWith('.pdf')){
-        const title=file.name.replace(/\.pdf$/i,'')
-        setIntakeNote(tr('正在归档')+`《${title}》…`)
-        void intakePDF(file,title).then(()=>{s.appendDraft(tr('已归档论文 PDF')+`《${title}》`);setIntakeNote('')}).catch(err=>setIntakeNote(err instanceof Error?err.message:String(err)))
-      }else setIntakeNote(tr('暂支持论文 PDF 与链接；图片、视频归档在路上。'))
-    }}
+      void submitIntake(file,{projectId:targetProject,workspace:targetProject||'academic'}).then(receipt=>{
+        if(receipt.state==='accepted')s.appendDraft(`${receipt.kind==='pdf'?tr('已归档论文 PDF'):locale==='zh'?'已保存项目材料':'Saved project material'}《${receipt.name}》${receipt.source?`\n${receipt.source.workspace}/${receipt.source.path}\n${receipt.source.digest}`:''}`,targetProject)
+      }).catch(reason=>setIntakeNote(reason instanceof Error?reason.message:String(reason)))
+    }
+  }
   return <ResearchWorkspace projects={projects}>{conversationVisible=><div className="relative flex h-full min-h-0 flex-col"
     onDragOver={e=>{e.preventDefault();if(!dragging)setDragging(true)}}
     onDragLeave={e=>{if(!e.currentTarget.contains(e.relatedTarget as Node))setDragging(false)}}
     onDrop={onDrop}>
     <ConnectionStatus/>
     {intakeNote&&<p role="status" className="mx-auto mt-2 w-full max-w-[48rem] px-5 text-caption text-ink-3">{intakeNote}</p>}
+    <div className="max-h-40 shrink-0 overflow-y-auto px-3"><IntakePanel compact scope={{projectId,workspace:projectId||'academic'}}/></div>
     {dragging&&<div aria-hidden className="pointer-events-none absolute inset-3 z-40 grid place-content-center rounded-xl border border-dashed border-line-strong bg-app/80">
       <p className="font-display text-[18px] tracking-tight text-ink-2">{tr("松开投入材料")}</p>
-      <p className="mt-1 text-center text-secondary text-ink-3">{tr("论文 PDF 归档入库，链接进入草稿")}</p>
+      <p className="mt-1 text-center text-secondary text-ink-3">{locale==='zh'?'PDF 归档；文本保存到所选项目；链接进入草稿':'PDF archive; text to selected project; links to draft'}</p>
     </div>}
     <div className="native-chat-host min-h-0 flex-1">
       {!connected||s.streamMatchesSelection?<NativeConversation active={activeNav==='chat'&&conversationVisible} state={connected?s.state:empty} locale={locale} onAnswer={s.respond} draft={s.draft} onDraftChange={s.setDraft}
@@ -53,7 +53,7 @@ export function ChatPage({projects}:{projects:Project[]}) {
               <span className="text-caption font-medium uppercase tracking-[0.14em] text-ink-3">{date}</span>
               <span aria-hidden className="h-px w-12 bg-line-strong"/>
             </motion.div>
-            <motion.h1 variants={rise} className="mt-5 font-display text-[36px] leading-[1.15] tracking-tight text-balance">{tr("有什么想研究的？")}</motion.h1>
+            <motion.h1 variants={rise} className="mt-5 font-display text-[36px] leading-[1.15] tracking-tight">{tr("有什么想研究的？")}</motion.h1>
             <motion.p variants={rise} className="mt-3 text-body text-ink-2">{tr("对话、研读、写作与验证，从一个问题开始。")}</motion.p>
             <motion.div variants={rise} className="mt-9">
               {SUGGESTIONS.map((label,i)=><button key={label} type="button" onClick={()=>s.setDraft(tr(label))} className="group flex w-full items-baseline gap-4 rounded-md px-1 py-2.5 text-left transition-colors duration-150 hover:bg-hover">

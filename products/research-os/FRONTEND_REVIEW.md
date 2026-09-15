@@ -1,142 +1,89 @@
-# Research workspace: project objects / F1 review
+# Research OS — F1 implementation and review
 
-## Current delivery — 2026-09-16
+## Authority, baseline and delivery
 
-This increment implements the **F1a audit and a bounded F1b navigation/persistence slice** on `XGC-Team/xgc2-ui`, under `products/research-os`, starting from freshly read `main@7d77ca8e2ac67b467277c3cdec4ab80fdbca8b64` (merged #16). It is not F1c authoring or the completed stage-one writing loop. Product/browser acceptance is pending; submit as a Draft PR rather than placing unverified UI directly on main.
+Source-of-intent: [research-os-agent-native-vision](https://github.com/XGC-Team/xgc2-dev-memory/blob/master/now/research-os-agent-native-vision.md). [Research #12](https://github.com/XGC-Team/xgc2-research-os/issues/12) remains the vision anchor; [UI #17](https://github.com/XGC-Team/xgc2-ui/issues/17) tracks implementation. This document records implementation and evidence, not a second product vision.
 
-Source-of-intent: [research-os-agent-native-vision](https://github.com/XGC-Team/xgc2-dev-memory/blob/master/now/research-os-agent-native-vision.md). The local knowledge-checkout prefix `memory/` is not part of that repository path. [Research #12](https://github.com/XGC-Team/xgc2-research-os/issues/12) remains the vision anchor; [UI #17](https://github.com/XGC-Team/xgc2-ui/issues/17) tracks frontend implementation. Do not copy a second vision into this document.
+This F1.1–F1.5 increment builds on **PR #18 head `b5d74daeb510a5562368d796260eceeaf50ff533`**, itself based on the merged UI `main@7d77ca8e2ac67b467277c3cdec4ab80fdbca8b64`. Main and the PR head must be read again before publishing. All changes stay under `products/research-os`.
 
-**Delivery override:** #17 records main-only delivery. The user's subsequent explicit instruction for this increment was “开始实现…实现完了以后，交 PR”. Accordingly, use a short-lived review branch targeting the current UI main, not a new repository, prototype or long-running fork. This exception does not rewrite the wider policy. No force-push, devops pin change, service restart, or claim that the user's running checkout has updated.
+The user explicitly requested PR delivery after the earlier main-only policy. Continue the existing #18 review branch and target UI main; do not create another product, rewrite main, touch devops pins, or restart 3201. PR publication, merge, runtime rollout and user acceptance are separate events.
 
-Visual contract remains `DESIGN_SYSTEM.md`: existing monochrome shell, rail, typography, content-instance tabs, shared controls, and retained Chat/canvas instances. No published package or dependency changes.
+**Status: F1 implementation submitted for review; full product/browser/runtime acceptance is still pending.** A passing model test does not close F1 acceptance.
 
-## F1a path × implementation × capability × remaining gap
+Visual baseline remains this product's `DESIGN_SYSTEM.md`: monochrome shell, full-width topbar, existing rail/sidebar, shared controls and content-instance tabs. The retained Chat/canvas/PDF workspace is reused, not replaced.
 
-| User path | Existing implementation / authority | This increment | Remaining boundary |
+## User action → component → authority/storage → working path → boundary
+
+| Package / user action | Components and existing authority | This increment | Remaining boundary |
 | --- | --- | --- | --- |
-| Project → objects → return | `Sidebar`, `ResearchWorkspace`, `BrowserPanel` | Five project-scoped object actions; explicit return from files/builds to the owning project | Current `App` still maps `paper-*` workspace IDs to project records; no backend identity migration |
-| Materials → source → quote | Workspace directory/file APIs; `FilesPage` | Frozen `{projectId, workspace, view, path}` target, file-instance deduplication, paginated directories, version/location display, quotation to the owning project | Read-only file viewer; unsupported attachments stay original files, not editable artifacts |
-| Project notes → knowledge | Workspace Markdown and separate academic knowledge reader | Project-local Markdown filter with explicit scope wording | Not the typed-knowledge backlink list; no global promotion, project-memory merge or synthetic knowledge relationships |
-| Canvas → source anchor | `thinking.canvas.json`; existing workspace file PUT with `expectedDigest` / `createOnly` | Anchor opens the exact file; serialized CAS saves, load/format/error/conflict distinctions, retry/export/discard recovery | Existing v1 structure and prompt export remain; no new semantic edges, same-object outline or Context Bundle |
-| Project → workflow | Existing project `/plans` revisions, approvals and run receipts | Direct navigation to the existing project workflow surface | No invented node-level run status, new executor or workflow-library association model |
-| Project → artifacts → source | Existing manuscript build records and PDF viewer | Successful-build list, exact build PDF opening, clearly labeled **current** source action | No PDF fabrication, editable external PDF assumption, PPT/video authoring or XGC2 execution |
+| F1.1: load, edit, save and recover | Existing workspace file GET/PUT; `file-session`, `useCanvasDocument`, `useDraftBook` | Missing vs invalid/unsupported vs load failure; serialized conditional writes; dirty-close warning, retry, export and explicit discard; disposed saves guarded | Not offline storage, automatic Git commit, guaranteed close-time flush or a multi-file transaction |
+| F1.2: find and return to project objects | `ProjectObjects`, `Sidebar`, `BrowserPanel`, Zustand; native thread archive remains existing API behavior | Material directories, source notes, workspace Markdown, canvas, workflow, research objects and real built-PDF entry points; immutable file scope; deduplication; archive/restore for drafts and project references | Archiving a reference does not delete its original file or stop a workflow. Legacy App still maps paper workspace IDs to projects |
+| F1.3: input → read → note → research structure | `intake-queue`, `IntakePanel`, `FilesPage`, `Reader`, `DocumentPanel`, PDF reader wrapper | Shared intake receipts; text imports use create-only workspace PUT; existing PDF intake retained; URL references; bounded selection captures rendered revision/excerpt; common source picker; canvas reference and return to original object; knowledge-promotion suggestion/withdrawal | Intake queue is page-session state. Project files and the object book are server-stored. Global knowledge promotion is a reviewable suggestion, not an automatic write |
+| F1.4: prepare multiple artifacts | `DraftsPage`, `draft-model`; `research-drafts.json` | Paper goals/templates/citation requirements, section/paragraph intent, ordered slides and speaker notes, shots/narration/duration, per-block evidence/media references; list/cards use the exact same blocks and IDs; create/edit/archive/restore/reopen | No PPT export, video renderer or automatic paper generation. Card view is not the later semantic/free-form graph |
+| F1.5: methods and experiments | Existing project plans UI and real run receipts, plus draft definitions | Existing-workflow association/navigation, editable workflow definitions, RSS source/filter/action drafts, experiment questions/parameters/inputs/expected outputs/measurement/acceptance | Draft saving does not approve, schedule, subscribe or execute. No fake simulator results or node-level executor |
 
-## Persistence and safety contract
+## Object and source contracts
 
-File/explorer tabs capture their scope once; changing the current project cannot reinterpret an open file. Identical filenames in different projects/workspaces remain distinct. Activating a tab does not implicitly change the current project; the explicit return/quote actions do. Concrete files deduplicate across Materials and Notes. Closing and reopening a file uses its saved workspace path; browser refresh does not restore the ephemeral tab layout.
+`research-drafts.json` is one versioned project/workspace book. Exactly one deduplicated book tab owns its file session. Material references, source notes, papers, slides, storyboards, workflow definitions, rules and experiment requirements have stable object and block IDs. Unknown extension fields are retained. Unsupported versions or malformed data block editing rather than being rewritten as empty state. Optional experimental input/output fields from the earlier unpublished v1 draft remain readable.
 
-Only a file-read 404 produces a **not-created** canvas. Network/auth/server failures and damaged/unsupported formats do not render an editable empty canvas. A valid v1 canvas retains unknown root/node/edge fields through parsing and editing. Unsupported versions are not migrated or silently overwritten. The older permissive parser is retained only for its existing non-editor consumers.
+The linear and card views both use `draft.blocks`; F2 must extend these objects, not copy their content into a second outline. A canvas association is an explicit, reversible **reference node**, with an anchor `research-drafts.json#<draft-id>`. Clicking it resolves the original book/object. The node's editable label is navigation metadata, not the object's title/body. A saved object is required before association. Only the existing mounted canvas session writes the canvas; there is no competing background file writer. Removing the reference leaves the original object intact.
 
-Autosave is single-flight and coalesces edits made during a write into the next save using the returned digest. Failure keeps the local edits and requires explicit retry. A 409/412 conflict blocks writes and offers a local export plus an explicitly confirmed discard-and-reload. Export alone does not unblock writes; there is no overwrite/force control. Late reads and disposed sessions cannot update another instance. Dirty canvases install an unload warning. This is not durable offline storage, guaranteed browser-close flushing, automatic Git commit creation, cross-file atomic edits, or proposal-based undo.
+Source notes preserve the source workspace, path, observed digest and bounded selection text. PDF captures also retain build/page when available. Common-source selection references the same source identity from multiple artifacts; per-page/shot/block associations use source IDs. A reference without a pinned digest is explicitly labeled as opening the current original.
 
-## Validation recorded for this increment
+Returning to a changed source never silently repins the old quote: the reader shows a revision warning. Exact-text positioning occurs only for a unique match in the recorded revision. Hidden readers cannot steal selection/focus. Missing or ambiguous wiki links produce an error; unavailable historical PDF versions do not silently fall back to the newest PDF.
 
-- Verified all eight modified source-file originals and this review document against Git blob SHAs at the starting main before patching.
-- Node 22.16.0: `check-project-objects.mts` + `check-canvas-persistence.mts`: **57/57 passed**. Includes identity, pagination/API errors, strict editor parsing, debouncing, in-flight edits, CAS conflicts, retry, dispose and reopen. Explicitly labeled source guards are not DOM tests.
-- Strict standalone TypeScript 5.8.3 checking passed for six dependency-free production modules: object model/copy, file session, canvas model, project file transport and API helper.
-- TS/TSX syntax/transpilation checks passed for this source slice. This is not the locked TypeScript 5.6 product build.
-- Added six actual Zustand/Vitest store cases in `tests/project-object-store.test.ts` and a read-only browser script against the real product. **These have not been run in the authoring container.**
+A note's knowledge-promotion suggestion records rationale and `suggested`/`dismissed`. It is not a verified fact, global knowledge item or successful backend promotion. Existing typed knowledge and PDF annotation APIs remain available; this project-note path does not impersonate them.
 
-**Blocked/not run here:** a complete checkout with locked/vendor dependencies, `npm run build`, full product typecheck, `npm test`, rendered React/Playwright checks and the user's loopback `3201` service. Direct GitHub clone failed with `Could not resolve host: github.com`; connector text reads/writes work, but the container cannot fetch the complete dependencies. No substitute React runtime, fabricated screenshot, mock PDF, or production-success claim is used.
+## Real intake versus draft state
 
-## Required review before merge
+Text imports are actual create-only workspace writes with a generated filename and an observed response digest. Inputs are never written over an existing daily research file. An accepted text receipt can be registered into the project book; book save state remains independently visible. HTTP errors, unsupported types and excessive sizes do not become accepted receipts. PDF retries reuse the same idempotency key.
 
-Run from a full runtime-owned checkout with the PR changes, without competing for an occupied service port:
+PDF uses the existing `/api/v1/intakes/pdf` archive path, including global Chat without a selected project. This frontend interface currently does not expose an actionable reader target from that intake response. The queue therefore states only API acceptance and does not fabricate a source file, PDF preview or version. Existing manuscript build/PDF navigation is unchanged. URL intake records a link; it does not claim that the page was fetched.
 
-```sh
-cd products/research-os
-npm ci
-npm run build
-npm test
-node --experimental-strip-types --test scripts/check-workspace-layout.mts scripts/check-project-objects.mts scripts/check-canvas-persistence.mts
-```
+Browser refresh does not restore the intake receipt queue or ephemeral tab layout. It does allow reopening saved text files and the project book through their real workspace paths. Unregistered successful-upload receipts expose the original source for recovery during the session. This is not an offline application or a replacement backend.
 
-The new browser check requires an **already running actual product**, two dedicated test repositories, and the same existing `.tex`, `.md`, or `.txt` relative path in both. Set `RESEARCH_UI_URL`, `RESEARCH_TEST_PROJECT_A`, `RESEARCH_TEST_PROJECT_B`, and `RESEARCH_TEST_FILE`, then run:
+## Validation actually executed in this authoring environment
 
-```sh
-node scripts/check-project-objects-browser.mjs
-```
+- Node **22.16.0**: `check-draft-authoring.mts`, `check-file-session-lifecycle.mts` and `check-f1-loop.mts`: **83 tests passed**, none failed or skipped. The full F1 model path serializes through a test file port, disposes and reopens. HTTP transport tests replace fetch; explicitly named source guards inspect wiring and are not rendered tests.
+- Strict standalone TypeScript **5.8.3** checks for the dependency-free production modules. This is not the product's locked TypeScript build.
+- TS/TSX syntax/transpilation diagnostics and JavaScript browser-script syntax checks are recorded with this delivery. These do not prove React integration correctness.
+- Real Zustand/Vitest tests and actual-product Playwright scripts are included, **not executed here**.
 
-It opens project entries, checks same-path file-tab isolation, return and close/reopen, then reloads the browser and reopens the saved file. It does not create repositories, send Chat, compile, or write files. Run it only against stable test data; it is not a full product or persistence test.
+Not executed: complete locked/vendor installation, full `npm run build`/typecheck, full `npm test`, rendered React/Playwright checks, or the user's 3201 service. Direct GitHub/npm access is unavailable in this authoring container; connector repository reads/writes are separate. No full-build success, screenshot equivalence, deployment or user acceptance is asserted.
 
-Manually check light/dark and zh/en at wide/narrow widths; retained unsent Chat/canvas/PDF states; keyboard-only entry/return; and quoting A's open file while project B is selected. With a dedicated canvas test file, exercise read 403/500, invalid JSON/version, slow successive saves, write failure/retry, and an external edit causing 409/412. Confirm export preserves the local content and discard requires confirmation. The final saved file must be reopened through the real backend, not only the in-memory test port.
+## Required F1 acceptance on a dedicated runtime
 
-Do not mark #17's whole F1b/F1 exit conditions or the stage-one writing loop complete from this slice. F1c, same-object outline, Context Bundle, semantic mapping, change proposals, cross-object rollback and knowledge promotion remain open. For rollback after merge, create a normal revert commit; do not reset published main or alter research data.
-
----
-
-<details>
-<summary>Historical PR #16 authoring evidence (pre-merge; not current delivery instructions)</summary>
-
-# Research workspace: frontend shape review
-
-Status: **Draft; browser/product acceptance is pending.** This is an incremental change to the current frontend, not a replacement app or a completed backend milestone.
-
-## Source of truth
-
-- Repository: `XGC-Team/xgc2-ui`
-- Product: `products/research-os`
-- Verified starting commit: `fd99f73481c6312d77a446ccd90e90affac10203` (`main`)
-- Visual contract: this product's `DESIGN_SYSTEM.md` (refined monochrome/editorial), not the old graphite prototype.
-- Existing runtime entry: `http://127.0.0.1:3201/`.
-- Vision: https://github.com/XGC-Team/xgc2-research-os/issues/12 and https://github.com/XGC-Team/xgc2-research-os/pull/13.
-
-Keep the agreed order: **record vision → refine the complete frontend shape and interaction → frontend PR and user review → decide the first backend loop**. The four subsequent backend/research phases remain directions, not prerequisites for this PR.
-
-No development is based on `xgc2-research-os/web/`, its withdrawn PRs #8–#11, or `prototypes/research-space-v4/`. Do not recreate an isolated prototype to demonstrate this change.
-
-## What this increment changes
-
-The existing `ChatPage` returned early when a project whiteboard was open, replacing `NativeConversation`. It now composes both existing components through `ResearchWorkspace`; the existing content-instance `BrowserPanel` is still the PDF/materials surface.
-
-- A selected project has a Research canvas action in the existing page-actions slot.
-- Chat and canvas can be visible together; the existing right-panel PDF makes the three-work-surface layout. Chat-only and canvas-only focus modes remain available.
-- The center area's measured width, not the whole window, determines whether split view fits. Narrow center areas offer focus switching instead of squeezing both panes below their minimum widths. A requested split is restored when room becomes available.
-- Resizing uses the existing hairline divider, with arrow keys, Shift+arrow, Home/End and double-click reset. Pointer cancellation or divider unmount restores the previous body cursor/selection styles.
-- Chat is not conditionally unmounted. Opened canvases keep stable project keys within the page session, including when hidden. A previous project's canvas is not paired with another project's conversation. This is not a new browser-storage or server-persistence guarantee.
-- Canvas “Add to chat draft” explicitly targets its project, reveals the conversation and focuses the editor. It does not send the message or run a workflow.
-- Canvas Delete/Backspace handling is local to its focused surface, not a global window listener. Hidden canvases must not delete selected nodes while another pane is in use.
-- The canvas reuses the existing 36px tool-row components, adds a fit action, and reports copy success only after the clipboard promise resolves. Save-error text no longer claims that a retry is running when none is scheduled.
-
-No fake messages, papers, PDFs, build success, workflow results or backend endpoints are introduced. Native Agent/session logic, PDF rendering/SyncTeX, workflow execution, the rail, global search, fonts, theme tokens, vendor archives and package locks are unchanged. Existing canvas loading/autosave behavior is not comprehensively redesigned by this layout PR; conflict recovery and refresh-time durability are not acceptance claims here.
-
-This increment establishes concurrent work surfaces on the right codebase. It does **not** complete the entire vision: the same-object linear outline, semantic cross-artifact mapping, reviewed edit proposals, and additional artifact authoring remain subsequent frontend work to evaluate with the user, before declaring the product shape accepted.
-
-## Actual checks in the authoring environment
-
-- The fetched original `ChatPage.tsx`, `ThinkingCanvas.tsx` and `ResizeHandle.tsx` were reproduced byte-for-byte and checked against their Git blob SHAs at the starting commit before patching.
-- `node --experimental-strip-types --test scripts/check-workspace-layout.mts`: **27/27 passed** on Node 22.16.0. These exercise layout math, compact/focus policy, project identity and retained keys, plus label parity; they are not rendered React tests.
-- Strict standalone TypeScript checking passed for `workspace-layout.ts` and `workspace-copy.ts`.
-- Six changed/new TS/TSX modules passed TypeScript syntax/transpilation diagnostics using the environment's TypeScript 5.8.3. This is not the product's full typecheck, and is not its locked TypeScript 5.6 build.
-
-**Not run:** installation of the product's locked/vendor dependencies, full product build/typecheck, Vitest suite, or the actual browser at the user's `3201` runtime. The authoring container cannot reach the user's loopback service and cannot retrieve the complete runtime dependencies. No screenshot or visual-equivalence claim is made. Keep this PR Draft until those checks and user review are complete.
-
-## Validation in the existing runtime checkout
-
-Use the runtime owner's process to switch/check out the PR. Do not start a second Vite process on the occupied port or replace the runtime with a standalone HTML app.
+Use a full, clean checkout and the existing runtime owner's process. Do not compete for occupied ports or use daily research drafts.
 
 ```sh
 cd products/research-os
 npm ci
 npm run build
 npm test
-node --experimental-strip-types --test scripts/check-workspace-layout.mts
+node --experimental-strip-types --test scripts/check-workspace-layout.mts scripts/check-project-objects.mts scripts/check-canvas-persistence.mts scripts/check-file-session-lifecycle.mts scripts/check-draft-authoring.mts scripts/check-f1-loop.mts
 ```
 
-For an isolated session only, after the runtime-owned frontend has been stopped, the existing README documents:
+For the actual frontend against isolated file fixtures, set `RESEARCH_UI_URL`, `RESEARCH_TEST_PROJECT` to an existing registered `paper-e2e-*` project, and optionally `PLAYWRIGHT_CHROMIUM_EXECUTABLE`, then run:
 
 ```sh
-npm run dev -- --host 127.0.0.1 --port 3201 --strictPort
+node scripts/check-draft-authoring-browser.mjs
+node scripts/check-f1-browser.mjs
 ```
 
-Review using a dedicated research test project and its existing real files, not daily research drafts:
+These scripts block all non-fixture writes. They are **rendered frontend tests with simulated file APIs**, not real backend persistence evidence. The older `check-research.mjs`/navigation scripts contain stale selectors and must not be cited as passing migration gates.
 
-1. Confirm the accepted monochrome shell, typefaces, rail, search, theme and right content tabs are unchanged. Open a project canvas and a real manuscript PDF: use Chat/canvas/PDF concurrently when the measured center width permits it.
-2. Type an unsent chat draft; switch focus, hide/reopen the canvas and resize. Verify that the draft, canvas state, camera and PDF tab remain. Add the canvas to the draft; verify it is visible, project-scoped and **not sent**.
-3. Open another project. Verify its conversation never shows the previous project's canvas. Return and reopen the original canvas. With a node selected there, use Delete outside that canvas and check that nothing is removed from the hidden surface.
-4. Narrow the center area below 681px by resizing the window or expanding side panels. Check chat/canvas focus switching, keyboard access and overflow. Restore width; check requested split mode and bounded divider resizing. Test pointer cancellation, including hiding a panel during drag.
-5. Check light/dark themes and both locales, then regression-test real Chat, workflow, materials/PDF and source navigation. Record actual results; do not treat the standalone model checks above as this browser gate.
+The separate real-service acceptance must cover:
 
-User acceptance and backend-phase scope are recorded separately in the long-running vision issue. This PR does not close that issue or initiate the backend milestones.
+1. Import a dedicated Markdown/text material. Confirm actual source location and digest. Open it, select text, create a source note, edit its interpretation, save and reopen. Open the original source and return without losing reading position or an unsent Chat draft.
+2. Add the saved note/object reference to the project canvas. Open its anchor back to the same object. Remove the reference to undo the association; confirm the note is not deleted. Exercise an externally changed canvas and verify no forced overwrite occurs.
+3. Create paper, slides and storyboard objects with a shared source and block-level references. Edit the same paper block through list/cards, archive/restore, close and reopen, then refresh and reopen. IDs, order and content must persist.
+4. Navigate to the existing project workflow without execution. Edit rule and experiment drafts, including inputs and expected results. Save/reopen; confirm no scheduler, subscription or simulator was started. Submit and withdraw a knowledge-promotion suggestion without writing global knowledge.
+5. Repeat with two projects sharing filenames; verify scope and Chat quotation routing. Exercise file errors, unsupported versions, save 503, 409/412 conflict, retry/export/discard, close-during-save, and pending-capture close warnings. Test light/dark, zh/en, keyboard-only, wide/narrow, Chat/canvas/PDF retention and hidden-surface shortcuts.
 
-</details>
+Only actual logs, observed results and user review can close the F1 acceptance checklist. F2/F3 semantic relations, context bundles, reviewed multi-object changes and transactional rollback remain outside this increment.
+
+## Historical evidence and rollback
+
+The complete pre-increment F1a/F1b and historical #16 evidence is preserved at [the immutable b5d74da review document](https://github.com/XGC-Team/xgc2-ui/blob/b5d74daeb510a5562368d796260eceeaf50ff533/products/research-os/FRONTEND_REVIEW.md). Its 57 model checks and the subsequent 8 lifecycle checks retain their original scope; they are neither erased nor relabeled as full product/browser checks.
+
+After merge, roll back code with a new revert commit, never a force-push/reset of main. Archive restoration is an object-level operation, not a code rollback. Do not delete project research data as part of a code rollback. Export new-format project books before running older UI versions that do not understand them.
