@@ -1,7 +1,15 @@
+export class APIError extends Error {
+  status: number
+  constructor(message: string, status: number) {
+    super(message)
+    this.name = 'APIError'
+    this.status = status
+  }
+}
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`/api/v1${path}`, { ...init, headers: { Accept: 'application/json', ...init?.headers } })
   const body = await response.json().catch(() => null)
-  if (!response.ok) throw new Error(body?.error?.message || `请求失败（${response.status}）`)
+  if (!response.ok) throw new APIError(body?.error?.message || `请求失败（${response.status}）`, response.status)
   if (!body || !('data' in body)) throw new Error('服务返回了无法读取的数据。')
   return body.data as T
 }

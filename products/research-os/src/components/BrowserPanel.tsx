@@ -1,3 +1,4 @@
+import { fileTargetLocation } from '../features/projects/project-object-model'
 import {t as tr} from '../i18n'
 import { lazy,Suspense,useEffect,useRef,useState } from 'react'
 import { ArrowLeft, ArrowRight, BookOpen, Expand, FileText, Folder, Globe, Plus, RotateCw, X } from 'lucide-react'
@@ -46,13 +47,13 @@ function NewTabMenu({onNew}:{onNew:(kind:'web'|'file'|'note')=>void}) {
 /* ---------- 右栏：标签页宿主。标签 = 打开的网页/文件/PDF/笔记，统一显示语义 ---------- */
 const KIND_ICON:Record<RightTab['kind'],typeof Globe>={web:Globe,file:Folder,pdf:FileText,note:BookOpen}
 export function BrowserPanel({onQuote,onExpand}:{onQuote:(text:string,targetProject?:string)=>void;onExpand:()=>void}) {
- const {rightTabs:tabs,activeRightTab:active,activateRightTab:activate,closeRightTab:close,openRightTab:open,updateRightTab:update,projectId}=useWorkbench()
+ const {rightTabs:tabs,activeRightTab:active,activateRightTab:activate,closeRightTab:close,openRightTab:open,updateRightTab:update}=useWorkbench()
  return <section aria-label={tr("右侧面板")} className="flex h-full min-h-0 flex-col">
   <div className="flex h-panel-header shrink-0 items-center gap-1 pl-2 pr-1.5">
    <div role="tablist" aria-label={tr("打开的标签页")} className="ui-rtabs flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto">
     {tabs.map(tab=>{
      const Icon=KIND_ICON[tab.kind];const selected=tab.id===active
-     return <div key={tab.id} role="tab" tabIndex={0} aria-selected={selected} title={tab.title}
+     return <div key={tab.id} role="tab" tabIndex={0} aria-selected={selected} title={tab.kind==='file'?`${tab.title} · ${tab.target.projectId} · ${fileTargetLocation(tab.target)}`:tab.title}
       className={cn('ui-rtab group',selected&&'is-active')}
       onClick={()=>activate(tab.id)} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();activate(tab.id)}}}>
       <Icon size={12} strokeWidth={1.75} className="shrink-0"/>
@@ -67,7 +68,7 @@ export function BrowserPanel({onQuote,onExpand}:{onQuote:(text:string,targetProj
   <div className="relative min-h-0 flex-1">
    {tabs.map(tab=><div key={tab.id} className="rtab-panel" hidden={tab.id!==active}>
     {tab.kind==='web'&&<WebTab url={tab.url} report={title=>update(tab.id,{title})}/>}
-    {tab.kind==='file'&&<FilesPage key={projectId} onQuote={onQuote} onTitle={title=>update(tab.id,{title})}/>}
+    {tab.kind==='file'&&<FilesPage target={tab.target} active={tab.id===active} onQuote={onQuote} onTitle={title=>update(tab.id,{title})}/>}
     {tab.kind==='pdf'&&<Suspense fallback={<p className="p-4 text-ink-3">{tr("正在打开 PDF…")}</p>}><PDFReader pdf={tab.pdf} onPDF={pdf=>update(tab.id,{pdf,title:pdf.path.split('/').pop()||'PDF'})} onQuote={onQuote} onTitle={title=>update(tab.id,{title})}/></Suspense>}
     {tab.kind==='note'&&<DocumentPanel doc={tab.doc} onQuote={onQuote} onTitle={title=>update(tab.id,{title})}/>}
    </div>)}
