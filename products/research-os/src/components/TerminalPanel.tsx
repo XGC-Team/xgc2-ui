@@ -17,7 +17,7 @@ export function TerminalPanel(){
  async function create(){setBusy(true);setError('');try{const next=await post<Shell>('/terminals',{workspaceId:workspace});if(currentWorkspace.current===workspace){setShells(current=>[...current,next]);setSelected(next.id)}}catch(e){setError(e instanceof Error?e.message:String(e))}finally{setBusy(false)}}
  async function close(id:string){try{await post(`/terminals/${id}/close`,{});setShells(current=>current.filter(s=>s.id!==id));if(selected===id)setSelected(shells.find(s=>s.id!==id)?.id||'')}catch(e){setError(e instanceof Error?e.message:String(e))}}
  return <section className="flex h-full min-h-0 flex-col bg-panel text-ink" aria-label="交互终端">
-   <div className="flex h-8 shrink-0 items-center gap-1 border-b border-line px-2 text-caption"><span className="mr-2 truncate text-ink-3">{workspace}</span>{shells.map((s,i)=><div key={s.id} className={`flex items-center rounded ${selected===s.id?'bg-active':''}`}><button className="px-2 py-1" onClick={()=>setSelected(s.id)}>{tr('终端')} {i+1}</button><IconBtn icon={X} label={`关闭终端 ${i+1}`} onClick={()=>void close(s.id)}/></div>)}<IconBtn icon={Plus} label={tr("新建终端")} disabled={busy} onClick={()=>void create()}/><IconBtn icon={RotateCw} label={tr("重新连接终端")} disabled={!selected} onClick={()=>setReload(n=>n+1)}/></div>
+   <div className="flex h-8 shrink-0 items-center gap-1 px-2 text-caption"><span className="mr-2 truncate text-ink-3">{workspace}</span>{shells.map((s,i)=><div key={s.id} className={`flex items-center rounded ${selected===s.id?'bg-active':''}`}><button className="px-2 py-1" onClick={()=>setSelected(s.id)}>{tr('终端')} {i+1}</button><IconBtn icon={X} label={`关闭终端 ${i+1}`} onClick={()=>void close(s.id)}/></div>)}<IconBtn icon={Plus} label={tr("新建终端")} disabled={busy} onClick={()=>void create()}/><IconBtn icon={RotateCw} label={tr("重新连接终端")} disabled={!selected} onClick={()=>setReload(n=>n+1)}/></div>
    {error&&<p role="alert" className="ui-error">{error}</p>}
    {selectedShell?<ShellView key={`${selected}:${reload}`} id={selected} theme={theme}/>:<div className="flex flex-1 items-center justify-center"><button className="rounded-md border border-line px-3 py-1.5 text-secondary hover:bg-hover" disabled={busy} onClick={()=>void create()}>{busy?tr("正在启动…"):tr("打开终端")}</button></div>}
  </section>
@@ -25,7 +25,8 @@ export function TerminalPanel(){
 function ShellView({id,theme}:{id:string;theme:'light'|'dark'}){
  const host=useRef<HTMLDivElement>(null),terminal=useRef<Terminal|null>(null)
  const [status,setStatus]=useState(tr("正在连接…"))
- const palette=()=>theme==='dark'?{background:'#131316',foreground:'#e4e4e7',cursor:'#fafafa',selectionBackground:'#52525b'}:{background:'#ffffff',foreground:'#27272a',cursor:'#18181b',selectionBackground:'#d4d4d8'}
+ /* 终端底色跟随面板令牌，与周围无底色差：resize 重排时不闪白 */
+ const palette=()=>{const s=getComputedStyle(document.documentElement);const v=(n:string)=>s.getPropertyValue(n).trim();return {background:v('--bg-panel'),foreground:v('--ink'),cursor:v('--ink'),selectionBackground:theme==='dark'?'#52525b':'#d4d4d8'}}
  useEffect(()=>{
    let disposed=false
    const term=new Terminal({fontFamily:'"JetBrains Mono", monospace',fontSize:12,lineHeight:1.2,cursorBlink:true,scrollback:5000,theme:palette()});const fit=new FitAddon();term.loadAddon(fit);term.open(host.current!);terminal.current=term

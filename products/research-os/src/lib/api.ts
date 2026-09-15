@@ -18,6 +18,21 @@ export const collection = async <T>(path: string, signal?: AbortSignal): Promise
   if (Array.isArray(data?.items)) return data.items
   throw new Error('服务返回的列表格式不正确。')
 }
+/* 论文 PDF 归档：multipart 走 intake 管线（work/manifestation/rights 最小元数据，幂等键防重） */
+export async function intakePDF(file: File, title: string): Promise<void> {
+  const form = new FormData()
+  form.append('metadata', JSON.stringify({
+    work: { title: title || file.name },
+    manifestation: { kind: 'managed-copy', label: file.name },
+    rights: { accessBasis: 'user-owned-copy' },
+  }))
+  form.append('file', file)
+  const response = await fetch('/api/v1/intakes/pdf', { method: 'POST', headers: { Accept: 'application/json', 'Idempotency-Key': crypto.randomUUID() }, body: form })
+  if (!response.ok) {
+    const body = await response.json().catch(() => null)
+    throw new Error(body?.error?.message || `归档失败（${response.status}）`)
+  }
+}
 export function saveDownload(name: string, value: unknown) {
   const href = URL.createObjectURL(new Blob([JSON.stringify(value, null, 2)], { type: 'application/json' }))
   const link = document.createElement('a'); link.href = href; link.download = name; link.click()

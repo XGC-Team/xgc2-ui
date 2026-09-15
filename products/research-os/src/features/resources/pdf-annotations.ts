@@ -1,5 +1,6 @@
 export type PDFRect={x:number;y:number;width:number;height:number}
-export type PDFAnchor={schema:'research.pdf-anchor/v1';kind:'text'|'region'|'page';page:number;rects:PDFRect[];quote:string;context:string}
+/* pdf 字段让嵌进笔记的批注能找回是哪一份构建的哪一页（知识库 → PDF 回跳） */
+export type PDFAnchor={schema:'research.pdf-anchor/v1';kind:'text'|'region'|'page';page:number;rects:PDFRect[];quote:string;context:string;pdf?:{workspace:string;path:string;digest:string}}
 const prefix='<!-- research-pdf-anchor:'
 export function encodeAnnotation(anchor:PDFAnchor,comment:string){return `${prefix}${encodeURIComponent(JSON.stringify(anchor))} -->\n\n${comment}`}
 export function decodeAnnotation(body:string):{anchor:PDFAnchor|null;comment:string}{

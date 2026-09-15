@@ -70,7 +70,7 @@ export function ResizeHandle({
         orientation === 'v' ? 'w-px cursor-col-resize' : 'h-px cursor-row-resize',
       )}
     >
-      {/* 可见的 1px 线 */}
+      {/* 1px 发丝线：常态软色阶（即面板边界），hover/拖拽时加重 */}
       <div
         className={cn(
           'absolute transition-colors duration-200',

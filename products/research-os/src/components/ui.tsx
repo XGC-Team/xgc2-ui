@@ -1,7 +1,7 @@
 import {t as tr} from '../i18n'
 import { motion, type HTMLMotionProps } from 'framer-motion'
-import { Search, type LucideIcon } from 'lucide-react'
-import { useId, useRef, type ReactNode } from 'react'
+import { MoreHorizontal, Search } from 'lucide-react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ComponentType, type ReactNode } from 'react'
 import { cn } from '../lib/cn'
 
 /* ================================================================
@@ -16,11 +16,10 @@ import { cn } from '../lib/cn'
 type ButtonProps = {
   variant?: 'solid' | 'outline' | 'ghost'
   size?: 'xs' | 'sm' | 'md'
-  icon?: LucideIcon
+  icon?: ComponentType<{ size?: number | string; strokeWidth?: number | string; className?: string }>
   pulse?: boolean // 持续提醒脉冲环
-  loading?: boolean // 运行中：脉冲点 + 循环流光
+  loading?: boolean // 运行中：脉冲点
   busyAction?: boolean // 运行中仍允许停止等操作
-  shine?: boolean // hover 高光扫过（solid 默认开启）
   children?: ReactNode
 } & HTMLMotionProps<'button'>
 
@@ -30,7 +29,6 @@ export function Button({
   icon: Icon,
   pulse,
   loading,
-  shine,
   busyAction = false,
   disabled,
   className,
@@ -52,8 +50,8 @@ export function Button({
         size === 'xs' && 'ui-control-xs',
         size === 'sm' && 'ui-control-sm',
         size === 'md' && 'ui-control-md',
-        solid && 'bg-accent text-accent-fg shadow-soft hover:opacity-95',
-        variant === 'outline' && 'border border-line bg-panel text-ink-2 hover:border-line-strong hover:text-ink',
+        solid && 'ui-control-solid bg-accent text-accent-fg shadow-soft hover:bg-accent-hover',
+        variant === 'outline' && 'border border-line bg-panel text-ink-2 hover:border-line-strong hover:bg-hover hover:text-ink',
         variant === 'ghost' && 'text-ink-2 hover:bg-hover hover:text-ink',
         pulse && 'attn',
         className,
@@ -61,9 +59,8 @@ export function Button({
       {...props}
     >
       {loading && <span aria-hidden className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" />}
-      {Icon && !loading && <Icon size={size === 'xs' ? 10.5 : size === 'sm' ? 12 : 13} strokeWidth={2} />}
+      {Icon && !loading && <Icon size={size === 'xs' ? 11 : size === 'sm' ? 13 : 14} strokeWidth={1.75} />}
       {children}
-      {(shine ?? solid) && <span className={cn('btn-shine', loading && 'loop')} aria-hidden />}
     </motion.button>
   )
 }
@@ -76,9 +73,9 @@ export function IconBtn({
   active,
   disabled,
   className,
-  size = 14,
+  size = 15,
 }: {
-  icon: LucideIcon
+  icon: ComponentType<{ size?: number | string; strokeWidth?: number | string; className?: string }>
   label: string
   onClick?: () => void
   active?: boolean
@@ -101,7 +98,7 @@ export function IconBtn({
         className,
       )}
     >
-      <Icon size={size} strokeWidth={1.8} />
+      <Icon size={size} strokeWidth={1.75} />
     </button>
   )
 }
@@ -136,7 +133,8 @@ export function Card({ className, children }: { className?: string; children: Re
   )
 }
 
-/* ---------- Tabs: 统一 line(40px 下划线) / pill(28px 胶囊) 双形态 ---------- */
+/* ---------- Tabs: 统一 line(40px 下划线) / pill(28px 胶囊) 双形态 ----------
+   指示器按选中页实测定位：选中切换走过渡，容器缩放直接吸附（无延迟感） */
 export function Tabs({
   id, tabs, active, onChange, variant = 'line', badges, className,
 }: {
@@ -148,10 +146,30 @@ export function Tabs({
   badges?: Record<string, number>
   className?: string
 }) {
-  const instance = useId()
+  const strip = useRef<HTMLDivElement>(null)
   const refs = useRef<(HTMLButtonElement | null)[]>([])
+  const [ind, setInd] = useState<{ x: number; w: number; anim: boolean } | null>(null)
+  const measure = useCallback((anim: boolean) => {
+    const el = refs.current[tabs.findIndex(t => t.id === active)]
+    if (!el) return
+    const inset = variant === 'line' ? 8 : 0
+    setInd({ x: el.offsetLeft + inset, w: el.offsetWidth - inset * 2, anim })
+  }, [active, tabs, variant])
+  const measureRef = useRef(measure)
+  measureRef.current = measure
+  useLayoutEffect(() => { measure(true) }, [measure])
+  useEffect(() => {
+    const el = strip.current
+    if (!el) return
+    const ro = new ResizeObserver(() => measureRef.current(false))
+    ro.observe(el)
+    refs.current.forEach(t => t && ro.observe(t))
+    return () => ro.disconnect()
+  }, [tabs.length])
   return (
-    <div role="tablist" aria-label={id} className={cn('ui-tabs', `ui-tabs-${variant}`, className)}>
+    <div role="tablist" aria-label={id} ref={strip} className={cn('ui-tabs', `ui-tabs-${variant}`, className)}>
+      {ind && <span aria-hidden className="ui-tab-indicator"
+        style={{ transform: `translateX(${ind.x}px)`, width: ind.w, transition: ind.anim ? undefined : 'none' }} />}
       {tabs.map((tab, index) => {
         const selected = tab.id === active
         return (
@@ -171,13 +189,33 @@ export function Tabs({
               refs.current[next]?.focus()
               refs.current[next]?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
             }}>
-            {selected && <motion.span layoutId={`${instance}-indicator`}
-              className="ui-tab-indicator" transition={{ type: 'spring', stiffness: 500, damping: 40 }} />}
             <span className="relative whitespace-nowrap">{tab.icon??tr(tab.label)}</span>
             {badges?.[tab.id] !== undefined && <Badge solid={selected} className="relative">{badges[tab.id]}</Badge>}
           </button>
         )
       })}
+    </div>
+  )
+}
+
+/* ---------- RightMore: 页面工具行末尾的溢出菜单 ---------- */
+export function RightMore({ label, children }: { label: string; children: ReactNode }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const close = (e: PointerEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false) }
+    const key = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('pointerdown', close)
+    document.addEventListener('keydown', key)
+    return () => { document.removeEventListener('pointerdown', close); document.removeEventListener('keydown', key) }
+  }, [open])
+  return (
+    <div ref={ref} className="relative shrink-0">
+      <button type="button" className="grid h-7 w-7 place-items-center rounded-md text-ink-3 transition-all duration-150 hover:bg-hover hover:text-ink active:scale-95" aria-label={tr(label)} title={tr(label)} aria-expanded={open} onClick={() => setOpen(!open)}>
+        <MoreHorizontal size={14} strokeWidth={1.75} />
+      </button>
+      {open && <div role="dialog" aria-label={tr(label)} className="ui-pop-in absolute right-0 top-full z-50 mt-1 flex w-60 flex-col gap-2 rounded-lg border border-line bg-panel p-3 shadow-pop">{children}</div>}
     </div>
   )
 }
@@ -222,23 +260,24 @@ export function SearchTrigger({
       type="button"
       onClick={onClick}
       className={cn(
-        'flex h-control-md items-center gap-2 rounded-md border border-line bg-inset px-3 text-body text-ink-3',
-        'transition-all duration-200 hover:border-line-strong hover:bg-hover',
+        'flex h-control-md items-center gap-2 rounded-md bg-inset px-3 text-body text-ink-3',
+        'transition-colors duration-200 hover:bg-hover hover:text-ink-2',
         className,
       )}
     >
-      <Search size={14} strokeWidth={1.8} className="shrink-0" />
+      <Search size={14} strokeWidth={1.75} className="shrink-0" />
       <span className="flex-1 truncate text-left">{placeholder}</span>
       {shortcut && <Kbd>{shortcut}</Kbd>}
     </button>
   )
 }
 
-/* ---------- SectionLabel: 侧栏分组标题 ---------- */
+/* ---------- SectionLabel: 侧栏分组标题（小帽字 + 延展细规线） ---------- */
 export function SectionLabel({ children, onAdd }: { children: ReactNode; onAdd?: () => void }) {
   return (
-    <div className="group mb-1 mt-5 flex items-center justify-between px-3 first:mt-0">
-      <span className="text-caption font-semibold uppercase tracking-[0.08em] text-ink-3">{children}</span>
+    <div className="group mb-1 mt-6 flex h-7 items-center gap-2.5 px-2.5 first:mt-0">
+      <span className="shrink-0 text-caption font-semibold uppercase tracking-[0.08em] text-ink-3">{children}</span>
+      <span aria-hidden className="h-px min-w-4 flex-1 bg-line" />
       {onAdd && (
         <button
           type="button"
