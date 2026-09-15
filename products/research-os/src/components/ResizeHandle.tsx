@@ -1,85 +1,87 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { cn } from '../lib/cn'
 
-/**
- * 细线拖拽手柄：常态 1px，hover/拖拽时亮起。
- * 双击可折叠/展开面板。
- */
+/** Existing hairline divider, with optional keyboard resizing for a bounded panel. */
 export function ResizeHandle({
-  orientation,
-  onDelta,
-  onDoubleClick,
-  onDraggingChange,
+  orientation, onDelta, onDoubleClick, onDraggingChange,
+  label, value, min, max, onValueChange,
 }: {
   orientation: 'v' | 'h'
   onDelta: (delta: number) => void
   onDoubleClick?: () => void
   onDraggingChange?: (dragging: boolean) => void
+  label?: string
+  value?: number
+  min?: number
+  max?: number
+  onValueChange?: (value: number) => void
 }) {
   const [dragging, setDragging] = useState(false)
-  const last = useRef(0)
+  const pointer = useRef<{ id: number; element: HTMLDivElement; last: number; cursor: string; select: string } | null>(null)
+  const draggingCallback = useRef(onDraggingChange)
+  draggingCallback.current = onDraggingChange
+  const end = useCallback((updateState = true) => {
+    const current = pointer.current
+    if (!current) return
+    pointer.current = null
+    if (current.element.hasPointerCapture(current.id)) current.element.releasePointerCapture(current.id)
+    document.body.style.cursor = current.cursor
+    document.body.style.userSelect = current.select
+    if (updateState) setDragging(false)
+    draggingCallback.current?.(false)
+  }, [])
+  useEffect(() => () => end(false), [end])
 
-  const onPointerDown = useCallback(
-    (e: React.PointerEvent<HTMLDivElement>) => {
-      e.preventDefault()
-      last.current = orientation === 'v' ? e.clientX : e.clientY
+  return <div role="separator" aria-label={label}
+    aria-orientation={orientation === 'v' ? 'vertical' : 'horizontal'}
+    tabIndex={onValueChange ? 0 : undefined}
+    aria-valuenow={onValueChange ? value : undefined}
+    aria-valuemin={onValueChange ? min : undefined}
+    aria-valuemax={onValueChange ? max : undefined}
+    onKeyDown={event => {
+      if (!onValueChange || value === undefined || min === undefined || max === undefined) return
+      const backward = orientation === 'v' ? 'ArrowLeft' : 'ArrowUp'
+      const forward = orientation === 'v' ? 'ArrowRight' : 'ArrowDown'
+      const step = event.shiftKey ? 48 : 16
+      const next = event.key === 'Home' ? min : event.key === 'End' ? max
+        : event.key === backward ? value - step : event.key === forward ? value + step : null
+      if (next === null) return
+      event.preventDefault()
+      event.stopPropagation()
+      onValueChange(Math.max(min, Math.min(max, next)))
+    }}
+    onPointerDown={event => {
+      if (event.button !== 0 || pointer.current) return
+      event.preventDefault()
+      const element = event.currentTarget
+      element.setPointerCapture(event.pointerId)
+      pointer.current = {
+        id: event.pointerId, element, last: orientation === 'v' ? event.clientX : event.clientY,
+        cursor: document.body.style.cursor, select: document.body.style.userSelect,
+      }
+      if (onValueChange) element.focus({ preventScroll: true })
       setDragging(true)
-      onDraggingChange?.(true)
-      const el = e.currentTarget
-      el.setPointerCapture(e.pointerId)
+      draggingCallback.current?.(true)
       document.body.style.cursor = orientation === 'v' ? 'col-resize' : 'row-resize'
       document.body.style.userSelect = 'none'
-    },
-    [orientation, onDraggingChange],
-  )
-
-  const onPointerMove = useCallback(
-    (e: React.PointerEvent<HTMLDivElement>) => {
-      if (!dragging) return
-      const pos = orientation === 'v' ? e.clientX : e.clientY
-      const delta = pos - last.current
-      last.current = pos
+    }}
+    onPointerMove={event => {
+      const current = pointer.current
+      if (!current || current.id !== event.pointerId) return
+      const position = orientation === 'v' ? event.clientX : event.clientY
+      const delta = position - current.last
+      current.last = position
       onDelta(delta)
-    },
-    [dragging, orientation, onDelta],
-  )
-
-  const end = useCallback(
-    (e: React.PointerEvent<HTMLDivElement>) => {
-      if (!dragging) return
-      setDragging(false)
-      onDraggingChange?.(false)
-      e.currentTarget.releasePointerCapture(e.pointerId)
-      document.body.style.cursor = ''
-      document.body.style.userSelect = ''
-    },
-    [dragging, onDraggingChange],
-  )
-
-  return (
-    <div
-      role="separator"
-      aria-orientation={orientation === 'v' ? 'vertical' : 'horizontal'}
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={end}
-      onPointerCancel={end}
-      onDoubleClick={onDoubleClick}
-      className={cn(
-        'group relative z-20 shrink-0 touch-none',
-        orientation === 'v' ? 'w-px cursor-col-resize' : 'h-px cursor-row-resize',
-      )}
-    >
-      {/* 1px 发丝线：常态软色阶（即面板边界），hover/拖拽时加重 */}
-      <div
-        className={cn(
-          'absolute transition-colors duration-200',
-          orientation === 'v' ? 'inset-y-0 left-0 w-px' : 'inset-x-0 top-0 h-px',
-          dragging ? 'bg-ink/60' : 'bg-line group-hover:bg-ink/30',
-        )}
-      />
-      {/* 加宽命中区域 */}
-      <div className={cn('absolute', orientation === 'v' ? '-left-1.5 -right-1.5 inset-y-0' : '-top-1.5 -bottom-1.5 inset-x-0')} />
-    </div>
-  )
+    }}
+    onPointerUp={event => { if (event.pointerId === pointer.current?.id) end() }}
+    onPointerCancel={event => { if (event.pointerId === pointer.current?.id) end() }}
+    onLostPointerCapture={event => { if (event.pointerId === pointer.current?.id) end() }}
+    onDoubleClick={onDoubleClick}
+    className={cn('group relative z-20 shrink-0 touch-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-current',
+      orientation === 'v' ? 'w-px cursor-col-resize' : 'h-px cursor-row-resize')}>
+    <div className={cn('absolute transition-colors duration-200',
+      orientation === 'v' ? 'inset-y-0 left-0 w-px' : 'inset-x-0 top-0 h-px',
+      dragging ? 'bg-ink/60' : 'bg-line group-hover:bg-ink/30')}/>
+    <div className={cn('absolute', orientation === 'v' ? '-left-1.5 -right-1.5 inset-y-0' : '-top-1.5 -bottom-1.5 inset-x-0')}/>
+  </div>
 }

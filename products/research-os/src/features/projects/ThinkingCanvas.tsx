@@ -1,23 +1,27 @@
 import {t as tr} from '../../i18n'
 import {useCallback,useEffect,useMemo,useRef,useState} from 'react'
-import {BookOpen, Copy, FileText, Link2, Plus, Send, Trash2} from 'lucide-react'
+import {BookOpen, Copy, Expand, FileText, Link2, Plus, Send, Trash2} from 'lucide-react'
 import {request} from '../../lib/api'
 import {useWorkbench} from '../../store'
 import {useNativeAgentSession} from '../chat/Session'
 import {useAcademicNotes} from '../resources/useAcademicNotes'
 import {cn} from '../../lib/cn'
+import {Button,IconBtn,RightMore} from '../../components/ui'
+import {workspaceCopy} from './workspace-copy'
 import {CANVAS_PATH,canvasToPrompt,emptyCanvas,parseCanvas,serializeCanvas,type CanvasNode,type ThinkingCanvas} from './canvas-model'
 /* 思维白板：Origami 式节点画布。节点卡是 DOM（排版精度），连线是 SVG，点阵底随相机走。
    数据落项目仓库 thinking.canvas.json（git 版本化）；拓扑可导出为写作系统提示词。 */
 type Cam={x:number;y:number;k:number}
 type Sel={kind:'node'|'edge';id:string}|null
 const NODE_W=224
-export function ThinkingCanvas({project}:{project:string}) {
- const {openDocument,openRightTab,setActiveNav}=useWorkbench();const native=useNativeAgentSession();const {notes}=useAcademicNotes()
+export function ThinkingCanvas({project,active=true,onRequestConversation}:{project:string;active?:boolean;onRequestConversation?:()=>void}) {
+ const {openDocument,openRightTab,setActiveNav,locale}=useWorkbench();const copy=workspaceCopy[locale];const native=useNativeAgentSession();const {notes}=useAcademicNotes()
  const [canvas,setCanvas]=useState<ThinkingCanvas>(emptyCanvas),[cam,setCam]=useState<Cam>({x:0,y:0,k:1})
  const [sel,setSel]=useState<Sel>(null),[picker,setPicker]=useState<{kind:'ref'|'anchor';node:string}|null>(null)
  const [saveState,setSaveState]=useState<'saved'|'saving'|'error'|'loading'>('loading'),[copied,setCopied]=useState(false)
- const [files,setFiles]=useState<string[]>([])
+ const [files,setFiles]=useState<string[]>([]),[copyError,setCopyError]=useState('')
+ const copyTimer=useRef<ReturnType<typeof setTimeout>>(undefined)
+ useEffect(()=>()=>clearTimeout(copyTimer.current),[])
  const box=useRef<HTMLDivElement>(null),digest=useRef<string|null>(null),hadFile=useRef(false),saveTimer=useRef<ReturnType<typeof setTimeout>>(undefined)
  const drag=useRef<{mode:'pan'|'node'|'edge';id?:string;sx:number;sy:number;cam?:Cam;cur?:{x:number;y:number}}|null>(null)
  const [tempEdge,setTempEdge]=useState<{from:string;to:{x:number;y:number}}|null>(null)
@@ -38,8 +42,8 @@ export function ThinkingCanvas({project}:{project:string}) {
   return next})},[project])
  const toWorld=useCallback((cx:number,cy:number)=>{const r=box.current!.getBoundingClientRect();return{x:(cx-r.left-cam.x)/cam.k,y:(cy-r.top-cam.y)/cam.k}},[cam])
  /* 指针：背景平移 / 节点拖动 / 拉边 */
- const onPointerDown=(e:React.PointerEvent)=>{if(e.target===e.currentTarget||(e.target as HTMLElement).dataset.world){drag.current={mode:'pan',sx:e.clientX,sy:e.clientY,cam};(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);setSel(null)}}
- const nodeDown=(e:React.PointerEvent,n:CanvasNode)=>{if((e.target as HTMLElement).closest('input,textarea,button,[data-handle]'))return;e.stopPropagation();setSel({kind:'node',id:n.id});drag.current={mode:'node',id:n.id,sx:e.clientX,sy:e.clientY};box.current!.setPointerCapture(e.pointerId)}
+ const onPointerDown=(e:React.PointerEvent)=>{if(e.target===e.currentTarget||(e.target as HTMLElement).dataset.world){box.current?.focus({preventScroll:true});drag.current={mode:'pan',sx:e.clientX,sy:e.clientY,cam};(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);setSel(null)}}
+ const nodeDown=(e:React.PointerEvent,n:CanvasNode)=>{if((e.target as HTMLElement).closest('input,textarea,button,[data-handle]'))return;e.stopPropagation();box.current?.focus({preventScroll:true});setSel({kind:'node',id:n.id});drag.current={mode:'node',id:n.id,sx:e.clientX,sy:e.clientY};box.current!.setPointerCapture(e.pointerId)}
  const handleDown=(e:React.PointerEvent,n:CanvasNode)=>{e.stopPropagation();drag.current={mode:'edge',id:n.id,sx:e.clientX,sy:e.clientY};box.current!.setPointerCapture(e.pointerId)}
  const onPointerMove=(e:React.PointerEvent)=>{const d=drag.current;if(!d)return
   if(d.mode==='pan'&&d.cam)setCam({...d.cam,x:d.cam.x+e.clientX-d.sx,y:d.cam.y+e.clientY-d.sy})
@@ -53,22 +57,39 @@ export function ThinkingCanvas({project}:{project:string}) {
  const addNode=(kind:CanvasNode['kind'],at?:{x:number;y:number})=>{const r=box.current!.getBoundingClientRect();const p=at??toWorld(r.left+r.width/2+(Math.random()*80-40),r.top+r.height/2+(Math.random()*60-30))
   const node:CanvasNode={id:crypto.randomUUID().slice(0,8),kind,title:kind==='chapter'?tr('新章节'):tr('新想法'),x:p.x-NODE_W/2,y:p.y-24}
   mutate(c=>({...c,nodes:[...c.nodes,node]}));setSel({kind:'node',id:node.id})}
- /* 删除键 */
- useEffect(()=>{const onKey=(e:KeyboardEvent)=>{if((e.key!=='Delete'&&e.key!=='Backspace')||!sel)return;if((e.target as HTMLElement).closest('input,textarea,[contenteditable]'))return
+ /* 删除键只处理当前画布内的事件；隐藏画布不注册全局快捷键。 */
+ const onKey=(e:React.KeyboardEvent)=>{if(!active||(e.key!=='Delete'&&e.key!=='Backspace')||!sel)return;if((e.target as HTMLElement).closest('input,textarea,button,a,[contenteditable]'))return
+  e.preventDefault();e.stopPropagation()
   if(sel.kind==='node')mutate(c=>({nodes:c.nodes.filter(n=>n.id!==sel.id),edges:c.edges.filter(x=>x.from!==sel.id&&x.to!==sel.id),version:1}))
   else mutate(c=>({...c,edges:c.edges.filter((_,i)=>String(i)!==sel.id)}));setSel(null)}
-  window.addEventListener('keydown',onKey);return()=>window.removeEventListener('keydown',onKey)},[sel,mutate])
  const nodeById=useMemo(()=>new Map(canvas.nodes.map(n=>[n.id,n])),[canvas.nodes])
  const prompt=()=>canvasToPrompt(canvas,project)
- return <div className="relative h-full min-h-0">
-  <div ref={box} className={cn('h-full w-full overflow-hidden',drag.current?.mode==='pan'?'cursor-grabbing':'cursor-default')} style={{backgroundImage:'radial-gradient(var(--line-strong) 1px,transparent 1px)',backgroundSize:`${24*cam.k}px ${24*cam.k}px`,backgroundPosition:`${cam.x}px ${cam.y}px`}}
-   onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onWheel={onWheel}
+ const copyPrompt=async()=>{setCopyError('');setCopied(false);try{await navigator.clipboard.writeText(prompt());setCopied(true);clearTimeout(copyTimer.current);copyTimer.current=setTimeout(()=>setCopied(false),1500)}catch{setCopyError(copy.copyFailed)}}
+ const fitCanvas=()=>{const r=box.current?.getBoundingClientRect();if(!r?.width||!r.height)return
+  if(!canvas.nodes.length){setCam({x:0,y:0,k:1});return}
+  const xs=canvas.nodes.map(n=>n.x),ys=canvas.nodes.map(n=>n.y),left=Math.min(...xs),top=Math.min(...ys)
+  const w=Math.max(...xs)+240-left,h=Math.max(...ys)+180-top
+  const k=Math.min(1.2,Math.max(0.35,Math.min(Math.max(1,r.width-64)/w,Math.max(1,r.height-64)/h)))
+  setCam({k,x:(r.width-w*k)/2-left*k,y:(r.height-h*k)/2-top*k})}
+ return <div className="relative flex h-full min-h-0 flex-col">
+  {/* 与右栏相同的 36px 工具行；窄列不把操作与保存状态叠在一起。 */}
+  <div className="flex h-9 shrink-0 items-center gap-1 px-2">
+   <Button size="xs" icon={BookOpen} onClick={()=>addNode('chapter')}>{tr("章节")}</Button>
+   <Button size="xs" icon={Plus} onClick={()=>addNode('idea')}>{tr("想法")}</Button>
+   <IconBtn icon={Expand} label={copy.fit} onClick={fitCanvas}/>
+   <span role="status" className="min-w-0 flex-1 truncate text-caption text-ink-3" title={saveState==='error'?copy.saveFailed:undefined}>{saveState==='saving'?tr("保存中…"):saveState==='error'?copy.saveFailed:''}</span>
+   <IconBtn icon={Send} label={copy.addToDraft} onClick={()=>{native.appendDraft(prompt(),project);setActiveNav('chat');onRequestConversation?.()}}/>
+   <RightMore label={copy.more}><Button size="xs" icon={Copy} onClick={()=>void copyPrompt()}>{copied?tr("已复制"):tr("复制提示词")}</Button></RightMore>
+  </div>
+  {copyError&&<p role="alert" className="px-2 pb-1 text-caption text-ink-3">{copyError}</p>}
+  <div ref={box} role="region" aria-label={copy.canvas} tabIndex={0} onKeyDown={onKey} className={cn('relative min-h-0 w-full flex-1 overflow-hidden focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-[-1px]',drag.current?.mode==='pan'?'cursor-grabbing':'cursor-default')} style={{backgroundImage:'radial-gradient(var(--line-strong) 1px,transparent 1px)',backgroundSize:`${24*cam.k}px ${24*cam.k}px`,backgroundPosition:`${cam.x}px ${cam.y}px`}}
+   onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={()=>{drag.current=null;setTempEdge(null)}} onWheel={onWheel}
    onDoubleClick={e=>{if(e.target===e.currentTarget||(e.target as HTMLElement).dataset.world)addNode('idea',toWorld(e.clientX,e.clientY))}}>
    <div data-world="1" className="absolute left-0 top-0 h-0 w-0" style={{transform:`translate(${cam.x}px,${cam.y}px) scale(${cam.k})`}}>
     <svg className="pointer-events-none absolute overflow-visible" style={{left:0,top:0,width:1,height:1}}>
      {canvas.edges.map((e,i)=>{const a=nodeById.get(e.from),b=nodeById.get(e.to);if(!a||!b)return null
       const x1=a.x+NODE_W,y1=a.y+28,x2=b.x,y2=b.y+28,mx=(x1+x2)/2
-      return <path key={i} d={`M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`} fill="none" stroke={sel?.kind==='edge'&&sel.id===String(i)?'var(--ink)':'var(--line-strong)'} strokeWidth={sel?.kind==='edge'&&sel.id===String(i)?2:1.5} className="pointer-events-auto cursor-pointer" onClick={ev=>{ev.stopPropagation();setSel({kind:'edge',id:String(i)})}}/>})}
+      return <path key={i} d={`M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`} fill="none" stroke={sel?.kind==='edge'&&sel.id===String(i)?'var(--ink)':'var(--line-strong)'} strokeWidth={sel?.kind==='edge'&&sel.id===String(i)?2:1.5} className="pointer-events-auto cursor-pointer" onClick={ev=>{ev.stopPropagation();box.current?.focus({preventScroll:true});setSel({kind:'edge',id:String(i)})}}/>})}
      {tempEdge&&(()=>{const a=nodeById.get(tempEdge.from);if(!a)return null;const x1=a.x+NODE_W,y1=a.y+28,mx=(x1+tempEdge.to.x)/2
       return <path d={`M${x1},${y1} C${mx},${y1} ${mx},${tempEdge.to.y} ${tempEdge.to.x},${tempEdge.to.y}`} fill="none" stroke="var(--ink-3)" strokeWidth={1.5} strokeDasharray="4 4"/>})()}
     </svg>
@@ -92,15 +113,6 @@ export function ThinkingCanvas({project}:{project:string}) {
      </div>})}
    </div>
   </div>
-  {/* 工具行：加节点 + 导出提示词 */}
-  <div className="absolute left-3 top-3 flex items-center gap-1 rounded-lg border border-line bg-panel/95 p-1 shadow-pop">
-   <button className="flex h-7 items-center gap-1.5 rounded-md px-2 text-secondary text-ink-2 hover:bg-hover hover:text-ink" onClick={()=>addNode('chapter')}><BookOpen size={13} strokeWidth={1.75}/>{tr("章节")}</button>
-   <button className="flex h-7 items-center gap-1.5 rounded-md px-2 text-secondary text-ink-2 hover:bg-hover hover:text-ink" onClick={()=>addNode('idea')}><Plus size={13} strokeWidth={1.75}/>{tr("想法")}</button>
-   <span aria-hidden className="h-4 w-px bg-line"/>
-   <button className="flex h-7 items-center gap-1.5 rounded-md px-2 text-secondary text-ink-2 hover:bg-hover hover:text-ink" onClick={()=>{void navigator.clipboard.writeText(prompt());setCopied(true);setTimeout(()=>setCopied(false),1500)}}><Copy size={13} strokeWidth={1.75}/>{copied?tr("已复制"):tr("复制提示词")}</button>
-   <button className="flex h-7 items-center gap-1.5 rounded-md px-2 text-secondary text-ink-2 hover:bg-hover hover:text-ink" onClick={()=>{native.appendDraft(prompt());setActiveNav('chat')}}><Send size={13} strokeWidth={1.75}/>{tr("发送到对话")}</button>
-  </div>
-  <p role="status" className="absolute right-3 top-3 text-caption text-ink-3">{saveState==='saving'?tr("保存中…"):saveState==='error'?tr("保存失败，仍在重试"):saveState==='saved'&&canvas.nodes.length?tr("已保存"):''}</p>
   {/* 引用/锚点选择器 */}
   {picker&&<div className="absolute inset-0 z-50 grid place-items-center bg-app/60" onClick={()=>setPicker(null)}>
    <div className="max-h-80 w-80 overflow-hidden rounded-xl border border-line bg-panel shadow-pop" onClick={e=>e.stopPropagation()}>
