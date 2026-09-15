@@ -95,7 +95,12 @@ export function createFileSession<T>(options: FileSessionOptions<T>) {
     const input: FileWrite = { content, ...(digest ? { expectedDigest: digest } : { createOnly: true as const }) }
     publish({ ...state, status: 'saving', error: '' })
     // Start after writing is assigned, including when a test port resolves immediately.
-    writing = Promise.resolve().then(() => options.port.write(input)).then(result => {
+    writing = Promise.resolve().then(() => {
+      // Cleanup may run before this microtask. Do not dispatch a new write after disposal.
+      // A request already handed to the port is not cancelled or rolled back here.
+      if (disposed) return
+      return options.port.write(input)
+    }).then(result => {
       if (disposed) return
       if (typeof result?.digest !== 'string' || !result.digest) throw new Error('Missing saved file revision.')
       digest = result.digest
