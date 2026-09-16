@@ -1,3 +1,4 @@
+import { FeedbackButton } from '../review/FeedbackButton'
 import { IntakePanel } from './IntakePanel'
 import { SourcePicker } from './SourcePicker'
 import { openResearchSource } from './research-navigation'
@@ -23,6 +24,8 @@ export function DraftsPage({ scope, tabId, onQuote, onTitle }: {
   onTitle: (title: string) => void
 }) {
   const { locale, setProjectId, setActiveNav, closeSourceView, draftIntents, consumeDraftIntent, draftSelection, requestCanvasReference, openCanvas, addContextItem } = useWorkbench()
+  const reviewFocus=useWorkbench(s=>s.reviewFocus)
+  const root=useRef<HTMLElement>(null)
   const copy = draftCopy[locale]
   const [selected, setSelected] = useState(''), [creating, setCreating] = useState(false)
   const [kind, setKind] = useState<DraftKind>('paper'), [name, setName] = useState('')
@@ -33,13 +36,13 @@ export function DraftsPage({ scope, tabId, onQuote, onTitle }: {
   const [missing, setMissing] = useState('')
   const zh = locale === 'zh'
   useEffect(() => {
-    if (!state.value) return
+    if (!state.value || state.reviewLocked) return
     for (const intent of draftIntents) {
       if (draftScopeKey(intent.scope) !== draftScopeKey(scope) || !useWorkbench.getState().draftIntents.some(item => item.id === intent.id)) continue
-      state.mutate(book => captureIntoBook(book, intent))
+      if (!state.mutate(book => captureIntoBook(book, intent))) continue
       consumeDraftIntent(intent.id); setSelected(intent.id); setCreating(false); setArchived(false); setFilter(intent.kind)
     }
-  }, [draftIntents, state.value, state.mutate, scope.projectId, scope.workspace, consumeDraftIntent])
+  }, [draftIntents, state.value, state.reviewLocked, state.mutate, scope.projectId, scope.workspace, consumeDraftIntent])
   useEffect(() => {
     if (draftSelection && draftScopeKey(draftSelection.scope) === draftScopeKey(scope)) {
       setSelected(draftSelection.id); setCreating(false); setMissing(''); if (!draftSelection.id) setFilter(draftSelection.kind || '')
@@ -47,6 +50,14 @@ export function DraftsPage({ scope, tabId, onQuote, onTitle }: {
   }, [draftSelection, scope.projectId, scope.workspace])
   useEffect(() => { setMissing(state.value && selected && !state.value.drafts.some(item => item.id === selected) ? (zh ? '原对象未找到。引用没有被替换成其他对象。' : 'The referenced object was not found. It has not been substituted.') : '') }, [state.value, selected, zh])
   const current = state.value?.drafts.find(draft => draft.id === selected)
+  useEffect(()=>{
+    const focus=reviewFocus,target=focus?.anchor.target
+    if(!focus||!target||target.kind!=='block'||draftScopeKey(focus.scope)!==draftScopeKey(scope)||target.objectId!==current?.id||state.reviewLocked)return
+    const b=current.blocks.find(b=>b.id===target.blockId),value=target.field==='title'?b?.title:b?.fields[target.field]
+    if(value!==focus.anchor.quote){setMissing(zh?'当前字段与被核对内容不一致，未自动定位。':'Current field does not match the verified content; it was not highlighted.');return}
+    const block=root.current?.querySelector<HTMLElement>(`[data-draft-block="${CSS.escape(target.blockId)}"]`)
+    block?.scrollIntoView({block:'center'});block?.querySelector<HTMLElement>(`#${CSS.escape(`${tabId}-${target.blockId}-${target.field}`)}`)?.focus({preventScroll:true})
+  },[reviewFocus,current,state.reviewLocked,scope.projectId,scope.workspace,tabId,zh])
   const titleRef = useRef(onTitle); titleRef.current = onTitle
   const nameInput = useRef<HTMLInputElement>(null)
   useEffect(() => { titleRef.current(current ? current.title || copy.untitled : copy.title) }, [current?.title, current?.id, copy])
@@ -63,7 +74,7 @@ export function DraftsPage({ scope, tabId, onQuote, onTitle }: {
     if (!state.dirty || window.confirm(copy.discardConfirm)) state.reload(state.dirty)
   }
 
-  return <section className="flex h-full min-h-0 flex-col" aria-label={copy.title} data-draft-project={scope.projectId} data-draft-state={state.status}>
+  return <section ref={root} className="flex h-full min-h-0 flex-col" aria-label={copy.title} data-draft-project={scope.projectId} data-draft-state={state.status}>
     <div className="flex h-9 shrink-0 items-center gap-1 px-2">
       {(current || creating) && <IconBtn icon={ArrowLeft} label={copy.list} onClick={() => { setSelected(''); setCreating(false) }}/>} 
       <span className="min-w-0 flex-1 truncate text-caption text-ink-2">{current?.title || copy.title}</span>
@@ -155,9 +166,10 @@ export function DraftsPage({ scope, tabId, onQuote, onTitle }: {
             </div>
             {current.kind === 'paper' && <label className="block text-caption">{zh ? '结构层次' : 'Writing block role'}<select className="ui-input ml-2" value={block.role || 'section'} onChange={event => update(draft => ({ ...draft, blocks: draft.blocks.map(item => item.id === block.id ? { ...item, role: event.target.value as 'section' | 'paragraph' } : item) }))}><option value="section">{zh ? '章节' : 'Section'}</option><option value="paragraph">{zh ? '段落意图' : 'Paragraph intent'}</option></select></label>}
             <label className="block text-secondary text-ink-2">{copy.blockTitle}<input className="ui-input mt-1 w-full" value={block.title} onChange={event => update(draft => editBlock(draft, block.id, 'title', event.target.value))}/></label>
-            {DRAFT_FIELDS[current.kind].map(field => <label key={field} className="block text-secondary text-ink-2">{copy.fields[field]}
-              <textarea rows={3} className="ui-input mt-1 w-full resize-y" value={block.fields[field] || ''} onChange={event => update(draft => editBlock(draft, block.id, field, event.target.value))}/>
-            </label>)}
+            {DRAFT_FIELDS[current.kind].map(field => <div key={field} className="block text-secondary text-ink-2"><label htmlFor={`${tabId}-${block.id}-${field}`}>{copy.fields[field]}</label>
+              <FeedbackButton scope={scope} disabled={state.dirty || state.status !== 'saved'} displayed={block.fields[field] || ''} target={{kind:'block',workspace:scope.workspace,path:DRAFTS_PATH,objectId:current.id,blockId:block.id,field,artifact:current.kind}}/>
+              <textarea id={`${tabId}-${block.id}-${field}`} rows={3} className="ui-input mt-1 w-full resize-y" value={block.fields[field] || ''} onChange={event => update(draft => editBlock(draft, block.id, field, event.target.value))}/>
+            </div>)}
             {current.sources.length > 0 && <fieldset className="space-y-1"><legend className="text-caption">{zh ? '此条目的证据与媒体' : 'Evidence and media for this item'}</legend>
               {current.sources.map(source => <label key={source.id} className="flex gap-1 text-caption"><input type="checkbox" checked={block.sourceIds?.includes(source.id) || false} onChange={event => update(draft => ({ ...draft, blocks: draft.blocks.map(item => item.id !== block.id ? item : { ...item, sourceIds: event.target.checked ? [...new Set([...(item.sourceIds || []), source.id])] : item.sourceIds?.filter(id => id !== source.id) }) }))}/><span className="truncate">{source.excerpt?.slice(0, 60) || source.path || source.url}</span></label>)}
             </fieldset>}

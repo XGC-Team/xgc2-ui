@@ -1,3 +1,6 @@
+import { observeSavedFile } from '../review/file-observations'
+import { useSyncExternalStore } from 'react'
+import { isReviewLocked, registerReviewEditor, subscribeWrites } from '../review/write-coordinator'
 import { useWorkbench } from '../../store'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { request } from '../../lib/api'
@@ -10,6 +13,7 @@ type Session = ReturnType<typeof createFileSession<DraftBook>>
 export function useDraftBook(scope: DraftScope, tabId: string, locale: 'zh' | 'en', formDirty = false) {
   const { projectId, workspace } = scope
   const key = draftScopeKey(scope)
+  const reviewLocked = useSyncExternalStore(subscribeWrites, () => isReviewLocked(workspace, DRAFTS_PATH))
   const [bound, setBound] = useState<{ key: string; state: FileState<DraftBook> }>(() => ({ key, state: initialFileState<DraftBook>() }))
   const session = useRef<Session | null>(null)
   const form = useRef(formDirty); form.current = formDirty
@@ -21,10 +25,14 @@ export function useDraftBook(scope: DraftScope, tabId: string, locale: 'zh' | 'e
     }
     const target = { projectId, workspace }
     const path = `/workspaces/${encodeURIComponent(workspace)}/files/${DRAFTS_PATH}`
+    let observed: {content:string;digest:string}|null = null
     const current = createFileSession<DraftBook>({
       port: {
-        read: signal => request<{ content: string; digest: string }>(path, { signal }),
-        write: input => request<{ digest: string }>(path, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) }),
+        read: async signal => { const r=await request<{content:string;digest:string}>(path,{signal}); if(!signal.aborted)observed=r; return r },
+        write: async input => {
+          const r=await request<{digest:string}>(path,{ method: 'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(input) })
+          observeSavedFile(target,DRAFTS_PATH,observed,{content:input.content,digest:r.digest},'editor');observed={content:input.content,digest:r.digest};return r
+        },
       },
       decode: text => parseDraftBook(text, target), encode: serializeDraftBook,
       empty: () => emptyDraftBook(target), changed: state => setBound({ key, state }),
@@ -32,8 +40,12 @@ export function useDraftBook(scope: DraftScope, tabId: string, locale: 'zh' | 'e
     session.current = current
     void current.load()
     const pending = () => useWorkbench.getState().draftIntents.filter(intent => draftScopeKey(intent.scope) === key)
+    const unregisterEditor = registerReviewEditor(workspace, DRAFTS_PATH, {
+      blocked: () => current.snapshot().status !== 'saved' || current.snapshot().dirty || form.current || pending().length > 0,
+      reload: () => current.load(),
+    })
     const guarded = {
-      snapshot: () => ({ ...current.snapshot(), dirty: current.snapshot().dirty || form.current || pending().length > 0 }),
+      snapshot: () => ({ ...current.snapshot(), ...(isReviewLocked(workspace, DRAFTS_PATH) ? {status: 'saving' as const} : {}), dirty: current.snapshot().dirty || form.current || pending().length > 0 }),
       dispose: () => { pending().forEach(intent => useWorkbench.getState().consumeDraftIntent(intent.id)); current.dispose() },
     }
     const unregister = registerTabCloseGuard(tabId, () => confirmFileTabClose(guarded, {
@@ -44,10 +56,10 @@ export function useDraftBook(scope: DraftScope, tabId: string, locale: 'zh' | 'e
       if (guarded.snapshot().dirty) { event.preventDefault(); event.returnValue = '' }
     }
     window.addEventListener('beforeunload', warn)
-    return () => { unregister(); current.dispose(); if (session.current === current) session.current = null; window.removeEventListener('beforeunload', warn) }
+    return () => { unregisterEditor(); unregister(); current.dispose(); if (session.current === current) session.current = null; window.removeEventListener('beforeunload', warn) }
   }, [projectId, workspace, key, tabId])
-  const mutate = useCallback((update: (book: DraftBook) => DraftBook) => { session.current?.edit(update) }, [])
-  const save = useCallback(() => { void session.current?.save() }, [])
-  const reload = useCallback((discardLocal = false) => { void session.current?.load(discardLocal) }, [])
-  return { ...(bound.key === key ? bound.state : initialFileState<DraftBook>()), mutate, save, reload }
+  const mutate = useCallback((update: (book: DraftBook) => DraftBook) => { if (isReviewLocked(workspace, DRAFTS_PATH)) return false; session.current?.edit(update); return true }, [workspace])
+  const save = useCallback(() => { if (!isReviewLocked(workspace, DRAFTS_PATH)) void session.current?.save() }, [workspace])
+  const reload = useCallback((discardLocal = false) => { if (!isReviewLocked(workspace, DRAFTS_PATH)) void session.current?.load(discardLocal) }, [workspace])
+  return { ...(bound.key === key ? bound.state : initialFileState<DraftBook>()), reviewLocked, mutate, save, reload }
 }

@@ -1,3 +1,5 @@
+import { FeedbackButton } from '../review/FeedbackButton'
+import type { Anchor, Rect } from '../review/review-model'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Button } from '../../components/ui'
 import { useWorkbench } from '../../store'
@@ -9,22 +11,35 @@ export function ReadingBridge({ source, projectId, projectWorkspace, fill = fals
 }) {
   const { locale, projectId: selectedProject, requestDraftCapture, readingAnchor } = useWorkbench()
   const root = useRef<HTMLDivElement>(null)
+  const regionStart = useRef<{x:number;y:number}|null>(null)
+  const [reviewRegion, setReviewRegion] = useState<{page:number;rects:Rect[]}|null>(null)
+  const [annotationText, setAnnotationText] = useState('')
   const located = useRef<{ nonce: number; digest?: string } | null>(null)
   const [excerpt, setExcerpt] = useState(''), [notice, setNotice] = useState('')
   const zh = locale === 'zh', target = projectId || selectedProject
   useEffect(() => {
     if (!active) return
-    setExcerpt(''); setNotice('')
+    setExcerpt(''); setNotice(''); setReviewRegion(null); setAnnotationText('')
     const capture = () => {
       const selection = window.getSelection()
       if (!selection?.rangeCount) { setExcerpt(''); return }
       const range = selection.getRangeAt(0)
       const surface = source.buildId ? root.current?.querySelector('[data-xgc-role="pdf-page"]') : root.current
-      if (surface?.contains(range.startContainer) && surface.contains(range.endContainer)) setExcerpt(selection.toString().trim())
+      if (surface?.contains(range.startContainer) && surface.contains(range.endContainer)) {
+        setExcerpt(selection.toString().trim())
+        if (source.buildId && surface instanceof HTMLElement) {
+          const bounds = surface.getBoundingClientRect(), page = Number(surface.dataset.xgcId?.match(/:page:(\d+)$/)?.[1])
+          if (page && bounds.width && bounds.height) setReviewRegion({page, rects:[...range.getClientRects()].map(r=>({x:Math.max(0,(r.left-bounds.left)/bounds.width),y:Math.max(0,(r.top-bounds.top)/bounds.height),width:Math.min(1,r.width/bounds.width),height:Math.min(1,r.height/bounds.height)})).filter(r=>r.width>0&&r.height>0)})
+        }
+      }
       else if (!selection.isCollapsed) setExcerpt('')
     }
+    const pages = new MutationObserver(changes => {
+      if(changes.some(change => change.target instanceof Element && change.target.matches('[data-xgc-role="pdf-page"]'))){setReviewRegion(null);setExcerpt('');setAnnotationText('')}
+    })
+    if(source.buildId&&root.current)pages.observe(root.current,{subtree:true,attributes:true,attributeFilter:['data-xgc-id']})
     document.addEventListener('selectionchange', capture)
-    return () => document.removeEventListener('selectionchange', capture)
+    return () => {pages.disconnect();document.removeEventListener('selectionchange', capture)}
   }, [active, source.workspace, source.path, source.digest, source.buildId])
   useEffect(() => {
     if (!active || !readingAnchor || readingAnchor.workspace !== source.workspace || readingAnchor.path !== source.path) return
@@ -62,13 +77,28 @@ export function ReadingBridge({ source, projectId, projectWorkspace, fill = fals
     requestDraftCapture({ id: crypto.randomUUID(), scope: { projectId: target, workspace: projectWorkspace || target }, kind,
       source: { ...source, ...(page ? { page } : {}), id: crypto.randomUUID(), ...(kind === 'note' ? { excerpt } : {}) } })
   }
+  const feedbackAnchor: Anchor | undefined = source.workspace && source.digest && (excerpt || reviewRegion) ? {
+    kind: source.buildId ? 'pdf' : 'text', workspace:source.workspace, path:source.path, digest:source.digest, quote:excerpt,
+    ...(source.buildId ? {origin:'project-build' as const,buildId:source.buildId,page:reviewRegion?.page || source.page || 1,rects:reviewRegion?.rects || []} : {}),
+  } : undefined
   return <div className={fill ? 'flex h-full min-h-0 flex-col' : 'min-h-0'}>
     <div className="mb-3 flex flex-wrap gap-1">
       <Button size="xs" title={excerpt} disabled={!target || !excerpt || !source.digest} onPointerDown={event => event.preventDefault()} onClick={() => record('note')}>{zh ? '选区形成来源笔记' : 'Create note from selection'}</Button>
       <Button size="xs" disabled={!target} onClick={() => record('material')}>{zh ? '收入项目材料引用' : 'Add project material reference'}</Button>
+      {feedbackAnchor && <FeedbackButton scope={{projectId:target,workspace:projectWorkspace||target}} anchor={feedbackAnchor} body={annotationText} disabled={!active}/> }
       <span className="text-caption text-ink-3">{target ? `${zh ? '目标项目' : 'Target project'} · ${target}` : zh ? '先选择目标项目' : 'Select a target project first'}</span>
     </div>
     {notice && <p role="status" className="mb-2 text-caption text-ink-3">{notice}</p>}
-    <div ref={root} className={fill ? 'flex min-h-0 flex-1 flex-col' : undefined}>{children}</div>
+    <div ref={root} className={fill ? 'flex min-h-0 flex-1 flex-col' : undefined}
+      onInputCapture={event=>{const el=event.target;if(el instanceof HTMLTextAreaElement&&el.closest('[data-xgc-role="pdf-annotation-editor"]'))setAnnotationText(el.value)}}
+      onPointerDownCapture={event=>{if(!active||!source.buildId)return;const el=event.target;if(el instanceof Element&&el.closest('[data-xgc-role="pdf-region-selector"]'))regionStart.current={x:event.clientX,y:event.clientY}}}
+      onPointerCancelCapture={()=>{regionStart.current=null}}
+      onPointerUpCapture={event=>{
+        const start=regionStart.current;regionStart.current=null;if(!start||!active)return
+        const pageEl=root.current?.querySelector<HTMLElement>('[data-xgc-role="pdf-page"]'),box=pageEl?.getBoundingClientRect()
+        const page=Number(pageEl?.dataset.xgcId?.match(/:page:(\d+)$/)?.[1]);if(!box?.width||!box.height||!page)return
+        const clamp=(v:number)=>Math.max(0,Math.min(1,v)),left=clamp((Math.min(start.x,event.clientX)-box.left)/box.width),right=clamp((Math.max(start.x,event.clientX)-box.left)/box.width),top=clamp((Math.min(start.y,event.clientY)-box.top)/box.height),bottom=clamp((Math.max(start.y,event.clientY)-box.top)/box.height)
+        if(right-left>.005&&bottom-top>.005){setExcerpt('');setReviewRegion({page,rects:[{x:left,y:top,width:right-left,height:bottom-top}]})}
+      }}>{children}</div>
   </div>
 }

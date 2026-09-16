@@ -1,3 +1,4 @@
+import type { Anchor, Scope } from './features/review/review-model'
 import { canCloseTab } from './features/projects/tab-close-guards'
 import { draftIdFromAnchor, draftScopeKey, type DraftScope, type DraftIntent, type DraftSource, type DraftKind } from './features/projects/draft-model'
 import { draftCopy } from './features/projects/draft-copy'
@@ -15,19 +16,23 @@ export const NAV_ITEMS = [
 ] as const
 export type NavId = typeof NAV_ITEMS[number]['id']
 /* 右栏标签页：每个标签是一个内容实例（网页/文件/PDF/笔记），统一显示语义，不是大类切换 */
+export type ReviewIntent = { id: string; scope: Scope; anchor: Anchor; body: string; at: string }
 export type RightTab =
+  | {id:string;kind:'reviews';title:string;scope:Scope}
   | {id:string;kind:'drafts';title:string;scope:DraftScope}
   | {id:string;kind:'web';title:string;url?:string}
   | {id:string;kind:'file';title:string;target:ProjectFileTarget}
   | {id:string;kind:'pdf';title:string;pdf:ManuscriptPDF}
   | {id:string;kind:'note';title:string;doc?:{workspace:string;path:string;title:string}}
 export type RightTabInput =
+  | {kind:'reviews';scope:Scope}
   | {kind:'drafts';scope:DraftScope}
   | {kind:'web';url?:string} | {kind:'file';target?:ProjectFileTarget}
   | {kind:'pdf';pdf:ManuscriptPDF}
   | {kind:'note';doc?:{workspace:string;path:string;title:string}}
 const tabId=()=>`rt-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`
 const tabTitle=(input:RightTabInput,locale:'zh'|'en')=>{
+ if(input.kind==='reviews')return locale==='zh'?'反馈与修改审阅':'Feedback and change review'
  if(input.kind==='drafts')return draftCopy[locale].title
  if(input.kind==='pdf')return input.pdf.path.split('/').pop()||'PDF'
  if(input.kind==='note')return input.doc?.title??'阅读'
@@ -36,6 +41,11 @@ const tabTitle=(input:RightTabInput,locale:'zh'|'en')=>{
  return '新网页'
 }
 export const useWorkbench = create<{
+  reviewFocus: {scope:Scope;anchor:Anchor;nonce:string}|null
+  setReviewFocus: (scope:Scope,anchor:Anchor)=>void
+  reviewIntents: ReviewIntent[]
+  requestReviewFeedback: (intent: ReviewIntent) => void
+  consumeReviewFeedback: (id: string) => void
   draftIntents: DraftIntent[]
   requestDraftCapture: (intent: DraftIntent) => void
   consumeDraftIntent: (id: string) => void
@@ -79,6 +89,14 @@ export const useWorkbench = create<{
   paletteOpen:boolean; setPaletteOpen:(open:boolean)=>void
   projectId:string; setProjectId:(id:string)=>void
 }>((set,get)=>({
+  reviewFocus:null, setReviewFocus:(scope,anchor)=>set({reviewFocus:{scope:{...scope},anchor:structuredClone(anchor),nonce:crypto.randomUUID()}}),
+  reviewIntents: [],
+  requestReviewFeedback: intent => {
+    const copy = structuredClone(intent)
+    set(s => ({reviewIntents:s.reviewIntents.some(i=>i.id===copy.id)?s.reviewIntents:[...s.reviewIntents,copy]}))
+    get().openRightTab({kind:'reviews',scope:copy.scope})
+  },
+  consumeReviewFeedback: id => set(s=>({reviewIntents:s.reviewIntents.filter(i=>i.id!==id)})),
   draftIntents: [],
   requestDraftCapture: (intent) => {
     intent = { ...intent, scope: { ...intent.scope }, source: { ...intent.source } }
@@ -126,8 +144,9 @@ export const useWorkbench = create<{
     }
     // Legacy callers bind once on open; a tab never follows subsequent project selection.
     if(input.kind==='file')input={...input,target:input.target??fileTarget(s.projectId,s.projectId)}
-    if(input.kind==='drafts')input={...input,scope:{...input.scope}}
+    if(input.kind==='drafts'||input.kind==='reviews')input={...input,scope:{...input.scope}}
     const existing=s.rightTabs.find(t=>
+      (input.kind==='reviews'&&t.kind==='reviews'&&draftScopeKey(t.scope)===draftScopeKey(input.scope))||
       (input.kind==='drafts'&&t.kind==='drafts'&&draftScopeKey(t.scope)===draftScopeKey(input.scope))||
       (input.kind==='pdf'&&t.kind==='pdf'&&t.pdf.buildId===input.pdf.buildId)||
       (input.kind==='note'&&t.kind==='note'&&(input.doc? t.doc?.workspace===input.doc.workspace&&t.doc?.path===input.doc.path : !t.doc))||
