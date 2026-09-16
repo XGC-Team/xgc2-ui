@@ -18,7 +18,7 @@ export function usePersistentState<T>(
   });
 
   useEffect(() => {
-    window.localStorage.setItem(key, JSON.stringify(value));
+    try { window.localStorage.setItem(key, JSON.stringify(value)); } catch { /* Preference lost; the tool keeps working. */ }
   }, [key, value]);
 
   return [value, setValue] as const;

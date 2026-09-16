@@ -10,6 +10,7 @@ import { IconBtn } from './components/ui'
 import { Rail } from './components/Rail'
 import { Sidebar } from './components/Sidebar'
 import { ResizeHandle } from './components/ResizeHandle'
+import { readPreference, writePreference } from './lib/storage'
 import { CommandPalette } from './components/CommandPalette'
 import { NAV_ITEMS, useWorkbench, type NavId } from './store'
 import { collection, post, listWorkspaces, type Project } from './lib/api'
@@ -31,7 +32,7 @@ const ChatPageM=memo(ChatPage),WorkflowPageM=memo(WorkflowPage),KnowledgePageM=m
 function Workbench(){
  const {theme,locale,activeNav,setActiveNav,setPaletteOpen,projectId,setProjectId,sourceView}=useWorkbench();const native=useNativeAgentSession()
  const {rightOpen:materials,setRightOpen:setMaterials}=useWorkbench()
- const [bottom,setBottom]=useState(localStorage.getItem('research-ui-bottom')==='open'),[sizes,setSizes]=useState<{left:number;right:number;bottom:number}>({left:PANEL.left.default,right:PANEL.right.default,bottom:PANEL.bottom.default})
+ const [bottom,setBottom]=useState(readPreference('research-ui-bottom')==='open'),[sizes,setSizes]=useState<{left:number;right:number;bottom:number}>({left:PANEL.left.default,right:PANEL.right.default,bottom:PANEL.bottom.default})
  const [dragging,setDragging]=useState(false)
  const [sidebar,setSidebar]=useState(true),[projects,setProjects]=useState<Project[]>([]),[error,setError]=useState(''),[reload,setReload]=useState(0),[loading,setLoading]=useState(false)
  const [visited,setVisited]=useState<NavId[]>(['chat'])
@@ -49,7 +50,7 @@ function Workbench(){
  },[reload])
  useEffect(()=>{const refresh=()=>setReload(n=>n+1);window.addEventListener('focus',refresh);const timer=setInterval(refresh,30000);return()=>{clearInterval(timer);window.removeEventListener('focus',refresh)}},[])
  useEffect(()=>{const onKey=(e:KeyboardEvent)=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();setPaletteOpen(true)}if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='j'){e.preventDefault();setBottom(s=>!s)}if((e.metaKey||e.ctrlKey)&&e.key==='.'){e.preventDefault();setMaterials(!useWorkbench.getState().rightOpen)}if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='b'){e.preventDefault();setSidebar(s=>!s)}};window.addEventListener('keydown',onKey);return()=>window.removeEventListener('keydown',onKey)},[setPaletteOpen])
- useEffect(()=>{localStorage.setItem('research-ui-bottom',bottom?'open':'collapsed')},[bottom])
+ useEffect(()=>{writePreference('research-ui-bottom',bottom?'open':'collapsed')},[bottom])
  const projectView=activeNav==='chat'||activeNav==='workflow'
  const quote=useCallback((text:string,targetProject?:string)=>{native.appendDraft(text,targetProject);if(targetProject!==undefined&&targetProject!==projectId)setProjectId(targetProject);setActiveNav('chat')},[native,projectId,setProjectId,setActiveNav])
  const openSession=useCallback((id:string)=>void native.operation(async()=>{await native.openSession(id);setActiveNav('chat')}),[native,setActiveNav])

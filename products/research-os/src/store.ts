@@ -7,6 +7,7 @@ import { fileTarget, sameFileTarget, type ProjectFileTarget } from './features/p
 import type { ManuscriptPDF } from './features/resources/manuscript'
 import type { AcademicNote } from './features/resources/academic-graph'
 import type { PDFRect } from './features/resources/pdf-annotations'
+import { readPreference, writePreference } from './lib/storage'
 import { create } from 'zustand'
 export const NAV_ITEMS = [
   {id:'chat',label:'Chat',description:'与研究助手对话'},
@@ -126,7 +127,7 @@ export const useWorkbench = create<{
   removeContextItem: id => set(s => ({ contextItems: s.contextItems.filter(item => item.id !== id) })),
   patchContextItem: (id, patch) => set(s => ({ contextItems: s.contextItems.map(item => item.id === id ? { ...item, ...patch, id: item.id } : item) })),
 
-  locale:localStorage.getItem('research-ui-locale')==='en'?'en':'zh',setLocale:(locale)=>{localStorage.setItem('research-ui-locale',locale);document.documentElement.lang=locale;set({locale})},
+  locale:readPreference('research-ui-locale')==='en'?'en':'zh',setLocale:(locale)=>{writePreference('research-ui-locale',locale);document.documentElement.lang=locale;set({locale})},
   openPDF:(pdf)=>{get().openRightTab({kind:'pdf',pdf})},
   rightOpen:true,setRightOpen:(rightOpen)=>set({rightOpen}),
   rightTabs:[{id:'rt-initial',kind:'web',title:'新网页'}],activeRightTab:'rt-initial',
@@ -181,11 +182,11 @@ export const useWorkbench = create<{
   knowledgeDocuments:[],setKnowledgeDocuments:(knowledgeDocuments)=>set({knowledgeDocuments}),
   previewDocument:(readingDocument)=>set({readingDocument}),
   closeDocument:()=>set({readingDocument:null}),
-  theme: localStorage.getItem('research-ui-theme') === 'dark' ? 'dark' : 'light',
-  toggleTheme:()=>set(s=>{const theme=s.theme==='light'?'dark':'light';localStorage.setItem('research-ui-theme',theme);return {theme}}),
+  theme: readPreference('research-ui-theme') === 'dark' ? 'dark' : 'light',
+  toggleTheme:()=>set(s=>{const theme=s.theme==='light'?'dark':'light';writePreference('research-ui-theme',theme);return {theme}}),
   activeNav:'chat',setActiveNav:(activeNav)=>set({activeNav}),
-  openChat:()=>{localStorage.setItem('research-ui-project','');set({activeNav:'chat',projectId:'',canvasProject:null})},
+  openChat:()=>{writePreference('research-ui-project','');set({activeNav:'chat',projectId:'',canvasProject:null})},
   canvasProject:null,openCanvas:(project)=>{get().setProjectId(project);set({canvasProject:project,activeNav:'chat',sourceView:null})},closeCanvas:()=>set({canvasProject:null}),
   paletteOpen:false,setPaletteOpen:(paletteOpen)=>set({paletteOpen}),
-  projectId:localStorage.getItem('research-ui-project')||'',setProjectId:(projectId)=>{localStorage.setItem('research-ui-project',projectId);set({projectId})},
+  projectId:readPreference('research-ui-project')||'',setProjectId:(projectId)=>{writePreference('research-ui-project',projectId);set({projectId})},
 }))

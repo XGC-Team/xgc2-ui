@@ -3,10 +3,11 @@ import { lazy, Suspense, StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App'
 import './index.css'
+import { readPreference } from './lib/storage'
 
 const Preview = lazy(() => import('./design-system/Preview'))
 
-document.documentElement.lang = localStorage.getItem('research-ui-locale') === 'en' ? 'en' : 'zh'
+document.documentElement.lang = readPreference('research-ui-locale') === 'en' ? 'en' : 'zh'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
