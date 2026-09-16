@@ -32,6 +32,29 @@ export function parseCanvas(text: string): ThinkingCanvas {
   }
 }
 
+/** The editor must reject unsupported/damaged files rather than overwrite them with a filtered empty canvas.
+ * Unknown fields on a valid v1 file are retained for round-trip compatibility. */
+export function parseEditableCanvas(text: string): ThinkingCanvas {
+  const raw: unknown = JSON.parse(text)
+  const record = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value)
+  if (!record(raw) || raw.version !== 1 || !Array.isArray(raw.nodes) || !Array.isArray(raw.edges)) throw new Error('Unsupported canvas format.')
+  const ids = new Set<string>()
+  for (const node of raw.nodes) {
+    if (!record(node) || typeof node.id !== 'string' || !node.id || ids.has(node.id) ||
+      (node.kind !== 'chapter' && node.kind !== 'idea') || typeof node.title !== 'string' ||
+      typeof node.x !== 'number' || !Number.isFinite(node.x) || typeof node.y !== 'number' || !Number.isFinite(node.y) ||
+      (node.body !== undefined && typeof node.body !== 'string') || (node.anchor !== undefined && typeof node.anchor !== 'string') ||
+      (node.ref !== undefined && (!record(node.ref) || typeof node.ref.path !== 'string' || typeof node.ref.title !== 'string'))) {
+      throw new Error('Invalid canvas node.')
+    }
+    ids.add(node.id)
+  }
+  for (const edge of raw.edges) {
+    if (!record(edge) || typeof edge.from !== 'string' || typeof edge.to !== 'string' || !ids.has(edge.from) || !ids.has(edge.to)) throw new Error('Invalid canvas edge.')
+  }
+  return raw as unknown as ThinkingCanvas
+}
+
 export function serializeCanvas(canvas: ThinkingCanvas): string {
   return JSON.stringify(canvas, null, 2) + '\n'
 }
