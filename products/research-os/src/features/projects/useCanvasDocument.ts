@@ -14,12 +14,14 @@ export function useCanvasDocument(project: string) {
   const [bound, setBound] = useState<{ project: string; state: FileState<ThinkingCanvasV2> }>(() => ({ project, state: initialFileState<ThinkingCanvasV2>() }))
   const state = bound.project === project ? bound.state : initialFileState<ThinkingCanvasV2>()
   const session = useRef<CanvasSession | null>(null)
+  const digest = useRef<string | undefined>(undefined)
   const { canvasReferences, consumeCanvasReference } = useWorkbench()
   useEffect(() => {
+    digest.current = undefined
     const path = `/workspaces/${encodeURIComponent(project)}/files/${CANVAS_PATH}`
     const port = wrapMigratingPort({
-      read: signal => request<{ content: string; digest: string }>(path, { signal }),
-      write: input => request<{ digest: string }>(path, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) }),
+      read: async signal => { const record = await request<{ content: string; digest: string }>(path, { signal }); digest.current = record.digest; return record },
+      write: async input => { const record = await request<{ digest: string }>(path, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) }); digest.current = record.digest; return record },
     }, content => backupCanvasV1(project, content))
     const current = createFileSession<ThinkingCanvasV2>({
       port,
@@ -57,5 +59,5 @@ export function useCanvasDocument(project: string) {
   const mutate = useCallback((update: (canvas: ThinkingCanvasV2) => ThinkingCanvasV2) => { session.current?.edit(update) }, [])
   const retry = useCallback(() => { void session.current?.save() }, [])
   const reload = useCallback((discardLocal = false) => { void session.current?.load(discardLocal) }, [])
-  return { ...state, mutate, retry, reload }
+  return { ...state, mutate, retry, reload, observedDigest: () => digest.current }
 }

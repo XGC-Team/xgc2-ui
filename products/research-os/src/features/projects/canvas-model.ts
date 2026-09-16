@@ -231,8 +231,12 @@ function removeItem(items: OutlineItem[], node: string): OutlineItem[] {
   return items.filter(item => item.node !== node).map(item => item.children ? { ...item, children: removeItem(item.children, node) } : item)
 }
 
-/** Reorder within the same sibling level. This is writing order, never visual position. */
-export function moveOutlineItem(canvas: ThinkingCanvasV2, artifact: string, node: string, offset: -1 | 1): ThinkingCanvasV2 {
+/** Detach a node from one arrangement without deleting it; it returns to the unarranged bucket. */
+export function removeNodeFromArrangement(canvas: ThinkingCanvasV2, artifact: string, node: string): ThinkingCanvasV2 {
+  return updateArrangement(canvas, artifact, outline => ({ ...outline, items: removeItem(outline.items, node) }))
+}
+
+/** Reorder within the same sibling level. This is writing order, never visual position. */export function moveOutlineItem(canvas: ThinkingCanvasV2, artifact: string, node: string, offset: -1 | 1): ThinkingCanvasV2 {
   return updateArrangement(canvas, artifact, outline => {
     const found = findItem(outline.items, node)
     if (!found) return outline
@@ -268,7 +272,7 @@ export function outdentOutlineItem(canvas: ThinkingCanvasV2, artifact: string, n
     if (!parent) return outline
     const moved = found.items[found.index]
     const siblings = found.items.filter((_, index) => index !== found.index)
-    let root = replaceSiblings(outline.items, found, siblings)
+    const root = replaceSiblings(outline.items, found, siblings)
     const relocated = findItem(root, found.parent.node)
     if (!relocated) return outline
     const items = [...relocated.items]
@@ -317,7 +321,7 @@ export function removeNodeEvidence(canvas: ThinkingCanvasV2, id: string, evidenc
   return { ...canvas, nodes: canvas.nodes.map(n => {
     if (n.id !== id) return n
     const evidence = (n.evidence ?? []).filter(item => item.id !== evidenceId)
-    const next = { ...n, evidence }
+    const next: CanvasNodeV2 = { ...n, evidence }
     if (!evidence.length) delete next.evidence
     return next
   }) }
@@ -327,7 +331,7 @@ export function setNodeWriting(canvas: ThinkingCanvasV2, id: string, key: keyof 
     if (n.id !== id) return n
     const writing: WritingConstraints = { ...n.writing }
     if (value) writing[key] = value; else delete writing[key]
-    const next = { ...n, writing }
+    const next: CanvasNodeV2 = { ...n, writing }
     if (!Object.keys(writing).length) delete next.writing
     return next
   }) }
