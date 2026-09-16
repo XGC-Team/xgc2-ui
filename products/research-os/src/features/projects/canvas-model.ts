@@ -215,8 +215,8 @@ export function unarrangedNodeIds(canvas: ThinkingCanvasV2, artifact: string): s
 export function arrangeNode(canvas: ThinkingCanvasV2, artifact: string, node: string, parentNode?: string): ThinkingCanvasV2 {
   if (!canvas.nodes.some(n => n.id === node)) return canvas
   const base = ensureArrangement(canvas, artifact)
+  if (findItem(getArrangement(base, artifact).items, node)) return base
   return updateArrangement(base, artifact, outline => {
-    if (findItem(outline.items, node)) return outline
     if (!parentNode) return { ...outline, items: [...outline.items, { node }] }
     const parent = findItem(outline.items, parentNode)
     if (!parent) return { ...outline, items: [...outline.items, { node }] }

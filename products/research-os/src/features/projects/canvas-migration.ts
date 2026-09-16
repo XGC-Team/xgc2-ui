@@ -1,5 +1,5 @@
-import { request } from '../../lib/api'
-import { CANVAS_V1_BACKUP_PATH } from './canvas-model'
+import { request } from '../../lib/api.ts'
+import { CANVAS_V1_BACKUP_PATH } from './canvas-model.ts'
 import type { FilePort } from './file-session'
 
 /** Read the format version without accepting the file; unknown versions stay the loader's problem. */
