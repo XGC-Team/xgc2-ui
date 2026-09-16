@@ -2908,6 +2908,17 @@ button.xgc-stat-card:disabled {
   background: var(--color-bg-surface-hover);
 }
 
+/* Virtualized windowing: spacer rows only reserve the vertical space of the
+ * unrendered range. They paint no cell chrome and never answer hover. */
+.xgc-data-table tbody > tr.xgc-data-table-spacer-row > td {
+  padding: 0;
+  border-bottom: 0;
+}
+
+.xgc-data-table tbody > tr.xgc-data-table-spacer-row:hover {
+  background: transparent;
+}
+
 .xgc-data-table-empty {
   display: grid;
   min-height: 120px;

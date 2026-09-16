@@ -452,4 +452,125 @@ describe('data display primitives', () => {
     fireEvent.change(screen.getByRole('combobox', { name: 'Rows per page' }), { target: { value: '50' } });
     expect(onPageSizeChange).toHaveBeenCalledWith(50);
   });
+
+  it('windows long bounded row lists only when virtualization is opted in', () => {
+    vi.spyOn(Element.prototype, 'clientHeight', 'get').mockReturnValue(310);
+    const rows = Array.from({ length: 500 }, (_, index) => ({ id: `row-${index}`, name: `package-${index}` }));
+    const { container } = render(
+      <SortableDataTable
+        bodyScroll
+        virtualizeRows
+        columns={[{ id: 'package', header: 'Package', cell: (row) => row.name }]}
+        rowKey={(row) => row.id}
+        rows={rows}
+      />,
+    );
+    expect(container.querySelector('.xgc-data-table')).toHaveAttribute('data-virtualized', 'true');
+    const viewport = container.querySelector('[data-xgc-role="data-table-row-viewport"]')!;
+    expect(viewport).toHaveAttribute('tabindex', '0');
+    const dataRows = viewport.querySelectorAll('tr:not(.xgc-data-table-spacer-row)');
+    expect(dataRows.length).toBeGreaterThan(0);
+    expect(dataRows.length).toBeLessThan(100);
+    expect(screen.getByRole('cell', { name: 'package-0' })).toBeInTheDocument();
+    expect(screen.queryByRole('cell', { name: 'package-499' })).toBeNull();
+    // At the top there is no leading spacer; one trailing spacer reserves the tail.
+    const spacers = viewport.querySelectorAll('.xgc-data-table-spacer-row');
+    expect(spacers).toHaveLength(1);
+    expect(viewport.firstElementChild).not.toHaveClass('xgc-data-table-spacer-row');
+    expect(viewport.lastElementChild).toHaveClass('xgc-data-table-spacer-row');
+    const pad = Number.parseFloat((spacers[0]!.querySelector('td')!).style.height);
+    expect(pad + dataRows.length * 31).toBe(500 * 31);
+  });
+
+  it('reaches tail rows and keeps row stamps when the virtualized viewport scrolls', () => {
+    vi.spyOn(Element.prototype, 'clientHeight', 'get').mockReturnValue(310);
+    const rows = Array.from({ length: 500 }, (_, index) => ({ id: `row-${index}`, name: `package-${index}` }));
+    const { container } = render(
+      <SortableDataTable
+        bodyScroll
+        virtualizeRows
+        columns={[{ id: 'package', header: 'Package', cell: (row) => row.name }]}
+        getRowProps={(row) => ({ 'data-xgc-role': 'package-row', 'data-xgc-id': row.id })}
+        rowKey={(row) => row.id}
+        rows={rows}
+      />,
+    );
+    const viewport = container.querySelector('[data-xgc-role="data-table-row-viewport"]')!;
+    fireEvent.scroll(viewport, { target: { scrollTop: 499 * 31 } });
+    expect(screen.getByRole('cell', { name: 'package-499' })).toBeInTheDocument();
+    expect(screen.queryByRole('cell', { name: 'package-0' })).toBeNull();
+    // Scrolled to the tail: one leading spacer, and the last data row stays the
+    // viewport's last child so its borderless-last-row contract still applies.
+    const spacers = viewport.querySelectorAll('.xgc-data-table-spacer-row');
+    expect(spacers).toHaveLength(1);
+    expect(viewport.firstElementChild).toHaveClass('xgc-data-table-spacer-row');
+    expect(viewport.lastElementChild).not.toHaveClass('xgc-data-table-spacer-row');
+    const pad = Number.parseFloat((spacers[0]!.querySelector('td')!).style.height);
+    const dataRows = viewport.querySelectorAll('tr:not(.xgc-data-table-spacer-row)');
+    expect(pad + dataRows.length * 31).toBe(500 * 31);
+    // getRowProps stamping survives windowing for every rendered row.
+    const stamped = viewport.querySelectorAll('[data-xgc-role="package-row"]');
+    expect(stamped).toHaveLength(dataRows.length);
+    expect(viewport.querySelector('[data-xgc-id="row-499"]')).toBeInTheDocument();
+  });
+
+  it('keeps the virtualized window aligned with the sorted order', () => {
+    vi.spyOn(Element.prototype, 'clientHeight', 'get').mockReturnValue(310);
+    const rows = Array.from({ length: 200 }, (_, index) => ({ id: `row-${index}`, size: 200 - index }));
+    const columns = [{
+      id: 'size', header: 'Size', sortable: true, sortValue: (row: { size: number }) => row.size, cell: (row: { size: number }) => row.size,
+    }];
+    const { container } = render(
+      <SortableDataTable
+        bodyScroll
+        virtualizeRows
+        columns={columns}
+        defaultSort={{ columnId: 'size', direction: 'ascending' }}
+        rowKey={(row) => row.id}
+        rows={rows}
+      />,
+    );
+    const viewport = container.querySelector('[data-xgc-role="data-table-row-viewport"]')!;
+    const firstDataCell = () => viewport.querySelector('tr:not(.xgc-data-table-spacer-row) td');
+    expect(firstDataCell()).toHaveTextContent('1');
+    expect(viewport.querySelectorAll('tr:not(.xgc-data-table-spacer-row)').length).toBeLessThan(200);
+    fireEvent.click(screen.getByRole('button', { name: 'Sort by Size' }));
+    expect(screen.getByRole('columnheader', { name: 'Size' })).toHaveAttribute('aria-sort', 'descending');
+    expect(firstDataCell()).toHaveTextContent('200');
+    fireEvent.scroll(viewport, { target: { scrollTop: 199 * 31 } });
+    expect(firstDataCell()).toHaveTextContent('9');
+    expect(screen.getByRole('cell', { name: '1' })).toBeInTheDocument();
+  });
+
+  it('renders short bounded lists in full even when virtualization is opted in', () => {
+    const rows = Array.from({ length: 50 }, (_, index) => ({ id: `row-${index}`, name: `package-${index}` }));
+    const { container } = render(
+      <SortableDataTable
+        bodyScroll
+        virtualizeRows
+        columns={[{ id: 'package', header: 'Package', cell: (row) => row.name }]}
+        rowKey={(row) => row.id}
+        rows={rows}
+      />,
+    );
+    expect(screen.getByRole('cell', { name: 'package-49' })).toBeInTheDocument();
+    expect(container.querySelector('.xgc-data-table')).not.toHaveAttribute('data-virtualized');
+    expect(container.querySelectorAll('.xgc-data-table-spacer-row')).toHaveLength(0);
+    expect(container.querySelectorAll('tbody tr')).toHaveLength(50);
+  });
+
+  it('ignores virtualization without a bounded row viewport', () => {
+    const rows = Array.from({ length: 150 }, (_, index) => ({ id: `row-${index}`, name: `package-${index}` }));
+    const { container } = render(
+      <SortableDataTable
+        virtualizeRows
+        columns={[{ id: 'package', header: 'Package', cell: (row) => row.name }]}
+        rowKey={(row) => row.id}
+        rows={rows}
+      />,
+    );
+    expect(container.querySelector('.xgc-data-table')).not.toHaveAttribute('data-virtualized');
+    expect(container.querySelectorAll('.xgc-data-table-spacer-row')).toHaveLength(0);
+    expect(container.querySelectorAll('tbody tr')).toHaveLength(150);
+  });
 });

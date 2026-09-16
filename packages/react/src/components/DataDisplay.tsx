@@ -150,6 +150,11 @@ export type SortableDataTableProps<Row> = Omit<DataTableProps, 'children' | 'emp
   onSortChange?: (sort: DataTableSort) => void;
   rowKey: (row: Row) => string;
   rows: readonly Row[];
+  /** Window long bounded row lists. Only effective together with `bodyScroll`
+   * once the row count reaches the family threshold; shorter lists keep the
+   * exact full-render geometry. Rows keep the fixed dense height contract, so
+   * windowing never changes row heights or column sizing. */
+  virtualizeRows?: boolean;
   selection?: DataTableSelection<Row>;
   sort?: DataTableSort;
   tableProps?: DataTableTableProps;
@@ -172,6 +177,16 @@ function DataTableCheckbox({ indeterminate = false, onClick, ...props }: InputHT
     />
   );
 }
+
+/** Row count from which an opted-in bounded table starts windowing. */
+const VIRTUALIZED_MIN_ROWS = 100;
+/** Extra rows rendered beyond each viewport edge so scrolling never shows a blank band. */
+const VIRTUALIZED_OVERSCAN_ROWS = 8;
+/** First-paint estimate: the fixed dense row (--size-control-default) plus its
+ * bottom hairline. Replaced by a real measurement after the first layout pass. */
+const FALLBACK_VIRTUAL_ROW_HEIGHT = 31;
+/** Rows painted before the viewport height is known; the layout pass corrects it pre-paint. */
+const FALLBACK_VIRTUAL_VIEWPORT_ROWS = 40;
 
 function compareDataTableValues(
   left: Date | number | string | null | undefined,
@@ -205,10 +220,14 @@ export function SortableDataTable<Row>({
   selection,
   sort,
   tableProps,
+  virtualizeRows = false,
   ...props
 }: SortableDataTableProps<Row>) {
   const [internalSort, setInternalSort] = useState<DataTableSort | undefined>(defaultSort);
   const [bodyColumnWidths, setBodyColumnWidths] = useState<number[]>([]);
+  const [scrollTop, setScrollTop] = useState(0);
+  const [viewportHeight, setViewportHeight] = useState(0);
+  const [measuredRowHeight, setMeasuredRowHeight] = useState(FALLBACK_VIRTUAL_ROW_HEIGHT);
   const bodyViewportRef = useRef<HTMLTableSectionElement>(null);
   const activeSort = sort ?? internalSort;
   const activeColumn = activeSort ? columns.find((column) => column.id === activeSort.columnId) : undefined;
@@ -242,6 +261,16 @@ export function SortableDataTable<Row>({
   const allSelected = Boolean(selection && rows.length && selectedOnPage === rows.length);
   const someSelected = Boolean(selection && selectedOnPage > 0 && !allSelected);
 
+  const virtualized = virtualizeRows && bodyScroll && rows.length >= VIRTUALIZED_MIN_ROWS;
+  const rowHeight = measuredRowHeight > 0 ? measuredRowHeight : FALLBACK_VIRTUAL_ROW_HEIGHT;
+  const rowWindow = useMemo(() => {
+    if (!virtualized) return { start: 0, end: visibleRows.length, topPad: 0, bottomPad: 0 };
+    const height = viewportHeight > 0 ? viewportHeight : FALLBACK_VIRTUAL_VIEWPORT_ROWS * rowHeight;
+    const start = Math.max(0, Math.floor(scrollTop / rowHeight) - VIRTUALIZED_OVERSCAN_ROWS);
+    const end = Math.min(visibleRows.length, Math.ceil((scrollTop + height) / rowHeight) + VIRTUALIZED_OVERSCAN_ROWS);
+    return { start, end, topPad: start * rowHeight, bottomPad: (visibleRows.length - end) * rowHeight };
+  }, [rowHeight, scrollTop, viewportHeight, virtualized, visibleRows.length]);
+
   useLayoutEffect(() => {
     if (!bodyScroll) {
       setBodyColumnWidths([]);
@@ -250,13 +279,17 @@ export function SortableDataTable<Row>({
     const viewport = bodyViewportRef.current;
     if (!viewport) return undefined;
     // The first real row owns natural column sizing; measured widths are applied
-    // only to headers and later rows. Writing them back to the measured row would
-    // freeze its previous pixel widths when the viewport shrinks. Never measure
-    // the empty-mode colSpan row as if it were a one-column data row.
-    const firstDataRow = Array.from(viewport.rows).find(
-      (row) => !row.classList.contains('xgc-data-table-empty-row'),
+    // to headers and (except for the sizing owner in a fully rendered table) to
+    // data rows. Never measure the empty-mode colSpan row or a virtualization
+    // spacer as if it were a data row. Under windowing the sizing owner scrolls
+    // out, so resolve the first mounted data row at measurement time instead of
+    // pinning the one present when this effect ran.
+    const findFirstDataRow = () => Array.from(viewport.rows).find(
+      (row) => !row.classList.contains('xgc-data-table-empty-row')
+        && !row.classList.contains('xgc-data-table-spacer-row'),
     );
     const synchronizeColumns = () => {
+      const firstDataRow = findFirstDataRow();
       const nextWidths = firstDataRow
         ? Array.from(firstDataRow.cells, (cell) => cell.getBoundingClientRect().width)
         : [];
@@ -266,14 +299,22 @@ export function SortableDataTable<Row>({
           ? current
           : nextWidths
       ));
+      if (virtualized) {
+        if (viewport.clientHeight > 0) {
+          setViewportHeight((current) => (current === viewport.clientHeight ? current : viewport.clientHeight));
+        }
+        const height = firstDataRow?.getBoundingClientRect().height ?? 0;
+        if (height > 0) setMeasuredRowHeight((current) => (current === height ? current : height));
+      }
     };
     synchronizeColumns();
     if (typeof ResizeObserver === 'undefined') return undefined;
     const observer = new ResizeObserver(synchronizeColumns);
     observer.observe(viewport);
+    const firstDataRow = findFirstDataRow();
     if (firstDataRow) observer.observe(firstDataRow);
     return () => observer.disconnect();
-  }, [bodyScroll, columns, selection, visibleRows]);
+  }, [bodyScroll, columns, selection, virtualized, visibleRows]);
 
   const toggleAll = () => {
     if (!selection || selection.disabled) return;
@@ -291,6 +332,7 @@ export function SortableDataTable<Row>({
       {...props}
       data-body-scroll={bodyScroll || undefined}
       data-sticky-header={stickyHeader ? 'true' : undefined}
+      data-virtualized={virtualized || undefined}
       empty={rows.length === 0 && emptyMode !== 'table'}
       emptyMessage={emptyMessage}
     >
@@ -349,13 +391,19 @@ export function SortableDataTable<Row>({
           data-xgc-role="data-table-row-viewport"
           ref={bodyViewportRef}
           tabIndex={bodyScroll || emptyTable ? 0 : undefined}
+          onScroll={virtualized ? (event) => setScrollTop(event.currentTarget.scrollTop) : undefined}
         >
           {emptyTable && emptyMessage != null ? (
             <tr aria-busy="false" className="xgc-data-table-empty-row">
               <td colSpan={(selection ? 1 : 0) + columns.length}>{emptyMessage}</td>
             </tr>
           ) : null}
-          {visibleRows.map((row, rowIndex) => {
+          {virtualized && rowWindow.topPad > 0 ? (
+            <tr aria-hidden="true" className="xgc-data-table-spacer-row">
+              <td colSpan={(selection ? 1 : 0) + columns.length} style={{ height: rowWindow.topPad }} />
+            </tr>
+          ) : null}
+          {(virtualized ? visibleRows.slice(rowWindow.start, rowWindow.end) : visibleRows).map((row, rowIndex) => {
             const key = rowKey(row);
             const selected = selection?.selectedRowKeys.has(key) ?? false;
             const rowProps = getRowProps?.(row);
@@ -409,6 +457,11 @@ export function SortableDataTable<Row>({
               </tr>
             );
           })}
+          {virtualized && rowWindow.bottomPad > 0 ? (
+            <tr aria-hidden="true" className="xgc-data-table-spacer-row">
+              <td colSpan={(selection ? 1 : 0) + columns.length} style={{ height: rowWindow.bottomPad }} />
+            </tr>
+          ) : null}
         </tbody>
       </table>
     </DataTable>

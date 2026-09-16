@@ -1,5 +1,9 @@
 # @xgc2/ui-react
 
+## 0.16.13
+
+- Add opt-in row windowing to `SortableDataTable` via `virtualizeRows`. With `bodyScroll` and at least 100 rows, the bounded row viewport renders only the visible window plus overscan, reserving the unrendered range with spacer rows, while sticky header, column width sync, row stamping, sort, and selection contracts are unchanged. Shorter lists render exactly as before.
+
 ## 0.16.12
 
 - Reuse the Drawer owner's semantic identity on discard summaries and change lists. Anonymous drawers do not declare markable roles.
