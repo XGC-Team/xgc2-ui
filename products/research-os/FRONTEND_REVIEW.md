@@ -28,6 +28,8 @@ Visual baseline remains this product's `DESIGN_SYSTEM.md`: monochrome shell, ful
 
 The linear and card views both use `draft.blocks`; F2 must extend these objects, not copy their content into a second outline. A canvas association is an explicit, reversible **reference node**, with an anchor `research-drafts.json#<draft-id>`. Clicking it resolves the original book/object. The node's editable label is navigation metadata, not the object's title/body. A saved object is required before association. Only the existing mounted canvas session writes the canvas; there is no competing background file writer. Removing the reference leaves the original object intact.
 
+F2 is delivered on top of this contract: see [F2_REVIEW.md](./F2_REVIEW.md) for the canvas v2 schema (layout/outline/semantics/evidence separated), the v1 backup migration, the same-source outline view, and the versioned Chat context set. The reference-node anchor contract above is preserved by the v2 serializer.
+
 Source notes preserve the source workspace, path, observed digest and bounded selection text. PDF captures also retain build/page when available. Common-source selection references the same source identity from multiple artifacts; per-page/shot/block associations use source IDs. A reference without a pinned digest is explicitly labeled as opening the current original.
 
 Returning to a changed source never silently repins the old quote: the reader shows a revision warning. Exact-text positioning occurs only for a unique match in the recorded revision. Hidden readers cannot steal selection/focus. Missing or ambiguous wiki links produce an error; unavailable historical PDF versions do not silently fall back to the newest PDF.

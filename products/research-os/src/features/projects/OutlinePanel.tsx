@@ -77,8 +77,8 @@ export function OutlinePanel({ canvas, artifact, selected, onArtifact, onSelect,
           <input aria-label={copy.outline} className={cn('min-w-0 flex-1 bg-transparent outline-none', item.kind === 'chapter' ? 'font-display text-[14px] tracking-tight' : 'text-secondary text-ink-2')} value={item.title}
             onFocus={() => onSelect(node)} onChange={event => apply(c => ({ ...c, nodes: c.nodes.map(n => n.id === node ? { ...n, title: event.target.value } : n) }), `outline-title:${node}`)}/>
           <IconBtn icon={Crosshair} label={copy.locateCanvas} onClick={() => onLocate(node)}/>
-          <IconBtn icon={ArrowUp} label={`${copy.outline} ↑`} disabled={index <= 0 || flat[index - 1].depth !== depth} onClick={() => apply(c => moveOutlineItem(c, artifact, node, -1))}/>
-          <IconBtn icon={ArrowDown} label={`${copy.outline} ↓`} disabled={index >= flat.length - 1 || flat[index + 1]?.depth !== depth} onClick={() => apply(c => moveOutlineItem(c, artifact, node, 1))}/>
+          <IconBtn icon={ArrowUp} label={copy.moveUp} disabled={index <= 0 || flat[index - 1].depth !== depth} onClick={() => apply(c => moveOutlineItem(c, artifact, node, -1))}/>
+          <IconBtn icon={ArrowDown} label={copy.moveDown} disabled={index >= flat.length - 1 || flat[index + 1]?.depth !== depth} onClick={() => apply(c => moveOutlineItem(c, artifact, node, 1))}/>
           <IconBtn icon={ChevronRight} label={copy.indent} disabled={sameDepth.findIndex(row => row.node === node) <= 0} onClick={() => apply(c => indentOutlineItem(c, artifact, node))}/>
           <IconBtn icon={ChevronLeft} label={copy.outdent} disabled={depth === 0} onClick={() => apply(c => outdentOutlineItem(c, artifact, node))}/>
           <IconBtn icon={EyeOff} label={copy.removeFromOutline} onClick={() => apply(c => removeNodeFromArrangement(c, artifact, node))}/>

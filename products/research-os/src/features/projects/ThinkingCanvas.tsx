@@ -42,7 +42,7 @@ export function ThinkingCanvas({project,active=true,onRequestConversation}:{proj
  const copyTimer=useRef<ReturnType<typeof setTimeout>>(undefined)
  useEffect(()=>()=>clearTimeout(copyTimer.current),[])
  const box=useRef<HTMLDivElement>(null),fitted=useRef(false)
- const drag=useRef<{mode:'pan'|'node'|'edge';id?:string;sx:number;sy:number;cam?:Cam;cur?:{x:number;y:number}}|null>(null)
+ const drag=useRef<{mode:'pan'|'node'|'edge';id?:string;sx:number;sy:number;ox?:number;oy?:number;moved?:boolean;cam?:Cam;cur?:{x:number;y:number}}|null>(null)
  const [tempEdge,setTempEdge]=useState<{from:string;to:{x:number;y:number}}|null>(null)
  /* 局部撤销/重做：内容快照在会话内移动，不触碰保存状态；输入类编辑按字段合并。 */
  const past=useRef<ThinkingCanvasV2[]>([]),future=useRef<ThinkingCanvasV2[]>([])
@@ -73,13 +73,15 @@ export function ThinkingCanvas({project,active=true,onRequestConversation}:{proj
  const toWorld=useCallback((cx:number,cy:number)=>{const r=box.current!.getBoundingClientRect();return{x:(cx-r.left-cam.x)/cam.k,y:(cy-r.top-cam.y)/cam.k}},[cam])
  /* 指针：背景平移 / 节点拖动（只改视觉位置）/ 拉边 */
  const onPointerDown=(e:React.PointerEvent)=>{if(e.target===e.currentTarget||(e.target as HTMLElement).dataset.world){box.current?.focus({preventScroll:true});drag.current={mode:'pan',sx:e.clientX,sy:e.clientY,cam};(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);setSel(null)}}
- const nodeDown=(e:React.PointerEvent,n:CanvasNodeV2)=>{if((e.target as HTMLElement).closest('input,textarea,button,[data-handle]'))return;e.stopPropagation();box.current?.focus({preventScroll:true});setSel({kind:'node',id:n.id});drag.current={mode:'node',id:n.id,sx:e.clientX,sy:e.clientY};box.current!.setPointerCapture(e.pointerId)}
+ const nodeDown=(e:React.PointerEvent,n:CanvasNodeV2)=>{if((e.target as HTMLElement).closest('input,textarea,button,[data-handle]'))return;e.stopPropagation();box.current?.focus({preventScroll:true});drag.current={mode:'node',id:n.id,sx:e.clientX,sy:e.clientY,ox:e.clientX,oy:e.clientY};box.current!.setPointerCapture(e.pointerId)}
  const handleDown=(e:React.PointerEvent,n:CanvasNodeV2)=>{e.stopPropagation();drag.current={mode:'edge',id:n.id,sx:e.clientX,sy:e.clientY};box.current!.setPointerCapture(e.pointerId)}
  const onPointerMove=(e:React.PointerEvent)=>{const d=drag.current;if(!d)return
   if(d.mode==='pan'&&d.cam)setCam({...d.cam,x:d.cam.x+e.clientX-d.sx,y:d.cam.y+e.clientY-d.sy})
-  else if(d.mode==='node'&&d.id){const dx=(e.clientX-d.sx)/cam.k,dy=(e.clientY-d.sy)/cam.k;d.sx=e.clientX;d.sy=e.clientY;apply(c=>({...c,nodes:c.nodes.map(n=>n.id===d.id?{...n,x:n.x+dx,y:n.y+dy}:n)}),`move:${d.id}`)}
+  else if(d.mode==='node'&&d.id){const dx=(e.clientX-d.sx)/cam.k,dy=(e.clientY-d.sy)/cam.k;if(Math.abs(e.clientX-(d.ox??e.clientX))+Math.abs(e.clientY-(d.oy??e.clientY))>4)d.moved=true;d.sx=e.clientX;d.sy=e.clientY;apply(c=>({...c,nodes:c.nodes.map(n=>n.id===d.id?{...n,x:n.x+dx,y:n.y+dy}:n)}),`move:${d.id}`)}
   else if(d.mode==='edge'&&d.id)setTempEdge({from:d.id,to:toWorld(e.clientX,e.clientY)})}
  const onPointerUp=(e:React.PointerEvent)=>{const d=drag.current;drag.current=null
+  // A click selects on release; a drag moves layout only and never opens the inspector mid-gesture.
+  if(d?.mode==='node'&&d.id&&!d.moved&&!(e.target as HTMLElement).closest('input,textarea,button,[data-handle]'))setSel({kind:'node',id:d.id})
   if(d?.mode==='edge'&&d.id){setTempEdge(null);const el=document.elementFromPoint(e.clientX,e.clientY)?.closest<HTMLElement>('[data-node]');const to=el?.dataset.node
    if(to&&to!==d.id)apply(c=>addCanvasEdge(c,d.id!,to))}}
  const onWheel=(e:React.WheelEvent)=>{const r=box.current!.getBoundingClientRect();const k=Math.min(1.8,Math.max(0.35,cam.k*Math.exp(-e.deltaY*0.0012)));const mx=e.clientX-r.left,my=e.clientY-r.top
