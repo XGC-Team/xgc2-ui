@@ -16,6 +16,7 @@ export function ProjectObjects({ project }: { project: Project }) {
   const select = () => { setProjectId(project.id); closeSourceView() }
   const openFiles = (view: ProjectFileView) => { select(); openRightTab({ kind: 'file', target: fileTarget(project.id, workspace, view) }) }
   const actions = [
+    { id: 'reviews', label: locale === 'zh' ? '反馈与修改审阅' : 'Feedback and change review', icon: FileText, open: () => { select(); openRightTab({kind:'reviews',scope:{projectId:project.id,workspace}}) } },
     { id: 'files', label: copy.files, icon: Folder, open: () => openFiles('files') },
     { id: 'notes', label: locale === 'zh' ? '来源笔记' : 'Source notes', icon: IconKnowledge, open: () => { select(); selectResearchDraft({ projectId: project.id, workspace }, '', 'note') } },
     { id: 'markdown', label: copy.notes, icon: IconKnowledge, open: () => openFiles('notes') },

@@ -4,66 +4,72 @@ import {t as tr} from '../../i18n'
 import {useWorkbench} from '../../store'
 import {post,request} from '../../lib/api'
 import {Button,IconBtn} from '../../components/ui'
+import {FeedbackButton} from '../review/FeedbackButton'
+import {readBuildRecords,requireBuildSource} from '../review/review-api'
+import {buildSourceMatch} from '../review/build-provenance'
 
-/* 源码舞台：PDF 批注 ⇄ LaTeX 源码双向跳转的中央区。
-   排版即设计：等宽正文、行号栏、目标行柔和高亮，不做多余装饰。 */
+/** Current source is not the build snapshot. Positional mapping is enabled only with matching input evidence. */
 export function SourceStage(){
- const {sourceView:view,closeSourceView,flashPDF}=useWorkbench()
- const [content,setContent]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false)
- const [cursor,setCursor]=useState(1)
+ const {sourceView:view,closeSourceView,flashPDF,locale}=useWorkbench();const zh=locale==='zh'
+ const [content,setContent]=useState(''),[digest,setDigest]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false),[loading,setLoading]=useState(false)
+ const [mapping,setMapping]=useState<'match'|'changed'|'unknown'>('unknown'),[cursor,setCursor]=useState(0)
  const bodyRef=useRef<HTMLDivElement>(null)
  useEffect(()=>{
-  setContent('');setError('')
+  setContent('');setDigest('');setError('');setCursor(0);setMapping('unknown')
   if(!view)return
-  setCursor(view.line)
-  const c=new AbortController()
-  request<{content:string}>(`/workspaces/${encodeURIComponent(view.workspace)}/files/${view.path.split('/').map(encodeURIComponent).join('/')}`,{signal:c.signal})
-   .then(d=>{if(!c.signal.aborted)setContent(d.content)})
-   .catch(e=>{if(!c.signal.aborted)setError(e.message)})
+  const c=new AbortController();setLoading(true)
+  void (async()=>{
+   const d=await request<{content:string;digest:string}>(`/workspaces/${encodeURIComponent(view.workspace)}/files/${view.path.split('/').map(encodeURIComponent).join('/')}`,{signal:c.signal})
+   if(c.signal.aborted)return
+   if(typeof d.content!=='string'||!d.digest)throw Error('Missing source content/revision.')
+   setContent(d.content);setDigest(d.digest)
+   const records=await readBuildRecords(view.workspace,c.signal)
+   if(c.signal.aborted)return
+   const match=buildSourceMatch(records.find(r=>r.manifest.buildId===view.buildId),view.workspace,view.path,d.digest)
+   setMapping(match);if(match==='match'&&view.line<=d.content.split('\n').length)setCursor(view.line)
+  })().catch(e=>{if(!c.signal.aborted)setError(e.message)}).finally(()=>{if(!c.signal.aborted)setLoading(false)})
   return()=>c.abort()
  },[view])
  const lines=useMemo(()=>content.split('\n'),[content])
- /* 目标行滚动到视野中部，高亮呼吸一次后常驻 */
  useEffect(()=>{
-  if(!view||!lines.length)return
-  const el=bodyRef.current?.querySelector<HTMLElement>(`[data-line="${view.line}"]`)
-  el?.scrollIntoView({block:'center',behavior:'auto'})
- },[view,lines])
- useEffect(()=>{
-  const close=(e:KeyboardEvent)=>{if(e.key==='Escape')closeSourceView()}
-  window.addEventListener('keydown',close)
-  return()=>window.removeEventListener('keydown',close)
- },[closeSourceView])
+  if(!view||mapping!=='match')return
+  bodyRef.current?.querySelector<HTMLElement>(`[data-line="${view.line}"]`)?.scrollIntoView({block:'center',behavior:'auto'})
+ },[view,mapping])
+ useEffect(()=>{const close=(e:KeyboardEvent)=>{if(e.key==='Escape')closeSourceView()};window.addEventListener('keydown',close);return()=>window.removeEventListener('keydown',close)},[closeSourceView])
  if(!view)return null
  async function locateInPDF(){
-  if(!view||busy)return
+  if(!view||busy||mapping!=='match'||!cursor)return
   setBusy(true);setError('')
   try{
+   // The remote file may have changed since it was displayed.
+   const fresh=await request<{digest:string}>(`/workspaces/${encodeURIComponent(view.workspace)}/files/${view.path.split('/').map(encodeURIComponent).join('/')}`)
+   if(fresh.digest!==digest)throw Error(zh?'当前源码版本已变化，未使用旧行号定位。':'Source changed; old line coordinates were not used.')
+   await requireBuildSource(view.workspace,view.path,view.buildId,digest)
    const box=await post<{page:number;x:number;y:number;width:number;height:number}>(`/manuscripts/build-records/${encodeURIComponent(view.buildId)}/synctex`,{mode:'view',file:view.path,line:cursor})
    flashPDF({buildId:view.buildId,page:box.page,box:{x:box.x,y:box.y,width:box.width,height:box.height}},view.pdf)
-  }catch(e){setError(e instanceof Error?e.message:String(e))}
-  finally{setBusy(false)}
+  }catch(e){setError(e instanceof Error?e.message:String(e))}finally{setBusy(false)}
  }
+ const start=cursor>0?lines.slice(0,cursor-1).join('\n').length+(cursor>1?1:0):0
  return <section aria-label={tr('稿件源码')} data-xgc-role="source-stage" className="flex h-full min-h-0 flex-col bg-base">
-  <header className="flex h-11 shrink-0 items-center gap-2 border-b border-line px-4">
+  <header className="flex min-h-11 shrink-0 flex-wrap items-center gap-2 border-b border-line px-4">
    <FileCode2 size={15} strokeWidth={1.75} className="shrink-0 text-ink-2"/>
    <span className="min-w-0 flex-1 truncate text-[13px] font-medium" title={view.path}>{view.path}</span>
-   <span className="shrink-0 text-caption tabular-nums text-ink-3">{tr('行')} {cursor}{lines.length?` / ${lines.length}`:''}</span>
-   <Button variant="solid" icon={LocateFixed} loading={busy} disabled={!content} onClick={()=>void locateInPDF()} data-xgc-role="source-locate-pdf">{tr('在 PDF 中定位')}</Button>
+   <span className="shrink-0 text-caption tabular-nums text-ink-3">{tr('行')} {cursor||'—'} / {lines.length}</span>
+   {cursor>0&&lines[cursor-1]&&digest&&<FeedbackButton scope={{projectId:view.workspace,workspace:view.workspace}} displayed={lines[cursor-1]} target={{kind:'text',workspace:view.workspace,path:view.path,start,end:start+lines[cursor-1].length}}/>}
+   <Button variant="solid" icon={LocateFixed} loading={busy} disabled={mapping!=='match'||!cursor} onClick={()=>void locateInPDF()} data-xgc-role="source-locate-pdf">{tr('在 PDF 中定位')}</Button>
    <IconBtn icon={X} label={tr('关闭源码')} onClick={closeSourceView}/>
   </header>
+  <p className="break-all px-4 pt-2 text-caption">{zh?'当前源码版本':'Current source revision'} · {digest||'—'}</p>
+  {mapping!=='match'&&<p role="status" className="px-4 py-2 text-caption">{zh?'待确认：当前源码与被批注构建尚未证明一致；未自动高亮旧行号。可手动选择当前源码行提出反馈。':'Needs confirmation: current source is not verified against the annotated build. Old line numbers were not highlighted. Select a current source line for feedback.'}</p>}
   {error&&<p role="alert" className="ui-error">{error}</p>}
   <div ref={bodyRef} className="min-h-0 flex-1 overflow-auto py-4">
-   {!content&&!error&&<p className="px-6 text-secondary text-ink-3">{tr('正在读取…')}</p>}
-   {content&&<div className="min-w-max font-mono text-[12.5px] leading-[1.7]">
-    {lines.map((text,i)=>{
-     const n=i+1,target=n===view.line,active=n===cursor
-     return <div key={n} data-line={n} onClick={()=>setCursor(n)}
-      className={`flex cursor-pointer pr-6 transition-colors duration-150 ${target?'bg-ink/[0.07]':active?'bg-ink/[0.04]':'hover:bg-ink/[0.03]'}`}>
+   {loading&&!digest&&<p className="px-6 text-secondary text-ink-3">{tr('正在读取…')}</p>}
+   {digest&&<div className="min-w-max font-mono text-[12.5px] leading-[1.7]">
+    {lines.map((text,i)=>{const n=i+1,target=mapping==='match'&&n===view.line,active=n===cursor
+     return <button type="button" key={n} data-line={n} onClick={()=>setCursor(n)} className={`flex w-full cursor-pointer pr-6 text-left transition-colors duration-150 ${target?'bg-ink/[0.07]':active?'bg-ink/[0.04]':'hover:bg-ink/[0.03]'}`}>
       <span className={`w-14 shrink-0 select-none pr-4 text-right tabular-nums ${target||active?'text-ink':'text-ink-3'}`}>{n}</span>
       <span className={`whitespace-pre ${target?'text-ink':'text-ink-2'}`}>{text||' '}</span>
-     </div>
-    })}
+     </button>})}
    </div>}
   </div>
  </section>

@@ -1,3 +1,6 @@
+import { ReviewPanel } from '../features/review/ReviewPanel'
+import { WriteBoundary } from '../features/review/WriteBoundary'
+import { BuildProvenance } from '../features/review/BuildProvenance'
 import { ReadingBridge } from '../features/projects/ReadingBridge'
 import { DraftsPage } from '../features/projects/DraftsPage'
 import { fileTargetLocation } from '../features/projects/project-object-model'
@@ -47,7 +50,7 @@ function NewTabMenu({onNew}:{onNew:(kind:'web'|'file'|'note')=>void}) {
 }
 
 /* ---------- 右栏：标签页宿主。标签 = 打开的网页/文件/PDF/笔记，统一显示语义 ---------- */
-const KIND_ICON:Record<RightTab['kind'],typeof Globe>={web:Globe,file:Folder,pdf:FileText,note:BookOpen,drafts:FileText}
+const KIND_ICON:Record<RightTab['kind'],typeof Globe>={web:Globe,file:Folder,pdf:FileText,note:BookOpen,drafts:FileText,reviews:FileText}
 export function BrowserPanel({onQuote,onExpand}:{onQuote:(text:string,targetProject?:string)=>void;onExpand:()=>void}) {
  const {rightTabs:tabs,activeRightTab:active,activateRightTab:activate,closeRightTab:close,openRightTab:open,updateRightTab:update}=useWorkbench()
  return <section aria-label={tr("右侧面板")} className="flex h-full min-h-0 flex-col">
@@ -55,7 +58,7 @@ export function BrowserPanel({onQuote,onExpand}:{onQuote:(text:string,targetProj
    <div role="tablist" aria-label={tr("打开的标签页")} className="ui-rtabs flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto">
     {tabs.map(tab=>{
      const Icon=KIND_ICON[tab.kind];const selected=tab.id===active
-     return <div key={tab.id} role="tab" tabIndex={0} aria-selected={selected} title={tab.kind==='file'?`${tab.title} · ${tab.target.projectId} · ${fileTargetLocation(tab.target)}`:tab.kind==='drafts'?`${tab.title} · ${tab.scope.projectId} · ${tab.scope.workspace}`:tab.title}
+     return <div key={tab.id} role="tab" tabIndex={0} aria-selected={selected} title={tab.kind==='file'?`${tab.title} · ${tab.target.projectId} · ${fileTargetLocation(tab.target)}`:(tab.kind==='drafts'||tab.kind==='reviews')?`${tab.title} · ${tab.scope.projectId} · ${tab.scope.workspace}`:tab.title}
       className={cn('ui-rtab group',selected&&'is-active')}
       onClick={()=>activate(tab.id)} onKeyDown={e=>{if(e.target!==e.currentTarget)return;if(e.key==='Enter'||e.key===' '){e.preventDefault();activate(tab.id)}}}>
       <Icon size={12} strokeWidth={1.75} className="shrink-0"/>
@@ -71,8 +74,9 @@ export function BrowserPanel({onQuote,onExpand}:{onQuote:(text:string,targetProj
    {tabs.map(tab=><div key={tab.id} className="rtab-panel" hidden={tab.id!==active}>
     {tab.kind==='web'&&<WebTab url={tab.url} report={title=>update(tab.id,{title})}/>}
     {tab.kind==='file'&&<FilesPage target={tab.target} active={tab.id===active} onQuote={onQuote} onTitle={title=>update(tab.id,{title})}/>}
-    {tab.kind==='pdf'&&<Suspense fallback={<p className="p-4 text-ink-3">{tr("正在打开 PDF…")}</p>}><ReadingBridge fill active={tab.id===active} projectId={tab.pdf.workspace} projectWorkspace={tab.pdf.workspace} source={{id:'pdf-reader',workspace:tab.pdf.workspace,path:tab.pdf.path,digest:tab.pdf.digest,buildId:tab.pdf.buildId}}><PDFReader pdf={tab.pdf} onPDF={pdf=>update(tab.id,{pdf,title:pdf.path.split('/').pop()||'PDF'})} onQuote={onQuote} onTitle={title=>update(tab.id,{title})}/></ReadingBridge></Suspense>}
-    {tab.kind==='drafts'&&<DraftsPage scope={tab.scope} tabId={tab.id} onQuote={onQuote} onTitle={title=>update(tab.id,{title})}/>}
+    {tab.kind==='pdf'&&<Suspense fallback={<p className="p-4 text-ink-3">{tr("正在打开 PDF…")}</p>}><ReadingBridge fill active={tab.id===active} projectId={tab.pdf.workspace} projectWorkspace={tab.pdf.workspace} source={{id:'pdf-reader',workspace:tab.pdf.workspace,path:tab.pdf.path,digest:tab.pdf.digest,buildId:tab.pdf.buildId}}><BuildProvenance pdf={tab.pdf}/><PDFReader pdf={tab.pdf} onPDF={pdf=>update(tab.id,{pdf,title:pdf.path.split('/').pop()||'PDF'})} onQuote={onQuote} onTitle={title=>update(tab.id,{title})}/></ReadingBridge></Suspense>}
+    {tab.kind==='reviews'&&<ReviewPanel scope={tab.scope} tabId={tab.id} onTitle={title=>update(tab.id,{title})}/>}
+    {tab.kind==='drafts'&&<WriteBoundary workspace={tab.scope.workspace} path="research-drafts.json"><DraftsPage scope={tab.scope} tabId={tab.id} onQuote={onQuote} onTitle={title=>update(tab.id,{title})}/></WriteBoundary>}
     {tab.kind==='note'&&<DocumentPanel active={tab.id===active} doc={tab.doc} onQuote={onQuote} onTitle={title=>update(tab.id,{title})}/>}
    </div>)}
    {!tabs.length&&<div className="grid h-full place-content-center p-6 text-center">

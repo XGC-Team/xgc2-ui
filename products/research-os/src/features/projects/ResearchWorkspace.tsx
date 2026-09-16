@@ -1,3 +1,5 @@
+import { CanvasReviewTools } from '../review/CanvasReviewTools'
+import { WriteBoundary } from '../review/WriteBoundary'
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { X } from 'lucide-react'
 import { Button, IconBtn } from '../../components/ui'
@@ -96,6 +98,7 @@ export function ResearchWorkspace({ projects, children }: {
         <Button size="xs" aria-pressed={mode === 'canvas'} variant={mode === 'canvas' ? 'outline' : 'ghost'}
           onClick={() => { setRequested('canvas'); setCompact('canvas') }}>{copy.focusCanvas}</Button>
       </div>
+      <CanvasReviewTools project={currentCanvas}/>
       <Button size="xs" onClick={() => openRightTab({ kind: 'file' })}>{copy.files}</Button>
       <IconBtn icon={X} label={copy.close} onClick={hideCanvas}/>
     </div>}
@@ -113,8 +116,8 @@ export function ResearchWorkspace({ projects, children }: {
       <section aria-label={copy.canvas} hidden={!canvasVisible} className="research-workspace__canvas">
         {mountedCanvases.map(project => <div key={project} hidden={!canvasVisible || project !== currentCanvas}
           className="research-workspace__canvas-instance" data-canvas-project={project}>
-          <ThinkingCanvasM project={project} active={activeNav === 'chat' && !sourceView && canvasVisible && project === currentCanvas}
-            onRequestConversation={requestConversation}/>
+          <WriteBoundary workspace={project} path="thinking.canvas.json"><ThinkingCanvasM project={project} active={activeNav === 'chat' && !sourceView && canvasVisible && project === currentCanvas}
+            onRequestConversation={requestConversation}/></WriteBoundary>
         </div>)}
       </section>
     </div>
