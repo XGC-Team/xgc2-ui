@@ -1,4 +1,4 @@
-import type { ThinkingCanvas } from './canvas-model'
+import type { AnyCanvas } from './canvas-model'
 /** Project-owned editable definitions. No draft in this schema represents an executed task. */
 export const DRAFTS_PATH = 'research-drafts.json'
 export const DRAFT_KINDS = ['paper', 'slides', 'storyboard', 'workflow', 'rule', 'experiment', 'note', 'material'] as const
@@ -193,14 +193,15 @@ export function draftIdFromAnchor(path: string): string | null {
   const id = path.startsWith(prefix) ? path.slice(prefix.length) : ''
   return idOK(id) ? id : null
 }
-/** A label is not document content; this node is a navigable reference, not a second outline. */
-export function attachDraftReference(canvas: ThinkingCanvas, draftId: string, title: string): ThinkingCanvas {
+/** A label is not document content; this node is a navigable reference, not a second outline.
+ * Works on any canvas version and preserves its format, outlines and extension fields. */
+export function attachDraftReference<T extends AnyCanvas>(canvas: T, draftId: string, title: string): T {
   requireThat(idOK(draftId), 'Invalid draft identity.')
   const anchor = `${DRAFTS_PATH}#${draftId}`
   if (canvas.nodes.some(node => node.anchor === anchor)) return canvas
   let id = `draft-${draftId}`
   while (canvas.nodes.some(node => node.id === id)) id += '-ref'
-  return { ...canvas, nodes: [...canvas.nodes, { id, kind: 'idea', title: `↗ ${title}`,
+  return { ...canvas, nodes: [...canvas.nodes, { id, kind: 'idea' as const, title: `↗ ${title}`,
     body: 'Research object reference / 研究对象引用；打开锚点编辑原对象。', anchor,
     x: 24 + (canvas.nodes.length % 3) * 260, y: 24 + Math.floor(canvas.nodes.length / 3) * 190 }] }
 }
