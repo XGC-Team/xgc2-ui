@@ -9,7 +9,7 @@ import {ReadingBridge} from '../features/projects/ReadingBridge'
 type DocRef={workspace:string;path:string;title:string}
 export function DocumentPanel({doc,onQuote,onTitle,active=true}:{doc?:DocRef;active?:boolean;onQuote:(text:string)=>void;onTitle?:(title:string)=>void}){
  const {knowledgeDocuments:notes,openRightTab}=useWorkbench()
- const [current,setCurrent]=useState<DocRef|null>(doc??null)
+ const [current]=useState<DocRef|null>(doc??null)
  const [query,setQuery]=useState(''),[document,setDocument]=useState<{content:string;digest:string}|null>(null),[error,setError]=useState('')
  useEffect(()=>{setDocument(null);setError('');if(!current)return;const c=new AbortController();request<{content:string;digest:string}>(`/workspaces/${encodeURIComponent(current.workspace)}/files/${current.path.split('/').map(encodeURIComponent).join('/')}`,{signal:c.signal}).then(d=>{if(typeof d?.content!=='string'||typeof d.digest!=='string'||!d.digest)throw Error('Invalid file response.');if(!c.signal.aborted)setDocument(d)}).catch(e=>{if(!c.signal.aborted)setError(e.message)});return()=>c.abort()},[current])
  const titleRef=useRef(onTitle);titleRef.current=onTitle

@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "lint:review": "eslint src/features/resources/PDFReader.tsx src/features/resources/pdf-annotations.ts src/features/resources/FilesPage.tsx src/features/chat/ConnectionStatus.tsx src/features/chat/ChatPage.tsx src/features/chat/Session.tsx src/components/RightPanelActions.tsx src/components/BrowserPanel.tsx src/components/DocumentPanel.tsx src/components/PDFReader.tsx src/components/ui.tsx tests/pdf-annotations.test.ts",
+    "lint:review": "eslint src/features/resources/PDFReader.tsx src/features/resources/pdf-annotations.ts src/features/resources/FilesPage.tsx src/features/chat/ConnectionStatus.tsx src/features/chat/ChatPage.tsx src/features/chat/Session.tsx src/components/BrowserPanel.tsx src/components/DocumentPanel.tsx src/components/PDFReader.tsx src/components/ui.tsx tests/pdf-annotations.test.ts",
     "typecheck": "tsc -b"
   },
   "dependencies": {
