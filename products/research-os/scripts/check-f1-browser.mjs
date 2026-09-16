@@ -68,8 +68,8 @@ try {
   await panel.getByRole('button', { name: 'Active objects', exact: true }).click()
   for (const kind of ['paper', 'slides', 'storyboard', 'workflow', 'rule', 'experiment']) {
     await panel.getByRole('button', { name: 'Create draft', exact: true }).click()
-    await panel.getByLabel('Draft type', { exact: true }).selectOption(kind)
-    await panel.getByLabel('Draft name', { exact: true }).fill(`F1 ${kind}`)
+    await panel.getByLabel('Draft type').selectOption(kind)
+    await panel.getByLabel('Draft name').fill(`F1 ${kind}`)
     await panel.getByRole('button', { name: 'Create draft', exact: true }).click()
     await saved()
     await panel.getByText('Choose shared research source', { exact: true }).click()

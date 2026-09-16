@@ -46,8 +46,8 @@ try {
   const labels = { paper: 'Writing goal', slides: 'Key message', storyboard: 'Narration', workflow: 'Step objective', rule: 'Feed source', experiment: 'Question and hypothesis' }
   for (const [kind, field] of Object.entries(labels)) {
     await panel.getByRole('button', { name: 'Create draft', exact: true }).click()
-    await panel.getByLabel('Draft type', { exact: true }).selectOption(kind)
-    await panel.getByLabel('Draft name', { exact: true }).fill(`E2E ${kind}`)
+    await panel.getByLabel('Draft type').selectOption(kind)
+    await panel.getByLabel('Draft name').fill(`E2E ${kind}`)
     await panel.getByRole('button', { name: 'Create draft', exact: true }).click()
     await panel.getByLabel(field, { exact: true }).fill(`Editable ${kind}`)
     await waitState('saved')
@@ -68,21 +68,21 @@ try {
   const original = snapshots[0]
   await panel.locator(`[data-draft-id="${original.id}"]`).click()
   forceConflict = true
-  await panel.getByLabel('Draft name', { exact: true }).fill('Conflicting local draft')
+  await panel.getByLabel('Draft name').fill('Conflicting local draft')
   await waitState('conflict')
   assert.equal(await panel.getByRole('button', { name: 'Save', exact: true }).isDisabled(), true)
   assert.equal(JSON.parse(stored).drafts[0].title, original.title)
   page.once('dialog', dialog => dialog.accept())
   await panel.getByRole('button', { name: 'Discard and reload', exact: true }).click()
   await waitState('saved'); forceConflict = false
-  assert.equal(await panel.getByLabel('Draft name', { exact: true }).inputValue(), original.title)
+  assert.equal(await panel.getByLabel('Draft name').inputValue(), original.title)
   failSave = true
-  await panel.getByLabel('Draft name', { exact: true }).fill('Retained unsaved draft')
+  await panel.getByLabel('Draft name').fill('Retained unsaved draft')
   await waitState('save-error')
   page.once('dialog', dialog => dialog.dismiss())
   await page.locator('[role="tab"][aria-selected="true"] button').click()
   assert.equal(await panel.isVisible(), true)
-  assert.equal(await panel.getByLabel('Draft name', { exact: true }).inputValue(), 'Retained unsaved draft')
+  assert.equal(await panel.getByLabel('Draft name').inputValue(), 'Retained unsaved draft')
   page.once('dialog', dialog => dialog.accept())
   await page.locator('[role="tab"][aria-selected="true"] button').click()
   await panel.waitFor({ state: 'detached' })
