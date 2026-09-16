@@ -1,0 +1,28 @@
+export const contextCopy = {
+  zh: {
+    title: 'Chat 上下文', addHint: '从画布或研究对象加入；加入上下文不等于发送。',
+    uiProject: '界面项目', sessionScope: '会话范围', noSession: '尚未连接原生会话；以界面项目核对，不创建会话。',
+    scopeMismatch: '界面项目与会话范围不同；切换界面项目不等于原生会话已切换。',
+    locate: '定位原文', refresh: '刷新', remove: '移除', adopt: '采用新版本', keepStale: '保留旧快照（明确标注）',
+    checkSend: '发送前检查', insert: '插入上下文清单到草稿', inserted: '已插入草稿；仍未发送。',
+    notSent: '清单只进入草稿，不会自动发送。', refreshFailed: '刷新失败，未改动此引用。',
+    issueForeign: '不属于当前会话项目，已排除', issueMissing: '来源文件缺失，已排除',
+    issueStale: '旧快照（已标注）', issueUpdate: '来源已有新版本', issueUnverifiable: '版本无法自动校验',
+    stateCurrent: '与记录版本一致', stateUnverifiable: '版本无法自动校验', stateUpdate: '有新版本', stateStale: '旧快照 · 已标注', stateMissing: '来源缺失',
+    organize: '请求整理建议', organizeNote: '只把请求放入草稿；回复是建议，不会写回画布或大纲。',
+    empty: '还没有上下文项。', kinds: { 'canvas-node': '画布卡片', draft: '研究对象', source: '来源' },
+  },
+  en: {
+    title: 'Chat context', addHint: 'Add from the canvas or research objects. Adding to context is not sending.',
+    uiProject: 'UI project', sessionScope: 'Session scope', noSession: 'No native session connected; checked against the UI project without creating a session.',
+    scopeMismatch: 'UI project and session scope differ. Switching the UI project does not switch the native session.',
+    locate: 'Locate original', refresh: 'Refresh', remove: 'Remove', adopt: 'Adopt new revision', keepStale: 'Keep old snapshot (labeled)',
+    checkSend: 'Pre-send check', insert: 'Insert context manifest into draft', inserted: 'Inserted into the draft; still not sent.',
+    notSent: 'The manifest only enters the draft and is never auto-sent.', refreshFailed: 'Refresh failed; the reference is unchanged.',
+    issueForeign: 'Outside the current session project, excluded', issueMissing: 'Source file missing, excluded',
+    issueStale: 'Old snapshot (labeled)', issueUpdate: 'A newer source revision exists', issueUnverifiable: 'Version cannot be auto-verified',
+    stateCurrent: 'Matches recorded revision', stateUnverifiable: 'Version cannot be auto-verified', stateUpdate: 'Update available', stateStale: 'Old snapshot · labeled', stateMissing: 'Source missing',
+    organize: 'Request organizing suggestions', organizeNote: 'Only places a request in the draft. Replies are suggestions and never write back to the canvas or outline.',
+    empty: 'No context items yet.', kinds: { 'canvas-node': 'Canvas card', draft: 'Research object', source: 'Source' },
+  },
+} as const

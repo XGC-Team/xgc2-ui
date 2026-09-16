@@ -8,6 +8,7 @@ import { saveDownload } from '../../lib/api'
 import { useWorkbench } from '../../store'
 import { useDraftBook } from './useDraftBook'
 import { draftCopy } from './draft-copy'
+import { newContextItem } from './context-model'
 import {
   DRAFTS_PATH, DRAFT_KINDS, DRAFT_FIELDS, addSource, appendDraft, changeDraft, draftContext,
   editBlock, moveBlock, newBlock, newDraft, validSourcePath,
@@ -21,7 +22,7 @@ export function DraftsPage({ scope, tabId, onQuote, onTitle }: {
   onQuote: (text: string, targetProject?: string) => void
   onTitle: (title: string) => void
 }) {
-  const { locale, setProjectId, setActiveNav, closeSourceView, draftIntents, consumeDraftIntent, draftSelection, requestCanvasReference, openCanvas } = useWorkbench()
+  const { locale, setProjectId, setActiveNav, closeSourceView, draftIntents, consumeDraftIntent, draftSelection, requestCanvasReference, openCanvas, addContextItem } = useWorkbench()
   const copy = draftCopy[locale]
   const [selected, setSelected] = useState(''), [creating, setCreating] = useState(false)
   const [kind, setKind] = useState<DraftKind>('paper'), [name, setName] = useState('')
@@ -133,6 +134,8 @@ export function DraftsPage({ scope, tabId, onQuote, onTitle }: {
             }}>{zh ? '关联到研究画布' : 'Reference in research canvas'}</Button>
             <Button aria-pressed={view === 'list'} onClick={() => setView('list')}>{zh ? '线性结构' : 'Linear structure'}</Button>
             <Button aria-pressed={view === 'cards'} onClick={() => setView('cards')}>{zh ? '研究卡片' : 'Research cards'}</Button>
+            <Button onClick={() => addContextItem(newContextItem({ project: scope.projectId, kind: 'draft', label: current.title || copy.untitled,
+              ref: `${DRAFTS_PATH}#${current.id}`, source: { id: `ctx-${current.id}`, workspace: scope.workspace, path: DRAFTS_PATH } }))}>{copy.addToContext}</Button>
           </div>
           {current.archivedAt && <p role="status">{zh ? '已归档；恢复后继续编辑。来源原件未删除。' : 'Archived. Restore to edit. Original sources are unchanged.'}</p>}
           <fieldset disabled={Boolean(current.archivedAt)} className="min-w-0 space-y-5">
@@ -170,6 +173,8 @@ export function DraftsPage({ scope, tabId, onQuote, onTitle }: {
               <button type="button" className="min-w-0 flex-1 truncate text-left text-secondary text-ink-2 hover:underline" title={`${source.workspace || scope.workspace}/${source.path}`} onClick={() => openResearchSource(source, scope)}>{source.path || source.url}</button>
               <p className="break-all text-caption text-ink-3">{source.workspace || scope.workspace} · {source.digest || (zh ? '未固定版本：打开当前原件' : 'Unpinned: opens current original')}{source.page ? ` · ${source.page}` : ''}</p>
               {source.excerpt && <blockquote className="whitespace-pre-wrap text-secondary">{source.excerpt}</blockquote>}
+              <Button size="xs" onClick={() => addContextItem(newContextItem({ project: scope.projectId, kind: 'source', label: source.excerpt?.slice(0, 60) || source.path || source.url || source.id,
+                ref: source.path || source.url || source.id, source, digest: source.digest, excerpt: source.excerpt }))}>{copy.sourceToContext}</Button>
               <IconBtn icon={Trash2} label={`${copy.remove} ${source.path}`} onClick={() => update(draft => ({ ...draft, sources: draft.sources.filter(item => item.id !== source.id), blocks: draft.blocks.map(block => ({ ...block, sourceIds: block.sourceIds?.filter(id => id !== source.id) })) }))}/>
             </div>)}
             <form className="space-y-2" onSubmit={event => {

@@ -1,6 +1,7 @@
 import { canCloseTab } from './features/projects/tab-close-guards'
 import { draftIdFromAnchor, draftScopeKey, type DraftScope, type DraftIntent, type DraftSource, type DraftKind } from './features/projects/draft-model'
 import { draftCopy } from './features/projects/draft-copy'
+import type { ContextItem } from './features/projects/context-model'
 import { fileTarget, sameFileTarget, type ProjectFileTarget } from './features/projects/project-object-model'
 import type { ManuscriptPDF } from './features/resources/manuscript'
 import type { AcademicNote } from './features/resources/academic-graph'
@@ -45,6 +46,11 @@ export const useWorkbench = create<{
   canvasReferences: { id: string; project: string; draftId: string; title: string }[]
   requestCanvasReference: (project: string, draftId: string, title: string) => void
   consumeCanvasReference: (id: string) => void
+  /* 可见的 Chat 上下文集合：加入 ≠ 发送；项目切换不清空，作用域在发送前检查 */
+  contextItems: ContextItem[]
+  addContextItem: (item: ContextItem) => void
+  removeContextItem: (id: string) => void
+  patchContextItem: (id: string, patch: Partial<ContextItem>) => void
 
   locale:'zh'|'en';setLocale:(locale:'zh'|'en')=>void
   openPDF:(pdf:ManuscriptPDF)=>void
@@ -93,6 +99,14 @@ export const useWorkbench = create<{
     get().openCanvas(project)
   },
   consumeCanvasReference: id => set(s => ({ canvasReferences: s.canvasReferences.filter(item => item.id !== id) })),
+  contextItems: [],
+  addContextItem: item => set(s => ({
+    contextItems: s.contextItems.some(existing => existing.project === item.project && existing.kind === item.kind && existing.ref === item.ref)
+      ? s.contextItems.map(existing => existing.project === item.project && existing.kind === item.kind && existing.ref === item.ref ? { ...item, id: existing.id } : existing)
+      : [...s.contextItems, { ...item, source: item.source ? { ...item.source } : undefined }],
+  })),
+  removeContextItem: id => set(s => ({ contextItems: s.contextItems.filter(item => item.id !== id) })),
+  patchContextItem: (id, patch) => set(s => ({ contextItems: s.contextItems.map(item => item.id === id ? { ...item, ...patch, id: item.id } : item) })),
 
   locale:localStorage.getItem('research-ui-locale')==='en'?'en':'zh',setLocale:(locale)=>{localStorage.setItem('research-ui-locale',locale);document.documentElement.lang=locale;set({locale})},
   openPDF:(pdf)=>{get().openRightTab({kind:'pdf',pdf})},
