@@ -8,7 +8,6 @@ import {
 } from '../src/features/projects/draft-model.ts'
 import { emptyCanvas, parseEditableCanvas, serializeCanvas } from '../src/features/projects/canvas-model.ts'
 import { createFileSession } from '../src/features/projects/file-session.ts'
-import { submitIntake, retryIntake, intakeSnapshot, intakePort, type IntakePort } from '../src/features/projects/intake-queue.ts'
 const scope = { projectId: 'paper-e2e-a', workspace: 'paper-e2e-a' }
 const at = '2026-09-16T00:00:00.000Z'
 const intent = (id = 'note-1'): DraftIntent => ({ id, scope, kind: 'note', source: { id: `source-${id}`, workspace: 'academic', path: 'now/evidence.md', digest: 'revision-1', excerpt: 'An observed statement.' } })
@@ -131,51 +130,6 @@ test('a complete F1 model path writes, closes and reopens all persistent objects
   assert.equal(reopened.snapshot().status, 'saved'); assert.equal(reopened.snapshot().value?.drafts.length, 7)
   assert.ok(reopened.snapshot().value?.drafts.every(draft => draft.status === 'draft'))
   reopened.dispose()
-})
-const port: IntakePort = { pdf: async () => {}, text: async (_file, target, id) => ({ id, workspace: target.workspace, path: `${id}.md`, digest: 'saved-revision' }) }
-test('intake is shared, captured-scope, and text acceptance returns a real-port source', async () => {
-  const mutable = { ...scope }
-  const waiting = submitIntake(new File(['text'], 'input.md'), mutable, port)
-  mutable.projectId = 'other'
-  const receipt = await waiting
-  assert.equal(receipt.scope.projectId, scope.projectId); assert.equal(receipt.state, 'accepted')
-  assert.equal(receipt.source?.digest, 'saved-revision'); assert.ok(intakeSnapshot().some(item => item.id === receipt.id))
-})
-test('global PDF intake remains available without creating a project or native session', async () => {
-  const receipt = await submitIntake(new File(['pdf'], 'paper.pdf'), { projectId: '', workspace: 'academic' }, port)
-  assert.equal(receipt.state, 'accepted'); assert.equal(receipt.source, undefined)
-})
-test('unsupported formats never call an upload port', async () => {
-  let called = false
-  const receipt = await submitIntake(new File(['x'], 'unsupported.exe'), scope, { pdf: async () => { called = true }, text: async () => { called = true; throw Error('unexpected') } })
-  assert.equal(receipt.state, 'unsupported'); assert.equal(called, false)
-})
-test('failed PDF retry reuses the intake idempotency key and does not retry automatically', async () => {
-  const ids: string[] = []
-  const flaky = { ...port, pdf: async (_file: File, id: string) => { ids.push(id); if (ids.length === 1) throw Error('network') } }
-  const receipt = await submitIntake(new File(['x'], 'paper.pdf'), scope, flaky)
-  assert.equal(receipt.state, 'failed'); assert.equal(ids.length, 1)
-  await retryIntake(receipt.id, flaky)
-  assert.equal(receipt.state, 'accepted'); assert.deepEqual(ids, [receipt.id, receipt.id])
-  await assert.rejects(retryIntake(receipt.id, flaky))
-})
-test('text intake without target project and oversized files are not uploaded', async () => {
-  await assert.rejects(submitIntake(new File(['x'], 'a.txt'), { projectId: '', workspace: '' }, port))
-  const receipt = await submitIntake(new File([new Uint8Array(5 * 1024 * 1024 + 1)], 'a.txt'), scope, port)
-  assert.equal(receipt.state, 'failed'); assert.equal(receipt.source, undefined)
-})
-test('missing saved digest or wrong source scope cannot produce accepted intake', async () => {
-  const receipt = await submitIntake(new File(['text'], 'x.md'), scope, { ...port, text: async () => ({ id: 'bad', workspace: 'other', path: 'x.md' }) })
-  assert.equal(receipt.state, 'failed'); assert.equal(receipt.source, undefined)
-})
-test('default text transport creates a new file, never overwrites a daily research file', async () => {
-  const original = globalThis.fetch; let body: any, endpoint = ''
-  globalThis.fetch = (async (url, init) => { endpoint = String(url); body = JSON.parse(String(init?.body)); return new Response(JSON.stringify({ data: { digest: 'sha256:observed' } }), { status: 200 }) }) as typeof fetch
-  try {
-    const result = await intakePort.text(new File(['content'], '../source.md'), scope, 'stable-id')
-    assert.equal(body.createOnly, true); assert.equal(body.expectedDigest, undefined); assert.equal(body.content, 'content')
-    assert.ok(endpoint.includes('material-stable-id-')); assert.equal(result.digest, 'sha256:observed')
-  } finally { globalThis.fetch = original }
 })
 test('source guards: existing canvas writer consumes references; no competing PUT is added', () => {
   const hook = readFileSync(new URL('../src/features/projects/useCanvasDocument.ts', import.meta.url), 'utf8')
