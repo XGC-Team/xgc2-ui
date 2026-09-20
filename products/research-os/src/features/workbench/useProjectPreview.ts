@@ -6,7 +6,7 @@ import { matchReadingPdf, readReadingPlace } from './writing-session'
 export type PreviewState =
   | { status: 'idle' }
   | { status: 'loading'; projectId: string }
-  | { status: 'ready'; projectId: string; pdf: ManuscriptPDF; page: number }
+  | { status: 'ready'; projectId: string; pdf: ManuscriptPDF; page: number; followCurrent: boolean }
   | { status: 'empty'; projectId: string; detail: string }
   | { status: 'unavailable'; projectId: string; detail: string }
   | { status: 'failed'; projectId: string; detail: string }
@@ -26,7 +26,7 @@ export async function loadProjectPreview(projectId: string, signal?: AbortSignal
   if (signal?.aborted) return { status: 'idle' }
   const place = readReadingPlace(projectId)
   const pdf = matchReadingPdf(versions, place)
-  if (pdf) return { status: 'ready', projectId, pdf, page: place?.page ?? 1 }
+  if (pdf) return { status: 'ready', projectId, pdf, page: place?.page ?? 1, followCurrent: pdf.buildId === versions[0]?.buildId && pdf.digest === versions[0]?.digest }
   let capabilities: LatexCapabilities | null = null
   try {
     capabilities = await request<LatexCapabilities>('/capabilities', { signal })
@@ -52,5 +52,6 @@ export function useProjectPreview(projectId: string): PreviewState & { reload: (
     })
     return () => controller.abort()
   }, [projectId, nonce])
-  return { ...state, reload: () => setNonce(n => n + 1) }
+  const visible: PreviewState = !projectId ? { status: 'idle' } : 'projectId' in state && state.projectId === projectId ? state : { status: 'loading', projectId }
+  return { ...visible, reload: () => setNonce(n => n + 1) }
 }

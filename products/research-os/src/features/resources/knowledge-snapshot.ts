@@ -96,7 +96,7 @@ export async function knowledgeQueryIdentity(query: KnowledgeQuery): Promise<str
   const tags = [...new Set(query.tags || [])].sort(compareKnowledgeIDs)
   const focus = query.focus || ''
   const depth = focus && !query.depth ? 1 : (query.depth || 0)
-  return digestFields([KNOWLEDGE_GRAPH_SCHEMA, query.scope || 'knowledge', (query.query || '').trim(),
+  return digestFields([KNOWLEDGE_GRAPH_SCHEMA, query.scope || 'knowledge', trimKnowledgeQuery(query.query || ''),
     query.unresolved || 'include', query.orphans || 'include', focus, String(depth), query.direction || 'both',
     String(query.limit || 2000), String(tags.length), ...tags])
 }
@@ -167,4 +167,9 @@ export async function assembleKnowledgePages(pages: KnowledgePage[]): Promise<Kn
   const collector = new KnowledgePageCollector()
   for (const page of pages) collector.add(page)
   return collector.finish()
+}
+
+/** Match Go strings.TrimSpace exactly; JS trim differs for NEL and BOM. */
+export function trimKnowledgeQuery(value: string): string {
+  return value.replace(/^[\t\n\v\f\r \u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]+|[\t\n\v\f\r \u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]+$/g, '')
 }

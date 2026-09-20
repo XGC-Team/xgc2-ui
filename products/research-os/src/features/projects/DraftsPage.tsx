@@ -1,5 +1,6 @@
 import { FeedbackButton } from '../review/FeedbackButton'
 import { ArtifactStudio } from '../artifacts/ArtifactStudio'
+import { artifactPaths } from '../artifacts/artifact-model'
 import { ExperimentResults } from '../experiments/ExperimentResults'
 import { IntakePanel } from './IntakePanel'
 import { SourcePicker } from './SourcePicker'
@@ -201,7 +202,7 @@ export function DraftsPage({ scope, tabId, onQuote, onTitle }: {
               {sourceError && <p role="alert" className="text-caption text-ink-3">{sourceError}</p>}
             </form>
           </div>
-          {(current.kind === 'slides' || current.kind === 'storyboard') && <ArtifactStudio scope={scope} draft={current} saved={state.status === 'saved' && !state.dirty} locale={locale} />}
+          {(current.kind === 'slides' || current.kind === 'storyboard') && <ArtifactStudio scope={scope} draft={current} saved={state.status === 'saved' && !state.dirty} locale={locale} onOpenPDF={file => useWorkbench.getState().openPDF({ workspace: scope.workspace, path: artifactPaths(current.id).definition, buildId: file.buildId, digest: file.digest, url: file.url })} />}
           {current.kind === 'experiment' && <ExperimentResults scope={scope} draft={current} saved={state.status === 'saved' && !state.dirty} locale={locale} />}
           {current.kind === 'note' && <section className="space-y-2">
             <h3 className="text-secondary">{zh ? '知识沉淀建议' : 'Knowledge promotion suggestion'}</h3>

@@ -3,7 +3,6 @@ import { annotationDiscussion, bypassesDesignConfirmation, pdfFeedbackAnchor } f
 import { isIdleWebTab, matchReadingPdf, researchProjects } from '../src/features/workbench/writing-session'
 import { loadProjectPreview } from '../src/features/workbench/useProjectPreview'
 import { APIError } from '../src/lib/api'
-import { writingConfirmPort, manuscriptPreviewHook, designFocusModulePresent } from '../src/features/workbench/seams'
 
 vi.stubGlobal('localStorage', { getItem: vi.fn(() => null), setItem: vi.fn(), removeItem: vi.fn() })
 vi.stubGlobal('document', { documentElement: { lang: 'zh' } })
@@ -112,7 +111,7 @@ describe('project preview from existing PDFs', () => {
       ? JSON.stringify({ path: 'manuscript/main.tex', buildId: 'old', digest: 'sha256:old', page: 4 })
       : null)
     const preview = await loadProjectPreview('paper-lab')
-    expect(preview).toEqual({ status: 'ready', projectId: 'paper-lab', pdf: versions[1], page: 4 })
+    expect(preview).toEqual({ status: 'ready', projectId: 'paper-lab', pdf: versions[1], page: 4, followCurrent: false })
     expect(matchReadingPdf(versions, { path: 'manuscript/main.tex', buildId: 'old', digest: 'sha256:old', page: 4 })).toBe(versions[1])
     expect(request).not.toHaveBeenCalled()
   })
@@ -127,13 +126,5 @@ describe('project preview from existing PDFs', () => {
     expect(await loadProjectPreview('paper-lab')).toEqual({ status: 'empty', projectId: 'paper-lab', detail: 'no-pdf' })
     listPDFVersions.mockRejectedValue(new Error('offline'))
     expect(await loadProjectPreview('paper-lab')).toEqual({ status: 'failed', projectId: 'paper-lab', detail: 'offline' })
-  })
-})
-
-describe('adjacent-owner seams', () => {
-  it('does not pretend B/C/D hooks have landed on this branch', () => {
-    expect(manuscriptPreviewHook()).toBeNull()
-    expect(designFocusModulePresent()).toBe(false)
-    expect(writingConfirmPort()).toMatchObject({ available: false })
   })
 })

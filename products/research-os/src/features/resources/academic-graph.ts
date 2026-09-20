@@ -1,6 +1,6 @@
 import { request } from '../../lib/api'
 import type { GraphData, GroupId } from '../../lib/graph'
-import { KnowledgePageCollector, validateKnowledgePage, knowledgeQueryIdentity, type KnowledgeQuery, type KnowledgeNode, type KnowledgeEdge, type KnowledgePage } from './knowledge-snapshot'
+import { KnowledgePageCollector, validateKnowledgePage, knowledgeQueryIdentity, trimKnowledgeQuery, type KnowledgeQuery, type KnowledgeNode, type KnowledgeEdge, type KnowledgePage } from './knowledge-snapshot'
 export { KNOWLEDGE_GRAPH_SCHEMA, assembleKnowledgePages } from './knowledge-snapshot'
 export type { KnowledgeNode, KnowledgeEdge, KnowledgePage, KnowledgeQuery } from './knowledge-snapshot'
 
@@ -37,7 +37,7 @@ export async function loadKnowledgePage(query: KnowledgeQuery = {}, signal?: Abo
   const page = await request<unknown>(`/workspaces/academic/knowledge-graph?${queryString(query)}`, { signal })
   validateKnowledgePage(page)
   if (page.queryId !== await knowledgeQueryIdentity(query)) throw new Error('Knowledge graph response belongs to a different query.')
-  if (page.scope !== (query.scope || 'knowledge') || (page.query || '') !== (query.query || '').trim() ||
+  if (page.scope !== (query.scope || 'knowledge') || (page.query || '') !== trimKnowledgeQuery(query.query || '') ||
     (page.focus || '') !== (query.focus || '') || (query.snapshot && page.snapshot !== query.snapshot)) {
     throw new Error('Knowledge graph response belongs to a different request.')
   }
@@ -68,10 +68,16 @@ export async function loadAcademicNotes(signal: AbortSignal, scope = 'knowledge'
 export async function inspectKnowledgeResource(id: string, snapshot?: string, signal?: AbortSignal, scope = 'knowledge') {
   const params = new URLSearchParams({ id, scope })
   if (snapshot) params.set('snapshot', snapshot)
-  return request<{ snapshot: string; node: KnowledgeNode; outgoing: KnowledgeEdge[]; incoming: KnowledgeEdge[] }>(
-    `/workspaces/academic/knowledge-graph/inspect?${params}`,
-    { signal },
-  )
+  const inspection = await request<{ snapshot: string; node: KnowledgeNode; outgoing: KnowledgeEdge[] | null; incoming: KnowledgeEdge[] | null }>(
+    `/workspaces/academic/knowledge-graph/inspect?${params}`, { signal })
+  signal?.throwIfAborted()
+  if (!inspection || inspection.node?.id !== id || (snapshot && inspection.snapshot !== snapshot) ||
+    ![inspection.outgoing, inspection.incoming].every(list => list === null || Array.isArray(list))) throw new Error('Knowledge inspection returned a different resource or snapshot.')
+  // The current Go inspection endpoint emits nil slices for empty relations.
+  const outgoing = inspection.outgoing ?? [], incoming = inspection.incoming ?? []
+  if (outgoing.some(edge => edge.source !== id) || incoming.some(edge => edge.target !== id)) throw new Error('Knowledge inspection returned unrelated assertions.')
+  return { ...inspection, outgoing, incoming }
+
 }
 
 function groupOf(node: KnowledgeNode): GroupId {
@@ -98,7 +104,7 @@ export function academicGraph(page: KnowledgePage): GraphData {
   for (const edge of page.edges) {
     const s = index.get(edge.source), t = index.get(edge.target)
     if (s === undefined || t === undefined) throw new Error('Knowledge assertion has a missing endpoint.')
-    edges.push({ s, t, self: edge.self, directed: true, kind: edge.kind, resolved: edge.resolved })
+    edges.push({ s, t, self: edge.self, directed: true, kind: edge.kind, resolved: edge.resolved, resourceId: edge.id, sourceRevision: edge.sourceRevision, anchor: edge.anchor, targetHint: edge.targetHint })
     degrees[s]++
     if (s !== t) { degrees[t]++; appendNeighbor(s, t); appendNeighbor(t, s) }
   }

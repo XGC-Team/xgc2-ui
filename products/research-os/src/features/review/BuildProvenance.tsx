@@ -10,7 +10,7 @@ export function BuildProvenance({ pdf }: { pdf: ManuscriptPDF }) {
   const observations = useSyncExternalStore(subscribeObservations, observedFiles)
   const sourceEvent = observations.filter(observation => observation.workspace === pdf.workspace).at(-1)?.id
   const zh = useWorkbench(state => state.locale === 'zh')
-  const build = useManuscriptBuild({ workspace: pdf.workspace, entryPoint: pdf.path })
+  const build = useManuscriptBuild(/\.tex$/i.test(pdf.path) ? { workspace: pdf.workspace, entryPoint: pdf.path } : null)
   const buildEvent = build.record?.manifest.buildId
   const [records, setRecords] = useState<BuildRecord[]>([]), [error, setError] = useState(''), [revision, setRevision] = useState(0)
   const [source, setSource] = useState(''), [loading, setLoading] = useState(true)

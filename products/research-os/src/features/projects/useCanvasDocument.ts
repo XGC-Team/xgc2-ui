@@ -120,3 +120,17 @@ export function applyLiveMapping(
   }
   return update
 }
+
+/** Wait on the existing writer; an in-memory mapping edit is not a save receipt. */
+export async function awaitSaveLiveCanvas(project: string, expected: ThinkingCanvasV2): Promise<string> {
+  const owner = sessionOwners.get(project)
+  if (!owner || isReviewLocked(project, CANVAS_PATH)) throw new Error('The design writer is unavailable or locked.')
+  const content = serializeCanvas(expected)
+  if (!owner.session.snapshot().value || serializeCanvas(owner.session.snapshot().value!) !== content) throw new Error('The design changed before its mapping could be saved.')
+  await owner.session.save()
+  const saved = owner.session.snapshot(), digest = owner.digest()
+  if (sessionOwners.get(project) !== owner || saved.status !== 'saved' || saved.dirty || !saved.value || !digest || serializeCanvas(saved.value) !== content) {
+    throw new Error(saved.error || 'The design mapping has no current acknowledged save. Inspect the canvas before retrying its mapping.')
+  }
+  return digest
+}

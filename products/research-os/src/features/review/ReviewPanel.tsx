@@ -12,12 +12,21 @@ import { impactedDrafts, patchTarget, targetChoices, targetValue } from './revie
 import { writingCopy } from '../workbench/writing-copy'
 import { check, dependencyClosure, now, operationState, REVIEW_PATH, scopeKey, selectedGroups, uid, validPath, type FileRecord, type Operation, type Proposal, type Scope, type Target } from './review-model'
 
-/** Review is a product surface. Diff previews never update the recorded write outcome. */
-export function ReviewPanel({scope, tabId, onTitle, surface = 'panel'}: {scope: Scope; tabId: string; onTitle: (title: string) => void; surface?: 'panel' | 'writing'}) {
+type ReviewPanelProps = {scope: Scope; tabId: string; onTitle: (title: string) => void; surface?: 'panel' | 'writing'}
+/** Standalone panels own one journal; the writing dock passes its existing instance. */
+export function ReviewPanel(props: ReviewPanelProps) {
+  const [dirty, setDirty] = useState(false)
+  const api = useReview(props.scope, props.tabId, dirty)
+  return <ReviewPanelContents {...props} api={api} onFormDirty={setDirty}/>
+}
+export function ReviewPanelContents({scope, tabId, onTitle, surface = 'panel', api, onFormDirty, onConfirmDesign}: ReviewPanelProps & {
+  api: ReturnType<typeof useReview>; onFormDirty: (dirty: boolean) => void
+  onConfirmDesign?: (proposalId: string, operationIds: string[], actor: string) => Promise<void>
+}) {
   const {locale, reviewIntents, consumeReviewFeedback} = useWorkbench(), zh = locale === 'zh'
   const t = (cn: string, en: string) => zh ? cn : en
   const observations=useSyncExternalStore(subscribeObservations,observedFiles).filter(o=>scopeKey(o)===scopeKey(scope))
-  const incoming = reviewIntents.filter(i => scopeKey(i.scope) === scopeKey(scope))
+  const incoming = reviewIntents.filter(i => scopeKey(i.scope) === scopeKey(scope) && (surface !== 'writing' || !i.designDiscussion))
   const [feedbackId, setFeedbackId] = useState(''), [selected, setSelected] = useState('')
   const seed = incoming.find(i => i.id === feedbackId) || incoming[0]
   const [title, setTitle] = useState(''), [body, setBody] = useState(''), [author, setAuthor] = useState('researcher')
@@ -29,7 +38,10 @@ export function ReviewPanel({scope, tabId, onTitle, surface = 'panel'}: {scope: 
   const [inspection, setInspection] = useState<Record<string, {digest: string; match: string}>>({})
   const [promotion, setPromotion] = useState(false), [conditions, setConditions] = useState(''), [knowledgeScope, setKnowledgeScope] = useState(''), [verification, setVerification] = useState('unverified')
   const [reading, setReading] = useState(false)
-  const api = useReview(scope, tabId, !!(title || body || operations.length || after || reason || conditions || knowledgeScope))
+  const formDirty = !!(title || body || operations.length || after || reason || conditions || knowledgeScope)
+  useEffect(() => { onFormDirty(formDirty) }, [formDirty, onFormDirty])
+  const newest = api.book?.proposals.at(-1)?.id
+  useEffect(() => { if (surface === 'writing' && newest) setSelected(newest) }, [surface, newest])
   const report = useRef(onTitle); report.current = onTitle
   useEffect(() => { report.current(zh ? '反馈与修改审阅' : 'Feedback and change review') }, [zh])
   const previousSeed = useRef('')
@@ -192,6 +204,11 @@ export function ReviewPanel({scope, tabId, onTitle, surface = 'panel'}: {scope: 
         {proposal.operations.length > 0 && <fieldset disabled={busy || api.auditUncertain} className="space-y-2">
           <div className="flex flex-wrap gap-1">
             <Button disabled={!checked.length} onClick={() => void call(previewSelected)}>{t('校验预览（不写入）', 'Validate preview (no writes)')}</Button>
+            {surface === 'writing' && onConfirmDesign && !proposal.writing && <Button data-xgc-role="review-confirm-design" variant="solid" disabled={!checked.length || proposal.operations.filter(o => checked.includes(o.id)).some(o => o.target.kind !== 'canvas')} onClick={() => void call(async () => {
+              selectedGroups(proposal, checked)
+              await onConfirmDesign(proposal.id, checked, author)
+              setPreview('')
+            })}>{t('确认设计并准备改稿', 'Confirm design and prepare writing')}</Button>}
             {surface !== 'writing' && <Button data-xgc-role="review-apply" disabled={!checked.length} variant="solid" onClick={() => void call(async () => {
               selectedGroups(proposal, checked)
               if (!window.confirm(t('按所选范围进行真实条件写入？独立文件逐项处理，不是原子提交。', 'Write the selected changes with version checks? Independent files are sequential, not atomic.'))) return
@@ -203,8 +220,8 @@ export function ReviewPanel({scope, tabId, onTitle, surface = 'panel'}: {scope: 
             })}>{t('受保护撤回', 'Guarded recovery')}</Button>}
           </div>
           {surface === 'writing' && <p role="status" className="text-caption text-ink-2">{writingCopy[locale].reviewHint}</p>}
-          <label className="block">{t('拒绝理由', 'Rejection reason')}<input className="ui-input mt-1 w-full" value={decisionReason} onChange={e => setDecisionReason(e.target.value)}/></label>
-          <Button disabled={!checked.length || !decisionReason.trim()} onClick={() => void call(() => api.action(e => e.reject(proposal.id, checked, author, decisionReason)))}>{t('拒绝所选组', 'Reject selected group')}</Button>
+          {!proposal.writing && <><label className="block">{t('拒绝理由', 'Rejection reason')}<input className="ui-input mt-1 w-full" value={decisionReason} onChange={e => setDecisionReason(e.target.value)}/></label>
+          <Button disabled={!checked.length || !decisionReason.trim()} onClick={() => void call(() => api.action(e => e.reject(proposal.id, checked, author, decisionReason)))}>{t('拒绝所选组', 'Reject selected group')}</Button></>}
           {preview && <p role="status" className="whitespace-pre-wrap">{preview}</p>}
         </fieldset>}
         {proposal.promotion && <section className="space-y-2 rounded-lg border border-line p-3">

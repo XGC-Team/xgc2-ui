@@ -18,7 +18,7 @@ export const NAV_ITEMS = [
 ] as const
 export type NavId = typeof NAV_ITEMS[number]['id']
 /* 右栏标签页：每个标签是一个内容实例（网页/文件/PDF/笔记），统一显示语义，不是大类切换 */
-export type ReviewIntent = { id: string; scope: Scope; anchor: Anchor; body: string; at: string }
+export type ReviewIntent = { id: string; scope: Scope; anchor: Anchor; body: string; at: string; designDiscussion?: true; annotationId?: string }
 export type RightTab =
   | {id:string;kind:'reviews';title:string;scope:Scope}
   | {id:string;kind:'drafts';title:string;scope:DraftScope}

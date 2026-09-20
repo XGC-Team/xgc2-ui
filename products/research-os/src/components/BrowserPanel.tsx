@@ -1,11 +1,10 @@
 import { ReviewPanel } from '../features/review/ReviewPanel'
 import { WriteBoundary } from '../features/review/WriteBoundary'
-import { BuildProvenance } from '../features/review/BuildProvenance'
 import { ReadingBridge } from '../features/projects/ReadingBridge'
 import { DraftsPage } from '../features/projects/DraftsPage'
 import { fileTargetLocation } from '../features/projects/project-object-model'
 import {t as tr} from '../i18n'
-import { lazy,Suspense,useEffect,useRef,useState } from 'react'
+import { useEffect,useRef,useState } from 'react'
 import { ArrowLeft, ArrowRight, BookOpen, Expand, FileText, Folder, Globe, Plus, RotateCw, X } from 'lucide-react'
 import { Button, IconBtn, RightMore } from './ui'
 import { FilesPage } from '../features/resources/FilesPage'
@@ -14,7 +13,7 @@ import { useWorkbench, type RightTab } from '../store'
 import { cn } from '../lib/cn'
 import { WritingPreview } from '../features/workbench/WritingPreview'
 import { useProjectPreview } from '../features/workbench/useProjectPreview'
-const PDFReader=lazy(()=>import('../features/resources/PDFReader'))
+import { ManuscriptPreview } from '../features/workbench/ManuscriptPreview'
 
 /* ---------- 网页标签：iframe + 历史导航。输入网址只走顶栏全局搜索，这里不放局部地址栏 ---------- */
 function WebTab({url,report}:{url?:string;report:(title:string)=>void}) {
@@ -57,11 +56,13 @@ export function BrowserPanel({onQuote,onExpand}:{onQuote:(text:string,targetProj
  const {rightTabs:tabs,activeRightTab:active,activateRightTab:activate,closeRightTab:close,openRightTab:open,updateRightTab:update,projectId,openPDF}=useWorkbench()
  const preview=useProjectPreview(projectId)
  const openedFor=useRef('')
+ const [followingTab,setFollowingTab]=useState('')
  useEffect(()=>{openedFor.current=''},[projectId])
  useEffect(()=>{
   if(preview.status!=='ready'||preview.projectId!==projectId||openedFor.current===projectId)return
   openedFor.current=projectId
   openPDF(preview.pdf)
+  if(preview.followCurrent)setFollowingTab(useWorkbench.getState().activeRightTab)
  },[preview,projectId,openPDF])
  const writingPreview=Boolean(projectId)&&preview.status!=='idle'&&preview.status!=='ready'
  return <section aria-label={tr("右侧面板")} className="flex h-full min-h-0 flex-col">
@@ -85,7 +86,7 @@ export function BrowserPanel({onQuote,onExpand}:{onQuote:(text:string,targetProj
    {tabs.map(tab=><div key={tab.id} className="rtab-panel" hidden={tab.id!==active}>
     {tab.kind==='web'&&<WebTab url={tab.url} report={title=>update(tab.id,{title})}/>}
     {tab.kind==='file'&&<FilesPage target={tab.target} active={tab.id===active} onQuote={onQuote} onTitle={title=>update(tab.id,{title})}/>}
-    {tab.kind==='pdf'&&<Suspense fallback={<p className="p-4 text-ink-3">{tr("正在打开 PDF…")}</p>}><ReadingBridge fill active={tab.id===active} projectId={tab.pdf.workspace} projectWorkspace={tab.pdf.workspace} source={{id:'pdf-reader',workspace:tab.pdf.workspace,path:tab.pdf.path,digest:tab.pdf.digest,buildId:tab.pdf.buildId}}><BuildProvenance pdf={tab.pdf}/><PDFReader pdf={tab.pdf} onPDF={pdf=>update(tab.id,{pdf,title:pdf.path.split('/').pop()||'PDF'})} onQuote={onQuote} onTitle={title=>update(tab.id,{title})}/></ReadingBridge></Suspense>}
+    {tab.kind==='pdf'&&<ReadingBridge fill active={tab.id===active} projectId={tab.pdf.workspace} projectWorkspace={tab.pdf.workspace} source={{id:'pdf-reader',workspace:tab.pdf.workspace,path:tab.pdf.path,digest:tab.pdf.digest,buildId:tab.pdf.buildId}}><ManuscriptPreview key={`${tab.pdf.workspace}:${tab.pdf.path}`} pdf={tab.pdf} followCurrent={tab.id===followingTab} onPDF={pdf=>update(tab.id,{pdf,title:pdf.path.split('/').pop()||'PDF'})} onQuote={onQuote} onTitle={title=>update(tab.id,{title})}/></ReadingBridge>}
     {tab.kind==='reviews'&&<ReviewPanel scope={tab.scope} tabId={tab.id} onTitle={title=>update(tab.id,{title})}/>}
     {tab.kind==='drafts'&&<WriteBoundary workspace={tab.scope.workspace} path="research-drafts.json"><DraftsPage scope={tab.scope} tabId={tab.id} onQuote={onQuote} onTitle={title=>update(tab.id,{title})}/></WriteBoundary>}
     {tab.kind==='note'&&<DocumentPanel active={tab.id===active} doc={tab.doc} onQuote={onQuote} onTitle={title=>update(tab.id,{title})}/>}
