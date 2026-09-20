@@ -4,7 +4,8 @@ import { useWorkbench } from '../../store'
 import { request } from '../../lib/api'
 import { Button, IconBtn, RightMore } from '../../components/ui'
 import { MarkdownView } from './Reader'
-import { compilePDF, latestPDF, listPDFVersions, type ManuscriptPDF } from './manuscript'
+import { latestPDF, listPDFVersions, type ManuscriptPDF } from './manuscript'
+import { previewTabPatch, useManuscriptBuild } from './manuscript-build'
 import { isTextMaterial, listProjectMaterials, type ProjectEntry } from './project-files'
 import { fileTarget, fileTargetLocation, type ProjectFileTarget } from '../projects/project-object-model'
 import { projectObjectCopy } from '../projects/project-object-copy'
@@ -20,7 +21,10 @@ export function FilesPage({ target, active = true, onQuote, onTitle }: {
   const { projectId, workspace, path, view } = target
   const [directory, setDirectory] = useState(''), [entries, setEntries] = useState<ProjectEntry[]>([])
   const [document, setDocument] = useState<SourceFile | null>(null), [builds, setBuilds] = useState<BuiltPDF[]>([])
-  const [error, setError] = useState(''), [loading, setLoading] = useState(false), [compiling, setCompiling] = useState(false), [revision, setRevision] = useState(0)
+  const [error, setError] = useState(''), [loading, setLoading] = useState(false), [revision, setRevision] = useState(0)
+  const tex = !!(path && /\.tex$/i.test(path))
+  const build = useManuscriptBuild(workspace, tex ? path : '')
+  const applied = useRef(''), previousPreview = useRef<ManuscriptPDF | null>(null)
   const mounted = useRef(false), scroll = useRef<HTMLDivElement>(null), position = useRef(0)
   const titleRef = useRef(onTitle); titleRef.current = onTitle
   useEffect(() => { mounted.current = true; return () => { mounted.current = false } }, [])
@@ -52,25 +56,36 @@ export function FilesPage({ target, active = true, onQuote, onTitle }: {
     return () => controller.abort()
   }, [workspace, path, view, directory, revision, active])
   useEffect(() => { if (active && scroll.current) scroll.current.scrollTop = position.current }, [active, document])
+  useEffect(() => {
+    if (!build.pdf || applied.current === build.pdf.buildId) return
+    applied.current = build.pdf.buildId
+    const patch = previewTabPatch(useWorkbench.getState().rightTabs, previousPreview.current, build.pdf)
+    previousPreview.current = build.pdf
+    if ('id' in patch) useWorkbench.getState().updateRightTab(patch.id, { pdf: patch.pdf })
+    else useWorkbench.getState().openPDF(patch.open)
+  }, [build.pdf])
   const back = () => {
     if (path) openRightTab({ kind: 'file', target: fileTarget(projectId, workspace, view) })
     else { setEntries([]); position.current = 0; setDirectory(directory.split('/').slice(0, -1).join('/')) }
   }
   const pdfAction = async (compile: boolean) => {
-    if (!document || compiling) return
-    setCompiling(true); setError('')
+    if (compile) {
+      if (!tex) return
+      setError(''); build.compile(); return
+    }
+    if (!document) return
+    setError('')
     try {
-      const pdf = compile ? await compilePDF(workspace, path, document.digest) : await latestPDF(workspace, path)
+      const pdf = await latestPDF(workspace, path)
       if (mounted.current) { if (pdf) openPDF(pdf); else setError(copy.noPDF) }
     } catch (reason) { if (mounted.current) setError(String(reason instanceof Error ? reason.message : reason)) }
-    finally { if (mounted.current) setCompiling(false) }
   }
   return <div className="flex h-full min-h-0 flex-col" data-object-workspace={workspace} data-object-path={path}>
     <div className="flex h-9 shrink-0 items-center gap-1 px-2">
       {(path || directory) && <IconBtn icon={ArrowLeft} label={path ? copy.backToFiles : copy.parent} onClick={back}/>} 
       <span className="min-w-0 flex-1 truncate text-caption" title={fileTargetLocation(target)}>{path.split('/').pop() || directory.split('/').pop() || copy[view]}</span>
       <IconBtn icon={RotateCw} label={copy.refresh} disabled={loading || !workspace} onClick={() => setRevision(n => n + 1)}/>
-      {document && /\.tex$/i.test(path) && <Button loading={compiling} disabled={loading} onClick={() => void pdfAction(true)}>{copy.compile}</Button>}
+      {document && tex && <Button loading={build.compiling} disabled={loading} onClick={() => void pdfAction(true)}>{copy.compile}</Button>}
       {document && <RightMore label={copy.files}>
         {/\.tex$/i.test(path) && <Button onClick={() => void pdfAction(false)}>{copy.showPDF}</Button>}
         <Button onClick={() => onQuote(`${copy.storage}: ${fileTargetLocation(target)}\n${copy.version}: ${document.digest}\n\n${document.content}`, projectId)}>{copy.quote}</Button>
@@ -82,7 +97,8 @@ export function FilesPage({ target, active = true, onQuote, onTitle }: {
         <p className="truncate" title={`${workspace}/${path || directory}`}>{copy.storage} · {workspace}/{path || directory}</p>
         {document && <p className="truncate" title={document.digest}>{copy.readOnly} · {document.digest}</p>}
       </div>
-      {error && <p role="alert" className="ui-error">{error}{document ? locale === 'zh' ? '（保留上次读取的版本）' : ' (last loaded revision retained)' : ''}</p>}
+      {(error || build.error) && <p role="alert" className="ui-error">{error || build.error}{build.stale ? (locale === 'zh' ? '（保留上次成功预览，尚未包含这次修改）' : ' (last successful preview retained; it does not include this change)') : document ? locale === 'zh' ? '（保留上次读取的版本）' : ' (last loaded revision retained)' : ''}</p>}
+      {build.compiling && <p role="status" className="px-3 text-caption text-ink-3">{locale === 'zh' ? '正在编译当前保存稿…' : 'Compiling the saved working draft…'}</p>}
       {loading && <p role="status" className="px-3 text-caption text-ink-3">{copy.loading}</p>}
       <div ref={scroll} className="min-h-0 flex-1 overflow-auto p-3" onScroll={event => { if (active) position.current = event.currentTarget.scrollTop }}>
         {path ? !isTextMaterial(path) ? <p className="text-secondary text-ink-3">{copy.unsupported}</p> : document && <ReadingBridge active={active} source={{ id: 'reader', workspace, path, digest: document.digest }} projectId={projectId} projectWorkspace={target.projectWorkspace || workspace}>
