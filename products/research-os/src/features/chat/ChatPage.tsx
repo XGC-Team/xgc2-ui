@@ -13,10 +13,14 @@ import { ResearchWorkspace } from '../projects/ResearchWorkspace'
 import { submitIntake } from '../projects/intake-queue'
 import { IntakePanel } from '../projects/IntakePanel'
 import { ContextPanel } from '../projects/ContextPanel'
+import { ContinueWriting } from '../workbench/ContinueWriting'
+import { DesignReviewDock } from '../workbench/DesignReviewDock'
+import { writingCopy } from '../workbench/writing-copy'
 const rise={hidden:{opacity:0,y:10},show:{opacity:1,y:0,transition:{duration:0.45,ease:[0.2,0.8,0.2,1]}}}
 const SUGGESTIONS=["总结一篇论文的贡献与证据","对比两条技术路线","起草手稿的相关工作段落","审查我的数学推导"]
 export function ChatPage({projects}:{projects:Project[]}) {
-  const s=useNativeAgentSession();const {activeNav,locale,projectId}=useWorkbench()
+  const s=useNativeAgentSession();const {activeNav,locale,projectId,chatSurface,enterWritingProject}=useWorkbench()
+  const copy=writingCopy[locale]
   const empty=useMemo(()=>emptyStream('',s.selectedProfile?.provider||'codex'),[s.selectedProfile?.provider])
   const connected=Boolean(s.session)
   const providers=connected?(s.currentProvider?[s.currentProvider]:[]):(s.settings?.providers.filter(p=>p.enabled)||[])
@@ -41,6 +45,7 @@ export function ChatPage({projects}:{projects:Project[]}) {
     {intakeNote&&<p role="status" className="mx-auto mt-2 w-full max-w-[48rem] px-5 text-caption text-ink-3">{intakeNote}</p>}
     <div className="max-h-40 shrink-0 overflow-y-auto px-3"><IntakePanel compact scope={{projectId,workspace:projectId||'academic'}}/></div>
     <div className="max-h-52 shrink-0 overflow-y-auto"><ContextPanel/></div>
+    <DesignReviewDock/>
     {dragging&&<div aria-hidden className="pointer-events-none absolute inset-3 z-40 grid place-content-center rounded-xl border border-dashed border-line-strong bg-app/80">
       <p className="font-display text-[18px] tracking-tight text-ink-2">{tr("松开投入材料")}</p>
       <p className="mt-1 text-center text-secondary text-ink-3">{locale==='zh'?'PDF 归档；文本保存到所选项目；链接进入草稿':'PDF archive; text to selected project; links to draft'}</p>
@@ -49,7 +54,12 @@ export function ChatPage({projects}:{projects:Project[]}) {
       {!connected||s.streamMatchesSelection?<NativeConversation active={activeNav==='chat'&&conversationVisible} state={connected?s.state:empty} locale={locale} onAnswer={s.respond} draft={s.draft} onDraftChange={s.setDraft}
         disabled={s.busy} sendDisabled={s.busy||(connected?!['ready','closed','disconnected'].includes(s.state.worker)||Boolean(s.session?.archived)||Boolean(s.streamError):!s.profileId)}
         onSend={connected?s.send:s.startAndSend} onInterrupt={connected?s.interrupt:undefined}
-        emptyState={<motion.div initial="hidden" animate="show" variants={{hidden:{},show:{transition:{staggerChildren:0.06,delayChildren:0.08}}}} className="grid h-full place-content-center px-6">
+        emptyState={projectId?<div className="grid h-full place-content-center px-6" data-xgc-role="writing-empty" data-xgc-id={projectId}>
+          <div className="w-full max-w-xl">
+            <h1 className="font-display text-[28px] leading-[1.15] tracking-tight">{copy.writingEmpty}</h1>
+            <p className="mt-3 text-body text-ink-2">{copy.writingEmptyBody}</p>
+          </div>
+        </div>:chatSurface!=='generic'?<ContinueWriting projects={projects} onOpen={enterWritingProject}/>:<motion.div initial="hidden" animate="show" variants={{hidden:{},show:{transition:{staggerChildren:0.06,delayChildren:0.08}}}} className="grid h-full place-content-center px-6">
           <div className="w-full max-w-xl">
             <motion.div variants={rise} className="flex items-center gap-3">
               <span className="text-caption font-medium uppercase tracking-[0.14em] text-ink-3">{date}</span>

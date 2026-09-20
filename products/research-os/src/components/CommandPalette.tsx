@@ -6,7 +6,7 @@ import { looksLikeUrl, normalizeWebUrl } from '../lib/web'
 import { useAcademicNotes } from '../features/resources/useAcademicNotes'
 type PaletteAction={label:string;run:()=>void;icon?:'globe'|'note';hint?:string}
 export function CommandPalette() {
- const {paletteOpen,setPaletteOpen,setActiveNav,openChat,toggleTheme,openRightTab,previewDocument}=useWorkbench();const [query,setQuery]=useState(''),[index,setIndex]=useState(0);const ref=useRef<HTMLInputElement>(null)
+ const {paletteOpen,setPaletteOpen,setActiveNav,toggleTheme,openRightTab,previewDocument}=useWorkbench();const [query,setQuery]=useState(''),[index,setIndex]=useState(0);const ref=useRef<HTMLInputElement>(null)
  const {notes}=useAcademicNotes()
  // 网址即动作：查询形如 URL/域名时，首条给出「打开网页」（局部地址栏已退场，这里是一入口）
  let webUrl='';if(looksLikeUrl(query)){try{webUrl=normalizeWebUrl(query)}catch{/* 非法地址不出动作 */}}
@@ -14,7 +14,7 @@ export function CommandPalette() {
  // 知识库笔记直达：全局搜索是唯一搜索入口，本地搜索框已退场
  const q=query.trim().toLowerCase()
  const noteActions:PaletteAction[]=q?notes.filter(n=>(n.title+' '+n.path).toLowerCase().includes(q)).slice(0,8).map(n=>({icon:'note',label:n.title,hint:n.path,run:()=>{setActiveNav('knowledge');previewDocument({workspace:'academic',path:n.path,title:n.title})}})):[]
- const pageActions:PaletteAction[]=[...NAV_ITEMS.map(n=>({label:tr(n.label),run:()=>{if(n.id==='chat')openChat();else setActiveNav(n.id)}})),{label:tr("切换深浅主题"),run:toggleTheme}].filter(a=>a.label.toLowerCase().includes(q))
+ const pageActions:PaletteAction[]=[...NAV_ITEMS.map(n=>({label:tr(n.label),run:()=>setActiveNav(n.id)})),{label:tr("切换深浅主题"),run:toggleTheme}].filter(a=>a.label.toLowerCase().includes(q))
  const actions:PaletteAction[]=[...webAction,...noteActions,...pageActions]
  useEffect(()=>{if(paletteOpen){setQuery('');setIndex(0);requestAnimationFrame(()=>ref.current?.focus())}},[paletteOpen])
  if(!paletteOpen)return null

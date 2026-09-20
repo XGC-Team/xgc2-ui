@@ -8,15 +8,15 @@ import { projectObjectCopy } from './project-object-copy'
 
 /** Reuse existing work surfaces; these actions neither create threads nor execute workflows. */
 export function ProjectObjects({ project }: { project: Project }) {
-  const { locale, setProjectId, setActiveNav, openCanvas, openRightTab, closeSourceView, selectResearchDraft } = useWorkbench()
+  const { locale, setActiveNav, enterWritingProject, setReviewDockOpen, openCanvas, openRightTab, selectResearchDraft } = useWorkbench()
   const copy = projectObjectCopy[locale]
   // App's existing project loader maps each paper repository to a project record.
   // Keep that compatibility mapping here, not in an already-open tab's render path.
   const workspace = project.id
-  const select = () => { setProjectId(project.id); closeSourceView() }
+  const select = () => { enterWritingProject(project.id) }
   const openFiles = (view: ProjectFileView) => { select(); openRightTab({ kind: 'file', target: fileTarget(project.id, workspace, view) }) }
   const actions = [
-    { id: 'reviews', label: locale === 'zh' ? '反馈与修改审阅' : 'Feedback and change review', icon: FileText, open: () => { select(); openRightTab({kind:'reviews',scope:{projectId:project.id,workspace}}) } },
+    { id: 'reviews', label: locale === 'zh' ? '设计审阅' : 'Design review', icon: FileText, open: () => { select(); setReviewDockOpen(true) } },
     { id: 'files', label: copy.files, icon: Folder, open: () => openFiles('files') },
     { id: 'notes', label: locale === 'zh' ? '来源笔记' : 'Source notes', icon: IconKnowledge, open: () => { select(); selectResearchDraft({ projectId: project.id, workspace }, '', 'note') } },
     { id: 'markdown', label: copy.notes, icon: IconKnowledge, open: () => openFiles('notes') },

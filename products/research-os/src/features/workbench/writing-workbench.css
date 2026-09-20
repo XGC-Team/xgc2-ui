@@ -1,0 +1,42 @@
+.writing-review-dock {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: 42%;
+  flex: 0 1 auto;
+  border-bottom: 1px solid var(--line);
+}
+.writing-review-dock__header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  flex-shrink: 0;
+  padding: 4px 8px;
+}
+.writing-review-dock__body {
+  min-height: 0;
+  overflow: auto;
+}
+.writing-home,
+.writing-preview {
+  display: grid;
+  place-content: center;
+  min-height: 0;
+  flex: 1;
+  padding: 24px;
+  text-align: left;
+}
+.writing-home {
+  width: 100%;
+}
+.writing-home__list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 16px;
+  max-width: 28rem;
+}
+.writing-home__list button {
+  justify-content: flex-start;
+}

@@ -7,6 +7,7 @@ import { fileTarget, sameFileTarget, type ProjectFileTarget } from './features/p
 import type { ManuscriptPDF } from './features/resources/manuscript'
 import type { AcademicNote } from './features/resources/academic-graph'
 import type { PDFRect } from './features/resources/pdf-annotations'
+import { isIdleWebTab, rememberRecentProject } from './features/workbench/writing-session'
 import { readPreference, writePreference } from './lib/storage'
 import { create } from 'zustand'
 export const NAV_ITEMS = [
@@ -85,6 +86,9 @@ export const useWorkbench = create<{
   closeDocument:()=>void
   theme: 'light'|'dark'; toggleTheme:()=>void
   activeNav: NavId; setActiveNav:(id:NavId)=>void; openChat:()=>void
+  chatSurface:'home'|'generic'|'writing'
+  reviewDockOpen:boolean; setReviewDockOpen:(open:boolean)=>void
+  enterWritingProject:(id:string)=>void
   /* 思维白板：项目作用域，打开时占据 chat 页主区 */
   canvasProject: string | null; openCanvas:(project:string)=>void; closeCanvas:()=>void
   paletteOpen:boolean; setPaletteOpen:(open:boolean)=>void
@@ -94,8 +98,7 @@ export const useWorkbench = create<{
   reviewIntents: [],
   requestReviewFeedback: intent => {
     const copy = structuredClone(intent)
-    set(s => ({reviewIntents:s.reviewIntents.some(i=>i.id===copy.id)?s.reviewIntents:[...s.reviewIntents,copy]}))
-    get().openRightTab({kind:'reviews',scope:copy.scope})
+    set(s => ({reviewIntents:s.reviewIntents.some(i=>i.id===copy.id)?s.reviewIntents:[...s.reviewIntents,copy],reviewDockOpen:true,activeNav:'chat'}))
   },
   consumeReviewFeedback: id => set(s=>({reviewIntents:s.reviewIntents.filter(i=>i.id!==id)})),
   draftIntents: [],
@@ -130,7 +133,7 @@ export const useWorkbench = create<{
   locale:readPreference('research-ui-locale')==='en'?'en':'zh',setLocale:(locale)=>{writePreference('research-ui-locale',locale);document.documentElement.lang=locale;set({locale})},
   openPDF:(pdf)=>{get().openRightTab({kind:'pdf',pdf})},
   rightOpen:true,setRightOpen:(rightOpen)=>set({rightOpen}),
-  rightTabs:[{id:'rt-initial',kind:'web',title:'新网页'}],activeRightTab:'rt-initial',
+  rightTabs:[],activeRightTab:'',
   openRightTab:(input)=>{
     const s=get()
     // Internal canvas anchors identify an object inside the draft file, not a second copy of it.
@@ -185,8 +188,19 @@ export const useWorkbench = create<{
   theme: readPreference('research-ui-theme') === 'dark' ? 'dark' : 'light',
   toggleTheme:()=>set(s=>{const theme=s.theme==='light'?'dark':'light';writePreference('research-ui-theme',theme);return {theme}}),
   activeNav:'chat',setActiveNav:(activeNav)=>set({activeNav}),
-  openChat:()=>{writePreference('research-ui-project','');set({activeNav:'chat',projectId:'',canvasProject:null})},
-  canvasProject:null,openCanvas:(project)=>{get().setProjectId(project);set({canvasProject:project,activeNav:'chat',sourceView:null})},closeCanvas:()=>set({canvasProject:null}),
+  openChat:()=>{writePreference('research-ui-project','');set({activeNav:'chat',projectId:'',canvasProject:null,chatSurface:'generic',reviewDockOpen:false})},
+  chatSurface:readPreference('research-ui-project')?'writing':'home',
+  reviewDockOpen:false,setReviewDockOpen:(reviewDockOpen)=>set({reviewDockOpen}),
+  enterWritingProject:(id)=>{
+    if(!id.trim())return
+    rememberRecentProject(id)
+    writePreference('research-ui-project',id)
+    const s=get()
+    const rightTabs=s.rightTabs.filter(tab=>!isIdleWebTab(tab))
+    const active=rightTabs.some(tab=>tab.id===s.activeRightTab)?s.activeRightTab:(rightTabs.find(tab=>tab.kind==='pdf'&&tab.pdf.workspace===id)?.id??rightTabs[0]?.id??'')
+    set({projectId:id,activeNav:'chat',chatSurface:'writing',canvasProject:s.canvasProject===id?id:null,sourceView:null,rightTabs,activeRightTab:active,reviewDockOpen:s.projectId===id?s.reviewDockOpen:false,rightOpen:true})
+  },
+  canvasProject:null,openCanvas:(project)=>{get().setProjectId(project);set({canvasProject:project,activeNav:'chat',chatSurface:'writing',sourceView:null})},closeCanvas:()=>set({canvasProject:null}),
   paletteOpen:false,setPaletteOpen:(paletteOpen)=>set({paletteOpen}),
-  projectId:readPreference('research-ui-project')||'',setProjectId:(projectId)=>{writePreference('research-ui-project',projectId);set({projectId})},
+  projectId:readPreference('research-ui-project')||'',setProjectId:(projectId)=>{writePreference('research-ui-project',projectId);if(projectId.trim())rememberRecentProject(projectId);set({projectId,chatSurface:projectId.trim()?'writing':'home'})},
 }))

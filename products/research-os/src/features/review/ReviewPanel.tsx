@@ -9,10 +9,11 @@ import { readReviewFile, captureTarget } from './review-api'
 import { assertEditorClean } from './write-coordinator'
 import { openFeedbackAnchor } from './review-navigation'
 import { impactedDrafts, patchTarget, targetChoices, targetValue } from './review-targets'
+import { writingCopy } from '../workbench/writing-copy'
 import { check, dependencyClosure, now, operationState, REVIEW_PATH, scopeKey, selectedGroups, uid, validPath, type FileRecord, type Operation, type Proposal, type Scope, type Target } from './review-model'
 
 /** Review is a product surface. Diff previews never update the recorded write outcome. */
-export function ReviewPanel({scope, tabId, onTitle}: {scope: Scope; tabId: string; onTitle: (title: string) => void}) {
+export function ReviewPanel({scope, tabId, onTitle, surface = 'panel'}: {scope: Scope; tabId: string; onTitle: (title: string) => void; surface?: 'panel' | 'writing'}) {
   const {locale, reviewIntents, consumeReviewFeedback} = useWorkbench(), zh = locale === 'zh'
   const t = (cn: string, en: string) => zh ? cn : en
   const observations=useSyncExternalStore(subscribeObservations,observedFiles).filter(o=>scopeKey(o)===scopeKey(scope))
@@ -191,16 +192,17 @@ export function ReviewPanel({scope, tabId, onTitle}: {scope: Scope; tabId: strin
         {proposal.operations.length > 0 && <fieldset disabled={busy || api.auditUncertain} className="space-y-2">
           <div className="flex flex-wrap gap-1">
             <Button disabled={!checked.length} onClick={() => void call(previewSelected)}>{t('校验预览（不写入）', 'Validate preview (no writes)')}</Button>
-            <Button disabled={!checked.length} variant="solid" onClick={() => void call(async () => {
+            {surface !== 'writing' && <Button data-xgc-role="review-apply" disabled={!checked.length} variant="solid" onClick={() => void call(async () => {
               selectedGroups(proposal, checked)
               if (!window.confirm(t('按所选范围进行真实条件写入？独立文件逐项处理，不是原子提交。', 'Write the selected changes with version checks? Independent files are sequential, not atomic.'))) return
               await api.action(e => e.run(proposal.id, checked, author, 'apply')); setPreview('')
-            })}>{t('应用所选范围', 'Apply selected scope')}</Button>
-            <Button disabled={!checked.length} onClick={() => void call(async () => {
+            })}>{t('应用所选范围', 'Apply selected scope')}</Button>}
+            {surface !== 'writing' && <Button data-xgc-role="review-revert" disabled={!checked.length} onClick={() => void call(async () => {
               if (!window.confirm(t('撤回所选已应用改动？仅在保护条件仍满足时写入。', 'Recover selected applied changes only where recovery guards still match?'))) return
               await api.action(e => e.run(proposal.id, checked, author, 'revert')); setPreview('')
-            })}>{t('受保护撤回', 'Guarded recovery')}</Button>
+            })}>{t('受保护撤回', 'Guarded recovery')}</Button>}
           </div>
+          {surface === 'writing' && <p role="status" className="text-caption text-ink-2">{writingCopy[locale].reviewHint}</p>}
           <label className="block">{t('拒绝理由', 'Rejection reason')}<input className="ui-input mt-1 w-full" value={decisionReason} onChange={e => setDecisionReason(e.target.value)}/></label>
           <Button disabled={!checked.length || !decisionReason.trim()} onClick={() => void call(() => api.action(e => e.reject(proposal.id, checked, author, decisionReason)))}>{t('拒绝所选组', 'Reject selected group')}</Button>
           {preview && <p role="status" className="whitespace-pre-wrap">{preview}</p>}

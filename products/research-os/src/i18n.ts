@@ -10,7 +10,6 @@ export const messages:Record<string,[string,string]>={
  "区域批注":["区域批注","Area annotation"],
  "查看批注":["查看批注","View annotation"],
  "关闭批注":["关闭批注","Close annotation"],
- "描述这里需要如何修改…":["描述这里需要如何修改…","Describe the change here\u2026"],
  "需要处理":["需要处理","Needs attention"],
  "会话待恢复":["会话待恢复","Resume session"],
  "正在恢复连接":["正在恢复连接","Reconnecting"],
@@ -25,7 +24,9 @@ export const messages:Record<string,[string,string]>={
 
  '展开下栏':['展开下栏','Expand bottom panel'],
  'PDF 版本':['PDF 版本','PDF version'],'当前版本':['当前版本','Current version'],
- '按此批注修改':['按此批注修改','Revise from annotation'],
+ '加入这次讨论':['加入这次讨论','Join this discussion'],
+ '提交批注并讨论':['提交批注并讨论','Submit annotation and discuss'],
+ '写下对这一处的设计意见…':['写下对这一处的设计意见…','Write the design note for this place\u2026'],
  '目录未能读取':['目录未能读取','Unable to read this folder'],'此稿件还没有已编译的 PDF。':['此稿件还没有已编译的 PDF。','No compiled PDF is available for this manuscript.'],
  '项目文件':['项目文件','Project files'],'选择项目查看文件。':['选择项目查看文件。','Select a project to view its files.'],'此目录没有研究资料。':['此目录没有研究资料。','No research materials in this folder.'],'知识库文件':['知识库文件','Knowledge base files'],'查找文档…':['查找文档…','Find documents…'],'没有匹配的文档。':['没有匹配的文档。','No matching documents.'],'文档范围':['文档范围','Document scope'],'返回文件列表':['返回文件列表','Back to files'],'此附件暂不支持预览。':['此附件暂不支持预览。','Preview is not available for this attachment.'],
 
