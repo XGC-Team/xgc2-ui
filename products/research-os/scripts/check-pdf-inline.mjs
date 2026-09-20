@@ -16,13 +16,13 @@ try{
  await page.locator('[data-xgc-role="pdf-page"]').dispatchEvent('mouseup')
  await page.locator('[data-xgc-role="pdf-annotation-comment"]').fill('请明确说明：三个样本不足以推断总体分布。')
  const saved=page.waitForResponse(r=>r.url().includes('/knowledge-items')&&r.request().method()==='POST'&&r.status()<300)
- await page.getByRole('button',{name:'保存批注',exact:true}).click();await saved
+ await page.getByRole('button',{name:'提交批注并讨论',exact:true}).click();await saved
  }
  const mark=page.locator('[data-xgc-role="pdf-annotation-mark"]').last();await mark.waitFor();await mark.click();await page.getByText('请明确说明：三个样本不足以推断总体分布。',{exact:true}).waitFor()
  const original=await mark.evaluate(el=>({left:el.style.left,top:el.style.top,width:el.style.width}))
  await page.getByRole('button',{name:'关闭批注',exact:true}).click();await page.getByRole('button',{name:'PDF 操作',exact:true}).click();await page.getByRole('button',{name:'放大 PDF',exact:true}).click();await page.keyboard.press('Escape');assert.deepEqual(await mark.evaluate(el=>({left:el.style.left,top:el.style.top,width:el.style.width})),original)
- await mark.click();await page.getByRole('button',{name:'按此批注修改',exact:true}).click()
- const draft=await page.locator('[data-xgc-role="native-agent-composer-input-editor"]').innerText();assert.ok(draft.includes(selected));assert.ok(draft.includes('PDF 区域'));assert.ok(draft.includes('构建：'))
+ await mark.click();await page.getByRole('button',{name:'加入这次讨论',exact:true}).click()
+ const draft=await page.locator('[data-xgc-role="native-agent-composer-input-editor"]').innerText();assert.ok(draft.includes(selected));assert.ok(draft.includes('PDF 版本：'));assert.ok(draft.includes('构建：'));assert.ok(draft.includes('在设计确认前不要改正文'))
  await page.getByRole('button',{name:'关闭批注',exact:true}).click()
  const regionNote=page.locator('[data-xgc-role="pdf-annotation-mark"][title="请调整这个公式与前后正文的间距，并保持公式编号右对齐。"]')
  if(!await regionNote.count()){
@@ -30,7 +30,7 @@ try{
  const area=page.locator('[data-xgc-role="pdf-region-selector"]'),r=await area.boundingBox();await page.mouse.move(r.x+r.width*.2,r.y+r.height*.51);await page.mouse.down();await page.mouse.move(r.x+r.width*.82,r.y+r.height*.58,{steps:8});await page.mouse.up()
  await page.locator('[data-xgc-role="pdf-annotation-comment"]').fill('请调整这个公式与前后正文的间距，并保持公式编号右对齐。')
  const savedRegion=page.waitForResponse(r=>r.url().includes('/knowledge-items')&&r.request().method()==='POST'&&r.status()<300)
- await page.getByRole('button',{name:'保存批注',exact:true}).click();await savedRegion;await page.waitForTimeout(300)
+ await page.getByRole('button',{name:'提交批注并讨论',exact:true}).click();await savedRegion;await page.waitForTimeout(300)
  await page.getByRole('button',{name:'文字批注',exact:true}).click()
  }
  await regionNote.click();await page.getByText('区域批注',{exact:true}).waitFor()
