@@ -1,6 +1,7 @@
 /** Approved nodes and their actual native receipts. No inferred execution phases. */
 export const RUN_SCHEMA = 'xgc.research.workflow-run/v1' as const
 export const SNAPSHOT_SCHEMA = 'xgc.research.workflow-snapshot/v1' as const
+export type InvokeKind = 'research' | 'continuous' | 'verification' | 'archive' | 'writing'
 export type PlanNode = {
   id: string; kind: string; title: string; objective: string
   acceptance: string[]; inputs: string[]; dependsOn: string[]
@@ -17,9 +18,13 @@ export type Receipt = {
   dispatchIntent: boolean; lastSeq: number; toolResultEvents: number[] | null
   events: ReceiptEvent[]; stopError?: string; cleanup?: string
 }
+export type Hypothesis = {claim: string; grounds: string[]}
+export type Branch = {stance: string; status: string; nodeId?: string; tool?: string; output?: string; outputDigest?: string; error?: string}
+export type Adjudication = {outcome: string; rationale: string; actorRef: string; branchDigests: string[]; judgedAt?: string}
 export type Run = {
   schemaVersion: typeof RUN_SCHEMA; id: string; requestKey: string; version: number; digest: string
-  status: 'running' | 'paused' | 'interrupted' | 'completed' | 'failed' | 'cancelled' | 'needs_changes'
+  status: 'running' | 'paused' | 'interrupted' | 'completed' | 'failed' | 'cancelled' | 'needs_changes' | 'awaiting-adjudication'
+  kind?: InvokeKind; subscriptionId?: string; hypothesis?: Hypothesis; branches?: Branch[]; adjudication?: Adjudication
   control?: 'pause' | 'cancel'; failure?: string; startedAt: string; finishedAt?: string
   researchAcceptance: string; receipts: Receipt[]
 }
@@ -35,7 +40,10 @@ export function defaultRole(kind: string): DefaultRole {
   return kind === 'Review' ? 'reviewer' : kind === 'Synthesis' ? 'writer' : 'researcher'
 }
 export function unresolved(run: Run): boolean {
-  return run.status === 'running' || run.status === 'paused' || run.status === 'interrupted'
+  return run.status === 'running' || run.status === 'paused' || run.status === 'interrupted' || run.status === 'awaiting-adjudication'
+}
+export function recoverable(run: Run): boolean {
+  return run.status === 'paused' || run.status === 'interrupted'
 }
 export function nodeStatus(id: string, run?: Run): NodeStatus {
   if (!run) return 'idle'

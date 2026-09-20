@@ -1,6 +1,6 @@
 import {describe, expect, it, afterEach, vi} from 'vitest'
-import {currentNodeId, defaultRole, liveLine, nodeAgent, nodeStatus, RUN_SCHEMA, SNAPSHOT_SCHEMA, type PlanNode, type Receipt, type Revision, type Run} from '../src/features/workflow/workflow-model'
-import {parseWorkflowSnapshot, prepareExecutionIntent, reconcileExecutionIntent, subscribeWorkflow, type IntentStorage} from '../src/features/workflow/workflow-client'
+import {currentNodeId, defaultRole, liveLine, nodeAgent, nodeStatus, recoverable, unresolved, RUN_SCHEMA, SNAPSHOT_SCHEMA, type PlanNode, type Receipt, type Revision, type Run} from '../src/features/workflow/workflow-model'
+import {executeBody, parseWorkflowSnapshot, prepareExecutionIntent, reconcileExecutionIntent, subscribeWorkflow, type IntentStorage} from '../src/features/workflow/workflow-client'
 
 const nodes: PlanNode[] = [
   {id: 'read', kind: 'EvidenceRead', title: '读证据', objective: 'read', acceptance: ['source'], inputs: [], dependsOn: []},
@@ -110,5 +110,28 @@ describe('read-only reconnect transport', () => {
     SourceFixture.instances[0].emit('{"schemaVersion":"old"}')
     expect(SourceFixture.instances[0].closed).toBe(true); expect(state).toHaveBeenLastCalledWith('error', expect.any(String))
     vi.runAllTimers(); expect(SourceFixture.instances).toHaveLength(1); stop()
+  })
+})
+
+describe('typed invocations without replacing node receipts', () => {
+  it('continuous execute pins an activated subscription', () => {
+    expect(executeBody('continuous', digest, {subscriptionId: 'radar_sub_1'})).toEqual({digest, kind: 'continuous', subscriptionId: 'radar_sub_1'})
+  })
+  it('verification execute sends unique grounds rather than a vote', () => {
+    expect(executeBody('verification', digest, {claim: 'bound holds', grounds: 'lemma@v1\nlemma@v1\ncheck@v2'})).toEqual({
+      digest, kind: 'verification', hypothesis: {claim: 'bound holds', grounds: ['lemma@v1', 'check@v2']},
+    })
+  })
+  it('typed invocations keep a distinct durable key from node execution', () => {
+    expect(prepareExecutionIntent(storage(), 'project', revision(), 'continuous')).not.toBe(prepareExecutionIntent(storage(), 'project', revision()))
+  })
+  it('awaiting adjudication stays unresolved and is not recovered by resume', () => {
+    const waiting = run({status: 'awaiting-adjudication', receipts: [receipt('read', 'completed')]})
+    expect(unresolved(waiting)).toBe(true)
+    expect(recoverable(waiting)).toBe(false)
+  })
+  it('rejects an unknown invocation kind instead of upgrading it', () => {
+    const alien = run({kind: 'scheduler' as Run['kind']})
+    expect(() => parseWorkflowSnapshot(snapshot(revision([alien])), 'project')).toThrow()
   })
 })

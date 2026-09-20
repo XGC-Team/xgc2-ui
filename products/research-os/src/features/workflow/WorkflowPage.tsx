@@ -3,8 +3,8 @@ import {Play, Plus, Settings2, Square, X, Trash2, Download, Pause} from 'lucide-
 import {PageActions} from '../../components/PageActions'
 import {t as tr} from '../../i18n'
 import {WorkflowCanvas, NODE_KINDS} from './WorkflowCanvas'
-import {currentNodeId, defaultRole, liveLine, nodeAgent, nodeStatus, unresolved, NODE_STATUS_LABEL, type Draft, type PlanNode, type Receipt, type Revision, type Run} from './workflow-model'
-import {prepareExecutionIntent, reconcileExecutionIntent, subscribeWorkflow, workflowBase, workflowRequest as request, type StreamState} from './workflow-client'
+import {currentNodeId, defaultRole, liveLine, nodeAgent, nodeStatus, recoverable, unresolved, NODE_STATUS_LABEL, type Draft, type InvokeKind, type PlanNode, type Receipt, type Revision, type Run} from './workflow-model'
+import {executeBody, prepareExecutionIntent, reconcileExecutionIntent, subscribeWorkflow, workflowBase, workflowRequest as request, type StreamState} from './workflow-client'
 import {PanelHeader, IconBtn, Button} from '../../components/ui'
 import {Input, Textarea, Select, FormField} from '../../components/forms'
 import {IconCanvas} from '../../components/icons'
@@ -20,7 +20,8 @@ const roles = ['researcher', 'reviewer', 'writer'] as const
 const ROLE_LABEL = {researcher: '默认研究者', reviewer: '默认审查者', writer: '默认写作者'}
 const blank = (): Draft => ({title: '', goal: '', workspace: {id: '', revision: ''}, researcher: '', reviewer: '', writer: '', nodes: [{id: 'evidence', kind: 'EvidenceRead', title: tr('证据研究'), objective: '', acceptance: [tr('每个结论关联可核对来源；明确未验证假设')], inputs: [], dependsOn: [], knowledge: []}]})
 const message = (error: unknown) => error instanceof Error ? error.message : String(error)
-const RUN_LABEL: Record<Run['status'], string> = {running: '运行中', paused: '已在节点边界暂停', interrupted: '中断，需核对原回执', completed: '执行完成', failed: '执行失败', cancelled: '已确认取消', needs_changes: '证据需补充'}
+const RUN_LABEL: Record<Run['status'], string> = {running: '运行中', paused: '已在节点边界暂停', interrupted: '中断，需核对原回执', completed: '执行完成', failed: '执行失败', cancelled: '已确认取消', needs_changes: '证据需补充', 'awaiting-adjudication': '待证据裁定'}
+const KIND_LABEL: Record<InvokeKind, string> = {research: '获批节点执行', continuous: '连续研究（一页）', verification: '研究验证', archive: '文献归档', writing: '写作应用'}
 
 export function WorkflowPage({projectId, onQuote, onOpenSession}: {projectId: string | null; onQuote?: (text: string) => void; onOpenSession?: (id: string) => void}) {
   const {openCanvas, previewDocument, knowledgeDocuments} = useWorkbench()
@@ -32,6 +33,10 @@ export function WorkflowPage({projectId, onQuote, onOpenSession}: {projectId: st
   const [stream, setStream] = useState<StreamState>('connecting'), [streamMessage, setStreamMessage] = useState('')
   const [profiles, setProfiles] = useState<NativeProfile[]>([]), [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([])
   const [thoughts, setThoughts] = useState<CanvasNode[]>([]), [assembling, setAssembling] = useState('')
+  const [invokeKind, setInvokeKind] = useState<InvokeKind>('research')
+  const [subscriptionId, setSubscriptionId] = useState('')
+  const [hypothesisClaim, setHypothesisClaim] = useState('')
+  const [hypothesisGrounds, setHypothesisGrounds] = useState('')
   const generation = useRef(0), inFlight = useRef(false), draftProject = useRef(projectId)
   const savedDrafts = useRef<Record<string, {draft: Draft; baseVersion: number}>>({})
   useEffect(() => {if (projectId && editing && draftProject.current === projectId) savedDrafts.current[projectId] = {draft, baseVersion: editingBaseVersion}}, [draft, projectId, editing, editingBaseVersion])
@@ -81,8 +86,8 @@ export function WorkflowPage({projectId, onQuote, onOpenSession}: {projectId: st
   const ready = stream === 'live'
   function executeApproved() {
     if (!projectId || !revision || activeRun || !ready) return Promise.resolve()
-    const key = prepareExecutionIntent(window.localStorage, projectId, revision)
-    return request(`${base}/${revision.version}/execute`, {digest: revision.digest}, key)
+    const key = prepareExecutionIntent(window.localStorage, projectId, revision, invokeKind)
+    return request(`${base}/${revision.version}/execute`, executeBody(invokeKind, revision.digest, {subscriptionId, claim: hypothesisClaim, grounds: hypothesisGrounds}), key)
   }
   function controlRun(actionName: 'pause' | 'cancel' | 'resume') {
     if (!activeRun || !activeRevision) return Promise.resolve()
@@ -142,7 +147,7 @@ export function WorkflowPage({projectId, onQuote, onOpenSession}: {projectId: st
           <Button icon={Pause} disabled={busy || !ready || Boolean(activeRun.control)} onClick={() => void action(() => controlRun('pause'))}>{tr('在节点边界暂停')}</Button>
           <Button icon={Square} disabled={busy || !ready || activeRun.control === 'cancel'} onClick={() => void action(() => controlRun('cancel'))}>{tr(activeRun.control === 'cancel' ? '等待原生停止回执' : '请求取消')}</Button>
         </>}
-        {activeRun && activeRun.status !== 'running' && <Button variant="solid" disabled={busy || !ready} onClick={() => void action(() => controlRun('resume'))}>{tr('恢复同一运行')}</Button>}
+        {activeRun && recoverable(activeRun) && <Button variant="solid" disabled={busy || !ready} onClick={() => void action(() => controlRun('resume'))}>{tr('恢复同一运行')}</Button>}
         {revision && <><Button disabled={busy} onClick={beginEdit}>{tr('修订计划')}</Button><Button icon={Download} onClick={() => void download('planweave')}>{tr('导出 PlanWeave')}</Button><IconBtn icon={Settings2} label={tr('计划设置')} onClick={() => setSelectedNode('')}/></>}
       </>}
     </PageActions>
@@ -202,7 +207,8 @@ export function WorkflowPage({projectId, onQuote, onOpenSession}: {projectId: st
             <h3 className="text-title font-semibold">{revision.draft.title}</h3><p className="whitespace-pre-wrap text-secondary">{revision.draft.goal}</p>
             <p className="break-all text-caption">v{revision.version} · {revision.approved ? '已批准' : '待批准'}<br/>{revision.digest}<br/>{revision.draft.workspace.id} @ {revision.draft.workspace.revision}</p>
             {!revision.approved && <><label className="flex items-start gap-2 text-secondary"><input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)}/>批准此固定版本，并允许各节点指定的原生 Agent 访问工作区副本。正文应用仍需单独确认。</label><Button variant="solid" disabled={!consent || busy || !ready} onClick={() => void action(() => request(`${base}/${revision.version}/approve`, {digest: revision.digest, nativeAccessConfirmed: true}))}>{tr('批准版本')} {revision.version}</Button></>}
-            {revision.runs.map(run => <details key={run.id} open={run === latestRun} className="border-t border-line pt-2"><summary className="text-secondary">{RUN_LABEL[run.status]} · {run.startedAt}</summary><p className="break-all text-caption">{run.id}</p>{run.failure && <p role="alert" className="ui-error">{run.failure}</p>}<p className="text-caption">研究验收：{run.researchAcceptance === 'awaiting-human-acceptance' ? '执行审查通过；结论仍待人工验收' : run.researchAcceptance === 'needs-review' ? '证据或检查需补充' : '尚未独立审查'}。执行完成不等于科学结论成立。</p>{run.receipts.map(r => <ReceiptRow key={r.stage} receipt={r} onQuote={onQuote} onOpenSession={onOpenSession}/>)}</details>)}
+            {revision.runs.map(run => <details key={run.id} open={run === latestRun} className="border-t border-line pt-2"><summary className="text-secondary">{KIND_LABEL[run.kind || 'research']} · {RUN_LABEL[run.status]} · {run.startedAt}</summary><p className="break-all text-caption">{run.id}{run.subscriptionId ? ` · ${run.subscriptionId}` : ''}</p>{run.failure && <p role="alert" className="ui-error">{run.failure}</p>}{run.hypothesis && <p className="whitespace-pre-wrap text-secondary">命题：{run.hypothesis.claim}</p>}{(run.branches || []).map(branch => <p key={branch.stance} className="text-caption">{branch.stance === 'opposing' ? '反对分支' : '支持分支'} · {branch.status}{branch.error ? ` · ${branch.error}` : ''}</p>)}{run.status === 'awaiting-adjudication' && <AdjudicationPanel run={run} busy={busy} onSubmit={command => void action(() => request(`${base}/${revision.version}/runs/${encodeURIComponent(run.id)}/adjudicate`, command))}/>}<p className="text-caption">研究验收：{run.researchAcceptance === 'awaiting-human-acceptance' ? '执行审查通过；结论仍待人工验收' : run.researchAcceptance === 'needs-review' ? '证据或检查需补充' : '尚未独立审查'}。执行完成不等于科学结论成立。裁定不能把已记录的反例投成支持。</p>{run.receipts.map(r => <ReceiptRow key={r.stage} receipt={r} onQuote={onQuote} onOpenSession={onOpenSession}/>)}</details>)}
+            {revision.approved && !activeRun && <InvocationPanel kind={invokeKind} onKind={setInvokeKind} subscriptionId={subscriptionId} onSubscriptionId={setSubscriptionId} claim={hypothesisClaim} onClaim={setHypothesisClaim} grounds={hypothesisGrounds} onGrounds={setHypothesisGrounds} request={request}/>}
             <Button onClick={() => void download('archify')}>{tr('导出 Archify 图源')}</Button><a className="block text-secondary underline" href={`${base}/${revision.version}/export/html`} download>{tr('导出交互图')}</a>
           </>}
           {relatedThoughts.length > 0 && <div><h4 className="text-caption">{tr('思维链')}</h4>{relatedThoughts.map(t => <button key={t.id} type="button" className="block text-secondary" onClick={() => projectId && openCanvas(projectId)}>{t.title}</button>)}</div>}
@@ -217,5 +223,80 @@ function ReceiptRow({receipt, onQuote, onOpenSession}: {receipt: Receipt; onQuot
     {receipt.stopError && <p role="alert" className="ui-error">停止请求错误：{receipt.stopError}</p>}
     <details><summary className="text-caption">实际执行来源与回执</summary><pre className="whitespace-pre-wrap break-all text-caption">{JSON.stringify({nodeId: receipt.stage, kind: receipt.kind, profileId: receipt.profileId, sessionId: receipt.sessionId, turnId: receipt.turnId, promptDigest: receipt.promptDigest, outputDigest: receipt.outputDigest, nativeToolEventSeq: receipt.toolResultEvents, lastSeq: receipt.lastSeq, cleanup: receipt.cleanup}, null, 2)}</pre></details>
     {receipt.output && <details><summary className="text-secondary">{tr('查看输出')}</summary><pre className="whitespace-pre-wrap break-words text-caption">{receipt.output}</pre>{onQuote && <Button onClick={() => onQuote(receipt.output)}>{tr('引用到讨论')}</Button>}</details>}
+  </div>
+}
+
+function InvocationPanel({kind, onKind, subscriptionId, onSubscriptionId, claim, onClaim, grounds, onGrounds, request}: {
+  kind: InvokeKind; onKind: (kind: InvokeKind) => void
+  subscriptionId: string; onSubscriptionId: (id: string) => void
+  claim: string; onClaim: (value: string) => void
+  grounds: string; onGrounds: (value: string) => void
+  request: <T>(url: string, body?: unknown, key?: string) => Promise<T>
+}) {
+  const [policyId, setPolicyId] = useState('')
+  const [watchId, setWatchId] = useState('')
+  const [revision, setRevision] = useState('1')
+  const [digest, setDigest] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  async function activate(pause = false) {
+    setBusy(true); setError('')
+    try {
+      if (pause) {
+        if (!subscriptionId) throw new Error('需要已激活的订阅')
+        await request(`/api/v1/radar/subscriptions/${encodeURIComponent(subscriptionId)}/pause`, {actorRef: 'human:operator', reason: 'pause fetch'})
+        return
+      }
+      const created = await request<{subscriptionId: string}>('/api/v1/radar/subscriptions', {
+        sourceId: 'crossref', policyId, revision: Number(revision), digest, watchId,
+        actorRef: 'human:operator', reason: 'activate governed watch',
+      }, crypto.randomUUID())
+      onSubscriptionId(created.subscriptionId)
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason))
+    } finally {setBusy(false)}
+  }
+  return <div className="space-y-3 border-t border-line pt-3">
+    <FormField htmlFor="invoke-kind" label={tr('本次运行')}><Select id="invoke-kind" value={kind} onValueChange={value => onKind(value as InvokeKind)}>
+      <option value="research">{KIND_LABEL.research}</option>
+      <option value="continuous">{KIND_LABEL.continuous}</option>
+      <option value="verification">{KIND_LABEL.verification}</option>
+      <option value="archive">{KIND_LABEL.archive}</option>
+      <option value="writing">{KIND_LABEL.writing}</option>
+    </Select></FormField>
+    {kind === 'continuous' && <>
+      <FormField htmlFor="subscription-id" label={tr('已激活订阅')}><Input id="subscription-id" value={subscriptionId} onChange={e => onSubscriptionId(e.target.value)}/></FormField>
+      <FormField htmlFor="policy-id" label={tr('政策')}><Input id="policy-id" value={policyId} onChange={e => setPolicyId(e.target.value)}/></FormField>
+      <Input value={watchId} onChange={e => setWatchId(e.target.value)} placeholder="watchId"/>
+      <Input value={revision} onChange={e => setRevision(e.target.value)} placeholder="revision"/>
+      <Input value={digest} onChange={e => setDigest(e.target.value)} placeholder="digest"/>
+      {error && <p role="alert" className="ui-error">{error}</p>}
+      <div className="flex flex-wrap gap-2">
+        <Button disabled={busy} onClick={() => void activate(false)}>{tr('激活订阅')}</Button>
+        <Button disabled={busy || !subscriptionId} onClick={() => void activate(true)}>{tr('暂停拉取')}</Button>
+      </div>
+      <p className="text-caption text-ink-3">保存观察规则不会开始拉取。只有激活后的订阅才会进入连续研究。</p>
+    </>}
+    {kind === 'verification' && <>
+      <FormField htmlFor="hypothesis-claim" label={tr('待验证命题')}><Textarea id="hypothesis-claim" value={claim} onChange={e => onClaim(e.target.value)}/></FormField>
+      <FormField htmlFor="hypothesis-grounds" label={tr('依据（每行一条）')}><Textarea id="hypothesis-grounds" value={grounds} onChange={e => onGrounds(e.target.value)}/></FormField>
+    </>}
+    {kind === 'writing' && <p className="text-caption text-ink-3">写作应用只调用 D 已注册的回执工具，不会在本页改正文。</p>}
+    {kind === 'archive' && <p className="text-caption text-ink-3">归档调用 E 已注册的文献工具；未注册时运行失败并保留回执。</p>}
+  </div>
+}
+
+function AdjudicationPanel({run, busy, onSubmit}: {run: Run; busy: boolean; onSubmit: (command: {outcome: string; rationale: string; actorRef: string; branchDigests: string[]}) => void}) {
+  const [outcome, setOutcome] = useState('inconclusive')
+  const [rationale, setRationale] = useState('')
+  const digests = (run.branches || []).map(branch => branch.outputDigest || '').filter(Boolean)
+  return <div className="space-y-2">
+    <FormField htmlFor="adjudication-outcome" label={tr('证据裁定')}><Select id="adjudication-outcome" value={outcome} onValueChange={setOutcome}>
+      <option value="supported">成立</option>
+      <option value="refuted">被反例驳回</option>
+      <option value="inconclusive">未决</option>
+    </Select></FormField>
+    <FormField htmlFor="adjudication-rationale" label={tr('裁定说明')}><Textarea id="adjudication-rationale" value={rationale} onChange={e => setRationale(e.target.value)}/></FormField>
+    <Button variant="solid" disabled={busy || !rationale.trim() || digests.length !== (run.branches || []).length} onClick={() => onSubmit({outcome, rationale, actorRef: 'human:operator', branchDigests: digests})}>{tr('提交裁定')}</Button>
   </div>
 }

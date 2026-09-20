@@ -1,4 +1,16 @@
-import {RUN_SCHEMA, SNAPSHOT_SCHEMA, unresolved, type Draft, type PlanNode, type Receipt, type Revision, type Run, type WorkflowSnapshot} from './workflow-model'
+import {RUN_SCHEMA, SNAPSHOT_SCHEMA, unresolved, type Draft, type InvokeKind, type PlanNode, type Receipt, type Revision, type Run, type WorkflowSnapshot} from './workflow-model'
+
+export type {InvokeKind}
+export const INVOKE_KINDS: InvokeKind[] = ['research', 'continuous', 'verification', 'archive', 'writing']
+export function executeBody(kind: InvokeKind, digest: string, options?: {subscriptionId?: string; claim?: string; grounds?: string}) {
+  const body: {digest: string; kind: InvokeKind; subscriptionId?: string; hypothesis?: {claim: string; grounds: string[]}} = {digest, kind}
+  if (kind === 'continuous' && options?.subscriptionId) body.subscriptionId = options.subscriptionId
+  if (kind === 'verification') {
+    const grounds = [...new Set((options?.grounds || '').split('\n').map(line => line.trim()).filter(Boolean))]
+    body.hypothesis = {claim: options?.claim?.trim() || '', grounds}
+  }
+  return body
+}
 
 export function workflowBase(project: string): string {
   return `/api/v1/research/projects/${encodeURIComponent(project)}/plans`
@@ -44,6 +56,7 @@ export function parseWorkflowSnapshot(raw: string, project: string): WorkflowSna
     const runs = list(revision.runs).map(value => {
       const run = record(value)
       if (run.schemaVersion !== RUN_SCHEMA || run.version !== revision.version || run.digest !== revision.digest || typeof run.id !== 'string' || typeof run.requestKey !== 'string' || typeof run.status !== 'string') throw new Error('运行合同不匹配；历史运行不会被兼容升级或重新派发。')
+        if (run.kind != null && run.kind !== '' && !INVOKE_KINDS.includes(run.kind as InvokeKind)) throw new Error('运行种类不在当前合同内。')
       const seen = new Set<string>()
       const receipts = list(run.receipts).map(value => {
         const receipt = record(value)
@@ -94,31 +107,36 @@ export function subscribeWorkflow(project: string, callbacks: StreamCallbacks): 
 }
 
 export type IntentStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>
-type ExecutionIntent = {schemaVersion: 'xgc.research.workflow-intent/v1'; project: string; version: number; digest: string; key: string}
-const intentSlot = (project: string, revision: Pick<Revision, 'version' | 'digest'>) => `xgc.research.workflow-intent/${encodeURIComponent(project)}/${revision.version}/${revision.digest}`
-function readIntent(storage: IntentStorage, project: string, revision: Pick<Revision, 'version' | 'digest'>): ExecutionIntent | null {
-  const raw = storage.getItem(intentSlot(project, revision))
+type ExecutionIntent = {schemaVersion: 'xgc.research.workflow-intent/v1'; project: string; version: number; digest: string; key: string; kind?: InvokeKind}
+const intentSlot = (project: string, revision: Pick<Revision, 'version' | 'digest'>, kind: InvokeKind = 'research') => {
+  const base = `xgc.research.workflow-intent/${encodeURIComponent(project)}/${revision.version}/${revision.digest}`
+  return kind === 'research' ? base : `${base}/${kind}`
+}
+function readIntent(storage: IntentStorage, project: string, revision: Pick<Revision, 'version' | 'digest'>, kind: InvokeKind = 'research'): ExecutionIntent | null {
+  const raw = storage.getItem(intentSlot(project, revision, kind))
   if (raw === null) return null
   const intent = record(JSON.parse(raw))
   if (intent.schemaVersion !== 'xgc.research.workflow-intent/v1' || intent.project !== project || intent.version !== revision.version || intent.digest !== revision.digest || typeof intent.key !== 'string' || !intent.key || intent.key.length > 128) throw new Error('本地待确认运行身份不匹配；拒绝生成新请求覆盖它。')
   return intent as ExecutionIntent
 }
-export function prepareExecutionIntent(storage: IntentStorage, project: string, revision: Revision): string {
-  const existing = readIntent(storage, project, revision)
+export function prepareExecutionIntent(storage: IntentStorage, project: string, revision: Revision, kind: InvokeKind = 'research'): string {
+  const existing = readIntent(storage, project, revision, kind)
   if (existing) return existing.key
   if (!revision.approved || revision.runs.some(unresolved)) throw new Error('请先批准版本，或恢复现有未决运行。')
   // The same last CONFIRMED run produces the same key across tabs. A response
   // loss/reload cannot silently mint another operation. Reruns are explicit UI actions.
   const anchor = revision.runs[0]?.id || 'initial'
-  const key = `workflow-v1:${revision.digest}:${anchor}`
+  const key = kind === 'research' ? `workflow-v1:${revision.digest}:${anchor}` : `workflow-v1:${revision.digest}:${kind}:${anchor}`
   if (key.length > 128) throw new Error('运行身份超过合同长度。')
-  const intent: ExecutionIntent = {schemaVersion: 'xgc.research.workflow-intent/v1', project, version: revision.version, digest: revision.digest, key}
-  const raw = JSON.stringify(intent), slot = intentSlot(project, revision)
+  const intent: ExecutionIntent = {schemaVersion: 'xgc.research.workflow-intent/v1', project, version: revision.version, digest: revision.digest, key, kind}
+  const raw = JSON.stringify(intent), slot = intentSlot(project, revision, kind)
   storage.setItem(slot, raw)
   if (storage.getItem(slot) !== raw) throw new Error('另一页面修改了待确认运行，请重新读取状态。')
   return key
 }
 export function reconcileExecutionIntent(storage: IntentStorage, project: string, revision: Revision): void {
-  const intent = readIntent(storage, project, revision)
-  if (intent && revision.runs.some(run => run.requestKey === intent.key)) storage.removeItem(intentSlot(project, revision))
+  for (const kind of INVOKE_KINDS) {
+    const intent = readIntent(storage, project, revision, kind)
+    if (intent && revision.runs.some(run => run.requestKey === intent.key)) storage.removeItem(intentSlot(project, revision, kind))
+  }
 }
