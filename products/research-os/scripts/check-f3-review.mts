@@ -11,7 +11,7 @@ const scope: Scope = {projectId: 'project-test', workspace: 'paper-test'}
 const at = '2026-09-16T04:00:00Z'
 const anchor: Anchor = {kind:'text',workspace:scope.workspace,path:'main.tex',digest:'s1',quote:'strong'}
 const source = 'A strong conclusion.\nUnrelated content.'
-const canvas = JSON.stringify({version:1, nodes:[{id:'claim',kind:'idea',title:'Claim',body:'all cases',x:10,y:20,extension:{keep:true}}],edges:[],extension:{keep:true}})
+const canvas = JSON.stringify({version:2, nodes:[{id:'claim',kind:'idea',title:'Claim',body:'all cases',x:10,y:20,extension:{keep:true}}],edges:[],outlines:[{artifact:'canvas',items:[]}],extension:{keep:true}})
 const drafts = emptyDraftBook(scope)
 for (const [kind, id] of [['paper','paper'],['slides','slides'],['storyboard','video']] as const) {
   const d = newDraft(kind, kind, at, id); d.blocks[0].id='block'; d.blocks[0].title='Title'; drafts.drafts.push(d)

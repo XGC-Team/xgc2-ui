@@ -1,19 +1,29 @@
 import { check, emptyReviewBook, fingerprint, now, operationState, parseReviewBook, REVIEW_PATH, selectedGroups, serializeReviewBook, uid, validateProposal, type Attempt, type FileRecord, type Operation, type Proposal, type ReviewBook, type Scope } from './review-model.ts'
-import { patchTarget } from './review-targets.ts'
+import { patchText } from './review-text.ts'
+import { bindWritingReview } from './writing-engine.ts'
+import { reviewBatchReceipt } from './review-batches.ts'
+import type { ReviewBatchListener, ReviewBatchReceipt } from './writing-contract.ts'
 export type ReviewPort = {
   read: (workspace: string, path: string) => Promise<FileRecord>
   write: (workspace: string, path: string, content: string, guard: { expectedDigest?: string; createOnly?: true }) => Promise<{ digest: string }>
   lease: (workspace: string, path: string) => () => Promise<void>
+  isCurrent?: () => boolean
+  batchComplete?: ReviewBatchListener
 }
-export type ReviewState = { book: ReviewBook | null; busy: boolean; error: string; auditUncertain: boolean; transient?: Attempt }
+export type ReviewState = { book: ReviewBook | null; busy: boolean; error: string; auditUncertain: boolean; transient?: Attempt; lastBatch?: ReviewBatchReceipt }
 const status = (e: unknown) => typeof e === 'object' && e && 'status' in e ? Number(e.status) : 0
 const message = (e: unknown) => e instanceof Error ? e.message : String(e)
 /** A write-ahead journal and target CAS are separate writes, never an advertised cross-file transaction. */
 export function createReviewEngine(scope: Scope, port: ReviewPort, changed: (s: ReviewState) => void) {
+  scope = structuredClone(scope)
   let book: ReviewBook | null = null, digest: string | undefined, busy = false, error = '', uncertain = false, disposed = false
-  let transient: Attempt | undefined
-  const snapshot = (): ReviewState => ({ book, busy, error, auditUncertain: uncertain, transient })
-  const emit = () => { if (!disposed) changed(snapshot()) }
+  let transient: Attempt | undefined, lastBatch: ReviewBatchReceipt | undefined
+  const isCurrent = () => !disposed && (port.isCurrent?.() ?? true)
+  let idle: Promise<void> = Promise.resolve()
+  const snapshot = (): ReviewState => structuredClone({ book, busy, error, auditUncertain: uncertain, transient, lastBatch })
+  const emit = () => {
+    if (isCurrent()) try { changed(snapshot()) } catch (e) { error = `Review state observer failed: ${message(e)}` }
+  }
   const validRecord = (r: FileRecord) => { check(typeof r?.content === 'string' && typeof r.digest === 'string' && r.digest, 'Missing file revision.'); return r }
   async function persist(next: ReviewBook) {
     const content = serializeReviewBook(next)
@@ -23,11 +33,13 @@ export function createReviewEngine(scope: Scope, port: ReviewPort, changed: (s: 
       book = next; digest = r.digest; emit()
     } catch (e) { uncertain = true; throw new Error(`Journal not confirmed. Stop and reload; never repeat a target write blindly. ${message(e)}`) }
   }
-  async function command(task: () => Promise<void>, loading = false) {
-    check(!disposed && !busy, 'Review operation is already running or closed.')
+  async function command<T>(task: () => Promise<T>, loading = false) {
+    check(isCurrent() && !busy, 'Review operation is already running or closed.')
     if (!loading) check(book && !uncertain, 'Reload the journal before making another decision.')
+    let done!: () => void
+    idle = new Promise<void>(resolve => { done = resolve })
     busy = true; error = ''; emit()
-    try { await task() } catch (e) { error = message(e); throw e } finally { busy = false; emit() }
+    try { return await task() } catch (e) { error = message(e); throw e } finally { busy = false; done(); emit() }
   }
   const proposal = (id: string) => { const p = book!.proposals.find(p => p.id === id); check(p, 'Proposal not found.'); return p }
   const unresolved = () => book!.attempts.some(a => ['pending', 'uncertain'].includes(a.outcome))
@@ -38,10 +50,11 @@ export function createReviewEngine(scope: Scope, port: ReviewPort, changed: (s: 
       check(mode === 'apply' ? ['review', 'not-written', 'observed-not-written', 'conflict'].includes(s) : s === 'applied', 'Operation is already decided, applied, reverted or uncertain.')
     }
   }
-  async function runGroup(p: Proposal, ops: Operation[], actor: string, mode: 'apply' | 'revert') {
+  async function runGroup(p: Proposal, ops: Operation[], actor: string, mode: 'apply' | 'revert', guard: () => Promise<void>) {
     const { workspace, path } = ops[0].target
     const release = port.lease(workspace, path)
     try {
+      await guard(); check(isCurrent(), 'Closed before target dispatch.')
       const baseline = validRecord(await port.read(workspace, path))
       if (mode === 'apply') check(ops.every(o => o.baseDigest === baseline.digest), 'Baseline conflict: compose a new proposal against the current version.')
       else if (ops[0].target.kind === 'text') {
@@ -49,13 +62,17 @@ export function createReviewEngine(scope: Scope, port: ReviewPort, changed: (s: 
         check(receipts.every(r => r?.afterDigest === baseline.digest), 'Source changed after application. Whole-file snapshot restore is forbidden; create a new local proposal.')
         check(receipts.every(r => r!.operationIds.every(id => ops.some(o => o.id === id))), 'Recover all source ranges from the same saved write together.')
       }
-      const next = patchTarget(baseline.content, ops, scope, mode === 'revert')
+      const next = ops[0].target.kind === 'text' ? patchText(baseline.content, ops, scope, mode === 'revert')
+        : (await import('./review-targets.ts')).patchTarget(baseline.content, ops, scope, mode === 'revert')
       const attempt: Attempt = { id: uid(), proposalId: p.id, operationIds: ops.map(o => o.id), mode, at: now(), actor, workspace, path,
         beforeDigest: baseline.digest, beforeHash: await fingerprint(baseline.content), afterHash: await fingerprint(next), outcome: 'pending' }
       await persist({ ...book!, attempts: [...book!.attempts, attempt] })
       let result: Attempt = attempt
-      if (disposed) result = { ...attempt, outcome: 'not-written', detail: 'Closed before target dispatch.', finishedAt: now() }
-      else {
+      // Re-check the design after the write-ahead acknowledgement, immediately
+      // before dispatch. A cancelled/invalidated guard is known NOT to have written.
+      try { await guard(); check(isCurrent(), 'Closed before target dispatch.') }
+      catch (e) { result = { ...attempt, outcome: 'not-written', detail: message(e), finishedAt: now() } }
+      if (result === attempt) {
         try {
           const r = await port.write(workspace, path, next, { expectedDigest: baseline.digest })
           check(typeof r?.digest === 'string' && r.digest, 'Target acknowledgement lacks a saved revision.')
@@ -74,7 +91,50 @@ export function createReviewEngine(scope: Scope, port: ReviewPort, changed: (s: 
       try { await release() } catch (e) { error = `Target outcome is recorded; editor refresh failed: ${message(e)}`; emit() }
     }
   }
+  async function performRun(id: string, ids: string[], actor: string, mode: 'apply' | 'revert', batchId: string,
+    guard: () => Promise<void> = async () => {}, cancelled: () => boolean = () => !isCurrent()) {
+    check(actor.trim(), 'Actor is required.')
+    const p = proposal(id); available(p, ids, mode)
+    const groups = ids.length ? selectedGroups(p, ids) : []
+    check(groups.length || p.writing?.result, 'Select distinct operations.')
+    const attemptStart = book!.attempts.length, notStart = (book!.notDispatched || []).length
+    const problems: string[] = []
+    try {
+      for (const ops of groups) {
+        if (!isCurrent() || cancelled()) break
+        try { if (!await runGroup(p, ops, actor, mode, guard)) break }
+        catch (e) {
+          if (uncertain || unresolved() || !isCurrent()) throw e
+          const detail = `${ops[0].target.workspace}/${ops[0].target.path}: NOT DISPATCHED — ${message(e)}`
+          await persist({ ...book!, notDispatched: [...(book!.notDispatched || []), { id: uid(), proposalId: p.id, operationIds: ops.map(o => o.id), actor, at: now(), mode, detail }] })
+          problems.push(detail)
+        }
+      }
+      return problems
+    } finally {
+      const attempts = book!.attempts.slice(attemptStart).map(a => transient?.id === a.id ? transient : a)
+      lastBatch = reviewBatchReceipt(scope, p, ids, mode, batchId, attempts, (book!.notDispatched || []).slice(notStart), !uncertain, cancelled())
+    }
+  }
+  const publishedBatches = new Set<string>()
+  function finishBatch(batchId: string): ReviewBatchReceipt | undefined {
+    if (lastBatch?.batchId !== batchId) return
+    if (uncertain) lastBatch = { ...lastBatch, auditConfirmed: false, status: 'uncertain' }
+    // Subscriber failures must never reclassify an acknowledged target write as
+    // uncertain or stop other observers. They are follow-up errors, not CAS errors.
+    try {
+      if (!publishedBatches.has(batchId)) { publishedBatches.add(batchId); port.batchComplete?.(structuredClone(lastBatch)) }
+    }
+    catch (e) { error = `Source receipts are recorded; batch follow-up failed: ${message(e)}` }
+    emit()
+    return structuredClone(lastBatch)
+  }
+  const writing = bindWritingReview({ scope, port, command, persist, proposal, performRun, finishBatch,
+    book: () => book!, idle: () => idle, closed: () => !isCurrent(), auditUncertain: () => uncertain,
+    warn: detail => { error = detail; emit() },
+  })
   return {
+    ...writing,
     snapshot,
     load: () => command(async () => {
       uncertain = true
@@ -84,12 +144,15 @@ export function createReviewEngine(scope: Scope, port: ReviewPort, changed: (s: 
     }, true),
     add: (p: Proposal) => command(async () => {
       validateProposal(p, scope)
+      check(!p.writing, 'Use offerWriting; imported data cannot supply a confirmation or native receipt.')
+      check(!p.promotion || (p.promotion.decision === 'pending' && !p.promotion.approvalDigest && !p.promotion.decidedBy && !p.promotion.decidedAt), 'Imported candidates cannot supply a knowledge approval.')
       check(!book!.proposals.some(existing => existing.id === p.id), 'Duplicate proposal.')
       await persist({ ...book!, proposals: [...book!.proposals, structuredClone(p)] })
     }),
     reject: (id: string, ids: string[], actor: string, reason: string) => command(async () => {
       check(actor.trim() && reason.trim(), 'Actor and decision reason are required.')
       const p = proposal(id)
+      check(!p.writing, 'Cancel the writing proposal with a reason instead of splitting its authorization.')
       // Rejection can include preview-only cross-file groups, but must keep dependency selection intact.
       const { dependencyClosure } = await import('./review-model.ts')
       check(ids.length > 0 && new Set(ids).size === ids.length && dependencyClosure(p, ids).length === ids.length, 'Select complete dependency groups.')
@@ -97,21 +160,12 @@ export function createReviewEngine(scope: Scope, port: ReviewPort, changed: (s: 
       await persist({ ...book!, decisions: [...book!.decisions, { id: uid(), proposalId: id, operationIds: ids, actor, reason, at: now(), kind: 'reject' }] })
     }),
     run: (id: string, ids: string[], actor: string, mode: 'apply' | 'revert') => command(async () => {
-      check(actor.trim(), 'Actor is required.')
-      const p = proposal(id); available(p, ids, mode)
-      const groups = selectedGroups(p, ids) // Validate every dependency before the first write.
-      const problems: string[] = []
-      for (const ops of groups) {
-        try { if (!await runGroup(p, ops, actor, mode)) break }
-        catch (e) {
-          if (uncertain || unresolved() || disposed) throw e
-          // Preflight/lease failure has no write receipt; surface exact untouched file alongside previous receipts.
-          const detail = `${ops[0].target.workspace}/${ops[0].target.path}: NOT DISPATCHED — ${message(e)}`
-          await persist({ ...book!, notDispatched: [...(book!.notDispatched || []), { id: uid(), proposalId: p.id, operationIds: ops.map(o => o.id), actor, at: now(), mode, detail }] })
-          problems.push(detail)
-        }
-      }
-      if (problems.length) throw new Error(problems.join('\n'))
+      check(!proposal(id).writing, 'Use the confirmed writing action; generic review cannot bypass its design guard.')
+      const batchId = uid()
+      try {
+        const problems = await performRun(id, ids, actor, mode, batchId)
+        if (problems.length) throw new Error(problems.join('\n'))
+      } finally { finishBatch(batchId) }
     }),
     inspect: async (attemptId: string) => {
       check(book && !busy, 'Wait for the current operation.')

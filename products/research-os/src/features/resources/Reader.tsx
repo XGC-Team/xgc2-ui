@@ -12,6 +12,7 @@ import {IconGraph} from '../../components/icons'
 import {decodeAnnotation} from './pdf-annotations'
 import {listPDFVersions} from './manuscript'
 import {ReadingBridge} from '../projects/ReadingBridge'
+import {inspectKnowledgeResource, type KnowledgeEdge} from './academic-graph'
 const splitFrontmatter=(raw:string)=>{const m=raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);if(!m)return{meta:[],body:raw};const meta=m[1].split('\n').map(l=>l.match(/^(\w[\w-]*)\s*:\s*(.+)$/)).filter(Boolean) as RegExpMatchArray[];return{meta:meta.map(x=>({key:x[1],value:x[2].trim()})),body:raw.slice(m[0].length)}}
 const wikilink=(raw:string)=>raw.replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g,(_m,target:string,alias:string)=>`[${alias||target}](#wiki/${encodeURIComponent(target.trim())})`)
 export function MarkdownView({content}:{content:string}){
@@ -71,6 +72,33 @@ export function Reader({onQuote}:{onQuote?:(text:string)=>void}){
     {meta.length>0&&<dl className="mt-4 flex flex-wrap gap-x-6 gap-y-1.5">{meta.map(m=><div key={m.key} className="flex gap-2 text-caption"><dt className="text-ink-3">{m.key}</dt><dd className="text-ink-2">{m.value}</dd></div>)}</dl>}
    </header>
    {loading?<p role="status" className="text-ink-3">{tr("正在读取…")}</p>:!error&&digest&&<ReadingBridge active={activeNav==='knowledge'} source={{id:'knowledge',workspace:doc.workspace,path:doc.path,digest}}><div className="research-document break-words text-body leading-[1.75] text-ink-2"><MarkdownView content={content}/></div></ReadingBridge>}
+   {digest&&<KnowledgeRelations path={doc.path}/>}
   </div></article>
  </div>
+}
+function KnowledgeRelations({path}:{path:string}){
+ const {openDocument,knowledgeDocuments:notes}=useWorkbench()
+ const [error,setError]=useState('')
+ const [outgoing,setOutgoing]=useState<KnowledgeEdge[]>([])
+ const [incoming,setIncoming]=useState<KnowledgeEdge[]>([])
+ useEffect(()=>{
+  const c=new AbortController();setError('')
+  inspectKnowledgeResource(path,undefined,c.signal).then(info=>{
+   if(!c.signal.aborted){setOutgoing(info.outgoing||[]);setIncoming(info.incoming||[])}
+  }).catch(e=>{if(!c.signal.aborted)setError(e instanceof Error?e.message:String(e))})
+  return()=>c.abort()
+ },[path])
+ const open=(id:string)=>{const note=notes.find(n=>n.path===id);if(note)openDocument({workspace:'academic',path:note.path,title:note.title})}
+ const row=(edge:KnowledgeEdge,end:'source'|'target')=>{
+  const id=end==='source'?edge.source:edge.target
+  const exists=!!notes.find(n=>n.path===id)
+  return <li key={`${end}-${edge.id}`}>{exists?<button type="button" className="ui-wikilink" onClick={()=>open(id)}>{id}</button>:<span className="text-ink-3">{id.replace(/^unresolved:/,'')}{id.startsWith('unresolved:')?` · ${tr('未解析')}`:''}</span>}</li>
+ }
+ return <section className="mt-12 border-t border-line pt-6" aria-label={tr('关系')}>
+  {error&&<p role="alert" className="text-caption text-ink-3">{error}</p>}
+  <h2 className="text-caption font-medium text-ink-3">{tr('出链')}</h2>
+  <ul className="mt-2 space-y-1 text-caption">{outgoing.length?outgoing.map(edge=>row(edge,'target')):<li className="text-ink-3">{tr('没有出链。')}</li>}</ul>
+  <h2 className="mt-4 text-caption font-medium text-ink-3">{tr('回链')}</h2>
+  <ul className="mt-2 space-y-1 text-caption">{incoming.length?incoming.map(edge=>row(edge,'source')):<li className="text-ink-3">{tr('没有回链。')}</li>}</ul>
+ </section>
 }

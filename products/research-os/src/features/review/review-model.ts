@@ -1,3 +1,5 @@
+import { validateWritingRecord } from './writing-model.ts'
+import type { WritingRecord } from './writing-contract.ts'
 /** Review records are product data, not Agent execution claims. Never infer semantic links from layout. */
 export const REVIEW_PATH = 'research-reviews.json'
 export type Scope = { projectId: string; workspace: string }
@@ -18,7 +20,8 @@ export type Operation = {
 }
 export type Proposal = {
   id: string; author: string; at: string; title: string; feedback: Feedback; operations: Operation[]
-  promotion?: { destination: 'global-knowledge'; scope: string; conditions: string; verification: string; decision: 'pending' | 'approved-scope' | 'rejected'; decidedBy?: string; decidedAt?: string }
+  writing?: WritingRecord
+  promotion?: { destination: 'global-knowledge'; scope: string; conditions: string; verification: string; decision: 'pending' | 'approved-scope' | 'rejected'; decidedBy?: string; decidedAt?: string; approvalDigest?: string }
 }
 export type Outcome = 'pending' | 'applied' | 'reverted' | 'conflict' | 'not-written' | 'uncertain' | 'observed-applied' | 'observed-not-written'
 export type Attempt = {
@@ -87,7 +90,11 @@ export function validateProposal(p: unknown, scope: Scope): asserts p is Proposa
     const k = p.promotion
     check(record(k) && k.destination === 'global-knowledge' && nonempty(k.scope) && nonempty(k.conditions) && nonempty(k.verification) && ['pending', 'approved-scope', 'rejected'].includes(String(k.decision)), 'Knowledge review requires destination, conditions and verification scope.')
   }
-  check(p.operations.length > 0 || p.promotion !== undefined, 'Add an operation or an explicit knowledge review.')
+  if (p.writing !== undefined) {
+    check(p.promotion === undefined, 'Writing and knowledge promotion are separate review scopes.')
+    validateWritingRecord(p.writing, scope, p.id, p.operations as Operation[])
+  }
+  check(p.operations.length > 0 || p.promotion !== undefined || p.writing !== undefined, 'Add an operation or an explicit review scope.')
 }
 export function emptyReviewBook(scope: Scope): ReviewBook {
   check(nonempty(scope.projectId) && nonempty(scope.workspace), 'A project and workspace are required.')

@@ -270,23 +270,45 @@ export function GraphView({data,onSelect}:{data:GraphData;onSelect:(id:number)=>
       ctx.scale(c.k, c.k)
       ctx.translate(c.x, c.y)
 
-      // edges：入场时从先亮的一端向另一端「生长」；拖拽中的边加粗提亮
+      // edges：有向箭头；自环画在节点上方；入场按进度生长
       for (const e of data.edges) {
         const s = data.nodes[e.s], t = data.nodes[e.t]
         const eIn = entering ? Math.min(enterOf(e.s, now), enterOf(e.t, now)) : 1
         if (eIn <= 0) continue
         const dragEdge = dragNode != null && (e.s === dragNode.id || e.t === dragNode.id)
         const focus = hov >= 0
-        const hot = focus && neighbors.has(e.s) && neighbors.has(e.t)
+        const hot = e.self || e.s === e.t ? focus && neighbors.has(e.s) : focus && neighbors.has(e.s) && neighbors.has(e.t)
         const base = dragEdge ? 0.7 : focus && !hot ? 0.035 : hot ? 0.55 : 0.13
-        ctx.strokeStyle = `rgba(${ink},${ink},${ink},${base * eIn})`
+        const color = `rgba(${ink},${ink},${ink},${base * eIn})`
+        ctx.strokeStyle = color
+        ctx.fillStyle = color
         ctx.lineWidth = (dragEdge ? 1.1 : 0.6) / c.k
-        const a = entering && enterOf(e.s, now) < enterOf(e.t, now) ? t : s
-        const b = a === s ? t : s
+        if (e.self || e.s === e.t) {
+          const rr = 8 / c.k
+          ctx.beginPath()
+          ctx.arc(s.x, s.y - s.r - rr, rr, 0, Math.PI * 2 * eIn)
+          ctx.stroke()
+          continue
+        }
+        const dist = Math.hypot(t.x - s.x, t.y - s.y) || 1
+        const ux = (t.x - s.x) / dist, uy = (t.y - s.y) / dist
+        const startX = s.x + ux * (s.r + 2 / c.k)
+        const startY = s.y + uy * (s.r + 2 / c.k)
+        const endX = t.x - ux * (t.r + 2 / c.k)
+        const endY = t.y - uy * (t.r + 2 / c.k)
         ctx.beginPath()
-        ctx.moveTo(a.x, a.y)
-        ctx.lineTo(a.x + (b.x - a.x) * eIn, a.y + (b.y - a.y) * eIn)
+        ctx.moveTo(startX, startY)
+        ctx.lineTo(startX + (endX - startX) * eIn, startY + (endY - startY) * eIn)
         ctx.stroke()
+        if (eIn > 0.7) {
+          const ah = 7 / c.k
+          ctx.beginPath()
+          ctx.moveTo(endX, endY)
+          ctx.lineTo(endX - ux * ah - uy * ah * 0.45, endY - uy * ah + ux * ah * 0.45)
+          ctx.lineTo(endX - ux * ah + uy * ah * 0.45, endY - uy * ah - ux * ah * 0.45)
+          ctx.closePath()
+          ctx.fill()
+        }
       }
 
       const labelBoxes:{x:number;y:number;w:number}[]=[]
@@ -367,16 +389,17 @@ export function GraphView({data,onSelect}:{data:GraphData;onSelect:(id:number)=>
         <div className="ui-pop-in pointer-events-none absolute right-3 top-3 w-56 rounded-lg border border-line bg-panel/95 p-3.5 shadow-pop">
           {(() => {
             const n = selected ?? hovered!
-            const group = GROUPS.find((g) => g.id === n.group)!
+            const group = GROUPS.find((g) => g.id === n.group)
             const degree = n.degree
             return (
               <>
                 <div className="flex items-center gap-2">
                   <span className={cn('h-2 w-2 rounded-full bg-ink', n.hub ? 'opacity-95' : 'opacity-50')} />
-                  <span className="text-caption font-medium uppercase tracking-[0.06em] text-ink-3">{tr(group.label)}</span>
+                  <span className="text-caption font-medium uppercase tracking-[0.06em] text-ink-3">{tr(group?.label ?? n.kind ?? n.group)}</span>
                   {selected && <span className="ml-auto text-[10px] text-ink-3">{tr("pinned")}</span>}
                 </div>
                 <div className="mt-1 text-[13px] font-semibold leading-snug">{n.label}</div>
+                {n.unresolved && <div className="mt-1 text-[11px] text-ink-3">{tr('未解析目标')}</div>}
                 <div className="mt-2 grid grid-cols-2 gap-1.5 text-[11px]">
                   <div className="rounded-lg bg-inset px-2 py-1.5">
                     <div className="text-ink-3">{tr("Links")}</div>

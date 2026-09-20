@@ -27,22 +27,30 @@ export interface GNode {
   fy?: number | null
   sx?: number
   sy?: number
+  unresolved?: boolean
+  resourceId?: string
+  path?: string
+  kind?: string
 }
 
 export interface GEdge {
   s: number
   t: number
+  self?: boolean
+  directed?: boolean
+  kind?: string
+  resolved?: boolean
 }
 
 export const GROUPS: {id: GroupId; label: string}[] = [{id:'paper',label:'论文'},{id:'concept',label:'概念'},{id:'project',label:'项目'},{id:'note',label:'笔记'}]
-export interface GraphData { nodes: GNode[]; edges: GEdge[]; adj: Map<number, number[]> }
+export interface GraphData { nodes: GNode[]; edges: GEdge[]; adj: Map<number, number[]>; complete?: boolean; snapshot?: string }
 export class ForceSim {
   simulation: Simulation<GNode,undefined>
   running=true
   constructor(data:GraphData){
     this.simulation=forceSimulation(data.nodes).stop().alphaDecay(.035).velocityDecay(.38)
       .force('charge',forceManyBody<GNode>().strength(-170).distanceMin(12))
-      .force('links',forceLink<GNode, {source:number;target:number}>(data.edges.map(e=>({source:e.s,target:e.t}))).id(n=>n.id).distance(95).strength(.18))
+      .force('links',forceLink<GNode, {source:number;target:number}>(data.edges.filter(e=>e.s!==e.t).map(e=>({source:e.s,target:e.t}))).id(n=>n.id).distance(95).strength(.18))
       .force('collide',forceCollide<GNode>().radius(n=>n.r+12))
       .force('x',forceX<GNode>(0).strength(.015)).force('y',forceY<GNode>(0).strength(.015))
   }

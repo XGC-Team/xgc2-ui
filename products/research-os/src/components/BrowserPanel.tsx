@@ -12,6 +12,8 @@ import { FilesPage } from '../features/resources/FilesPage'
 import { DocumentPanel } from './DocumentPanel'
 import { useWorkbench, type RightTab } from '../store'
 import { cn } from '../lib/cn'
+import { WritingPreview } from '../features/workbench/WritingPreview'
+import { useProjectPreview } from '../features/workbench/useProjectPreview'
 const PDFReader=lazy(()=>import('../features/resources/PDFReader'))
 
 /* ---------- 网页标签：iframe + 历史导航。输入网址只走顶栏全局搜索，这里不放局部地址栏 ---------- */
@@ -52,7 +54,16 @@ function NewTabMenu({onNew}:{onNew:(kind:'web'|'file'|'note')=>void}) {
 /* ---------- 右栏：标签页宿主。标签 = 打开的网页/文件/PDF/笔记，统一显示语义 ---------- */
 const KIND_ICON:Record<RightTab['kind'],typeof Globe>={web:Globe,file:Folder,pdf:FileText,note:BookOpen,drafts:FileText,reviews:FileText}
 export function BrowserPanel({onQuote,onExpand}:{onQuote:(text:string,targetProject?:string)=>void;onExpand:()=>void}) {
- const {rightTabs:tabs,activeRightTab:active,activateRightTab:activate,closeRightTab:close,openRightTab:open,updateRightTab:update}=useWorkbench()
+ const {rightTabs:tabs,activeRightTab:active,activateRightTab:activate,closeRightTab:close,openRightTab:open,updateRightTab:update,projectId,openPDF}=useWorkbench()
+ const preview=useProjectPreview(projectId)
+ const openedFor=useRef('')
+ useEffect(()=>{openedFor.current=''},[projectId])
+ useEffect(()=>{
+  if(preview.status!=='ready'||preview.projectId!==projectId||openedFor.current===projectId)return
+  openedFor.current=projectId
+  openPDF(preview.pdf)
+ },[preview,projectId,openPDF])
+ const writingPreview=Boolean(projectId)&&preview.status!=='idle'&&preview.status!=='ready'
  return <section aria-label={tr("右侧面板")} className="flex h-full min-h-0 flex-col">
   <div className="flex h-panel-header shrink-0 items-center gap-1 pl-2 pr-1.5">
    <div role="tablist" aria-label={tr("打开的标签页")} className="ui-rtabs flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto">
@@ -79,7 +90,8 @@ export function BrowserPanel({onQuote,onExpand}:{onQuote:(text:string,targetProj
     {tab.kind==='drafts'&&<WriteBoundary workspace={tab.scope.workspace} path="research-drafts.json"><DraftsPage scope={tab.scope} tabId={tab.id} onQuote={onQuote} onTitle={title=>update(tab.id,{title})}/></WriteBoundary>}
     {tab.kind==='note'&&<DocumentPanel active={tab.id===active} doc={tab.doc} onQuote={onQuote} onTitle={title=>update(tab.id,{title})}/>}
    </div>)}
-   {!tabs.length&&<div className="grid h-full place-content-center p-6 text-center">
+   {!tabs.length&&writingPreview&&<WritingPreview preview={preview} onRetry={preview.reload}/>}
+   {!tabs.length&&!writingPreview&&<div className="grid h-full place-content-center p-6 text-center">
     <p className="text-secondary text-ink-3">{tr("没有打开的标签页")}</p>
     <div className="mt-4 flex justify-center gap-2"><Button onClick={()=>open({kind:'web'})}>{tr('网页')}</Button><Button onClick={()=>open({kind:'file'})}>{tr('文件')}</Button><Button onClick={()=>open({kind:'note'})}>{tr('笔记')}</Button></div>
    </div>}

@@ -9,16 +9,17 @@ assert.match(project || '', /^paper-e2e-[a-z0-9-]+$/, 'Use an existing registere
 const browser = await chromium.launch({ headless: true, ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE } : {}) })
 const context = await browser.newContext({ viewport: { width: 1440, height: 960 } })
 const page = await context.newPage(), errors = [], blocked = []
-const v1Canvas = JSON.stringify({
-  version: 1,
+const v2Canvas = JSON.stringify({
+  version: 2,
   nodes: [
     { id: 'c1', kind: 'chapter', title: 'Intro', x: 0, y: 0 },
     { id: 'i1', kind: 'idea', title: 'Claim A', x: 40, y: 220 },
     { id: 'i2', kind: 'idea', title: 'Claim B', x: 300, y: 200 },
   ],
   edges: [{ from: 'c1', to: 'i1' }, { from: 'c1', to: 'i2' }],
+  outlines: [{ artifact: 'canvas', items: [{ node: 'c1', children: [{ node: 'i2' }, { node: 'i1' }] }] }],
 }, null, 2) + '\n'
-const files = new Map([['thinking.canvas.json', { content: v1Canvas, digest: 'canvas-v1' }]])
+const files = new Map([['thinking.canvas.json', { content: v2Canvas, digest: 'canvas-v2' }]])
 let revision = 0, forceConflict = false
 page.on('pageerror', error => errors.push(error.message))
 await context.addInitScript(project => {
@@ -33,13 +34,6 @@ await context.route('**/api/v1/**', async route => {
   if (path.startsWith(`${base}/`)) {
     const name = path.slice(base.length + 1), record = files.get(name)
     if (request.method() === 'GET') return record ? reply(200, { data: record }) : reply(404, { error: { message: 'Missing test file' } })
-    if (request.method() === 'PUT' && name === 'thinking.canvas.v1.backup.json') {
-      const input = request.postDataJSON()
-      if (!input.createOnly) return reply(400, { error: { message: 'Backup must be createOnly' } })
-      if (record) return reply(409, { error: { message: 'Backup exists' } })
-      files.set(name, { content: input.content, digest: 'backup-1' })
-      return reply(200, { data: { digest: 'backup-1' } })
-    }
     if (request.method() === 'PUT' && ['research-drafts.json', 'thinking.canvas.json'].includes(name)) {
       const input = request.postDataJSON()
       if (forceConflict || (input.createOnly ? Boolean(record) : input.expectedDigest !== record?.digest)) return reply(409, { error: { message: 'Test CAS conflict' } })
@@ -57,21 +51,18 @@ try {
   await page.goto(url)
   await page.locator(`[data-project-objects="${project}"] [data-project-object="canvas"]`).click()
   await saved()
-  // A v1 file loads (migrated in memory) without any write or backup yet.
-  assert.equal(canvasFile().version, 1)
+  assert.equal(canvasFile().version, 2)
   assert.equal(files.has('thinking.canvas.v1.backup.json'), false)
 
-  // Outline view: migration seeded hierarchy and order from the v1 edges and positions.
+  // Outline view is sourced from the same v2 document, not reconstructed from x/y.
   await page.locator(`[data-canvas-project="${project}"]`).getByRole('button', { name: 'Outline', exact: true }).click()
   const outline = page.locator('[data-outline-view="canvas"]')
   await outline.locator('[data-outline-node="c1"]').waitFor()
   assert.deepEqual(await outline.locator('[data-outline-node]').evaluateAll(rows => rows.map(row => row.getAttribute('data-outline-node'))), ['c1', 'i2', 'i1'])
-  // Reorder inside the outline; the first save writes v2 and backs up the original v1 bytes first.
   await outline.locator('[data-outline-node="i2"]').getByRole('button', { name: 'Move down', exact: true }).click()
   await saved()
   assert.deepEqual(outlineOrder(), ['c1', 'i1', 'i2'])
   assert.equal(canvasFile().version, 2)
-  assert.equal(files.get('thinking.canvas.v1.backup.json').content, v1Canvas)
 
   // Moving a card on the canvas changes only x/y: outline order is untouched.
   await page.locator(`[data-canvas-project="${project}"]`).getByRole('button', { name: 'Research canvas', exact: true }).click()
@@ -121,6 +112,11 @@ try {
   await saved()
   assert.equal(canvasFile().nodes.find(n => n.id === 'i1').evidence.length, 2)
 
+  await inspector.getByLabel('Writing purpose').fill('Limit the claim')
+  await inspector.getByLabel('Scope (do not copy into the manuscript)').fill('Skip derivation')
+  await saved()
+  assert.deepEqual(canvasFile().nodes.find(n => n.id === 'i1').writing, { purpose: 'Limit the claim', omission: 'Skip derivation' })
+
   // Context bundle: add the card, check scope, insert the manifest into the draft only.
   await inspector.getByRole('button', { name: 'Add to Chat context', exact: true }).click()
   const panel = page.locator(`[data-context-panel="${project}"]`)
@@ -131,9 +127,11 @@ try {
   assert.equal(await panel.locator('[data-context-issues] li').count(), 1)
   await panel.getByRole('button', { name: 'Insert context manifest into draft', exact: true }).click()
   await panel.getByText('Inserted into the draft; still not sent.', { exact: true }).waitFor()
+  await panel.getByRole('button', { name: 'Insert this writing context', exact: true }).click()
   const draftText = await page.locator('.native-chat-host [contenteditable="true"]').first().textContent() ?? ''
   assert.match(draftText, /thinking\.canvas\.json#i1/)
   assert.match(draftText, /不等于已发送|not sent/i)
+  assert.match(draftText, /详略（不得写入正文）|Skip derivation/)
 
   // Refresh after an external change: user keeps an explicitly labeled old snapshot.
   files.get('thinking.canvas.json').digest = 'external-9'
@@ -155,5 +153,5 @@ try {
 
   assert.deepEqual(errors, [])
   assert.deepEqual(blocked, [], 'Unexpected writes were blocked. Use a fully registered dedicated test project.')
-  console.log('PASS F2 rendered path: v1 migration with createOnly backup, outline/canvas order independence, semantic edge, evidence, undo/redo, context bundle with stale snapshot and conflict recovery. Real-backend acceptance remains separate.')
+  console.log('PASS F2 rendered path: v2 canvas/outline homology, writing intent, semantic edge, evidence, undo/redo, writing context insert, stale snapshot and conflict recovery. Real-backend acceptance remains separate.')
 } finally { await context.close(); await browser.close() }

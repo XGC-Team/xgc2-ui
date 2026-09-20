@@ -13,6 +13,7 @@ import { ResizeHandle } from './components/ResizeHandle'
 import { readPreference, writePreference } from './lib/storage'
 import { CommandPalette } from './components/CommandPalette'
 import { NAV_ITEMS, useWorkbench, type NavId } from './store'
+import { researchProjects } from './features/workbench/writing-session'
 import { collection, post, listWorkspaces, type Project } from './lib/api'
 import { NativeAgentSessionProvider, useNativeAgentSession } from './features/chat/Session'
 import { ChatPage } from './features/chat/ChatPage'
@@ -30,7 +31,7 @@ const layoutEase=[0.32,0.72,0,1] as const
 /* 拖拽期间 memo 住各页面/面板：只有外壳尺寸在变，内容树不参与重渲染 */
 const ChatPageM=memo(ChatPage),WorkflowPageM=memo(WorkflowPage),KnowledgePageM=memo(KnowledgePage),SettingsPageM=memo(SettingsPage),SidebarM=memo(Sidebar),BrowserPanelM=memo(BrowserPanel),BottomPanelM=memo(BottomPanel)
 function Workbench(){
- const {theme,locale,activeNav,setActiveNav,setPaletteOpen,projectId,setProjectId,sourceView}=useWorkbench();const native=useNativeAgentSession()
+ const {theme,locale,activeNav,setActiveNav,setPaletteOpen,projectId,enterWritingProject,sourceView}=useWorkbench();const native=useNativeAgentSession()
  const {rightOpen:materials,setRightOpen:setMaterials}=useWorkbench()
  const [bottom,setBottom]=useState(readPreference('research-ui-bottom')==='open'),[sizes,setSizes]=useState<{left:number;right:number;bottom:number}>({left:PANEL.left.default,right:PANEL.right.default,bottom:PANEL.bottom.default})
  const [dragging,setDragging]=useState(false)
@@ -41,18 +42,17 @@ function Workbench(){
  useEffect(()=>{const c=new AbortController();setLoading(true);setError('')
    void (async()=>{
      const [spaces,records]=await Promise.all([listWorkspaces(c.signal),collection<Project&{projectId?:string}>('/research/projects',c.signal)])
-     const papers=spaces.filter(w=>w.workspaceId.startsWith('paper-'))
-     const mapped=papers.map(w=>({id:w.workspaceId,title:records.find(r=>(r.projectId||r.id)===w.workspaceId)?.title||w.workspaceId}))
+     const mapped=researchProjects(spaces,records)
      setProjects(mapped)
-     // Project records refer to existing repositories; they do not create or copy repositories.
-     for(const p of mapped){if(c.signal.aborted)return;if(!records.some(r=>(r.projectId||r.id)===p.id))await post('/research/projects',{schemaVersion:'xgc.research.protocol/v1',projectId:p.id,slug:p.id,title:p.title,summary:'',createdBy:'researcher',createdAt:new Date().toISOString()})}
+     // Paper workspaces still need a project record; registered non-paper records are already listed.
+     for(const p of mapped){if(c.signal.aborted)return;if(!p.id.startsWith('paper-'))continue;if(!records.some(r=>(r.projectId||r.id)===p.id))await post('/research/projects',{schemaVersion:'xgc.research.protocol/v1',projectId:p.id,slug:p.id,title:p.title,summary:'',createdBy:'researcher',createdAt:new Date().toISOString()})}
    })().catch(e=>{if(!c.signal.aborted)setError(e.message)}).finally(()=>{if(!c.signal.aborted)setLoading(false)});return()=>c.abort()
  },[reload])
  useEffect(()=>{const refresh=()=>setReload(n=>n+1);window.addEventListener('focus',refresh);const timer=setInterval(refresh,30000);return()=>{clearInterval(timer);window.removeEventListener('focus',refresh)}},[])
  useEffect(()=>{const onKey=(e:KeyboardEvent)=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();setPaletteOpen(true)}if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='j'){e.preventDefault();setBottom(s=>!s)}if((e.metaKey||e.ctrlKey)&&e.key==='.'){e.preventDefault();setMaterials(!useWorkbench.getState().rightOpen)}if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='b'){e.preventDefault();setSidebar(s=>!s)}};window.addEventListener('keydown',onKey);return()=>window.removeEventListener('keydown',onKey)},[setPaletteOpen])
  useEffect(()=>{writePreference('research-ui-bottom',bottom?'open':'collapsed')},[bottom])
  const projectView=activeNav==='chat'||activeNav==='workflow'
- const quote=useCallback((text:string,targetProject?:string)=>{native.appendDraft(text,targetProject);if(targetProject!==undefined&&targetProject!==projectId)setProjectId(targetProject);setActiveNav('chat')},[native,projectId,setProjectId,setActiveNav])
+ const quote=useCallback((text:string,targetProject?:string)=>{native.appendDraft(text,targetProject);if(targetProject!==undefined&&targetProject!==projectId)enterWritingProject(targetProject);setActiveNav('chat')},[native,projectId,enterWritingProject,setActiveNav])
  const openSession=useCallback((id:string)=>void native.operation(async()=>{await native.openSession(id);setActiveNav('chat')}),[native,setActiveNav])
  const refreshProjects=useCallback(()=>setReload(n=>n+1),[])
  const expandRight=useCallback(()=>setSizes(s=>({...s,right:s.right>PANEL.right.max?PANEL.right.default:Math.min(960,window.innerWidth-528)})),[])

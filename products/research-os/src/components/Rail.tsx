@@ -14,14 +14,14 @@ function RailButton({id,active,onClick}:{id:NavId;active:boolean;onClick:()=>voi
  </button>
 }
 export function Rail(){
- const {activeNav,setActiveNav,openChat}=useWorkbench()
+ const {activeNav,setActiveNav}=useWorkbench()
  const box=useRef<HTMLElement>(null)
  const [marker,setMarker]=useState<{y:number;on:boolean}>({y:0,on:false})
  useLayoutEffect(()=>{const el=box.current?.querySelector<HTMLElement>('[aria-current="page"]');setMarker(el?{y:el.offsetTop+10,on:true}:{y:0,on:false})},[activeNav])
  const top=NAV_ITEMS.filter(n=>n.id!=='settings')
  return <nav ref={box} aria-label={tr("顶层菜单")} className="relative flex w-12 shrink-0 flex-col items-center gap-1 border-r border-line bg-panel py-2">
   <span aria-hidden className={cn('ui-nav-marker',marker.on?'opacity-100':'opacity-0')} style={{transform:`translateY(${marker.y}px)`}}/>
-  {top.map(n=><RailButton key={n.id} id={n.id} active={activeNav===n.id} onClick={()=>{if(n.id==='chat')openChat();else setActiveNav(n.id)}}/>)}
+  {top.map(n=><RailButton key={n.id} id={n.id} active={activeNav===n.id} onClick={()=>setActiveNav(n.id)}/>)}
   <div className="mt-auto"><RailButton id="settings" active={activeNav==='settings'} onClick={()=>setActiveNav('settings')}/></div>
  </nav>
 }
