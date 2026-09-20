@@ -1,115 +1,71 @@
-/* 研究计划的前端合同：节点 DAG + 三阶段原生执行回执。
-   执行仍是 research → review → write；节点按 kind 映射到阶段，活体进度从回执推导。 */
+/** Approved nodes and their actual native receipts. No inferred execution phases. */
+export const RUN_SCHEMA = 'xgc.research.workflow-run/v1' as const
+export const SNAPSHOT_SCHEMA = 'xgc.research.workflow-snapshot/v1' as const
 export type PlanNode = {
-  id: string
-  kind: string
-  title: string
-  objective: string
-  acceptance: string[]
-  inputs: string[]
-  dependsOn: string[]
-  agent?: string
-  knowledge?: string[]
+  id: string; kind: string; title: string; objective: string
+  acceptance: string[]; inputs: string[]; dependsOn: string[]
+  agent?: string; knowledge?: string[]; hypothesis?: string; position?: '' | 'support' | 'challenge'
 }
 export type Draft = {
-  title: string
-  goal: string
-  nodes: PlanNode[]
-  workspace: {id: string; revision: string}
-  researcher: string
-  reviewer: string
-  writer: string
+  title: string; goal: string; nodes: PlanNode[]; workspace: {id: string; revision: string}
+  researcher: string; reviewer: string; writer: string
 }
-export type ReceiptEvent = {kind?: string; text?: string; status?: string; role?: string}
+export type ReceiptEvent = {seq?: number; kind?: string; text?: string; status?: string; role?: string}
 export type Receipt = {
-  stage: string
-  sessionId: string
-  turnId: string
-  status: string
-  output: string
-  events?: ReceiptEvent[]
+  stage: string; kind: string; profileId: string; sessionId: string; turnId: string
+  status: string; output: string; outputDigest?: string; promptDigest?: string
+  dispatchIntent: boolean; lastSeq: number; toolResultEvents: number[] | null
+  events: ReceiptEvent[]; stopError?: string; cleanup?: string
 }
 export type Run = {
-  id: string
-  status: string
-  failure?: string
-  researchAcceptance: string
-  receipts: Receipt[]
+  schemaVersion: typeof RUN_SCHEMA; id: string; requestKey: string; version: number; digest: string
+  status: 'running' | 'paused' | 'interrupted' | 'completed' | 'failed' | 'cancelled' | 'needs_changes'
+  control?: 'pause' | 'cancel'; failure?: string; startedAt: string; finishedAt?: string
+  researchAcceptance: string; receipts: Receipt[]
 }
-export type NodeStatus = 'idle' | 'queued' | 'running' | 'awaiting' | 'done' | 'failed'
-export const STAGES = ['research', 'review', 'write'] as const
-export type Stage = (typeof STAGES)[number]
-
-export function kindStage(kind: string): Stage {
-  if (kind === 'Review') return 'review'
-  if (kind === 'Synthesis') return 'write'
-  return 'research'
+export type Revision = {projectId: string; version: number; digest: string; createdAt: string; draft: Draft; approved: boolean; runs: Run[]}
+export type WorkflowSnapshot = {schemaVersion: typeof SNAPSHOT_SCHEMA; projectId: string; revisions: Revision[]}
+export type NodeStatus = 'idle' | 'queued' | 'running' | 'awaiting' | 'done' | 'failed' | 'interrupted' | 'paused' | 'cancelled' | 'needs-review'
+export const NODE_STATUS_LABEL: Record<NodeStatus, string> = {
+  idle: '未运行', queued: '待执行', running: '执行中', awaiting: '等待原生审批', done: '执行完成',
+  failed: '执行失败', interrupted: '结果待恢复核对', paused: '已暂停', cancelled: '已确认取消', 'needs-review': '证据需补充',
 }
-
-export function crewRole(stage: Stage): 'researcher' | 'reviewer' | 'writer' {
-  return stage === 'research' ? 'researcher' : stage === 'review' ? 'reviewer' : 'writer'
+export type DefaultRole = 'researcher' | 'reviewer' | 'writer'
+export function defaultRole(kind: string): DefaultRole {
+  return kind === 'Review' ? 'reviewer' : kind === 'Synthesis' ? 'writer' : 'researcher'
 }
-
-function receiptOf(run: Run | undefined, stage: Stage): Receipt | undefined {
-  return run?.receipts.find(r => r.stage === stage)
+export function unresolved(run: Run): boolean {
+  return run.status === 'running' || run.status === 'paused' || run.status === 'interrupted'
 }
-
-function finished(status: string): boolean {
-  return status === 'completed' || status === 'success'
-}
-
-function failed(status: string): boolean {
-  return status === 'failed' || status === 'cancelled' || status === 'needs_changes'
-}
-
-export function nodeStatus(kind: string, run?: Run): NodeStatus {
+export function nodeStatus(id: string, run?: Run): NodeStatus {
   if (!run) return 'idle'
-  const stage = kindStage(kind)
-  const receipt = receiptOf(run, stage)
-  if (receipt) {
-    if (failed(receipt.status) || failed(run.status)) return 'failed'
-    if (finished(receipt.status)) return 'done'
-    if (receipt.status === 'awaiting-input') return 'awaiting'
-    if (run.status === 'running' || receipt.status === 'running' || receipt.status === 'starting' || receipt.status === 'ready') return 'running'
+  const receipt = run.receipts.find(r => r.stage === id)
+  if (!receipt) return run.status === 'running' ? 'queued' : run.status === 'paused' ? 'paused' : 'idle'
+  if (receipt.status === 'completed') {
+    return run.status === 'needs_changes' && run.receipts.at(-1)?.stage === id ? 'needs-review' : 'done'
   }
-  if (run.status === 'running') {
-    const current = run.receipts[run.receipts.length - 1]?.stage
-    const currentIdx = STAGES.indexOf(current as Stage)
-    const idx = STAGES.indexOf(stage)
-    if (idx === currentIdx + 1) return 'queued'
-    return 'idle'
-  }
-  if (run.status === 'needs_changes' && stage === 'review') return 'failed'
+  if (receipt.status === 'failed') return 'failed'
+  if (receipt.status === 'cancelled') return 'cancelled'
+  if (run.status === 'interrupted') return 'interrupted'
+  if (run.status === 'paused') return 'paused'
+  if (receipt.status === 'awaiting-input') return 'awaiting'
+  if (run.status === 'running') return 'running'
   return 'idle'
 }
-
-/* 当前步骤：同阶段节点里，回执正文最后提到的标题/id；否则该阶段的第一个节点。 */
 export function currentNodeId(nodes: PlanNode[], run?: Run): string {
   if (!run || run.status !== 'running') return ''
-  const receipt = run.receipts[run.receipts.length - 1]
-  if (!receipt || finished(receipt.status) || failed(receipt.status)) return ''
-  const candidates = nodes.filter(n => kindStage(n.kind) === receipt.stage)
-  const haystack = `${receipt.output}\n${(receipt.events || []).map(e => e.text || '').join('\n')}`
-  for (let i = candidates.length - 1; i >= 0; i--) {
-    const n = candidates[i]
-    if (n.title && haystack.includes(n.title)) return n.id
-    if (haystack.includes(n.id)) return n.id
-  }
-  return candidates[0]?.id || ''
+  const receipt = run.receipts.at(-1)
+  if (!receipt || ['completed', 'failed', 'cancelled'].includes(receipt.status)) return ''
+  return nodes.some(node => node.id === receipt.stage) ? receipt.stage : ''
 }
-
 export function liveLine(run?: Run): {stage: string; text: string; sessionId: string} | null {
-  if (!run) return null
-  const receipt = [...(run.receipts || [])].reverse().find(r => r.status === 'running' || r.status === 'starting' || r.status === 'awaiting-input' || r.status === 'ready')
-  if (!receipt) return null
-  const eventText = [...(receipt.events || [])].reverse().find(e => (e.text || '').trim())?.text?.trim() || ''
-  const outputLine = receipt.output.trim().split('\n').filter(Boolean).at(-1) || ''
-  const text = (eventText || outputLine).replace(/\s+/g, ' ').slice(0, 140)
-  return {stage: receipt.stage, text, sessionId: receipt.sessionId}
+  if (!run || run.status !== 'running') return null
+  const receipt = run.receipts.at(-1)
+  if (!receipt || ['completed', 'failed', 'cancelled'].includes(receipt.status)) return null
+  const event = [...receipt.events].reverse().find(e => (e.text || '').trim())
+  const line = event?.text || receipt.output.trim().split('\n').filter(Boolean).at(-1) || ''
+  return {stage: receipt.stage, text: line.replace(/\s+/g, ' ').slice(0, 140), sessionId: receipt.sessionId}
 }
-
 export function nodeAgent(node: PlanNode, draft?: Draft): string {
-  if (node.agent) return node.agent
-  if (!draft) return ''
-  return draft[crewRole(kindStage(node.kind))]
+  return node.agent || (draft ? draft[defaultRole(node.kind)] : '')
 }
