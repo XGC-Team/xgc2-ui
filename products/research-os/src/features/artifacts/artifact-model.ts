@@ -1,146 +1,224 @@
-/** H-owned rendering source and ephemeral presentation projections.
- * BuildTask/BuildRecord persistence and execution remain the common build owner's.
- */
+import { validSourcePath, type DraftScope, type ResearchDraft } from '../projects/draft-model'
+
 export const ARTIFACT_SCHEMA = 'xgc.research.artifact/v1'
 export const ARTIFACT_KINDS = ['docx', 'pptx', 'video', 'remotion'] as const
 export type ArtifactKind = typeof ARTIFACT_KINDS[number]
-export type ArtifactDependency = {kind: 'design' | 'evidence' | 'body' | 'artifact'; objectId: string; path: string; digest: string}
+export type ArtifactDependencyKind = 'design' | 'evidence' | 'body' | 'artifact'
+export type ArtifactDependency = { kind: ArtifactDependencyKind; objectId: string; path: string; digest: string }
 export type ArtifactDefinition = {
-  schemaVersion: typeof ARTIFACT_SCHEMA; artifactId: string; kind: ArtifactKind
-  title: string; source: string; template?: string; secondsPerSlide?: number
-  composition?: string; props?: string; rights: string; attribution: string
+  schemaVersion: typeof ARTIFACT_SCHEMA
+  artifactId: string
+  kind: ArtifactKind
+  title: string
+  source: string
+  template?: string
+  secondsPerSlide?: number
+  composition?: string
+  props?: string
+  rights: string
+  attribution: string
   dependencies: ArtifactDependency[]
 }
-export type ArtifactScope = {
-  projectId: string; workspace: string; artifactId: string; entryPoint: string
-  /** Complete saved input observations from the common snapshot owner, not author-entered hashes. */
-  inputDigests: Readonly<Record<string, string>>
+
+const DEFINITION_KEYS = new Set(['schemaVersion', 'artifactId', 'kind', 'title', 'source', 'template', 'secondsPerSlide', 'composition', 'props', 'rights', 'attribution', 'dependencies'])
+const DEPENDENCY_KEYS = new Set(['kind', 'objectId', 'path', 'digest'])
+const DEPENDENCY_KINDS = new Set<ArtifactDependencyKind>(['design', 'evidence', 'body', 'artifact'])
+const SHA256 = /^[a-f0-9]{64}$/
+const object = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value)
+function requireThat(ok: unknown, message: string): asserts ok { if (!ok) throw new Error(message) }
+export function rawDigest(value: string): string { return value.replace(/^sha256:/, '') }
+export function digestOK(value: string): boolean { return SHA256.test(rawDigest(value)) }
+function rejectUnknown(value: Record<string, unknown>, allowed: Set<string>, label: string) {
+  for (const key of Object.keys(value)) requireThat(allowed.has(key), `${label} has unknown field ${key}`)
 }
-export type ArtifactFileView = {buildId: string; digest: string; sizeBytes: number; mediaType: string; url: string}
-export type ArtifactBuildView = {
-  buildId: string; taskId: string; requestedAt: string; completedAt: string
-  status: 'succeeded' | 'failed' | 'cancelled'; currentInputs: boolean
-  files: ArtifactFileView[]; diagnostics: string[]
-  inputDigests: Readonly<Record<string, string>>; toolchain: Readonly<Record<string, unknown>>
-  requestedBy: string; logArtifactRef: string
+
+export function artifactPaths(artifactId: string) {
+  requireThat(/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/.test(artifactId), 'Invalid artifact identity.')
+  return { definition: `artifacts/${artifactId}.artifact.json`, source: `artifacts/${artifactId}.md` }
 }
-export const object = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value)
-export function demand(value: unknown, message: string): asserts value { if (!value) throw new Error(message) }
-export const hashOK = (value: unknown): value is string => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value)
-export const textOK = (value: unknown): value is string => typeof value === 'string' && Boolean(value.trim())
-const dateOK = (value: unknown): value is string => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(value) && Number.isFinite(Date.parse(value))
-export function artifactPath(value: unknown): value is string {
-  return textOK(value) && value === value.trim() && !/[\\\u0000-\u001f\u007f]/.test(value) && !value.startsWith('/') && value.split('/').every(part => part && !['.', '..', '.git', '.research-build'].includes(part))
+
+export function parseSecondsPerSlide(value: string): number | null {
+  const match = /^(\d+(?:\.\d+)?)\s*s?$/i.exec(value.trim())
+  if (!match) return null
+  const seconds = Number(match[1])
+  return Number.isFinite(seconds) && seconds >= 0.25 && seconds <= 60 ? seconds : null
 }
-export function parseArtifactDefinition(text: string, artifactId: string): ArtifactDefinition {
+
+export function parseArtifactDefinition(text: string): ArtifactDefinition {
   const raw: unknown = JSON.parse(text)
-  demand(object(raw), '制品定义必须是对象。')
-  const keys = ['schemaVersion','artifactId','kind','title','source','template','secondsPerSlide','composition','props','rights','attribution','dependencies']
-  demand(Object.keys(raw).every(key => keys.includes(key)), '制品定义含未知字段，不进行旧格式修复。')
-  demand(raw.schemaVersion === ARTIFACT_SCHEMA && raw.artifactId === artifactId && textOK(artifactId), '制品版本或身份不匹配。')
-  demand(ARTIFACT_KINDS.includes(raw.kind as ArtifactKind) && textOK(raw.title) && textOK(raw.rights) && textOK(raw.attribution) && artifactPath(raw.source), '制品缺少类型、来源、权利或署名。')
-  demand(raw.template === undefined || artifactPath(raw.template), '模板路径无效。')
-  const seconds = raw.secondsPerSlide
-  if (raw.kind === 'video') demand(typeof seconds === 'number' && Number.isFinite(seconds) && seconds >= 0.25 && seconds <= 60, '每页时长必须为 0.25–60 秒。')
-  else demand(seconds === undefined || seconds === 0, '此类型不接受每页时长。')
-  if (raw.kind === 'remotion') {
-    demand(textOK(raw.composition) && !raw.composition.startsWith('-') && !/[\r\n]/.test(raw.composition) && raw.template === undefined, 'Remotion 需要明确的 composition，不能使用 Office 模板。')
-    demand(raw.props === undefined || artifactPath(raw.props), 'Remotion props 路径无效。')
-  } else demand(raw.composition === undefined && raw.props === undefined, 'Office/分镜视频不接受 Remotion 设置。')
-  demand(Array.isArray(raw.dependencies), '依赖必须显式列出。')
-  const seen = new Set<string>()
-  for (const dep of raw.dependencies) {
-    demand(object(dep) && Object.keys(dep).every(key => ['kind','objectId','path','digest'].includes(key)), '依赖格式无效。')
-    demand(['design','evidence','body','artifact'].includes(String(dep.kind)) && textOK(dep.objectId) && artifactPath(dep.path) && hashOK(dep.digest), '依赖必须固定对象、路径和 SHA-256。')
-    const key = JSON.stringify([dep.kind, dep.objectId]); demand(!seen.has(key), '重复依赖。'); seen.add(key)
+  requireThat(object(raw), 'Artifact definition is not an object.')
+  rejectUnknown(raw, DEFINITION_KEYS, 'Artifact definition')
+  requireThat(raw.schemaVersion === ARTIFACT_SCHEMA && typeof raw.artifactId === 'string' && typeof raw.title === 'string' && raw.title.trim() && typeof raw.source === 'string' && validSourcePath(raw.source) && typeof raw.rights === 'string' && raw.rights.trim() && typeof raw.attribution === 'string' && raw.attribution.trim(), 'Artifact definition lacks identity, title, rights or attribution.')
+  requireThat(typeof raw.kind === 'string' && ARTIFACT_KINDS.includes(raw.kind as ArtifactKind), 'Unsupported artifact kind.')
+  requireThat(raw.source !== artifactPaths(raw.artifactId).definition, 'Artifact source must be distinct from the definition.')
+  const definition: ArtifactDefinition = {
+    schemaVersion: ARTIFACT_SCHEMA, artifactId: raw.artifactId, kind: raw.kind as ArtifactKind,
+    title: raw.title, source: raw.source, rights: raw.rights, attribution: raw.attribution, dependencies: [],
   }
-  return raw as ArtifactDefinition
+  if (raw.template !== undefined) {
+    requireThat(typeof raw.template === 'string' && validSourcePath(raw.template), 'Template is not a pinned relative path.')
+    definition.template = raw.template
+  }
+  if (raw.secondsPerSlide !== undefined) {
+    requireThat(typeof raw.secondsPerSlide === 'number' && Number.isFinite(raw.secondsPerSlide) && raw.secondsPerSlide >= 0.25 && raw.secondsPerSlide <= 60, 'Video requires a finite 0.25 to 60 seconds per slide.')
+    definition.secondsPerSlide = raw.secondsPerSlide
+  }
+  if (raw.composition !== undefined) {
+    requireThat(typeof raw.composition === 'string' && raw.composition.trim() && !raw.composition.startsWith('-') && !/[\r\n]/.test(raw.composition), 'Remotion composition is invalid.')
+    definition.composition = raw.composition
+  }
+  if (raw.props !== undefined) {
+    requireThat(typeof raw.props === 'string' && validSourcePath(raw.props), 'Remotion props must be a pinned relative path.')
+    definition.props = raw.props
+  }
+  requireThat(Array.isArray(raw.dependencies), 'Artifact dependencies must be an array.')
+  const seen = new Set<string>()
+  for (const item of raw.dependencies) {
+    requireThat(object(item), 'Invalid artifact dependency.')
+    rejectUnknown(item, DEPENDENCY_KEYS, 'Artifact dependency')
+    requireThat(typeof item.kind === 'string' && DEPENDENCY_KINDS.has(item.kind as ArtifactDependencyKind) && typeof item.objectId === 'string' && item.objectId && typeof item.path === 'string' && validSourcePath(item.path) && typeof item.digest === 'string' && digestOK(item.digest), 'Unresolved artifact dependency.')
+    const key = `${item.kind}\0${item.objectId}`
+    requireThat(!seen.has(key), 'Duplicate artifact dependency.')
+    seen.add(key)
+    definition.dependencies.push({ kind: item.kind as ArtifactDependencyKind, objectId: item.objectId, path: item.path, digest: rawDigest(item.digest) })
+  }
+  switch (definition.kind) {
+    case 'docx':
+    case 'pptx':
+      requireThat(definition.secondsPerSlide === undefined && !definition.composition && !definition.props, 'Office artifact contains video-only settings.')
+      break
+    case 'video':
+      requireThat(definition.secondsPerSlide !== undefined && !definition.composition && !definition.props, 'video requires a finite 0.25 to 60 seconds per slide.')
+      break
+    case 'remotion':
+      requireThat(definition.composition && !definition.template && definition.secondsPerSlide === undefined, 'Remotion requires an exact composition and no Office settings.')
+      break
+  }
+  return definition
 }
+
 export function serializeArtifactDefinition(definition: ArtifactDefinition): string {
-  const text = JSON.stringify(definition, null, 2) + '\n'
-  parseArtifactDefinition(text, definition.artifactId)
+  const text = `${JSON.stringify(definition, null, 2)}\n`
+  parseArtifactDefinition(text)
   return text
 }
-export function artifactScopeKey(scope: ArtifactScope): string {
-  demand(textOK(scope.projectId) && textOK(scope.workspace) && textOK(scope.artifactId) && artifactPath(scope.entryPoint), '缺少项目或制品范围。')
-  demand(hashOK(scope.inputDigests[scope.entryPoint]) && Object.entries(scope.inputDigests).every(([path, digest]) => artifactPath(path) && hashOK(digest)), '缺少完整保存稿输入观察。')
-  return JSON.stringify([scope.projectId, scope.workspace, scope.artifactId, scope.entryPoint, Object.entries(scope.inputDigests).sort(([a], [b]) => a.localeCompare(b))])
-}
-export function validateSavedArtifact(definition: ArtifactDefinition, scope: ArtifactScope): void {
-  artifactScopeKey(scope)
-  parseArtifactDefinition(JSON.stringify(definition), scope.artifactId)
-  demand(definition.source !== scope.entryPoint, '来源不能指向定义本身。')
-  for (const path of [definition.source, definition.template, definition.props].filter((value): value is string => Boolean(value))) demand(hashOK(scope.inputDigests[path]), `尚未观察到已保存输入：${path}`)
-  for (const dependency of definition.dependencies) demand(scope.inputDigests[dependency.path] === dependency.digest, `依赖版本冲突：${dependency.objectId}`)
-}
-const knownMedia = new Set(['application/pdf', 'image/png', 'video/mp4', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'])
-/** Read only the fields this view consumes. Do not redefine or persist a common BuildRecord DTO. */
-export function projectArtifactBuilds(records: unknown, scope: ArtifactScope): {builds: ArtifactBuildView[]; rejected: string[]} {
-  artifactScopeKey(scope)
-  demand(Array.isArray(records), '构建账本不是列表。')
-  const builds: ArtifactBuildView[] = [], rejected: string[] = [], seen = new Set<string>(), duplicates = new Set<string>()
-  for (const [index, raw] of records.entries()) {
-    try {
-      demand(object(raw) && object(raw.task), '构建任务无法读取。')
-      const task = raw.task
-      if (task.workspaceRef !== scope.workspace || task.manuscriptId !== scope.artifactId || task.entryPoint !== scope.entryPoint) continue
-      const manifest = raw.manifest
-      demand(task.schemaVersion === 'xgc.research.manuscript/v1' && textOK(task.taskId) && dateOK(task.requestedAt) && Array.isArray(task.inputs), '构建任务缺少真实来源。')
-      demand(object(manifest) && manifest.schemaVersion === task.schemaVersion && manifest.taskId === task.taskId && textOK(manifest.buildId), '构建回执与任务不匹配。')
-      const buildId = manifest.buildId
-      if (seen.has(buildId)) { duplicates.add(buildId); throw new Error('重复构建身份，未选择其中任何一份。') }
-      seen.add(buildId)
-      demand(['succeeded','failed','cancelled'].includes(String(manifest.status)) && dateOK(manifest.startedAt) && dateOK(manifest.completedAt) && Date.parse(manifest.completedAt) >= Date.parse(manifest.startedAt), '构建状态或时序无效。')
-      const inputs = new Map<string, string>()
-      for (const input of task.inputs) {
-        demand(object(input) && artifactPath(input.path) && hashOK(input.digest) && !inputs.has(input.path), '构建输入不完整或重复。')
-        inputs.set(input.path, input.digest)
-      }
-      demand(inputs.has(scope.entryPoint), '回执没有包含制品定义的固定版本。')
-      demand(object(task.toolchain) && hashOK(task.toolchain.imageDigest) && textOK(task.toolchain.imageRef) && textOK(task.toolchain.engine) && textOK(task.toolchain.engineVersion) && textOK(task.toolchain.pinKind) && textOK(task.requestedBy) && textOK(manifest.logArtifactRef), '构建环境、请求者或日志来源缺失。')
-      const currentInputs = inputs.size === Object.keys(scope.inputDigests).length && [...inputs].every(([path, digest]) => scope.inputDigests[path] === digest)
-      const outputs = manifest.outputs === undefined ? [] : manifest.outputs
-      const diagnostics = manifest.diagnostics === undefined ? [] : manifest.diagnostics
-      demand(Array.isArray(outputs) && Array.isArray(diagnostics), '构建输出或诊断格式无效。')
-      const files: ArtifactFileView[] = [], outputIDs = new Set<string>()
-      for (const output of outputs) {
-        demand(object(output) && hashOK(output.digest) && output.artifactRef === `sha256:${output.digest}` && Number.isSafeInteger(output.sizeBytes) && Number(output.sizeBytes) > 0 && textOK(output.mediaType), '输出缺少实际字节身份。')
-        demand(!outputIDs.has(output.digest), '重复输出身份。'); outputIDs.add(output.digest)
-        // Common records may also contain log/source-map outputs; they are not substituted for previews.
-        if (!knownMedia.has(output.mediaType)) continue
-        files.push({buildId, digest: output.digest, sizeBytes: Number(output.sizeBytes), mediaType: output.mediaType, url: `/api/v1/manuscripts/build-records/${encodeURIComponent(buildId)}/artifacts/${output.digest}`})
-      }
-      demand(manifest.status !== 'succeeded' || files.length > 0, '成功回执没有可读取的实际制品。')
-      const messages = diagnostics.map(item => { demand(object(item) && typeof item.message === 'string', '诊断格式无效。'); return item.message })
-      builds.push({buildId, taskId: task.taskId, requestedAt: task.requestedAt, completedAt: manifest.completedAt, status: manifest.status as ArtifactBuildView['status'], currentInputs, files, diagnostics: messages, inputDigests: Object.fromEntries(inputs), toolchain: task.toolchain, requestedBy: task.requestedBy, logArtifactRef: manifest.logArtifactRef})
-    } catch (error) { rejected.push(`记录 ${index + 1}：${error instanceof Error ? error.message : String(error)}`) }
-  }
-  return {builds: builds.filter(build => !duplicates.has(build.buildId)).sort((a, b) => Date.parse(b.requestedAt) - Date.parse(a.requestedAt) || b.taskId.localeCompare(a.taskId)), rejected}
-}
-/** An explicit history selection is never replaced by a newly completed build. */
-export function selectArtifactBuild(builds: readonly ArtifactBuildView[], selectedId: string): ArtifactBuildView | null {
-  if (selectedId) return builds.find(build => build.buildId === selectedId) || null
-  return builds.find(build => build.status === 'succeeded' && build.currentInputs) || builds.find(build => build.status === 'succeeded') || builds[0] || null
-}
-export async function bytesDigest(bytes: Uint8Array): Promise<string> {
-  const hash = await crypto.subtle.digest('SHA-256', new Uint8Array(bytes).buffer)
-  return [...new Uint8Array(hash)].map(value => value.toString(16).padStart(2, '0')).join('')
-}
-/** Metadata is not a preview: retrieve exact bounded bytes before enabling download/media rendering. */
-export async function verifyArtifactBytes(file: ArtifactFileView, response: Response): Promise<Blob> {
-  demand(response.ok, `制品读取失败（${response.status}）。`)
-  demand(hashOK(file.digest) && Number.isSafeInteger(file.sizeBytes) && file.sizeBytes > 0 && file.sizeBytes <= 100 * 1024 * 1024 && knownMedia.has(file.mediaType), '制品超出验证范围。')
-  demand(response.body, '没有收到制品字节。')
-  const reader = response.body.getReader(), bytes = new Uint8Array(file.sizeBytes)
-  let offset = 0
-  try {
-    for (;;) {
-      const {done, value} = await reader.read()
-      if (done) break
-      demand(offset + value.length <= bytes.length, '制品大小与回执不符。')
-      bytes.set(value, offset); offset += value.length
+
+export function markdownFromDraft(draft: ResearchDraft): string {
+  requireThat(draft.kind === 'slides' || draft.kind === 'storyboard', 'Only slides and storyboard drafts convert to artifact Markdown.')
+  const lines = [`# ${draft.title.trim() || draft.id}`, '']
+  for (const block of draft.blocks) {
+    lines.push(`## ${block.title.trim() || 'Untitled'}`, '')
+    if (draft.kind === 'slides') {
+      if (block.fields.message?.trim()) lines.push(block.fields.message.trim(), '')
+      if (block.fields.visual?.trim()) lines.push(block.fields.visual.trim(), '')
+      if (block.fields.speakerNotes?.trim()) lines.push(`Notes: ${block.fields.speakerNotes.trim()}`, '')
+    } else {
+      if (block.fields.visual?.trim()) lines.push(block.fields.visual.trim(), '')
+      if (block.fields.narration?.trim()) lines.push(block.fields.narration.trim(), '')
     }
-    demand(offset === bytes.length && await bytesDigest(bytes) === file.digest, '制品 SHA-256 或大小与回执不符。')
-    return new Blob([bytes], {type: file.mediaType})
-  } finally { await reader.cancel().catch(() => undefined); reader.releaseLock() }
+  }
+  lines.push('This converted source is a research draft. It is not a scientific result or a publication approval.', '')
+  return lines.join('\n')
+}
+
+export function secondsFromStoryboard(draft: ResearchDraft): number {
+  const values = draft.blocks.map(block => parseSecondsPerSlide(block.fields.duration || ''))
+  requireThat(values.length > 0 && values.every(value => value !== null), 'Every storyboard shot needs a duration between 0.25 and 60 seconds.')
+  requireThat(values.every(value => value === values[0]), 'Storyboard shots disagree on duration; the video renderer uses one secondsPerSlide value.')
+  return values[0]!
+}
+
+export function kindFromDraft(draft: ResearchDraft): ArtifactKind {
+  if (draft.kind === 'slides') return 'pptx'
+  if (draft.kind === 'storyboard') return 'video'
+  throw new Error('This draft kind has no non-LaTeX artifact renderer.')
+}
+
+export function definitionFromDraft(draft: ResearchDraft, options: { rights: string; attribution: string; kind?: ArtifactKind; template?: string; composition?: string; props?: string; source?: string }): ArtifactDefinition {
+  const kind = options.kind ?? kindFromDraft(draft)
+  const paths = artifactPaths(draft.id)
+  const dependencies: ArtifactDependency[] = []
+  const seen = new Set<string>()
+  for (const source of draft.sources) {
+    if (!source.digest || !validSourcePath(source.path) || !digestOK(source.digest)) continue
+    const key = `evidence\0${source.id}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    dependencies.push({ kind: 'evidence', objectId: source.id, path: source.path, digest: rawDigest(source.digest) })
+  }
+  const definition: ArtifactDefinition = {
+    schemaVersion: ARTIFACT_SCHEMA, artifactId: draft.id, kind, title: draft.title.trim() || draft.id,
+    source: options.source?.trim() || (kind === 'remotion' ? '' : paths.source),
+    rights: options.rights.trim(), attribution: options.attribution.trim(), dependencies,
+  }
+  if (kind === 'video') definition.secondsPerSlide = secondsFromStoryboard(draft)
+  if (options.template?.trim()) definition.template = options.template.trim()
+  if (options.composition?.trim()) definition.composition = options.composition.trim()
+  if (options.props?.trim()) definition.props = options.props.trim()
+  if (kind === 'remotion') {
+    requireThat(definition.source && definition.source !== paths.definition, 'Remotion needs a pinned project entry distinct from the definition.')
+  }
+  return parseArtifactDefinition(JSON.stringify(definition))
+}
+
+export type BuildOutput = { digest: string; mediaType: string; artifactRef?: string; sizeBytes?: number }
+export type BuildManifest = { buildId: string; status: string; completedAt?: string; diagnostics?: { message: string }[]; outputs?: BuildOutput[] }
+export type BuildRecord = {
+  task: { workspaceRef: string; entryPoint: string; manuscriptId?: string; gitCommit?: string; toolchain?: { engine?: string; pinKind?: string }; inputs?: { path: string; digest: string }[] }
+  manifest: BuildManifest
+}
+
+const OFFICE = /officedocument|presentationml|wordprocessingml|application\/vnd\.openxmlformats/i
+export function isNonLatexArtifact(record: BuildRecord): boolean {
+  const engine = record.task.toolchain?.engine || ''
+  if (engine.startsWith('research-artifact/')) return true
+  if (/\.artifact\.json$/i.test(record.task.entryPoint)) return true
+  return (record.manifest.outputs || []).some(output => OFFICE.test(output.mediaType) || output.mediaType === 'video/mp4' || output.mediaType === 'image/png')
+    && !/\.tex$/i.test(record.task.entryPoint)
+}
+
+export type ArtifactPreview = { kind: 'image' | 'video' | 'pdf' | 'file'; mediaType: string; digest: string; url: string }
+export function previewFromRecord(record: BuildRecord): ArtifactPreview | null {
+  if (record.manifest.status !== 'succeeded') return null
+  const outputs = record.manifest.outputs || []
+  const pick = (media: string, kind: ArtifactPreview['kind']) => {
+    const output = outputs.find(item => item.mediaType === media)
+    return output ? { kind, mediaType: output.mediaType, digest: rawDigest(output.digest), url: `/api/v1/manuscripts/build-records/${encodeURIComponent(record.manifest.buildId)}/artifacts/${rawDigest(output.digest)}` } : null
+  }
+  return pick('image/png', 'image') || pick('video/mp4', 'video') || pick('application/pdf', 'pdf')
+    || (outputs[0] ? { kind: 'file', mediaType: outputs[0].mediaType, digest: rawDigest(outputs[0].digest), url: `/api/v1/manuscripts/build-records/${encodeURIComponent(record.manifest.buildId)}/artifacts/${rawDigest(outputs[0].digest)}` } : null)
+}
+
+export type ArtifactView = {
+  phase: 'definition' | 'generated' | 'failed'
+  latest?: BuildRecord
+  successful?: BuildRecord
+  preview?: ArtifactPreview
+  laterFailure: boolean
+  scientific: 'not-claimed'
+}
+export function artifactView(records: BuildRecord[], scope: DraftScope, entryPoint: string): ArtifactView {
+  const relevant = records.filter(record => record.task.workspaceRef === scope.workspace && record.task.entryPoint === entryPoint && isNonLatexArtifact(record))
+    .sort((a, b) => (b.manifest.completedAt || '').localeCompare(a.manifest.completedAt || ''))
+  const latest = relevant[0]
+  const successful = relevant.find(record => record.manifest.status === 'succeeded' && previewFromRecord(record))
+  const laterFailure = Boolean(latest && successful && latest.manifest.buildId !== successful.manifest.buildId && latest.manifest.status !== 'succeeded')
+  if (!latest) return { phase: 'definition', laterFailure: false, scientific: 'not-claimed' }
+  if (latest.manifest.status === 'succeeded') return { phase: 'generated', latest, successful: latest, preview: previewFromRecord(latest) || undefined, laterFailure: false, scientific: 'not-claimed' }
+  return { phase: 'failed', latest, successful, preview: successful ? previewFromRecord(successful) || undefined : undefined, laterFailure, scientific: 'not-claimed' }
+}
+
+export function uniquePinnedInputs(items: { path: string; digest: string }[]): { path: string; digest: string }[] {
+  const seen = new Map<string, string>()
+  for (const item of items) {
+    const digest = rawDigest(item.digest)
+    const previous = seen.get(item.path)
+    if (previous && previous !== digest) throw new Error(`input path ${item.path} has conflicting SHA-256 digests`)
+    seen.set(item.path, digest)
+  }
+  return [...seen.entries()].map(([path, digest]) => ({ path, digest }))
+}
+
+export function unpinnedSources(draft: ResearchDraft): string[] {
+  return draft.sources.filter(source => !source.digest || !digestOK(source.digest) || !validSourcePath(source.path)).map(source => source.path || source.url || source.id)
 }
