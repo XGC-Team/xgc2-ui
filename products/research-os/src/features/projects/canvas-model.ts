@@ -1,8 +1,8 @@
-/* 思维白板数据模型：存进项目 git 仓库的 thinking.canvas.json，随仓库版本化。
-   v1：节点 = 章节 / 想法；边 = 关联；ref = 知识库笔记引用；anchor = 源稿文件锚点。
-   v2：四种关系分开存放——x/y 只是视觉位置；outlines 是各制品的层级与写作顺序；
-   边上的 relation 是显式语义（未标注 = 普通关联，禁止当成因果或执行顺序）；
-   节点上的 evidence / writing 是证据引用与写作约束。 */
+/* 思维白板数据模型：存进项目 git 仓库的 thinking.canvas.json。
+   现行只有 v2。v1 自动迁移与宽松读取已删除：不支持的版本 fail-closed，不改写原文件。
+   x/y 只是视觉位置；outlines 是各制品的层级与写作顺序；边上 relation 是显式语义。
+   writing 记录写作意图与正文外细节；bindings 是设计卡与源码选区的多对多对应。
+   node.anchor 只保留研究对象引用（research-drafts.json#id），不是源码行号绑定。 */
 export type CanvasNodeKind = 'chapter' | 'idea'
 export type CanvasNode = {
   id: string
@@ -12,13 +12,12 @@ export type CanvasNode = {
   x: number
   y: number
   ref?: { path: string; title: string }
+  /** Draft-object locator only (`research-drafts.json#<id>`). Not a manuscript line binding. */
   anchor?: string
 }
 export type CanvasEdge = { from: string; to: string }
-export type ThinkingCanvas = { version: 1; nodes: CanvasNode[]; edges: CanvasEdge[] }
 
 export const CANVAS_PATH = 'thinking.canvas.json'
-export const CANVAS_V1_BACKUP_PATH = 'thinking.canvas.v1.backup.json'
 /** The canvas's own writing outline; other arrangements belong to artifact draft IDs. */
 export const PRIMARY_OUTLINE = 'canvas'
 
@@ -39,31 +38,40 @@ export type CanvasEvidence = {
   excerpt?: string
   note?: string
 }
-export type WritingConstraints = { purpose?: string; conditions?: string; template?: string }
-export type CanvasNodeV2 = CanvasNode & { collapsed?: boolean; evidence?: CanvasEvidence[]; writing?: WritingConstraints }
+export const WRITING_FIELDS = ['purpose', 'conditions', 'template', 'argument', 'omission', 'aside'] as const
+export type WritingField = typeof WRITING_FIELDS[number]
+/** Free-text design notes. None are required. omission/aside must not be copied into the manuscript. */
+export type WritingConstraints = Partial<Record<WritingField, string>>
+/** Captured source identity. start/end are UTF-16 at bind time and never silently rebound. */
+export type SourceBinding = {
+  id: string
+  workspace: string
+  path: string
+  digest: string
+  quote: string
+  start: number
+  end: number
+}
+export type CanvasNodeV2 = CanvasNode & {
+  collapsed?: boolean
+  evidence?: CanvasEvidence[]
+  writing?: WritingConstraints
+  bindings?: SourceBinding[]
+}
 export type CanvasEdgeV2 = { from: string; to: string; relation?: SemanticRelation }
 export type OutlineItem = { node: string; children?: OutlineItem[] }
 export type OutlineArrangement = { artifact: string; items: OutlineItem[] }
 export type ThinkingCanvasV2 = { version: 2; nodes: CanvasNodeV2[]; edges: CanvasEdgeV2[]; outlines: OutlineArrangement[] }
-export type AnyCanvas = ThinkingCanvas | ThinkingCanvasV2
 
-export function emptyCanvas(): ThinkingCanvas {
-  return { version: 1, nodes: [], edges: [] }
-}
 export function emptyCanvasV2(): ThinkingCanvasV2 {
   return { version: 2, nodes: [], edges: [], outlines: [{ artifact: PRIMARY_OUTLINE, items: [] }] }
 }
+export const emptyCanvas = emptyCanvasV2
 
-export function parseCanvas(text: string): ThinkingCanvas {
-  try {
-    const raw = JSON.parse(text) as Partial<ThinkingCanvas>
-    const nodes = Array.isArray(raw.nodes) ? raw.nodes.filter(n => n && typeof n.id === 'string' && typeof n.title === 'string') : []
-    const ids = new Set(nodes.map(n => n.id))
-    const edges = Array.isArray(raw.edges) ? raw.edges.filter(e => e && ids.has(e.from) && ids.has(e.to)) : []
-    return { version: 1, nodes, edges }
-  } catch {
-    return emptyCanvas()
-  }
+/** Read-only node list for non-editor consumers. Unsupported files yield no nodes and are never rewritten. */
+export function parseCanvas(text: string): { nodes: CanvasNodeV2[] } {
+  try { return { nodes: parseEditableCanvas(text).nodes } }
+  catch { return { nodes: [] } }
 }
 
 const record = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -72,21 +80,14 @@ function canvasSourcePathOK(path: string): boolean {
   return Boolean(path.trim()) && !/[\\\u0000-\u001f\u007f]/.test(path) && !path.startsWith('/') && path.split('/').every(part => Boolean(part) && part !== '.' && part !== '..')
 }
 
-function validateV1(raw: Record<string, unknown>): ThinkingCanvas {
-  requireCanvas(Array.isArray(raw.nodes) && Array.isArray(raw.edges), 'Unsupported canvas format.')
-  const ids = new Set<string>()
-  for (const node of raw.nodes) {
-    requireCanvas(record(node) && typeof node.id === 'string' && node.id && !ids.has(node.id) &&
-      (node.kind === 'chapter' || node.kind === 'idea') && typeof node.title === 'string' &&
-      typeof node.x === 'number' && Number.isFinite(node.x) && typeof node.y === 'number' && Number.isFinite(node.y) &&
-      (node.body === undefined || typeof node.body === 'string') && (node.anchor === undefined || typeof node.anchor === 'string') &&
-      (node.ref === undefined || (record(node.ref) && typeof node.ref.path === 'string' && typeof node.ref.title === 'string')), 'Invalid canvas node.')
-    ids.add(node.id as string)
-  }
-  for (const edge of raw.edges) {
-    requireCanvas(record(edge) && typeof edge.from === 'string' && typeof edge.to === 'string' && ids.has(edge.from) && ids.has(edge.to), 'Invalid canvas edge.')
-  }
-  return raw as unknown as ThinkingCanvas
+export function validateSourceBinding(raw: unknown): asserts raw is SourceBinding {
+  requireCanvas(record(raw) && typeof raw.id === 'string' && raw.id.trim(), 'Invalid source binding identity.')
+  requireCanvas(typeof raw.workspace === 'string' && raw.workspace.trim(), 'Source binding needs a workspace.')
+  requireCanvas(typeof raw.path === 'string' && canvasSourcePathOK(raw.path), 'Source binding needs a relative manuscript path.')
+  requireCanvas(typeof raw.digest === 'string' && raw.digest.trim(), 'Source binding needs the observed file digest.')
+  requireCanvas(typeof raw.quote === 'string' && raw.quote.length > 0, 'Source binding needs the captured quote.')
+  requireCanvas(Number.isSafeInteger(raw.start) && Number.isSafeInteger(raw.end) && Number(raw.start) >= 0 && Number(raw.end) > Number(raw.start), 'Source binding needs a nonempty UTF-16 range.')
+  requireCanvas(raw.quote.length === Number(raw.end) - Number(raw.start), 'Source binding quote must match its captured UTF-16 range.')
 }
 
 function validateEvidence(raw: unknown): void {
@@ -126,9 +127,15 @@ function validateV2(raw: Record<string, unknown>): ThinkingCanvasV2 {
         evidenceIds.add((item as CanvasEvidence).id)
       }
     }
-    if (node.writing !== undefined) {
-      requireCanvas(record(node.writing), 'Invalid writing constraints.')
-      for (const key of ['purpose', 'conditions', 'template']) requireCanvas(node.writing[key] === undefined || typeof node.writing[key] === 'string', 'Invalid writing constraints.')
+    if (node.writing !== undefined) validateWritingConstraints(node.writing)
+    if (node.bindings !== undefined) {
+      requireCanvas(Array.isArray(node.bindings), 'Invalid source bindings.')
+      const bindingIds = new Set<string>()
+      for (const item of node.bindings) {
+        validateSourceBinding(item)
+        requireCanvas(!bindingIds.has(item.id), 'Duplicate source binding identity.')
+        bindingIds.add(item.id)
+      }
     }
     ids.add(node.id as string)
   }
@@ -146,32 +153,91 @@ function validateV2(raw: Record<string, unknown>): ThinkingCanvasV2 {
 }
 
 /** The editor must reject unsupported/damaged files rather than overwrite them with a filtered empty canvas.
- * Unknown fields on a valid file are retained for round-trip compatibility. Unknown versions fail closed. */
-export function parseEditableCanvas(text: string): AnyCanvas {
+ * Unknown fields on a valid v2 file are retained. v1 and unknown versions fail closed. */
+export function parseEditableCanvas(text: string): ThinkingCanvasV2 {
   const raw: unknown = JSON.parse(text)
-  requireCanvas(record(raw) && (raw.version === 1 || raw.version === 2), 'Unsupported canvas format.')
-  return raw.version === 1 ? validateV1(raw) : validateV2(raw)
+  requireCanvas(record(raw) && raw.version === 2, 'Unsupported canvas format.')
+  return validateV2(raw)
 }
 
-export function serializeCanvas(canvas: AnyCanvas): string {
+export function serializeCanvas(canvas: ThinkingCanvasV2): string {
   return JSON.stringify(canvas, null, 2) + '\n'
 }
 
-/** v1 → v2: IDs, refs, anchors, content and unknown fields are preserved. Chapter→idea edges seed the
- * outline hierarchy and y/x seeds its order exactly once; the edges themselves stay plain associations —
- * unlabeled links are never promoted into causal or hierarchical semantics. */
-export function migrateCanvasV1toV2(canvas: ThinkingCanvas): ThinkingCanvasV2 {
-  const byPosition = (a: CanvasNode, b: CanvasNode) => a.y - b.y || a.x - b.x
-  const chapters = canvas.nodes.filter(n => n.kind === 'chapter').sort(byPosition)
-  const ideas = new Map(canvas.nodes.filter(n => n.kind === 'idea').map(n => [n.id, n]))
-  const attached = new Set<string>()
-  const items: OutlineItem[] = chapters.map(chapter => {
-    const children = canvas.edges.filter(e => e.from === chapter.id && ideas.has(e.to))
-      .map(e => ideas.get(e.to)!).sort(byPosition)
-    children.forEach(idea => attached.add(idea.id))
-    return { node: chapter.id, ...(children.length ? { children: children.map(idea => ({ node: idea.id })) } : {}) }
-  })
-  return { ...canvas, version: 2, nodes: canvas.nodes.map(n => ({ ...n })), edges: canvas.edges.map(e => ({ ...e })), outlines: [{ artifact: PRIMARY_OUTLINE, items }] }
+export function writingFieldValue(writing: WritingConstraints | undefined, field: WritingField): string {
+  return writing?.[field] ?? ''
+}
+
+export function serializeWriting(writing: WritingConstraints | undefined): WritingConstraints | undefined {
+  if (!writing) return undefined
+  const next: WritingConstraints = {}
+  for (const field of WRITING_FIELDS) {
+    const value = writing[field]?.trim()
+    if (value) next[field] = writing[field]!
+  }
+  return Object.keys(next).length ? next : undefined
+}
+
+export function validateWritingConstraints(raw: unknown): asserts raw is WritingConstraints {
+  requireCanvas(record(raw), 'Invalid writing constraints.')
+  for (const key of Object.keys(raw)) requireCanvas((WRITING_FIELDS as readonly string[]).includes(key) && typeof raw[key] === 'string', 'Invalid writing constraints.')
+}
+
+export function applyCanvasWriting(canvas: ThinkingCanvasV2, id: string, field: WritingField, value: string): ThinkingCanvasV2 {
+  return setNodeWriting(canvas, id, field, value)
+}
+
+export function applyNodeWriting(canvas: ThinkingCanvasV2, id: string, writing: WritingConstraints | undefined): ThinkingCanvasV2 {
+  if (writing) validateWritingConstraints(writing)
+  return { ...canvas, nodes: canvas.nodes.map(n => {
+    if (n.id !== id) return n
+    const next: CanvasNodeV2 = { ...n, writing: serializeWriting(writing) }
+    if (!next.writing) delete next.writing
+    return next
+  }) }
+}
+
+export function newSourceBinding(input: Omit<SourceBinding, 'id'> & { id?: string }): SourceBinding {
+  const binding: SourceBinding = { ...input, id: input.id ?? crypto.randomUUID() }
+  validateSourceBinding(binding)
+  return binding
+}
+
+export function addNodeBinding(canvas: ThinkingCanvasV2, id: string, binding: SourceBinding): ThinkingCanvasV2 {
+  validateSourceBinding(binding)
+  return { ...canvas, nodes: canvas.nodes.map(n => {
+    if (n.id !== id) return n
+    if ((n.bindings ?? []).some(item => item.id === binding.id)) return n
+    return { ...n, bindings: [...(n.bindings ?? []), binding] }
+  }) }
+}
+
+export function removeNodeBinding(canvas: ThinkingCanvasV2, id: string, bindingId: string): ThinkingCanvasV2 {
+  return { ...canvas, nodes: canvas.nodes.map(n => {
+    if (n.id !== id) return n
+    const bindings = (n.bindings ?? []).filter(item => item.id !== bindingId)
+    const next: CanvasNodeV2 = { ...n, bindings }
+    if (!bindings.length) delete next.bindings
+    return next
+  }) }
+}
+
+export function replaceNodeBinding(canvas: ThinkingCanvasV2, id: string, binding: SourceBinding): ThinkingCanvasV2 {
+  validateSourceBinding(binding)
+  return { ...canvas, nodes: canvas.nodes.map(n => {
+    if (n.id !== id) return n
+    const bindings = n.bindings ?? []
+    const index = bindings.findIndex(item => item.id === binding.id)
+    if (index < 0) return { ...n, bindings: [...bindings, binding] }
+    return { ...n, bindings: bindings.map((item, i) => i === index ? binding : item) }
+  }) }
+}
+
+export function quoteOccurrences(content: string, quote: string): number[] {
+  if (!quote) return []
+  const starts: number[] = []
+  for (let index = content.indexOf(quote); index >= 0; index = content.indexOf(quote, index + 1)) starts.push(index)
+  return starts
 }
 
 /* ---------- v2 编辑操作：布局、层级/顺序、语义关系互不干扰 ---------- */
@@ -236,7 +302,8 @@ export function removeNodeFromArrangement(canvas: ThinkingCanvasV2, artifact: st
   return updateArrangement(canvas, artifact, outline => ({ ...outline, items: removeItem(outline.items, node) }))
 }
 
-/** Reorder within the same sibling level. This is writing order, never visual position. */export function moveOutlineItem(canvas: ThinkingCanvasV2, artifact: string, node: string, offset: -1 | 1): ThinkingCanvasV2 {
+/** Reorder within the same sibling level. This is writing order, never visual position. */
+export function moveOutlineItem(canvas: ThinkingCanvasV2, artifact: string, node: string, offset: -1 | 1): ThinkingCanvasV2 {
   return updateArrangement(canvas, artifact, outline => {
     const found = findItem(outline.items, node)
     if (!found) return outline
@@ -326,13 +393,13 @@ export function removeNodeEvidence(canvas: ThinkingCanvasV2, id: string, evidenc
     return next
   }) }
 }
-export function setNodeWriting(canvas: ThinkingCanvasV2, id: string, key: keyof WritingConstraints, value: string): ThinkingCanvasV2 {
+export function setNodeWriting(canvas: ThinkingCanvasV2, id: string, key: WritingField, value: string): ThinkingCanvasV2 {
   return { ...canvas, nodes: canvas.nodes.map(n => {
     if (n.id !== id) return n
     const writing: WritingConstraints = { ...n.writing }
     if (value) writing[key] = value; else delete writing[key]
-    const next: CanvasNodeV2 = { ...n, writing }
-    if (!Object.keys(writing).length) delete next.writing
+    const next: CanvasNodeV2 = { ...n, writing: serializeWriting(writing) }
+    if (!next.writing) delete next.writing
     return next
   }) }
 }
@@ -346,33 +413,9 @@ export function semanticFingerprint(canvas: ThinkingCanvasV2): string {
   return JSON.stringify(norm({ nodes, edges: canvas.edges, outlines: canvas.outlines }))
 }
 
-/* 白板拓扑 → 写作系统提示词。v1 保留坐标推断的原有行为；v2 使用显式大纲的层级与顺序，
-   只有标注了语义的边进入关系清单，未标注的普通关联不产生因果或顺序。 */
-export function canvasToPrompt(canvas: AnyCanvas, projectTitle: string): string {
-  if (canvas.version === 2) return canvasV2ToPrompt(canvas, projectTitle)
-  const chapters = canvas.nodes.filter(n => n.kind === 'chapter').sort((a, b) => a.y - b.y || a.x - b.x)
-  const ideas = canvas.nodes.filter(n => n.kind === 'idea')
-  const attached = new Set<string>()
-  const lines: string[] = [`# ${projectTitle} · 写作蓝图`, '']
-  const nodeLine = (n: CanvasNode, prefix: string) => {
-    const extras = [n.ref ? `[[${n.ref.path}]]` : '', n.anchor ? `@${n.anchor}` : ''].filter(Boolean).join(' ')
-    lines.push(`${prefix}${n.title}${extras ? ` ${extras}` : ''}`)
-    if (n.body?.trim()) lines.push(`${prefix}  ${n.body.trim().replace(/\n+/g, ' ')}`)
-  }
-  chapters.forEach((chapter, index) => {
-    nodeLine(chapter, `${index + 1}. `)
-    const children = canvas.edges.filter(e => e.from === chapter.id).map(e => ideas.find(n => n.id === e.to)).filter((n): n is CanvasNode => Boolean(n))
-    children.sort((a, b) => a.y - b.y || a.x - b.x).forEach(idea => { attached.add(idea.id); nodeLine(idea, `   - `) })
-  })
-  const loose = ideas.filter(n => !attached.has(n.id)).sort((a, b) => a.y - b.y || a.x - b.x)
-  if (loose.length) {
-    lines.push('', '## 待归档想法')
-    loose.forEach(idea => nodeLine(idea, '- '))
-  }
-  return lines.join('\n') + '\n'
-}
-
-function canvasV2ToPrompt(canvas: ThinkingCanvasV2, projectTitle: string): string {
+/* 白板拓扑 → 写作系统提示词。使用显式大纲的层级与顺序；只有标注了语义的边进入关系清单。
+   写作意图进入上下文；omission/aside 标明不得写入正文。 */
+export function canvasToPrompt(canvas: ThinkingCanvasV2, projectTitle: string): string {
   const byId = new Map(canvas.nodes.map(n => [n.id, n]))
   const lines: string[] = [`# ${projectTitle} · 写作蓝图`, '']
   const nodeLine = (n: CanvasNodeV2, prefix: string) => {
@@ -384,8 +427,14 @@ function canvasV2ToPrompt(canvas: ThinkingCanvasV2, projectTitle: string): strin
       lines.push(`${prefix}  证据： ${at}${item.excerpt ? ` — ${item.excerpt.trim().slice(0, 120)}` : ''}`)
     }
     if (n.writing?.purpose) lines.push(`${prefix}  写作目的： ${n.writing.purpose.trim().replace(/\n+/g, ' ')}`)
+    if (n.writing?.argument) lines.push(`${prefix}  论证安排： ${n.writing.argument.trim().replace(/\n+/g, ' ')}`)
     if (n.writing?.conditions) lines.push(`${prefix}  适用条件： ${n.writing.conditions.trim().replace(/\n+/g, ' ')}`)
     if (n.writing?.template) lines.push(`${prefix}  模板要求： ${n.writing.template.trim().replace(/\n+/g, ' ')}`)
+    if (n.writing?.omission) lines.push(`${prefix}  详略（不得写入正文）： ${n.writing.omission.trim().replace(/\n+/g, ' ')}`)
+    if (n.writing?.aside) lines.push(`${prefix}  正文外细节（不得写入正文）： ${n.writing.aside.trim().replace(/\n+/g, ' ')}`)
+    for (const item of n.bindings ?? []) {
+      lines.push(`${prefix}  对应正文： ${item.path}@${item.digest} 「${item.quote.trim().replace(/\n+/g, ' ').slice(0, 160)}」`)
+    }
   }
   const arranged = new Set<string>()
   // Roots are numbered, children dashed with indentation by depth.

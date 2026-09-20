@@ -15,10 +15,11 @@ import {OutlinePanel} from './OutlinePanel'
 import {openResearchSource} from './research-navigation'
 import {newContextItem} from './context-model'
 import {
-  CANVAS_PATH,PRIMARY_OUTLINE,SEMANTIC_RELATIONS,addCanvasEdge,addNodeEvidence,canvasToPrompt,emptyCanvasV2,
-  newCanvasEvidence,removeCanvasNode,removeNodeEvidence,setEdgeRelation,setNodeWriting,
-  type CanvasNodeV2,type SemanticRelation,type ThinkingCanvasV2,
+  CANVAS_PATH,PRIMARY_OUTLINE,SEMANTIC_RELATIONS,WRITING_FIELDS,addCanvasEdge,addNodeEvidence,canvasToPrompt,emptyCanvasV2,
+  newCanvasEvidence,removeCanvasNode,removeNodeBinding,removeNodeEvidence,setEdgeRelation,setNodeWriting,
+  type CanvasNodeV2,type SemanticRelation,type ThinkingCanvasV2,type WritingField,
 } from './canvas-model'
+import {readDesignFocus,requestDesignFocus,subscribeDesignFocus} from './design-focus'
 /* 思维白板：Origami 式节点画布。节点卡是 DOM（排版精度），连线是 SVG，点阵底随相机走。
    数据落项目仓库 thinking.canvas.json（git 版本化）；拓扑可导出为写作系统提示词。
    v2：x/y 只表达视觉位置；层级与写作顺序在大纲视图；连线语义需要显式标注。 */
@@ -81,14 +82,14 @@ export function ThinkingCanvas({project,active=true,onRequestConversation}:{proj
   else if(d.mode==='edge'&&d.id)setTempEdge({from:d.id,to:toWorld(e.clientX,e.clientY)})}
  const onPointerUp=(e:React.PointerEvent)=>{const d=drag.current;drag.current=null
   // A click selects on release; a drag moves layout only and never opens the inspector mid-gesture.
-  if(d?.mode==='node'&&d.id&&!d.moved&&!(e.target as HTMLElement).closest('input,textarea,button,[data-handle]'))setSel({kind:'node',id:d.id})
+  if(d?.mode==='node'&&d.id&&!d.moved&&!(e.target as HTMLElement).closest('input,textarea,button,[data-handle]')){setSel({kind:'node',id:d.id});requestDesignFocus(project,[d.id])}
   if(d?.mode==='edge'&&d.id){setTempEdge(null);const el=document.elementFromPoint(e.clientX,e.clientY)?.closest<HTMLElement>('[data-node]');const to=el?.dataset.node
    if(to&&to!==d.id)apply(c=>addCanvasEdge(c,d.id!,to))}}
  const onWheel=(e:React.WheelEvent)=>{const r=box.current!.getBoundingClientRect();const k=Math.min(1.8,Math.max(0.35,cam.k*Math.exp(-e.deltaY*0.0012)));const mx=e.clientX-r.left,my=e.clientY-r.top
   setCam({k,x:mx-(mx-cam.x)*(k/cam.k),y:my-(my-cam.y)*(k/cam.k)})}
  const addNode=(kind:CanvasNodeV2['kind'],at?:{x:number;y:number})=>{const r=box.current!.getBoundingClientRect();const p=at??toWorld(r.left+r.width/2+(Math.random()*80-40),r.top+r.height/2+(Math.random()*60-30))
   const node:CanvasNodeV2={id:crypto.randomUUID().slice(0,8),kind,title:kind==='chapter'?tr('新章节'):tr('新想法'),x:p.x-NODE_W/2,y:p.y-24}
-  apply(c=>({...c,nodes:[...c.nodes,node]}));setSel({kind:'node',id:node.id})}
+  apply(c=>({...c,nodes:[...c.nodes,node]}));setSel({kind:'node',id:node.id});requestDesignFocus(project,[node.id])}
  /* 删除键与撤销只处理当前画布内的事件；隐藏画布不注册全局快捷键。 */
  const onKey=(e:React.KeyboardEvent)=>{if(!active)return
   if((e.key==='z'||e.key==='Z'||e.key==='y')&&(e.ctrlKey||e.metaKey)){if((e.target as HTMLElement).closest('input,textarea,[contenteditable]'))return;e.preventDefault();e.stopPropagation();if(e.shiftKey||e.key==='y')redo();else undo();return}
@@ -105,9 +106,20 @@ export function ThinkingCanvas({project,active=true,onRequestConversation}:{proj
   const w=Math.max(...xs)+240-left,h=Math.max(...ys)+180-top
   const k=Math.min(1.2,Math.max(0.35,Math.min(Math.max(1,r.width-64)/w,Math.max(1,r.height-64)/h)))
   setCam({k,x:(r.width-w*k)/2-left*k,y:(r.height-h*k)/2-top*k})}
- const locateOnCanvas=(id:string)=>{const n=nodeById.get(id);if(!n)return;setView('canvas');setSel({kind:'node',id})
+ const locateOnCanvas=useCallback((id:string)=>{const n=nodeById.get(id);if(!n)return;setView('canvas');setSel({kind:'node',id})
   const r=box.current?.getBoundingClientRect();if(!r)return
-  setCam(c=>({k:c.k,x:r.width/2-(n.x+NODE_W/2)*c.k,y:r.height/2-(n.y+60)*c.k}))}
+  setCam(c=>({k:c.k,x:r.width/2-(n.x+NODE_W/2)*c.k,y:r.height/2-(n.y+60)*c.k}))},[nodeById])
+ useEffect(()=>{
+  const applyFocus=(focus:{project:string;cardIds:readonly string[]})=>{
+   if(focus.project!==project)return
+   if(!focus.cardIds.length){setView('canvas');return}
+   const id=focus.cardIds[0]
+   if(documentState.value?.nodes.some(node=>node.id===id))locateOnCanvas(id)
+  }
+  const current=readDesignFocus()
+  if(current)applyFocus(current)
+  return subscribeDesignFocus(applyFocus)
+ },[project,documentState.value,locateOnCanvas])
  const saveState=documentState.status
  const statusLabel=saveState==='saving'?messages.canvasSaving:saveState==='unsaved'?messages.canvasUnsaved:saveState==='new'?messages.canvasNew:''
  const blocked=saveState==='save-error'||saveState==='conflict'
@@ -153,7 +165,7 @@ export function ThinkingCanvas({project,active=true,onRequestConversation}:{proj
   </div>}
   {copyError&&<p role="alert" className="px-2 pb-1 text-caption text-ink-3">{copyError}</p>}
   {view==='outline'?<OutlinePanel canvas={canvas} artifact={artifact} selected={sel?.kind==='node'?sel.id:null} locale={locale}
-    onArtifact={setArtifact} onSelect={id=>setSel({kind:'node',id})} onLocate={locateOnCanvas} apply={apply}/>
+    onArtifact={setArtifact} onSelect={id=>{setSel({kind:'node',id});requestDesignFocus(project,[id])}} onLocate={locateOnCanvas} apply={apply}/>
   :<div ref={box} role="region" aria-label={copy.canvas} tabIndex={0} onKeyDown={onKey} className={cn('relative min-h-0 w-full flex-1 overflow-hidden focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-[-1px]',drag.current?.mode==='pan'?'cursor-grabbing':'cursor-default')} style={{backgroundImage:'radial-gradient(var(--line-strong) 1px,transparent 1px)',backgroundSize:`${24*cam.k}px ${24*cam.k}px`,backgroundPosition:`${cam.x}px ${cam.y}px`}}
    onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={()=>{drag.current=null;setTempEdge(null)}} onWheel={onWheel}
    onDoubleClick={e=>{if(e.target===e.currentTarget||(e.target as HTMLElement).dataset.world)addNode('idea',toWorld(e.clientX,e.clientY))}}>
@@ -179,6 +191,7 @@ export function ThinkingCanvas({project,active=true,onRequestConversation}:{proj
        {n.ref&&<button className="flex min-w-0 items-center gap-1 rounded-md bg-elevated px-1.5 py-0.5 text-caption text-ink-2 hover:text-ink" title={n.ref.path} onClick={()=>openDocument({workspace:'academic',path:n.ref!.path,title:n.ref!.title})}><Link2 size={11} strokeWidth={1.75} className="shrink-0"/><span className="truncate">{n.ref.title}</span></button>}
        {n.anchor&&<button className="flex min-w-0 items-center gap-1 rounded-md bg-elevated px-1.5 py-0.5 text-caption text-ink-2 hover:text-ink" title={n.anchor} onClick={()=>{try{openRightTab({kind:'file',target:fileTarget(project,project,'files',n.anchor!)})}catch(error){setCopyError(error instanceof Error?error.message:String(error))}}}><FileText size={11} strokeWidth={1.75} className="shrink-0"/><span className="truncate">{n.anchor.split('/').pop()}</span></button>}
        {Boolean(n.evidence?.length)&&<span className="rounded-md bg-elevated px-1.5 py-0.5 text-caption text-ink-3">{copy.evidence} {n.evidence!.length}</span>}
+       {Boolean(n.bindings?.length)&&<span className="rounded-md bg-elevated px-1.5 py-0.5 text-caption text-ink-3">{copy.sourceBindings} {n.bindings!.length}</span>}
        {selected&&<span className="ml-auto flex shrink-0 gap-0.5">
         <button aria-label={tr("链接知识")} title={tr("链接知识")} className="grid h-6 w-6 place-items-center rounded-md text-ink-3 hover:bg-hover hover:text-ink" onClick={()=>setPicker({kind:'ref',node:n.id})}><Link2 size={12} strokeWidth={1.75}/></button>
         <button aria-label={tr("源稿锚点")} title={tr("源稿锚点")} className="grid h-6 w-6 place-items-center rounded-md text-ink-3 hover:bg-hover hover:text-ink" onClick={()=>{setPicker({kind:'anchor',node:n.id});if(!files.length)void request<{path:string;kind:string}[]>(`/workspaces/${encodeURIComponent(project)}/files?limit=200`).then(list=>setFiles(list.filter(f=>f.kind==='file').map(f=>f.path))).catch(()=>{})}}><FileText size={12} strokeWidth={1.75}/></button>
@@ -223,8 +236,19 @@ export function ThinkingCanvas({project,active=true,onRequestConversation}:{proj
       </div>
      </section>
      <section className="space-y-2">
+      <p className="text-caption font-medium uppercase tracking-[0.06em] text-ink-3">{copy.sourceBindings}</p>
+      <p className="text-caption text-ink-3">{copy.bindFromSource}</p>
+      {(selectedNode.bindings??[]).map(item=><div key={item.id} className="space-y-1 rounded-md bg-elevated p-2 text-caption" data-source-binding={item.id}>
+       <button type="button" className="block w-full truncate text-left text-ink-2 hover:underline" title={`${item.path}@${item.digest}`} onClick={()=>{try{openRightTab({kind:'file',target:fileTarget(project,item.workspace,'files',item.path)})}catch(error){setCopyError(error instanceof Error?error.message:String(error))}}}>{item.path}</button>
+       <p className="break-all text-ink-3">{item.digest} · [{item.start},{item.end}]</p>
+       <blockquote className="whitespace-pre-wrap text-ink-2">{item.quote}</blockquote>
+       <IconBtn icon={Trash2} label={copy.removeBinding} onClick={()=>apply(c=>removeNodeBinding(c,selectedNode.id,item.id))}/>
+      </div>)}
+      {!(selectedNode.bindings??[]).length&&<p className="text-caption text-ink-3">{copy.noBindings}</p>}
+     </section>
+     <section className="space-y-2">
       <p className="text-caption font-medium uppercase tracking-[0.06em] text-ink-3">{copy.writingConstraints}</p>
-      {(['purpose','conditions','template'] as const).map(key=><label key={key} className="block text-secondary text-ink-2">{copy[key]}
+      {(WRITING_FIELDS as readonly WritingField[]).map(key=><label key={key} className="block text-secondary text-ink-2">{copy[key]}
        <textarea rows={2} className="ui-input mt-1 w-full resize-y" value={selectedNode.writing?.[key]??''} onChange={e=>apply(c=>setNodeWriting(c,selectedNode.id,key,e.target.value),`writing:${selectedNode.id}:${key}`)}/>
       </label>)}
      </section>
@@ -237,7 +261,7 @@ export function ThinkingCanvas({project,active=true,onRequestConversation}:{proj
     <p className="border-b border-line px-3 py-2 text-caption font-medium uppercase tracking-[0.06em] text-ink-3">{picker.kind==='ref'?tr("链接知识库笔记"):tr("选择源稿文件")}</p>
     <div className="max-h-64 overflow-y-auto p-1">
      {picker.kind==='ref'?notes.map(note=><button key={note.path} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-secondary text-ink-2 hover:bg-hover hover:text-ink" onClick={()=>{apply(c=>({...c,nodes:c.nodes.map(x=>x.id===picker.node?{...x,ref:{path:note.path,title:note.title}}:x)}));setPicker(null)}}><Link2 size={12} strokeWidth={1.75} className="shrink-0 text-ink-3"/><span className="truncate">{note.title}</span></button>)
-     :files.map(f=><button key={f} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-secondary text-ink-2 hover:bg-hover hover:text-ink" onClick={()=>{apply(c=>({...c,nodes:c.nodes.map(x=>x.id===picker.node?{...x,anchor:f}:x)}));setPicker(null)}}><FileText size={12} strokeWidth={1.75} className="shrink-0 text-ink-3"/><span className="truncate">{f}</span></button>)}
+     :files.map(f=><button key={f} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-secondary text-ink-2 hover:bg-hover hover:text-ink" onClick={()=>{try{openRightTab({kind:'file',target:fileTarget(project,project,'files',f)})}catch(error){setCopyError(error instanceof Error?error.message:String(error))}setPicker(null)}}><FileText size={12} strokeWidth={1.75} className="shrink-0 text-ink-3"/><span className="truncate">{f}</span></button>)}
      {picker.kind==='ref'&&!notes.length&&<p className="px-2 py-3 text-caption text-ink-3">{tr("知识库还没有笔记。")}</p>}
     </div>
    </div>

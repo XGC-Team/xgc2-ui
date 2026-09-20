@@ -4,8 +4,12 @@ import { request } from '../../lib/api'
 import { useWorkbench } from '../../store'
 import { useNativeAgentSession } from '../chat/Session'
 import { contextCopy } from './context-copy'
+import { workspaceCopy } from './workspace-copy'
 import { fileTarget } from './project-object-model'
 import { openResearchSource } from './research-navigation'
+import { inspectLiveCanvas } from './useCanvasDocument'
+import { captureSelectedContext } from './design-context'
+import { requestDesignFocus } from './design-focus'
 import {
   adoptContextVersion, assessContextItem, checkContextForSend, contextManifest, keepStaleSnapshot,
   type ContextItem, type ContextIssue,
@@ -16,6 +20,7 @@ import {
 export function ContextPanel() {
   const { locale, projectId, contextItems, removeContextItem, patchContextItem, openRightTab, openCanvas } = useWorkbench()
   const copy = contextCopy[locale]
+  const workspace = workspaceCopy[locale]
   const native = useNativeAgentSession()
   const session = native.session
   const scopeKind = session?.scope.context.kind ?? ''
@@ -35,7 +40,7 @@ export function ContextPanel() {
   } as const)[reason]
   const locate = (item: ContextItem) => {
     if (item.kind === 'draft') openRightTab({ kind: 'file', target: fileTarget(item.project, item.source?.workspace || item.project, 'files', item.ref) })
-    else if (item.kind === 'canvas-node') openCanvas(item.project)
+    else if (item.kind === 'canvas-node') { openCanvas(item.project); requestDesignFocus(item.project, [item.ref.split('#')[1]].filter(Boolean)) }
     else if (item.source) openResearchSource(item.source, { projectId: item.project, workspace: item.source.workspace || item.project })
   }
   const refresh = async (item: ContextItem) => {
@@ -56,6 +61,16 @@ export function ContextPanel() {
     setIssues(found)
     if (!include.length) return
     native.appendDraft(contextManifest(include, effectiveProject))
+    setNote(copy.inserted)
+  }
+  const insertWriting = () => {
+    const cards = contextItems.filter(item => item.kind === 'canvas-node' && item.project === effectiveProject)
+      .map(item => item.ref.split('#')[1]).filter(Boolean)
+    const gate = inspectLiveCanvas(effectiveProject)
+    if (!gate || !cards.length) { setNote(workspace.captureBlocked); return }
+    const captured = captureSelectedContext(gate, cards)
+    if (!captured.ok) { setNote(workspace.captureBlocked); return }
+    native.appendDraft(captured.context.context)
     setNote(copy.inserted)
   }
   const requestSuggestions = () => {
@@ -91,6 +106,7 @@ export function ContextPanel() {
       <div className="mt-2 flex flex-wrap gap-1">
         <Button size="xs" onClick={runCheck}>{copy.checkSend}</Button>
         <Button size="xs" variant="outline" onClick={insert}>{copy.insert}</Button>
+        <Button size="xs" onClick={insertWriting}>{workspace.insertWritingContext}</Button>
         <Button size="xs" onClick={requestSuggestions} title={copy.organizeNote}>{copy.organize}</Button>
       </div>
       <p className="mt-1 text-caption text-ink-3">{copy.notSent}</p>

@@ -129,12 +129,12 @@ test('saved content can be reopened through a fresh session', async () => {
 })
 
 const node = { id: 'one', kind: 'idea', title: 'A', x: 0, y: 0 }
-const valid = { version: 1, nodes: [node], edges: [] }
+const valid = { version: 2, nodes: [node], edges: [], outlines: [{ artifact: 'canvas', items: [{ node: 'one' }] }] }
 test('editable canvas retains unknown fields at all levels', () => {
-  const raw = { ...valid, future: { revision: 2 }, nodes: [{ ...node, constraints: ['keep'] }], edges: [{ from: 'one', to: 'one', relation: 'reference' }] }
+  const raw = { ...valid, future: { revision: 2 }, nodes: [{ ...node, constraints: ['keep'] }], edges: [{ from: 'one', to: 'one', relation: 'supports' }] }
   assert.deepEqual(JSON.parse(serializeCanvas(parseEditableCanvas(JSON.stringify(raw)))), raw)
 })
-for (const raw of [null, [], {}, { ...valid, version: 2 }, { ...valid, nodes: [node, node] }, { ...valid, nodes: [{ ...node, x: 'NaN' }] },
+for (const raw of [null, [], {}, { version: 1, nodes: [node], edges: [] }, { ...valid, version: 3 }, { ...valid, nodes: [node, node] }, { ...valid, nodes: [{ ...node, x: 'NaN' }] },
   { ...valid, nodes: [{ ...node, kind: 'unknown' }] }, { ...valid, nodes: [{ ...node, body: 4 }] }, { ...valid, nodes: [{ ...node, ref: 'source' }] },
   { ...valid, edges: [{ from: 'one', to: 'missing' }] }]) {
   test(`unsafe canvas is rejected: ${JSON.stringify(raw)}`, () => assert.throws(() => parseEditableCanvas(JSON.stringify(raw))))
@@ -145,4 +145,5 @@ test('delete handlers preserve root extension fields and unload warns on dirty s
   const hook = readFileSync(new URL('../src/features/projects/useCanvasDocument.ts', import.meta.url), 'utf8')
   assert.match(hook, /current.snapshot\(\).dirty/)
   assert.match(hook, /addEventListener\('beforeunload', warn\)/)
+  assert.doesNotMatch(hook, /wrapMigratingPort|canvas-migration/)
 })

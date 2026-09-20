@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readPreference, writePreference } from '../src/lib/storage.ts'
-import { parseEditableCanvas, serializeCanvas, migrateCanvasV1toV2, parseCanvas, type ThinkingCanvasV2 } from '../src/features/projects/canvas-model.ts'
+import { parseEditableCanvas, serializeCanvas, parseCanvas, type ThinkingCanvasV2 } from '../src/features/projects/canvas-model.ts'
 import { parseDraftBook, serializeDraftBook, type DraftBook } from '../src/features/projects/draft-model.ts'
 import { confirmFileTabClose } from '../src/features/projects/tab-close-guards.ts'
 
@@ -55,16 +55,10 @@ test('a 40-card canvas with relations and two arrangements round-trips exactly',
   assert.equal(reopened.nodes[3].evidence?.[0].digest, 'rev-2')
   assert.deepEqual(reopened.outlines.find(o => o.artifact === 'draft-1')?.items.map(i => i.node), ['n3', 'n1'])
 })
-test('v1 migration at scale preserves node ids and seeds one outline from layout', () => {
+test('v1 canvases fail closed instead of migrating or exposing nodes', () => {
   const v1 = { version: 1 as const, nodes: Array.from({ length: 40 }, (_, i) => ({ id: `m${i}`, kind: 'idea' as const, title: `M${i}`, x: i * 250, y: i * 100 })), edges: [{ from: 'm0', to: 'm1' }] }
-  const migrated = migrateCanvasV1toV2(v1)
-  assert.deepEqual(migrated.nodes.map(n => n.id), v1.nodes.map(n => n.id))
-  assert.equal(migrated.version, 2)
-  assert.equal(migrated.outlines.length, 1)
-  // The migrated document still parses as an editable canvas and serializes stably.
-  const reopened = parseEditableCanvas(serializeCanvas(migrated))
-  assert.deepEqual(serializeCanvas(reopened), serializeCanvas(migrated))
-  assert.equal(parseCanvas(JSON.stringify(v1)).nodes.length, 40)
+  assert.throws(() => parseEditableCanvas(JSON.stringify(v1)))
+  assert.deepEqual(parseCanvas(JSON.stringify(v1)), { nodes: [] })
 })
 test('a 30-draft book across all kinds round-trips with ids, fields and sources intact', () => {
   const scope = { projectId: 'paper-e2e-cap', workspace: 'paper-e2e-cap' }
