@@ -48,6 +48,17 @@ export function reviewBatchReceipt(scope: Scope, proposal: Proposal, ids: string
     status: unknown ? 'uncertain' : cancelled ? 'cancelled' : !saved.length ? 'not-written' : unsuccessful ? 'partial' : 'applied' }
 }
 
+/** B consumes this. Missing/observed receipts never become compile facts. */
+export function writingBatchSaved(receipt: ReviewBatchReceipt) {
+  const changes = receipt.saved
+    .filter(item => item.attempt.outcome === 'applied' && item.attempt.afterDigest)
+    .map(item => ({ path: item.attempt.path, digest: item.attempt.afterDigest! }))
+  if (!changes.length) return
+  return { workspace: receipt.scope.workspace, changes, batchId: receipt.batchId, proposalId: receipt.proposalId }
+}
+
+export const subscribeWritingBatches = subscribeReviewBatches
+
 /** Recovery is a projection of the journal, never a replay of source writes or
  * compilation events. A missing/observed receipt is not promoted to a save.
  */

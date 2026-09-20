@@ -28,6 +28,7 @@ export function connectReview(scope: Scope, changed: (s: ReviewState) => void, i
     lease: acquireReviewWrite,
   }, changed)
 }
+export { subscribeReviewBatches, subscribeWritingBatches, writingBatchSaved, writingHistoryReceipt } from './review-batches.ts'
 export const readBuildRecords = (workspace: string, signal?: AbortSignal) => request<BuildRecord[]>(`/manuscripts/build-records?manuscriptId=${encodeURIComponent(workspace)}`, { signal })
 export async function requireBuildSource(workspace: string, path: string, buildId: string, digest: string) {
   const records = await readBuildRecords(workspace)

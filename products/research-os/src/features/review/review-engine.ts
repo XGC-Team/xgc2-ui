@@ -1,4 +1,3 @@
-import { knowledgePromotionDigest, type KnowledgePromotion } from '../resources/knowledge-promotion.ts'
 import { check, emptyReviewBook, fingerprint, now, operationState, parseReviewBook, REVIEW_PATH, selectedGroups, serializeReviewBook, uid, validateProposal, type Attempt, type FileRecord, type Operation, type Proposal, type ReviewBook, type Scope } from './review-model.ts'
 import { patchText } from './review-text.ts'
 import { bindWritingReview } from './writing-engine.ts'
@@ -187,19 +186,11 @@ export function createReviewEngine(scope: Scope, port: ReviewPort, changed: (s: 
         await persist({ ...book!, attempts: book!.attempts.map(x => x.id === a.id ? result : x) })
       } finally { await release() }
     }),
-    editPromotion: (id: string, candidate: KnowledgePromotion) => command(async () => {
-      const p = proposal(id); check(p.promotion && !p.writing, 'Knowledge proposal not found.')
-      const promotion = { ...structuredClone(candidate), decision: 'pending' as const }
-      delete promotion.approvalDigest; delete promotion.decidedBy; delete promotion.decidedAt
-      const next = { ...p, promotion }; validateProposal(next, scope)
-      await persist({ ...book!, proposals: book!.proposals.map(x => x.id === id ? next : x) })
-    }),
     decidePromotion: (id: string, decision: 'approved-scope' | 'rejected', actor: string) => command(async () => {
       check(actor.trim(), 'Actor is required.')
       const p = proposal(id); check(p.promotion && p.promotion.decision === 'pending', 'Knowledge scope already decided.')
-      // F owns canonical candidate/scope/evidence hashing and actual knowledge writes.
-      const approvalDigest = decision === 'approved-scope' ? await knowledgePromotionDigest(scope, p.id, p.promotion) : undefined
-      await persist({ ...book!, proposals: book!.proposals.map(x => x.id === id ? { ...x, promotion: { ...x.promotion!, decision, decidedBy: actor, decidedAt: now(), ...(approvalDigest ? { approvalDigest } : {}) } } : x) })
+      // Approval is a review of this exact scope, never a global knowledge write.
+      await persist({ ...book!, proposals: book!.proposals.map(x => x.id === id ? { ...x, promotion: { ...x.promotion!, decision, decidedBy: actor, decidedAt: now() } } : x) })
     }),
     dispose: () => { disposed = true },
   }

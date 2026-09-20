@@ -297,19 +297,17 @@ test('failed native dispatch persists uncertainty and cannot automatically issue
   assert.equal(f.sends(), 1); assert.equal(f.sourceWrites().length, 0)
 })
 
-test('knowledge confirmation consumes F canonical contract; removed scope-only candidates fail closed', async () => {
-  const { knowledgePromotionDigest } = await import('../src/features/resources/knowledge-promotion.ts')
-  const f = await fixture(), promotion = { destination: 'global-knowledge', scope: 'This project argument only', conditions: 'Given the selected evidence', verification: 'Not independently verified', decision: 'pending', candidate: { kind: 'note', body: 'A scoped note.', evidence: [{ workspace: scope.workspace, path: 'main.tex', digest: 'source-0', anchor: JSON.stringify(f.offer.selection.sources[0].anchor) }] } }
-  const proposal = { id: 'knowledge-a', author: 'a', at: '2026-09-20T00:00:00Z', title: 'Knowledge candidate', feedback: f.offer.feedback, operations: [], promotion }
-  const old = structuredClone(proposal); delete old.promotion.candidate
-  await assert.rejects(f.engine.add(old), /candidate/)
-  await f.engine.add(proposal); await f.engine.decidePromotion(proposal.id, 'approved-scope', 'a')
-  const stored = f.engine.snapshot().book.proposals[0].promotion
-  assert.equal(stored.approvalDigest, await knowledgePromotionDigest(scope, proposal.id, promotion))
+test('imported writing receipts are refused, and knowledge scope approval never writes knowledge files', async () => {
+  const f = await fixture()
+  await assert.rejects(f.engine.add({
+    id: 'imported-writing', author: 'a', at: '2026-09-20T00:00:00Z', title: 'Imported', feedback: f.offer.feedback, operations: [],
+    writing: { version: 1, selection: f.offer.selection, status: 'proposed' },
+  }), /offerWriting/)
+  const promotion = { destination: 'global-knowledge', scope: 'This project argument only', conditions: 'Given the selected evidence', verification: 'Not independently verified', decision: 'pending' }
+  await f.engine.add({ id: 'knowledge-a', author: 'a', at: '2026-09-20T00:00:00Z', title: 'Knowledge candidate', feedback: f.offer.feedback, operations: [], promotion })
+  await f.engine.decidePromotion('knowledge-a', 'approved-scope', 'a')
+  assert.equal(f.engine.snapshot().book.proposals[0].promotion.decision, 'approved-scope')
   assert.equal(f.sourceWrites().length, 0, 'scope approval is not a knowledge file receipt')
-  await f.engine.editPromotion(proposal.id, { ...stored, candidate: { ...stored.candidate, body: 'A changed note.' } })
-  const changed = f.engine.snapshot().book.proposals[0].promotion
-  assert.equal(changed.decision, 'pending'); assert.equal(changed.approvalDigest, undefined)
-  const forged = { ...proposal, id: 'forged-knowledge', promotion: stored }
+  const forged = { id: 'forged-knowledge', author: 'a', at: '2026-09-20T00:00:00Z', title: 'Forged', feedback: f.offer.feedback, operations: [], promotion: f.engine.snapshot().book.proposals[0].promotion }
   await assert.rejects(f.engine.add(forged), /cannot supply a knowledge approval/)
 })

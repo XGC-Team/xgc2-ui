@@ -84,3 +84,10 @@ export type DesignProposalResult = {
   schema: 'research-writing/design-v1'; requestId: string; title: string
   changes: { targetId: string; after: string; reason: string }[]
 }
+/** B consumes this. It is not a manuscript API and not a chat completion. */
+export type WritingBatchSaved = {
+  workspace: string
+  changes: { path: string; digest: string }[]
+  batchId: string
+  proposalId: string
+}

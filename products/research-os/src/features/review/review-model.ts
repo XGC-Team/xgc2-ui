@@ -1,4 +1,3 @@
-import { validateKnowledgePromotion, type KnowledgePromotion } from '../resources/knowledge-promotion.ts'
 import { validateWritingRecord } from './writing-model.ts'
 import type { WritingRecord } from './writing-contract.ts'
 /** Review records are product data, not Agent execution claims. Never infer semantic links from layout. */
@@ -22,7 +21,7 @@ export type Operation = {
 export type Proposal = {
   id: string; author: string; at: string; title: string; feedback: Feedback; operations: Operation[]
   writing?: WritingRecord
-  promotion?: KnowledgePromotion
+  promotion?: { destination: 'global-knowledge'; scope: string; conditions: string; verification: string; decision: 'pending' | 'approved-scope' | 'rejected'; decidedBy?: string; decidedAt?: string; approvalDigest?: string }
 }
 export type Outcome = 'pending' | 'applied' | 'reverted' | 'conflict' | 'not-written' | 'uncertain' | 'observed-applied' | 'observed-not-written'
 export type Attempt = {
@@ -89,9 +88,7 @@ export function validateProposal(p: unknown, scope: Scope): asserts p is Proposa
   ids.forEach(visit)
   if (p.promotion !== undefined) {
     const k = p.promotion
-    check(record(k), 'Knowledge review requires an explicit candidate.')
-    validateKnowledgePromotion(k as unknown as KnowledgePromotion)
-    if (k.decision === 'approved-scope') check(nonempty(k.decidedBy) && date(k.decidedAt) && typeof k.approvalDigest === 'string' && /^sha256:[a-f0-9]{64}$/.test(k.approvalDigest), 'Knowledge approval must bind the reviewed candidate and evidence.')
+    check(record(k) && k.destination === 'global-knowledge' && nonempty(k.scope) && nonempty(k.conditions) && nonempty(k.verification) && ['pending', 'approved-scope', 'rejected'].includes(String(k.decision)), 'Knowledge review requires destination, conditions and verification scope.')
   }
   if (p.writing !== undefined) {
     check(p.promotion === undefined, 'Writing and knowledge promotion are separate review scopes.')

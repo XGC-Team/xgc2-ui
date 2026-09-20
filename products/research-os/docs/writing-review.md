@@ -73,9 +73,9 @@ scope changes invalidate the writer before passive-effect cleanup.
 
 ## Batch/save facts and recovery
 
-`subscribeReviewBatches` receives `ReviewBatchReceipt` after the batch finishes.
+`subscribeReviewBatches` / `subscribeWritingBatches` receives `ReviewBatchReceipt` after the batch finishes.
 The manuscript owner filters its project/workspace and source paths, deduplicates
-`batchId`, and coalesces builds from `saved[]`. Do not also compile each individual
+`batchId`, and coalesces builds from `saved[]` via `writingBatchSaved`. Do not also compile each individual
 `file-observations` event with origin `review`; those observations remain for other
 file consumers. No polling, Git commit or build acknowledgement is invented here.
 
@@ -95,15 +95,12 @@ writes, replay build events or automatically consume old terminal chat history.
 attempts with the existing review actions. Matching content is not proof of who
 wrote it, so an observation does not become a build-triggering save receipt.
 
-## Knowledge confirmation dependency
+## Knowledge confirmation
 
-`review-model` imports `KnowledgePromotion` and its validator; `decidePromotion`
-uses `knowledgePromotionDigest` from the resources domain. The required source
-commit is `b653a51f7e445c76395b1d46520196a23a75782e`. Those owner files are **not
-copied into this change**. Integrate that dependency before this PR, and update
-the promotion UI to supply candidate kind/body/versioned evidence. Scope-only
-legacy candidates are rejected, not migrated or silently approved. The actual
-knowledge executor and written/already-written receipt remain domain-owned.
+This change keeps the existing journal-only promotion record. It does not import
+F's knowledge-promotion types, candidate hasher, or knowledge file writer. Scope
+approval still never writes a knowledge file. F can later replace the inline
+promotion shape without D copying that module.
 
 ## Validation
 
