@@ -1,7 +1,8 @@
 import {useEffect,useState} from 'react'
 import {useWorkbench} from '../../store'
+import {APIError} from '../../lib/api'
 import {loadCompleteKnowledgeGraph,notesFromPage,type AcademicNote,type KnowledgePage} from './academic-graph'
-/* 学术笔记数据源：默认知识库范围，窗口聚焦或知识落库后刷新。不完整快照不得填文件树。 */
+/* Only verified complete snapshots replace the file tree. Authorization loss clears it. */
 export function useAcademicNotes(){
  const {setKnowledgeDocuments}=useWorkbench()
  const [notes,setNotes]=useState<AcademicNote[]>([])
@@ -11,15 +12,15 @@ export function useAcademicNotes(){
   const c=new AbortController();setLoading(true);setError('')
   loadCompleteKnowledgeGraph({scope:'knowledge'},c.signal).then(data=>{
    if(c.signal.aborted)return
-   setPage(data)
-   if(!data.complete){
-    setNotes([]);setKnowledgeDocuments([])
-    setError('知识图谱不完整，未用局部结果代替全库。')
-    return
-   }
    const next=notesFromPage(data)
-   setNotes(next);setKnowledgeDocuments(next)
-  }).catch(e=>{if(!c.signal.aborted)setError(e.message)}).finally(()=>{if(!c.signal.aborted)setLoading(false)})
+   setPage(data);setNotes(next);setKnowledgeDocuments(next)
+  }).catch(e=>{
+   if(c.signal.aborted)return
+   if(e instanceof APIError&&[401,403,404].includes(e.status)){
+    setPage(null);setNotes([]);setKnowledgeDocuments([])
+   }
+   setError(e instanceof Error?e.message:'知识库读取失败。')
+  }).finally(()=>{if(!c.signal.aborted)setLoading(false)})
   return()=>c.abort()
  },[revision,setKnowledgeDocuments])
  useEffect(()=>{

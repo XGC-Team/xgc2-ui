@@ -1,0 +1,148 @@
+[
+  {
+    "queryId": "sha256:b731f56cf04b1b2220bdb3d51c124a77d70500f39262b69c6e79389cdde2b7e0",
+    "projectionDigest": "sha256:51627bd525ebc8b4f9d77ce28dfea9a7a29eaeb61cc576e34dccc32f08a8cab9",
+    "offset": 0,
+    "schemaVersion": "research.knowledge-graph/v2",
+    "snapshot": "sha256:6f8a613d0620ac7dd3cac6ebc2ddb073c6d84fe6573ed55834f9af1a8e9786d8",
+    "scope": "knowledge",
+    "complete": false,
+    "incompleteReason": "page",
+    "nextCursor": "eyJzbmFwc2hvdCI6InNoYTI1Njo2ZjhhNjEzZDA2MjBhYzdkZDNjYWM2ZWJjMmRkYjA3M2M2ZDg0ZmU2NTczZWQ1NTgzNGY5YWYxYThlOTc4NmQ4IiwicXVlcnlJZCI6InNoYTI1NjpiNzMxZjU2Y2YwNGIxYjIyMjBiZGIzZDUxYzEyNGE3N2Q3MDUwMGYzOTI2MmI2OWM2ZTc5Mzg5Y2RkZTJiN2UwIiwib2Zmc2V0IjoyfQ",
+    "counts": {
+      "matchedEdges": 6,
+      "nodes": 4,
+      "edges": 6,
+      "unresolved": 1,
+      "orphans": 0,
+      "matched": 4
+    },
+    "nodes": [
+      {
+        "id": "memory/a.md",
+        "path": "memory/a.md",
+        "title": "A \u003c\u0026\u003e",
+        "digest": "sha256:37e918b8fe89c10d5f1a0560f67a6a9959e466dd1a7eda9da66a20ce60abb64e",
+        "kind": "note",
+        "exists": true,
+        "unresolved": false,
+        "orphan": false
+      },
+      {
+        "id": "memory/.md",
+        "path": "memory/.md",
+        "title": "私人笔记\u2028正文",
+        "digest": "sha256:8d1fc507981d73ec96d1d9489080abd6c9ccc4861ab6bc9af6882b2cc176cedc",
+        "kind": "note",
+        "tags": [
+          "control"
+        ],
+        "exists": true,
+        "unresolved": false,
+        "orphan": false
+      }
+    ],
+    "edges": [
+      {
+        "id": "memory/a.md\u003ememory/a.md:wiki:2",
+        "source": "memory/a.md",
+        "target": "memory/a.md",
+        "kind": "wiki",
+        "resolved": true,
+        "self": true,
+        "sourceRevision": "sha256:37e918b8fe89c10d5f1a0560f67a6a9959e466dd1a7eda9da66a20ce60abb64e",
+        "targetHint": "memory/a.md"
+      },
+      {
+        "id": "memory/a.md\u003ememory/.md:wiki:0",
+        "source": "memory/a.md",
+        "target": "memory/.md",
+        "kind": "wiki",
+        "resolved": true,
+        "self": false,
+        "sourceRevision": "sha256:37e918b8fe89c10d5f1a0560f67a6a9959e466dd1a7eda9da66a20ce60abb64e",
+        "targetHint": "memory/.md"
+      },
+      {
+        "id": "memory/a.md\u003ememory/😀.md:wiki:1",
+        "source": "memory/a.md",
+        "target": "memory/😀.md",
+        "kind": "wiki",
+        "resolved": true,
+        "self": false,
+        "sourceRevision": "sha256:37e918b8fe89c10d5f1a0560f67a6a9959e466dd1a7eda9da66a20ce60abb64e",
+        "targetHint": "memory/😀.md"
+      },
+      {
+        "id": "memory/a.md\u003eunresolved:memory/missing.md:wiki:3",
+        "source": "memory/a.md",
+        "target": "unresolved:memory/missing.md",
+        "kind": "wiki",
+        "resolved": false,
+        "self": false,
+        "sourceRevision": "sha256:37e918b8fe89c10d5f1a0560f67a6a9959e466dd1a7eda9da66a20ce60abb64e",
+        "targetHint": "memory/missing.md"
+      },
+      {
+        "id": "memory/.md\u003ememory/😀.md:wiki:0",
+        "source": "memory/.md",
+        "target": "memory/😀.md",
+        "kind": "wiki",
+        "resolved": true,
+        "self": false,
+        "sourceRevision": "sha256:8d1fc507981d73ec96d1d9489080abd6c9ccc4861ab6bc9af6882b2cc176cedc",
+        "targetHint": "memory/😀.md"
+      }
+    ]
+  },
+  {
+    "queryId": "sha256:b731f56cf04b1b2220bdb3d51c124a77d70500f39262b69c6e79389cdde2b7e0",
+    "projectionDigest": "sha256:51627bd525ebc8b4f9d77ce28dfea9a7a29eaeb61cc576e34dccc32f08a8cab9",
+    "offset": 2,
+    "schemaVersion": "research.knowledge-graph/v2",
+    "snapshot": "sha256:6f8a613d0620ac7dd3cac6ebc2ddb073c6d84fe6573ed55834f9af1a8e9786d8",
+    "scope": "knowledge",
+    "complete": false,
+    "incompleteReason": "page",
+    "counts": {
+      "matchedEdges": 6,
+      "nodes": 4,
+      "edges": 6,
+      "unresolved": 1,
+      "orphans": 0,
+      "matched": 4
+    },
+    "nodes": [
+      {
+        "id": "memory/😀.md",
+        "path": "memory/😀.md",
+        "title": "Emoji",
+        "digest": "sha256:c2a64722289b7b06ec7dfef2f752cf24b536ac184917b20900a4d509d05bb59b",
+        "kind": "note",
+        "exists": true,
+        "unresolved": false,
+        "orphan": false
+      },
+      {
+        "id": "unresolved:memory/missing.md",
+        "title": "memory/missing.md",
+        "kind": "unresolved",
+        "exists": false,
+        "unresolved": true,
+        "orphan": false
+      }
+    ],
+    "edges": [
+      {
+        "id": "memory/😀.md\u003ememory/a.md:wiki:0",
+        "source": "memory/😀.md",
+        "target": "memory/a.md",
+        "kind": "wiki",
+        "resolved": true,
+        "self": false,
+        "sourceRevision": "sha256:c2a64722289b7b06ec7dfef2f752cf24b536ac184917b20900a4d509d05bb59b",
+        "targetHint": "memory/a.md"
+      }
+    ]
+  }
+]
