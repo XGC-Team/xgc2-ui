@@ -1,4 +1,4 @@
-import type { AnyCanvas } from './canvas-model'
+import type { ThinkingCanvasV2 } from './canvas-model'
 /** Project-owned editable definitions. No draft in this schema represents an executed task. */
 export const DRAFTS_PATH = 'research-drafts.json'
 export const DRAFT_KINDS = ['paper', 'slides', 'storyboard', 'workflow', 'rule', 'experiment', 'note', 'material'] as const
@@ -195,7 +195,7 @@ export function draftIdFromAnchor(path: string): string | null {
 }
 /** A label is not document content; this node is a navigable reference, not a second outline.
  * Works on any canvas version and preserves its format, outlines and extension fields. */
-export function attachDraftReference<T extends AnyCanvas>(canvas: T, draftId: string, title: string): T {
+export function attachDraftReference(canvas: ThinkingCanvasV2, draftId: string, title: string): ThinkingCanvasV2 {
   requireThat(idOK(draftId), 'Invalid draft identity.')
   const anchor = `${DRAFTS_PATH}#${draftId}`
   if (canvas.nodes.some(node => node.anchor === anchor)) return canvas
