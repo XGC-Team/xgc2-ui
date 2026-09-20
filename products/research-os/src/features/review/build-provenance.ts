@@ -35,7 +35,7 @@ export function isBuildRecord(value: unknown): value is BuildRecord {
     task.inputs.every(input => object(input) && validSourcePath(input.path) && validDigest(input.digest)) &&
     new Set(task.inputs.map(input => input.path)).size === task.inputs.length && task.inputs.some(input => input.path === task.entryPoint) &&
     typeof manifest.buildId === 'string' && !!manifest.buildId && typeof manifest.completedAt === 'string' && Number.isFinite(Date.parse(manifest.completedAt)) &&
-    ['succeeded', 'failed', 'cancelled'].includes(String(manifest.status)) && typeof manifest.logArtifactRef === 'string' && /^sha256:[a-f0-9]{64}$/.test(manifest.logArtifactRef) &&
+    ['succeeded', 'failed', 'cancelled'].includes(String(manifest.status)) && typeof manifest.logArtifactRef === 'string' && /^cas:\/\/sha256\/[a-f0-9]{64}$/.test(manifest.logArtifactRef) &&
     (manifest.outputs === undefined || (Array.isArray(manifest.outputs) && manifest.outputs.every(output => object(output) && validDigest(output.digest) && typeof output.mediaType === 'string'))) &&
     (manifest.diagnostics === undefined || (Array.isArray(manifest.diagnostics) && manifest.diagnostics.every(diagnostic => object(diagnostic) && typeof diagnostic.message === 'string'))) &&
     (manifest.status !== 'succeeded' || (Array.isArray(manifest.outputs) && manifest.outputs.length > 0))

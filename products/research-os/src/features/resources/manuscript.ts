@@ -5,7 +5,11 @@ export type ManuscriptPDF = { workspace: string; path: string; buildId: string; 
 export type ManuscriptScope = { workspace: string; entryPoint: string }
 export type SavedInput = { path: string; digest: string }
 export type BuildCapability = { available: boolean; detail: string }
-export const buildArtifactURL = (buildId: string, digest: string): string => `/api/v1/manuscripts/build-records/${encodeURIComponent(buildId)}/artifacts/${digestKey(digest)}`
+export function buildArtifactURL(buildId: string, value: string): string {
+  const digest = value.startsWith('cas://sha256/') ? value.slice('cas://sha256/'.length) : value
+  if (!validDigest(digest)) throw new Error('Invalid build artifact reference.')
+  return `/api/v1/manuscripts/build-records/${encodeURIComponent(buildId)}/artifacts/${digest}`
+}
 export function pdfFromRecord(record: BuildRecord): ManuscriptPDF | null {
   if (!isBuildRecord(record) || record.manifest.status !== 'succeeded') return null
   const output = record.manifest.outputs?.find(item => item.mediaType === 'application/pdf')

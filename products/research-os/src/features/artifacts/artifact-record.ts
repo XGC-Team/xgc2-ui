@@ -45,7 +45,7 @@ export function inspectArtifactBuild(raw: unknown, scope: ArtifactIdentity): Art
   demand(hash(task.sourceDigest) && time(task.requestedAt) && text(task.requestedBy) && time(manifest.startedAt) && time(manifest.completedAt), 'Build provenance is incomplete.')
   demand(Date.parse(manifest.completedAt) >= Date.parse(manifest.startedAt), 'Build time interval is invalid.')
   demand(['succeeded', 'failed', 'cancelled'].includes(String(manifest.status)), 'Build is not a terminal receipt.')
-  demand(typeof manifest.logArtifactRef === 'string' && /^sha256:[a-f0-9]{64}$/.test(manifest.logArtifactRef), 'Build log reference is missing.')
+  demand(typeof manifest.logArtifactRef === 'string' && /^cas:\/\/sha256\/[a-f0-9]{64}$/.test(manifest.logArtifactRef), 'Build log reference is missing.')
   const toolchain = task.toolchain
   demand(object(toolchain) && text(toolchain.engine) && /^research-artifact\/(docx|pptx|video|remotion)$/.test(toolchain.engine) && text(toolchain.imageRef) && hash(toolchain.imageDigest) && text(toolchain.engineVersion) && ['local-runtime-fingerprint', 'oci-image-digest'].includes(String(toolchain.pinKind)), 'Build has no pinned artifact renderer.')
   demand(Array.isArray(task.inputs) && task.inputs.length > 0 && task.inputs.length <= 10000, 'Build has no frozen inputs.')
@@ -58,7 +58,7 @@ export function inspectArtifactBuild(raw: unknown, scope: ArtifactIdentity): Art
   demand(manifest.outputs === undefined || Array.isArray(manifest.outputs), 'Invalid output list.')
   const files: ArtifactFile[] = [], seen = new Set<string>()
   for (const output of (manifest.outputs || []) as unknown[]) {
-    demand(object(output) && hash(output.digest) && output.artifactRef === `sha256:${output.digest}` && text(output.mediaType) && Number.isSafeInteger(output.sizeBytes) && Number(output.sizeBytes) > 0 && !seen.has(output.digest), 'Output lacks an exact immutable reference, size or digest.')
+    demand(object(output) && hash(output.digest) && output.artifactRef === `cas://sha256/${output.digest}` && text(output.mediaType) && Number.isSafeInteger(output.sizeBytes) && Number(output.sizeBytes) > 0 && !seen.has(output.digest), 'Output lacks an exact immutable reference, size or digest.')
     seen.add(output.digest)
     const format = formats[output.mediaType]
     if (format) files.push({ buildId: manifest.buildId, digest: output.digest, mediaType: output.mediaType, sizeBytes: Number(output.sizeBytes), kind: format[0], extension: format[1], url: `/api/v1/manuscripts/build-records/${encodeURIComponent(manifest.buildId)}/artifacts/${output.digest}` })

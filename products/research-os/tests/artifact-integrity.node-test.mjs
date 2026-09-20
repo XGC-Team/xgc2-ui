@@ -17,7 +17,7 @@ const reply = data => Response.json({data})
 const originalFetch = globalThis.fetch
 afterEach(() => {globalThis.fetch = originalFetch})
 function record(id = 'ok', at = '2026-09-20T01:00:00Z', status = 'succeeded') {
-  return {task:{schemaVersion:schema,taskId:id,workspaceRef:scope.workspace,manuscriptId:scope.artifactId,entryPoint:scope.entryPoint,sourceDigest:h,requestedAt:at,requestedBy:'synthetic-test',toolchain:{engine:'research-artifact/pptx',engineVersion:'xgc.research.artifact/v1',pinKind:'local-runtime-fingerprint',imageRef:'local:test',imageDigest:h},inputs:[{path:scope.entryPoint,digest:h},{path:sourcePath,digest:h}]},manifest:{schemaVersion:schema,buildId:id,taskId:id,status,startedAt:at,completedAt:'2026-09-20T03:00:00Z',logArtifactRef:`sha256:${h}`,outputs:[{digest:h,artifactRef:`sha256:${h}`,mediaType:office,sizeBytes:4},{digest:other,artifactRef:`sha256:${other}`,mediaType:'image/png',sizeBytes:8}],diagnostics:status==='succeeded'?[]:[{severity:'error',message:'renderer failed'}]}}
+  return {task:{schemaVersion:schema,taskId:id,workspaceRef:scope.workspace,manuscriptId:scope.artifactId,entryPoint:scope.entryPoint,sourceDigest:h,requestedAt:at,requestedBy:'synthetic-test',toolchain:{engine:'research-artifact/pptx',engineVersion:'xgc.research.artifact/v1',pinKind:'local-runtime-fingerprint',imageRef:'local:test',imageDigest:h},inputs:[{path:scope.entryPoint,digest:h},{path:sourcePath,digest:h}]},manifest:{schemaVersion:schema,buildId:id,taskId:id,status,startedAt:at,completedAt:'2026-09-20T03:00:00Z',logArtifactRef:`cas://sha256/${h}`,outputs:[{digest:h,artifactRef:`cas://sha256/${h}`,mediaType:office,sizeBytes:4},{digest:other,artifactRef:`cas://sha256/${other}`,mediaType:'image/png',sizeBytes:8}],diagnostics:status==='succeeded'?[]:[{severity:'error',message:'renderer failed'}]}}
 }
 function draft() {return newDraft('slides','Synthetic deck','2026-09-20T00:00:00Z','deck')}
 const options = {rights:'Synthetic test only, not publication approval',attribution:'Fixture'}
@@ -47,7 +47,7 @@ test('history filters exact workspace, artifact ID and entry; request order wins
 test('duplicates and malformed own records are visible errors, never successful fabricated history', () => {
   assert.equal(artifactView([record(),record()],scope).builds.length,0)
   assert.match(artifactView([record(),record()],scope).rejected[0],/Duplicate/)
-  const bad=record();bad.manifest.outputs[0].artifactRef=`sha256:${other}`
+  const bad=record();bad.manifest.outputs[0].artifactRef=`cas://sha256/${other}`
   const view=artifactView([bad],scope);assert.equal(view.phase,'definition');assert.equal(view.rejected.length,1)
   const cancelled=record('cancelled','2026-09-20T01:00:00Z','cancelled')
   assert.equal(artifactView([cancelled],scope).phase,'cancelled')

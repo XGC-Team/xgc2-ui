@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { APIError } from '../src/lib/api'
 import { buildSourceMatch, compareBuildRequests, isBuildRecord, previewProvenance, type BuildRecord } from '../src/features/review/build-provenance'
-import { buildSavedManuscript, normalizeSavedInputs, pdfFromRecord } from '../src/features/resources/manuscript'
+import { buildArtifactURL, buildSavedManuscript, normalizeSavedInputs, pdfFromRecord } from '../src/features/resources/manuscript'
 import { createManuscriptBuild, notifyManuscriptSourcesSaved, subscribeManuscriptSaves, type BuildPorts } from '../src/features/resources/manuscript-build'
 import { reconcileSave, saveFailure, saveSource } from '../src/features/resources/saved-source'
 const a = 'a'.repeat(64), b = 'b'.repeat(64), c = 'c'.repeat(64)
@@ -9,7 +9,7 @@ const scope = { workspace: 'paper-a', entryPoint: 'main.tex' }
 function receipt(id = 'one', status: BuildRecord['manifest']['status'] = 'succeeded', requestedAt = '2026-09-20T00:00:00Z'): BuildRecord {
   return {
     task: { schemaVersion: 'xgc.research.manuscript/v2', workspaceRef: scope.workspace, entryPoint: scope.entryPoint, sourceDigest: a, requestedAt, inputs: [{ path: 'main.tex', digest: a }, { path: 'section.tex', digest: b }] },
-    manifest: { schemaVersion: 'xgc.research.manuscript/v2', buildId: id, status, completedAt: '2026-09-20T00:00:05Z', logArtifactRef: `sha256:${c}`,
+    manifest: { schemaVersion: 'xgc.research.manuscript/v2', buildId: id, status, completedAt: '2026-09-20T00:00:05Z', logArtifactRef: `cas://sha256/${c}`,
       outputs: status === 'succeeded' ? [{ digest: b, mediaType: 'application/pdf' }] : [], diagnostics: status === 'succeeded' ? [] : [{ message: `actual ${status}` }] },
   }
 }
@@ -35,6 +35,8 @@ describe('current saved-source provenance', () => {
   })
   it('requires current receipt schema and exact source/output identity', () => {
     expect(isBuildRecord(receipt())).toBe(true)
+    expect(buildArtifactURL('one', receipt().manifest.logArtifactRef)).toBe(`/api/v1/manuscripts/build-records/one/artifacts/${c}`)
+    expect(isBuildRecord({ ...receipt(), manifest: { ...receipt().manifest, logArtifactRef: `sha256:${c}` } })).toBe(false)
     expect(isBuildRecord({ ...receipt(), task: { ...receipt().task, schemaVersion: 'xgc.research.manuscript/v1' } })).toBe(false)
     expect(buildSourceMatch(receipt(), scope.workspace, 'section.tex', `sha256:${b}`)).toBe('match')
     expect(buildSourceMatch(receipt(), scope.workspace, 'section.tex', c)).toBe('changed')
