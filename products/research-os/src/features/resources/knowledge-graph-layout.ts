@@ -10,15 +10,15 @@ function groupOf(node: KnowledgeNode): GroupId {
 
 /** O(V + E) projection; no edge folding, sampling or per-node edge scans. */
 export function academicGraph(page: KnowledgePage): GraphData {
-  if (!page.complete) throw new Error('Knowledge graph cannot render an incomplete collection.')
+  if (!page.complete) throw new Error('Incomplete knowledge graph cannot be rendered as the library.')
   const index = new Map(page.nodes.map((node, i) => [node.id, i]))
-  if (index.size !== page.nodes.length) throw new Error('Knowledge graph has duplicate node identities.')
+  if (index.size !== page.nodes.length) throw new Error('Duplicate knowledge node.')
   const adj = new Map<number, number[]>(page.nodes.map((_, id) => [id, []]))
   const degrees = new Float64Array(page.nodes.length)
   const edges: GraphData['edges'] = []
   for (const edge of page.edges) {
     const s = index.get(edge.source), t = index.get(edge.target)
-    if (s === undefined || t === undefined) throw new Error('Knowledge graph has a missing edge endpoint.')
+    if (s === undefined || t === undefined) throw new Error('Knowledge assertion has a missing endpoint.')
     edges.push({ s, t, self: edge.self, directed: true, kind: edge.kind, resolved: edge.resolved,
       resourceId: edge.id, sourceRevision: edge.sourceRevision, anchor: edge.anchor, targetHint: edge.targetHint })
     degrees[s]++
