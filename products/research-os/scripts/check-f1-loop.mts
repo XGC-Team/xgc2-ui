@@ -6,7 +6,7 @@ import {
   changeDraft, linkSource, researchStructure, editBlock, linkProjectObject, archiveProjectObject,
   attachDraftReference, draftIdFromAnchor, sourceKey, validWebSource, type DraftBook, type DraftIntent,
 } from '../src/features/projects/draft-model.ts'
-import { emptyCanvas, parseEditableCanvas, serializeCanvas } from '../src/features/projects/canvas-model.ts'
+import { emptyCanvasV2, parseEditableCanvas, serializeCanvas } from '../src/features/projects/canvas-model.ts'
 import { createFileSession } from '../src/features/projects/file-session.ts'
 import { submitIntake, retryIntake, intakeSnapshot, intakePort, type IntakePort } from '../src/features/projects/intake-queue.ts'
 const scope = { projectId: 'paper-e2e-a', workspace: 'paper-e2e-a' }
@@ -88,7 +88,7 @@ for (const kind of ['canvas', 'workflow'] as const) {
   })
 }
 test('canvas association is a single reference to the canonical object and can be removed independently', () => {
-  const canvas = { ...emptyCanvas(), extension: { keep: true } }
+  const canvas = { ...emptyCanvasV2(), extension: { keep: true } }
   const linked = attachDraftReference(canvas, 'note-1', 'A label')
   assert.equal(linked.nodes.length, 1); assert.equal(attachDraftReference(linked, 'note-1', 'New label'), linked)
   assert.equal(draftIdFromAnchor(linked.nodes[0].anchor!), 'note-1')
@@ -98,7 +98,7 @@ test('canvas association is a single reference to the canonical object and can b
   assert.equal(noteBook().drafts.length, 1)
 })
 test('occupied canvas node IDs are preserved and the new reference gets a distinct ID', () => {
-  const canvas = emptyCanvas(); canvas.nodes.push({ id: 'draft-note-1', kind: 'idea', title: 'Unrelated', x: 0, y: 0 })
+  const canvas = emptyCanvasV2(); canvas.nodes.push({ id: 'draft-note-1', kind: 'idea', title: 'Unrelated', x: 0, y: 0 })
   const next = attachDraftReference(canvas, 'note-1', 'A label')
   assert.equal(next.nodes.length, 2); assert.notEqual(next.nodes[0].id, next.nodes[1].id)
   assert.equal(next.nodes[0], canvas.nodes[0])

@@ -1,30 +1,28 @@
-import {describe,expect,it} from 'vitest'
-import {canvasToPrompt,emptyCanvas,parseCanvas,serializeCanvas,type ThinkingCanvas} from '../src/features/projects/canvas-model'
+import { describe, expect, it } from 'vitest'
+import { canvasToPrompt, emptyCanvasV2, parseEditableCanvas, serializeCanvas, type ThinkingCanvasV2 } from '../src/features/projects/canvas-model'
 
-const sample: ThinkingCanvas = {
-  version: 1,
+const sample: ThinkingCanvasV2 = {
+  ...emptyCanvasV2(),
   nodes: [
-    { id: 'c1', kind: 'chapter', title: '引言', x: 0, y: 0, anchor: 'main.tex' },
-    { id: 'i1', kind: 'idea', title: '贡献点三条', body: '先讲方法\n再讲实验', x: 300, y: 40, ref: { path: 'papers/foo.md', title: 'Foo' } },
-    { id: 'i2', kind: 'idea', title: '散落想法', x: 0, y: 400 },
+    { id: 'c1', kind: 'chapter', title: 'Introduction', x: 500, y: 500 },
+    { id: 'i1', kind: 'idea', title: 'Claim', x: 0, y: 0, body: 'Intent, not manuscript prose.', writing: { argument: 'Explain limits before results.', unwritten: 'Keep the exploratory reasoning in the design.' } },
   ],
-  edges: [{ from: 'c1', to: 'i1' }, { from: 'c1', to: 'ghost' }],
+  outlines: [{ artifact: 'canvas', items: [{ node: 'c1', children: [{ node: 'i1' }] }] }],
 }
-
-describe('canvas-model', () => {
-  it('parse 容忍坏 JSON 与幽灵边', () => {
-    expect(parseCanvas('not json')).toEqual(emptyCanvas())
-    const parsed = parseCanvas(serializeCanvas(sample))
-    expect(parsed.nodes).toHaveLength(3)
-    expect(parsed.edges).toHaveLength(1) // ghost 边被滤掉
+describe('current canvas document', () => {
+  it('round-trips the current single-source design', () => {
+    expect(parseEditableCanvas(serializeCanvas(sample))).toEqual(sample)
   })
-  it('prompt：章节有序、想法归章、引用与锚点落字', () => {
-    const prompt = canvasToPrompt(sample, '论文复现')
-    expect(prompt).toContain('# 论文复现 · 写作蓝图')
-    expect(prompt).toContain('1. 引言 @main.tex')
-    expect(prompt).toContain('- 贡献点三条 [[papers/foo.md]]')
-    expect(prompt).toContain('先讲方法 再讲实验')
-    expect(prompt).toContain('## 待归档想法')
-    expect(prompt).toContain('- 散落想法')
+  it('rejects malformed, obsolete and dangling data without an empty fallback', () => {
+    expect(() => parseEditableCanvas('not json')).toThrow()
+    expect(() => parseEditableCanvas(JSON.stringify({ version: 1, nodes: [], edges: [] }))).toThrow()
+    expect(() => parseEditableCanvas(JSON.stringify({ ...sample, edges: [{ from: 'c1', to: 'ghost' }] }))).toThrow()
+  })
+  it('uses explicit order, includes intent and does not depend on visual geometry', () => {
+    const prompt = canvasToPrompt(sample, 'Project')
+    expect(prompt).toContain('Explain limits before results.')
+    expect(prompt).toContain('Keep the exploratory reasoning in the design.')
+    expect(prompt.indexOf('Introduction')).toBeLessThan(prompt.indexOf('Claim'))
+    expect(canvasToPrompt({ ...sample, nodes: sample.nodes.map(node => ({ ...node, x: -node.x, y: -node.y })) }, 'Project')).toBe(prompt)
   })
 })

@@ -48,7 +48,7 @@ export async function readWritingContext(scope: DraftScope, selection: DesignSel
   }))
   checkAbort()
   const result = buildWritingContext({ scope, record, selection, sources, evidenceSnapshots })
-  const observed = [{ workspace: scope.workspace, path: CANVAS_PATH, ...record }, ...sources]
+  const observed = [{ workspace: scope.workspace, path: CANVAS_PATH, content: record.content, digest: record.digest }, ...sources]
   await Promise.all(observed.map(async source => {
     io.assertClean(source.workspace, source.path)
     const fresh = await io.read(source.workspace, source.path, options.signal)

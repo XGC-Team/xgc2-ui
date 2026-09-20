@@ -1,5 +1,5 @@
 import {t as tr} from '../../i18n'
-import {useCallback,useEffect,useMemo,useRef,useState} from 'react'
+import {useCallback,useEffect,useMemo,useRef,useState,useSyncExternalStore} from 'react'
 import {BookOpen, Copy, Crosshair, Expand, FileText, Link2, ListTree, Plus, Redo2, Send, Trash2, Undo2} from 'lucide-react'
 import {request,saveDownload} from '../../lib/api'
 import {useCanvasDocument} from './useCanvasDocument'
@@ -14,13 +14,17 @@ import {workspaceCopy} from './workspace-copy'
 import {OutlinePanel} from './OutlinePanel'
 import {openResearchSource} from './research-navigation'
 import {newContextItem} from './context-model'
+import {DesignSourceEditor} from './DesignSourceEditor'
+import {consumeDesignFocus,getDesignFocus,subscribeDesignFocus} from './design-focus'
+import {readWritingContext} from './design-context-api'
+import {writingContextToPrompt} from './design-context'
 import {
-  CANVAS_PATH,PRIMARY_OUTLINE,SEMANTIC_RELATIONS,addCanvasEdge,addNodeEvidence,canvasToPrompt,emptyCanvasV2,
+  CANVAS_PATH,PRIMARY_OUTLINE,SEMANTIC_RELATIONS,WRITING_FIELDS,WRITING_LABELS,addCanvasEdge,addNodeEvidence,canvasToPrompt,emptyCanvasV2,
   newCanvasEvidence,removeCanvasNode,removeNodeEvidence,setEdgeRelation,setNodeWriting,
   type CanvasNodeV2,type SemanticRelation,type ThinkingCanvasV2,
 } from './canvas-model'
 /* 思维白板：Origami 式节点画布。节点卡是 DOM（排版精度），连线是 SVG，点阵底随相机走。
-   数据落项目仓库 thinking.canvas.json（git 版本化）；拓扑可导出为写作系统提示词。
+   设计只保存到 thinking.canvas.json；正文关联与大纲同源，保存不依赖 Git 提交。
    v2：x/y 只表达视觉位置；层级与写作顺序在大纲视图；连线语义需要显式标注。 */
 type Cam={x:number;y:number;k:number}
 type Sel={kind:'node'|'edge';id:string}|null
@@ -37,6 +41,7 @@ export function ThinkingCanvas({project,active=true,onRequestConversation}:{proj
  const [cam,setCam]=useState<Cam>({x:0,y:0,k:1})
  const [sel,setSel]=useState<Sel>(null),[picker,setPicker]=useState<{kind:'ref'|'anchor';node:string}|null>(null)
  const [copied,setCopied]=useState(false)
+ const currentProject=useRef(project);currentProject.current=project
  const [files,setFiles]=useState<string[]>([]),[copyError,setCopyError]=useState('')
  const [evidenceForm,setEvidenceForm]=useState({path:'',digest:'',excerpt:'',note:''}),[evidenceError,setEvidenceError]=useState('')
  const copyTimer=useRef<ReturnType<typeof setTimeout>>(undefined)
@@ -51,13 +56,13 @@ export function ThinkingCanvas({project,active=true,onRequestConversation}:{proj
  const hadValue=useRef(false)
  useEffect(()=>{const has=Boolean(documentState.value);if(has&&!hadValue.current){past.current=[];future.current=[];lastEdit.current={key:'',at:0};setHistoryVersion(v=>v+1)}hadValue.current=has},[documentState.value])
  const apply=useCallback((update:(canvas:ThinkingCanvasV2)=>ThinkingCanvasV2,coalesceKey='')=>{
-  const current=documentState.value;if(!current)return
+  const current=documentState.value;if(!current||documentState.reviewLocked)return
   const now=Date.now()
   if(!coalesceKey||lastEdit.current.key!==coalesceKey||now-lastEdit.current.at>800)past.current.push(current)
   lastEdit.current={key:coalesceKey,at:now}
   future.current=[];setHistoryVersion(v=>v+1)
   mutate(update)
- },[documentState.value,mutate])
+ },[documentState.value,documentState.reviewLocked,mutate])
  const undo=useCallback(()=>{const prev=past.current.pop();const current=documentState.value;if(!prev||!current)return;future.current.push(current);setHistoryVersion(v=>v+1);mutate(()=>prev)},[documentState.value,mutate])
  const redo=useCallback(()=>{const next=future.current.pop();const current=documentState.value;if(!next||!current)return;past.current.push(current);setHistoryVersion(v=>v+1);mutate(()=>next)},[documentState.value,mutate])
  /* Fit only after a successful load. Saves and local edits must not reset the camera. */
@@ -86,18 +91,18 @@ export function ThinkingCanvas({project,active=true,onRequestConversation}:{proj
    if(to&&to!==d.id)apply(c=>addCanvasEdge(c,d.id!,to))}}
  const onWheel=(e:React.WheelEvent)=>{const r=box.current!.getBoundingClientRect();const k=Math.min(1.8,Math.max(0.35,cam.k*Math.exp(-e.deltaY*0.0012)));const mx=e.clientX-r.left,my=e.clientY-r.top
   setCam({k,x:mx-(mx-cam.x)*(k/cam.k),y:my-(my-cam.y)*(k/cam.k)})}
- const addNode=(kind:CanvasNodeV2['kind'],at?:{x:number;y:number})=>{const r=box.current!.getBoundingClientRect();const p=at??toWorld(r.left+r.width/2+(Math.random()*80-40),r.top+r.height/2+(Math.random()*60-30))
-  const node:CanvasNodeV2={id:crypto.randomUUID().slice(0,8),kind,title:kind==='chapter'?tr('新章节'):tr('新想法'),x:p.x-NODE_W/2,y:p.y-24}
+ const addNode=(kind:CanvasNodeV2['kind'],at?:{x:number;y:number})=>{const r=box.current?.getBoundingClientRect();const p=at??(r?toWorld(r.left+r.width/2,r.top+r.height/2):{x:160+(canvas.nodes.length%3)*260,y:60+Math.floor(canvas.nodes.length/3)*190})
+  const node:CanvasNodeV2={id:crypto.randomUUID(),kind,title:kind==='chapter'?tr('新章节'):tr('新想法'),x:p.x-NODE_W/2,y:p.y-24}
   apply(c=>({...c,nodes:[...c.nodes,node]}));setSel({kind:'node',id:node.id})}
  /* 删除键与撤销只处理当前画布内的事件；隐藏画布不注册全局快捷键。 */
- const onKey=(e:React.KeyboardEvent)=>{if(!active)return
+ const onKey=(e:React.KeyboardEvent)=>{if(!active||documentState.reviewLocked)return
   if((e.key==='z'||e.key==='Z'||e.key==='y')&&(e.ctrlKey||e.metaKey)){if((e.target as HTMLElement).closest('input,textarea,[contenteditable]'))return;e.preventDefault();e.stopPropagation();if(e.shiftKey||e.key==='y')redo();else undo();return}
   if((e.key!=='Delete'&&e.key!=='Backspace')||!sel)return;if((e.target as HTMLElement).closest('input,textarea,button,a,[contenteditable]'))return
   e.preventDefault();e.stopPropagation()
   if(sel.kind==='node')apply(c=>removeCanvasNode(c,sel.id))
   else apply(c=>({...c,edges:c.edges.filter((_,i)=>String(i)!==sel.id)}));setSel(null)}
  const nodeById=useMemo(()=>new Map(canvas.nodes.map(n=>[n.id,n])),[canvas.nodes])
- const prompt=()=>canvasToPrompt(canvas,project)
+ const prompt=()=>canvasToPrompt(canvas,project,sel?.kind==='node'?[sel.id]:[])
  const copyPrompt=async()=>{setCopyError('');setCopied(false);try{await navigator.clipboard.writeText(prompt());setCopied(true);clearTimeout(copyTimer.current);copyTimer.current=setTimeout(()=>setCopied(false),1500)}catch{setCopyError(copy.copyFailed)}}
  const fitCanvas=()=>{const r=box.current?.getBoundingClientRect();if(!r?.width||!r.height)return
   if(!canvas.nodes.length){setCam({x:0,y:0,k:1});return}
@@ -113,14 +118,43 @@ export function ThinkingCanvas({project,active=true,onRequestConversation}:{proj
  const blocked=saveState==='save-error'||saveState==='conflict'
  const selectedNode=sel?.kind==='node'?nodeById.get(sel.id):undefined
  const selectedEdge=sel?.kind==='edge'?canvas.edges[Number(sel.id)]:undefined
+ const zh=locale==='zh'
+ const focus=useSyncExternalStore(subscribeDesignFocus,()=>getDesignFocus(project),()=>null)
+ const [focusBindingId,setFocusBindingId]=useState<string|undefined>(undefined)
+ useEffect(()=>{setFiles([]);setCopyError('');setFocusBindingId(undefined);setArtifact(PRIMARY_OUTLINE)},[project])
+ useEffect(()=>{
+  if(!focus||!documentState.value)return
+  if(!nodeById.has(focus.nodeId)){setCopyError(zh?'设计卡片已不存在。':'The design card no longer exists.');consumeDesignFocus(focus);return}
+  setView('canvas');setSel({kind:'node',id:focus.nodeId});setFocusBindingId(focus.bindingId)
+  const n=nodeById.get(focus.nodeId)!,r=box.current?.getBoundingClientRect()
+  if(r)setCam(c=>({k:c.k,x:r.width/2-(n.x+NODE_W/2)*c.k,y:r.height/2-(n.y+60)*c.k}))
+  consumeDesignFocus(focus)
+ },[focus,documentState.value,nodeById,zh])
+ const [contextBusy,setContextBusy]=useState(false)
+ const pendingContext=useRef<AbortController|null>(null)
+ const contextIdentity=JSON.stringify([project,sel?.kind,sel?.id,native.selectedId,artifact,documentState.observedDigest(),documentState.reviewLocked,active])
+ const liveIdentity=useRef(contextIdentity);liveIdentity.current=contextIdentity
+ useEffect(()=>{pendingContext.current?.abort();setContextBusy(false);return()=>pendingContext.current?.abort()},[contextIdentity])
+ const insertContext=async(bindingId?:string)=>{
+  const digest=documentState.observedDigest()
+  if(!selectedNode||!digest||documentState.reviewLocked||contextBusy)return
+  const identity=contextIdentity,controller=new AbortController();pendingContext.current=controller
+  setContextBusy(true);setCopyError('')
+  try{
+   const context=await readWritingContext({projectId:project,workspace:project},{nodeIds:[selectedNode.id],artifact,...(bindingId?{bindingIds:[bindingId]}:{})},{expectedCanvasDigest:digest,signal:controller.signal})
+   if(controller.signal.aborted||liveIdentity.current!==identity)return
+   native.appendDraft(writingContextToPrompt(context),project);setActiveNav('chat');onRequestConversation?.()
+  }catch(error){if(!controller.signal.aborted)setCopyError(error instanceof Error?error.message:String(error))}
+  finally{if(!controller.signal.aborted)setContextBusy(false)}
+ }
  const addEvidence=()=>{if(!selectedNode)return;setEvidenceError('')
   try{
    const evidence=newCanvasEvidence({path:evidenceForm.path.trim()||undefined,digest:evidenceForm.digest.trim()||undefined,excerpt:evidenceForm.excerpt.trim()||undefined,note:evidenceForm.note.trim()||undefined,workspace:evidenceForm.path.trim()?project:undefined})
    apply(c=>addNodeEvidence(c,selectedNode.id,evidence));setEvidenceForm({path:'',digest:'',excerpt:'',note:''})
   }catch{setEvidenceError(copy.invalidEvidence)}}
- const addNodeToContext=(n:CanvasNodeV2)=>{const digest=documentState.observedDigest()
+ const addNodeToContext=(n:CanvasNodeV2)=>{const digest=documentState.observedDigest();if(!digest||documentState.reviewLocked)return
   addContextItem(newContextItem({project,kind:'canvas-node',label:n.title||n.id,ref:`${CANVAS_PATH}#${n.id}`,
-   source:{id:`ctx-${n.id}`,workspace:project,path:CANVAS_PATH,...(digest?{digest}:{})},...(digest?{digest}:{}) ,...(n.body?.trim()?{excerpt:n.body.trim().slice(0,200)}:{})}))}
+   source:{id:`ctx-${n.id}`,workspace:project,path:CANVAS_PATH,digest},digest,excerpt:canvasToPrompt(canvas,project,[n.id])}))}
  if(!documentState.value)return <div className="flex h-full min-h-0 flex-col p-4">
   <p role={saveState==='loading'?'status':'alert'} className="text-secondary text-ink-2">{saveState==='loading'?messages.canvasLoading:saveState==='invalid'?messages.canvasInvalid:messages.canvasLoadError}</p>
   <p className="mt-2 break-all text-caption text-ink-3">{project}/{CANVAS_PATH}</p>
@@ -131,27 +165,31 @@ export function ThinkingCanvas({project,active=true,onRequestConversation}:{proj
 
   {/* 与右栏相同的 36px 工具行；窄列不把操作与保存状态叠在一起。 */}
   <div className="flex h-9 shrink-0 items-center gap-1 px-2" onKeyDown={onKey}>
-   <Button size="xs" icon={BookOpen} onClick={()=>addNode('chapter')}>{tr("章节")}</Button>
-   <Button size="xs" icon={Plus} onClick={()=>addNode('idea')}>{tr("想法")}</Button>
+   <Button size="xs" icon={BookOpen} disabled={documentState.reviewLocked} onClick={()=>addNode('chapter')}>{tr("章节")}</Button>
+   <Button size="xs" icon={Plus} disabled={documentState.reviewLocked} onClick={()=>addNode('idea')}>{tr("想法")}</Button>
    <Button size="xs" aria-pressed={view==='canvas'} variant={view==='canvas'?'outline':'ghost'} onClick={()=>setView('canvas')}>{copy.canvas}</Button>
    <Button size="xs" icon={ListTree} aria-pressed={view==='outline'} variant={view==='outline'?'outline':'ghost'} onClick={()=>setView('outline')}>{copy.outline}</Button>
-   <IconBtn icon={Undo2} label={copy.undo} disabled={!past.current.length&&!historyVersion} onClick={undo}/>
-   <IconBtn icon={Redo2} label={copy.redo} disabled={!future.current.length} onClick={redo}/>
+   <IconBtn icon={Undo2} label={copy.undo} disabled={documentState.reviewLocked||(!past.current.length&&!historyVersion)} onClick={undo}/>
+   <IconBtn icon={Redo2} label={copy.redo} disabled={documentState.reviewLocked||!future.current.length} onClick={redo}/>
    {view==='canvas'&&<IconBtn icon={Expand} label={copy.fit} onClick={fitCanvas}/>}
    <span role="status" className="min-w-0 flex-1 truncate text-caption text-ink-3" title={`${project}/${CANVAS_PATH}`}>{statusLabel}</span>
-   <IconBtn icon={Send} label={copy.addToDraft} onClick={()=>{native.appendDraft(prompt(),project);setActiveNav('chat');onRequestConversation?.()}}/>
-   <RightMore label={copy.more}><Button size="xs" icon={Copy} onClick={()=>void copyPrompt()}>{copied?tr("已复制"):tr("复制提示词")}</Button></RightMore>
+   <IconBtn icon={Send} label={zh?'插入局部写作上下文':'Insert scoped writing context'} disabled={!selectedNode||!documentState.observedDigest()||documentState.reviewLocked||contextBusy} onClick={()=>void insertContext()}/>
+   <RightMore label={copy.more}><Button size="xs" icon={Copy} disabled={!selectedNode} onClick={()=>void copyPrompt()}>{copied?tr("已复制"):(zh?'复制所选设计说明':'Copy selected design notes')}</Button><Button size="xs" disabled={documentState.reviewLocked||saveState==='saving'} onClick={()=>{if(!documentState.dirty)documentState.reload();else if(window.confirm(messages.discardConfirm))documentState.reload(true)}}>{zh?'重新读取已保存设计':'Reload saved design'}</Button></RightMore>
   </div>
   {blocked&&<div className="px-3 py-2">
    <p role="alert" className="text-secondary text-ink-2">{saveState==='conflict'?messages.canvasConflict:messages.canvasSaveError}</p>
    <p className="mt-1 break-words text-caption text-ink-3">{documentState.error}</p>
    <div className="mt-2 flex flex-wrap gap-1">
-    {saveState==='save-error'&&<Button size="xs" onClick={documentState.retry}>{messages.retrySave}</Button>}
+    {saveState==='save-error'&&!documentState.uncertain&&<Button size="xs" onClick={documentState.retry}>{messages.retrySave}</Button>}
     <Button size="xs" onClick={()=>saveDownload(`${project}-thinking.canvas.local.json`,canvas)}>{messages.exportDraft}</Button>
     <Button size="xs" onClick={()=>{if(window.confirm(messages.discardConfirm))documentState.reload(true)}}>{messages.discardReload}</Button>
    </div>
   </div>}
+  {documentState.uncertain&&<p role="alert" className="px-3 py-2 text-caption text-warn">{zh?'保存回执不确定；先导出本地草稿并检查远端，未自动重试。':'Save outcome is uncertain. Export local work and inspect the remote file; no retry was dispatched.'}</p>}
+  {contextBusy&&<p role="status" className="px-3 text-caption text-ink-3">{zh?'正在核对所选设计、正文范围与证据…':'Checking selected design, source ranges and evidence…'}</p>}
   {copyError&&<p role="alert" className="px-2 pb-1 text-caption text-ink-3">{copyError}</p>}
+  <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+  <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
   {view==='outline'?<OutlinePanel canvas={canvas} artifact={artifact} selected={sel?.kind==='node'?sel.id:null} locale={locale}
     onArtifact={setArtifact} onSelect={id=>setSel({kind:'node',id})} onLocate={locateOnCanvas} apply={apply}/>
   :<div ref={box} role="region" aria-label={copy.canvas} tabIndex={0} onKeyDown={onKey} className={cn('relative min-h-0 w-full flex-1 overflow-hidden focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-[-1px]',drag.current?.mode==='pan'?'cursor-grabbing':'cursor-default')} style={{backgroundImage:'radial-gradient(var(--line-strong) 1px,transparent 1px)',backgroundSize:`${24*cam.k}px ${24*cam.k}px`,backgroundPosition:`${cam.x}px ${cam.y}px`}}
@@ -174,21 +212,23 @@ export function ThinkingCanvas({project,active=true,onRequestConversation}:{proj
        <input aria-label={tr("节点标题")} className={cn('min-w-0 flex-1 bg-transparent outline-none',n.kind==='chapter'?'font-display text-[15px] tracking-tight':'text-body')} value={n.title} onChange={e=>apply(c=>({...c,nodes:c.nodes.map(x=>x.id===n.id?{...x,title:e.target.value}:x)}),`title:${n.id}`)}/>
        <span data-handle="1" title={tr("拖到另一节点建立关联")} className="grid h-4 w-4 shrink-0 cursor-crosshair place-items-center text-ink-3 hover:text-ink" onPointerDown={e=>handleDown(e,n)}><span className="h-2 w-2 rounded-full border border-current"/></span>
       </div>
-      {(selected||n.body)&&<textarea aria-label={tr("节点正文")} placeholder={tr("补一句思路…")} rows={selected?3:1} className="mt-1 w-full resize-none bg-transparent px-3 pb-1 text-secondary text-ink-2 outline-none placeholder:text-ink-3" value={n.body??''} onChange={e=>apply(c=>({...c,nodes:c.nodes.map(x=>x.id===n.id?{...x,body:e.target.value}:x)}),`body:${n.id}`)}/>}
+      {(selected||n.body)&&<textarea aria-label={zh?'自由写作意图':'Free-form writing intent'} placeholder={tr("补一句思路…")} rows={selected?3:1} className="mt-1 w-full resize-none bg-transparent px-3 pb-1 text-secondary text-ink-2 outline-none placeholder:text-ink-3" value={n.body??''} onChange={e=>apply(c=>({...c,nodes:c.nodes.map(x=>x.id===n.id?{...x,body:e.target.value}:x)}),`body:${n.id}`)}/>}
       <div className="flex items-center gap-1 px-2 pb-2 pt-1">
        {n.ref&&<button className="flex min-w-0 items-center gap-1 rounded-md bg-elevated px-1.5 py-0.5 text-caption text-ink-2 hover:text-ink" title={n.ref.path} onClick={()=>openDocument({workspace:'academic',path:n.ref!.path,title:n.ref!.title})}><Link2 size={11} strokeWidth={1.75} className="shrink-0"/><span className="truncate">{n.ref.title}</span></button>}
        {n.anchor&&<button className="flex min-w-0 items-center gap-1 rounded-md bg-elevated px-1.5 py-0.5 text-caption text-ink-2 hover:text-ink" title={n.anchor} onClick={()=>{try{openRightTab({kind:'file',target:fileTarget(project,project,'files',n.anchor!)})}catch(error){setCopyError(error instanceof Error?error.message:String(error))}}}><FileText size={11} strokeWidth={1.75} className="shrink-0"/><span className="truncate">{n.anchor.split('/').pop()}</span></button>}
        {Boolean(n.evidence?.length)&&<span className="rounded-md bg-elevated px-1.5 py-0.5 text-caption text-ink-3">{copy.evidence} {n.evidence!.length}</span>}
        {selected&&<span className="ml-auto flex shrink-0 gap-0.5">
         <button aria-label={tr("链接知识")} title={tr("链接知识")} className="grid h-6 w-6 place-items-center rounded-md text-ink-3 hover:bg-hover hover:text-ink" onClick={()=>setPicker({kind:'ref',node:n.id})}><Link2 size={12} strokeWidth={1.75}/></button>
-        <button aria-label={tr("源稿锚点")} title={tr("源稿锚点")} className="grid h-6 w-6 place-items-center rounded-md text-ink-3 hover:bg-hover hover:text-ink" onClick={()=>{setPicker({kind:'anchor',node:n.id});if(!files.length)void request<{path:string;kind:string}[]>(`/workspaces/${encodeURIComponent(project)}/files?limit=200`).then(list=>setFiles(list.filter(f=>f.kind==='file').map(f=>f.path))).catch(()=>{})}}><FileText size={12} strokeWidth={1.75}/></button>
+        <button aria-label={tr("源稿锚点")} title={tr("源稿锚点")} className="grid h-6 w-6 place-items-center rounded-md text-ink-3 hover:bg-hover hover:text-ink" onClick={()=>{setPicker({kind:'anchor',node:n.id});if(!files.length)void request<{path:string;kind:string}[]>(`/workspaces/${encodeURIComponent(project)}/files?limit=200`).then(list=>{if(currentProject.current===project)setFiles(list.filter(f=>f.kind==='file').map(f=>f.path))}).catch(()=>{})}}><FileText size={12} strokeWidth={1.75}/></button>
         <button aria-label={tr("删除节点")} title={tr("删除节点")} className="grid h-6 w-6 place-items-center rounded-md text-ink-3 hover:bg-hover hover:text-err" onClick={()=>{apply(c=>removeCanvasNode(c,n.id));setSel(null)}}><Trash2 size={12} strokeWidth={1.75}/></button>
        </span>}
       </div>
      </div>})}
    </div>
-   {/* 选中检查器：语义关系 / 证据 / 写作约束；不复制节点正文。 */}
-   {(selectedNode||selectedEdge)&&<aside className="absolute bottom-2 right-2 top-2 z-40 flex w-72 flex-col gap-3 overflow-y-auto rounded-xl border border-line bg-panel p-3 shadow-pop" data-canvas-inspector="">
+  </div>}
+  </div>
+   {/* 画布与大纲共用检查器；编辑同一张卡片，不创建正文副本。 */}
+   {(selectedNode||selectedEdge)&&<aside className="z-40 flex max-h-[50%] w-full shrink-0 flex-col gap-3 overflow-y-auto border-t border-line bg-panel p-3 lg:max-h-none lg:w-80 lg:border-l lg:border-t-0" data-canvas-inspector="">
     {selectedEdge&&sel&&<>
      <p className="text-caption font-medium uppercase tracking-[0.06em] text-ink-3">{copy.relation}</p>
      <p className="text-caption text-ink-3">{copy.relationHint}</p>
@@ -201,9 +241,14 @@ export function ThinkingCanvas({project,active=true,onRequestConversation}:{proj
      <Button size="xs" onClick={()=>{apply(c=>({...c,edges:c.edges.filter((_,i)=>String(i)!==sel.id)}));setSel(null)}}>{copy.deleteEdge}</Button>
     </>}
     {selectedNode&&<>
+     <p className="break-all text-caption text-ink-3">{zh?'已载入设计版本':'Loaded design revision'} · {documentState.observedDigest()??(zh?'存在未保存编辑':'Unsaved edits')}</p>
+     <label className="block text-secondary text-ink-2">{zh?'自由写作意图（不是正文）':'Free-form intent (not manuscript prose)'}
+      <textarea rows={3} disabled={documentState.reviewLocked} className="ui-input mt-1 w-full resize-y" value={selectedNode.body??''} onChange={event=>apply(c=>({...c,nodes:c.nodes.map(n=>n.id===selectedNode.id?{...n,body:event.target.value}:n)}),`body:${selectedNode.id}`)}/>
+     </label>
+     <p className="text-caption text-ink-3">{zh?'说明为什么写、如何论证以及哪些细节不进入正文；模型按意图组织表达，不要求逐字复制。':'Explain why and how to argue, and what should remain outside the prose. The model should follow the intent, not copy it verbatim.'}</p>
      <div className="flex flex-wrap gap-1">
       <Button size="xs" icon={Crosshair} onClick={()=>setView('outline')}>{copy.locateOutline}</Button>
-      <Button size="xs" onClick={()=>addNodeToContext(selectedNode)}>{copy.addToContext}</Button>
+      <Button size="xs" disabled={!documentState.observedDigest()||documentState.reviewLocked} onClick={()=>addNodeToContext(selectedNode)}>{copy.addToContext}</Button>
      </div>
      <section className="space-y-2">
       <p className="text-caption font-medium uppercase tracking-[0.06em] text-ink-3">{copy.evidence}</p>
@@ -224,13 +269,14 @@ export function ThinkingCanvas({project,active=true,onRequestConversation}:{proj
      </section>
      <section className="space-y-2">
       <p className="text-caption font-medium uppercase tracking-[0.06em] text-ink-3">{copy.writingConstraints}</p>
-      {(['purpose','conditions','template'] as const).map(key=><label key={key} className="block text-secondary text-ink-2">{copy[key]}
-       <textarea rows={2} className="ui-input mt-1 w-full resize-y" value={selectedNode.writing?.[key]??''} onChange={e=>apply(c=>setNodeWriting(c,selectedNode.id,key,e.target.value),`writing:${selectedNode.id}:${key}`)}/>
+      {WRITING_FIELDS.map(key=><label key={key} className="block text-secondary text-ink-2">{WRITING_LABELS[locale][key]}
+       <textarea rows={2} className="ui-input mt-1 w-full resize-y" disabled={documentState.reviewLocked} value={selectedNode.writing?.[key]??''} onChange={e=>apply(c=>setNodeWriting(c,selectedNode.id,key,e.target.value),`writing:${selectedNode.id}:${key}`)}/>
       </label>)}
      </section>
+     <DesignSourceEditor key={`${project}:${selectedNode.id}`} project={project} node={selectedNode} canvas={canvas} locale={locale} locked={documentState.reviewLocked} ready={Boolean(documentState.observedDigest())&&!contextBusy&&!documentState.reviewLocked} focusBindingId={focusBindingId} apply={apply} onContext={bindingId=>void insertContext(bindingId)}/>
     </>}
    </aside>}
-  </div>}
+  </div>
   {/* 引用/锚点选择器 */}
   {picker&&<div className="absolute inset-0 z-50 grid place-items-center bg-app/60" onClick={()=>setPicker(null)}>
    <div className="max-h-80 w-80 overflow-hidden rounded-xl border border-line bg-panel shadow-pop" onClick={e=>e.stopPropagation()}>

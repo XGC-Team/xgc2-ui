@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { createFileSession, type FilePort, type FileWrite, type FileState } from '../src/features/projects/file-session.ts'
-import { emptyCanvas, parseEditableCanvas, serializeCanvas } from '../src/features/projects/canvas-model.ts'
+import { emptyCanvasV2, parseEditableCanvas, serializeCanvas } from '../src/features/projects/canvas-model.ts'
 
 type Doc = { text: string }
 function deferred<T>() { let resolve!: (value: T) => void; let reject!: (reason: unknown) => void; const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no }); return { promise, resolve, reject } }
@@ -28,7 +28,7 @@ test('loading does not create a file; existing empty canvas is valid', async () 
   await f.session.load()
   assert.equal(f.session.snapshot().status, 'saved')
   assert.equal(f.writes.length, 0)
-  assert.deepEqual(parseEditableCanvas(serializeCanvas(emptyCanvas())), emptyCanvas())
+  assert.deepEqual(parseEditableCanvas(serializeCanvas(emptyCanvasV2())), emptyCanvasV2())
 })
 test('only a missing file is editable new state; first save uses createOnly', async () => {
   const f = fixture({ read: async () => { throw http(404) } })
@@ -74,7 +74,7 @@ test('edits during save are serialized using the returned digest', async () => {
   assert.deepEqual(writes.map(w => w.expectedDigest), ['d1', 'd2'])
   assert.equal(writes[1].content, '{"text":"three"}'); assert.equal(f.session.snapshot().status, 'saved')
 })
-test('retry retains content and does not run automatically after failure', async () => {
+test('generic file-session retry retains content and is never automatic after failure', async () => {
   let attempts = 0
   const f = fixture({ write: async () => { if (++attempts === 1) throw http(503); return { digest: 'd2' } } })
   await f.session.load(); f.session.edit(() => ({ text: 'one' })); await f.session.save()
@@ -129,12 +129,12 @@ test('saved content can be reopened through a fresh session', async () => {
 })
 
 const node = { id: 'one', kind: 'idea', title: 'A', x: 0, y: 0 }
-const valid = { version: 1, nodes: [node], edges: [] }
+const valid = { version: 2, nodes: [node], edges: [], outlines: [] }
 test('editable canvas retains unknown fields at all levels', () => {
-  const raw = { ...valid, future: { revision: 2 }, nodes: [{ ...node, constraints: ['keep'] }], edges: [{ from: 'one', to: 'one', relation: 'reference' }] }
+  const raw = { ...valid, future: { revision: 2 }, nodes: [{ ...node, constraints: ['keep'] }], edges: [{ from: 'one', to: 'one', relation: 'supports', edgeExtension: 'reference' }] }
   assert.deepEqual(JSON.parse(serializeCanvas(parseEditableCanvas(JSON.stringify(raw)))), raw)
 })
-for (const raw of [null, [], {}, { ...valid, version: 2 }, { ...valid, nodes: [node, node] }, { ...valid, nodes: [{ ...node, x: 'NaN' }] },
+for (const raw of [null, [], {}, { ...valid, version: 1 }, { ...valid, version: 3 }, { ...valid, nodes: [node, node] }, { ...valid, nodes: [{ ...node, x: 'NaN' }] },
   { ...valid, nodes: [{ ...node, kind: 'unknown' }] }, { ...valid, nodes: [{ ...node, body: 4 }] }, { ...valid, nodes: [{ ...node, ref: 'source' }] },
   { ...valid, edges: [{ from: 'one', to: 'missing' }] }]) {
   test(`unsafe canvas is rejected: ${JSON.stringify(raw)}`, () => assert.throws(() => parseEditableCanvas(JSON.stringify(raw))))
