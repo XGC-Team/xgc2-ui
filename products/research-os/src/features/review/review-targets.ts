@@ -1,3 +1,4 @@
+import { patchText } from './review-text.ts'
 import { parseEditableCanvas, serializeCanvas } from '../projects/canvas-model.ts'
 import { DRAFT_FIELDS, parseDraftBook, serializeDraftBook, type DraftKind } from '../projects/draft-model.ts'
 import { check, record, validateTarget, type Operation, type Scope, type Target } from './review-model.ts'
@@ -30,24 +31,7 @@ export function patchTarget(content: string, operations: Operation[], scope: Sco
     check(o.target.path === operations[0].target.path && o.target.kind === operations[0].target.kind, 'One write must target one representation of one file.')
     const key = fieldKey(o.target); check(!keys.has(key), 'Overlapping field operations must be recomposed.'); keys.add(key)
   }
-  if (operations[0].target.kind === 'text') {
-    // Apply exact original ranges; reverse is deliberately conservative and requires the exact post-write digest in the engine.
-    const sorted = [...operations].sort((a, b) => (a.target as Extract<Target, {kind: 'text'}>).start - (b.target as Extract<Target, {kind: 'text'}>).start)
-    let offset = 0, previous = -1
-    const patches = sorted.map(o => {
-      const t = o.target as Extract<Target, {kind: 'text'}>
-      check(t.start >= previous, 'Overlapping source ranges.'); previous = t.end
-      const start = t.start + (undo ? offset : 0)
-      const before = undo ? o.after : o.before, after = undo ? o.before : o.after
-      check(undo || before.length > 0, 'Select a nonempty source range.')
-      check(content.slice(start, start + before.length) === before && (undo || before.length === t.end - t.start), 'Source selection no longer matches.')
-      offset += o.after.length - o.before.length
-      return { start, end: start + before.length, after }
-    })
-    let result = content
-    for (const p of patches.reverse()) result = result.slice(0, p.start) + p.after + result.slice(p.end)
-    return result
-  }
+  if (operations[0].target.kind === 'text') return patchText(content, operations, scope, undo)
   let result = content
   for (const o of operations) {
     check(targetValue(result, o.target, scope) === (undo ? o.after : o.before), 'The reviewed field changed; recovery must not erase later edits.')
