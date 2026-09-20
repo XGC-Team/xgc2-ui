@@ -1,4 +1,6 @@
 import { FeedbackButton } from '../review/FeedbackButton'
+import { ArtifactStudio } from '../artifacts/ArtifactStudio'
+import { ExperimentResults } from '../experiments/ExperimentResults'
 import { IntakePanel } from './IntakePanel'
 import { SourcePicker } from './SourcePicker'
 import { openResearchSource } from './research-navigation'
@@ -199,6 +201,8 @@ export function DraftsPage({ scope, tabId, onQuote, onTitle }: {
               {sourceError && <p role="alert" className="text-caption text-ink-3">{sourceError}</p>}
             </form>
           </div>
+          {(current.kind === 'slides' || current.kind === 'storyboard') && <ArtifactStudio scope={scope} draft={current} saved={state.status === 'saved' && !state.dirty} locale={locale} />}
+          {current.kind === 'experiment' && <ExperimentResults scope={scope} draft={current} saved={state.status === 'saved' && !state.dirty} locale={locale} />}
           {current.kind === 'note' && <section className="space-y-2">
             <h3 className="text-secondary">{zh ? '知识沉淀建议' : 'Knowledge promotion suggestion'}</h3>
             <p className="text-caption text-ink-3">{zh ? '只记录待审查建议；不会写入全局知识库，也不把推断标为已验证。' : 'Records a suggestion for review; does not write global knowledge or mark interpretations verified.'}</p>
