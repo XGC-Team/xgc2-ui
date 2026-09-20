@@ -1,9 +1,14 @@
-import type { DraftScope, DraftSource } from './draft-model'
+import type { DraftScope, DraftSource } from './draft-model.ts'
+import { archivePDF } from '../literature/api.ts'
+import type { ArchiveIdentity } from '../literature/types.ts'
 export type IntakeRecord = {
   id: string; scope: DraftScope; name: string; state: 'uploading' | 'accepted' | 'failed' | 'unsupported'
-  kind: 'text' | 'pdf'; error: string; source?: DraftSource
+  kind: 'text' | 'pdf'; error: string; source?: DraftSource; archive?: ArchiveIdentity
 }
-export type IntakePort = { text: (file: File, scope: DraftScope, id: string) => Promise<DraftSource>; pdf: (file: File, id: string) => Promise<void> }
+export type IntakePort = {
+  text: (file: File, scope: DraftScope, id: string) => Promise<DraftSource>
+  pdf: (file: File, id: string) => Promise<ArchiveIdentity>
+}
 const records: IntakeRecord[] = [], files = new Map<string, File>(), listeners = new Set<() => void>()
 let snapshot: readonly IntakeRecord[] = []
 function emit() { snapshot = [...records]; listeners.forEach(listener => listener()) }
@@ -24,11 +29,8 @@ export const intakePort: IntakePort = {
     if (!result || typeof result !== 'object' || !('digest' in result) || typeof result.digest !== 'string' || !result.digest) throw new Error('Missing saved file revision.')
     return { id: crypto.randomUUID(), workspace: scope.workspace, path, digest: result.digest }
   },
-  async pdf(file, id) {
-    const form = new FormData()
-    form.append('metadata', JSON.stringify({ work: { title: file.name.replace(/\.pdf$/i, '') }, manifestation: { kind: 'managed-copy', label: file.name }, rights: { accessBasis: 'user-owned-copy' } }))
-    form.append('file', file)
-    await responseData(await fetch('/api/v1/intakes/pdf', { method: 'POST', headers: { Accept: 'application/json', 'Idempotency-Key': id }, body: form }))
+  pdf(file, id) {
+    return archivePDF(file, id)
   },
 }
 export async function submitIntake(file: File, scope: DraftScope, port: IntakePort = intakePort, id = crypto.randomUUID()): Promise<IntakeRecord> {
@@ -45,10 +47,15 @@ export async function submitIntake(file: File, scope: DraftScope, port: IntakePo
 async function run(record: IntakeRecord, port: IntakePort): Promise<IntakeRecord> {
   const file = files.get(record.id)
   if (!file) throw new Error('Reselect the original file.')
-  record.state = 'uploading'; record.error = ''; emit()
+  record.state = 'uploading'; record.error = ''; record.archive = undefined; emit()
   try {
-    if (record.kind === 'pdf') await port.pdf(file, record.id)
-    else {
+    if (record.kind === 'pdf') {
+      const archive = await port.pdf(file, record.id)
+      if (!archive?.workId || !archive.manifestationId || !archive.documentVersionId || !archive.acquisitionId || !archive.sourceSha256) {
+        throw new Error('PDF archive receipt is missing reading identity.')
+      }
+      record.archive = archive
+    } else {
       const source = await port.text(file, record.scope, record.id)
       if (!source?.digest || source.workspace !== record.scope.workspace || !source.path) throw new Error('Invalid saved material reference.')
       record.source = source
