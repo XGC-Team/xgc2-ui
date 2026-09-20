@@ -77,7 +77,8 @@ export async function knowledgeProjectionDigest(nodes: KnowledgeNode[], edges: K
   const fields = [KNOWLEDGE_GRAPH_SCHEMA, 'nodes', String(nodes.length)]
   for (const n of nodes) {
     fields.push(n.id, n.path || '', n.title, n.digest || '', n.kind, String(n.exists), String(n.attachment ?? false),
-      String(n.unresolved), String(n.orphan), String(n.tags?.length || 0), ...(n.tags || []))
+      String(n.unresolved), String(n.orphan), String(n.tags?.length || 0))
+    for (const tag of n.tags || []) fields.push(tag)
   }
   fields.push('edges', String(edges.length))
   for (const e of edges) fields.push(e.id, e.source, e.target, e.kind, String(e.resolved), String(e.self), e.sourceRevision || '', e.anchor || '', e.targetHint || '')
@@ -85,10 +86,16 @@ export async function knowledgeProjectionDigest(nodes: KnowledgeNode[], edges: K
 }
 
 async function digestFields(fields: string[]): Promise<string> {
+  check(globalThis.crypto?.subtle, 'WebCrypto requires a secure browser context.')
   const encoder = new TextEncoder()
   const framed = fields.map(field => `${encoder.encode(field).byteLength}:${field}`).join('')
   const hash = await crypto.subtle.digest('SHA-256', encoder.encode(framed))
   return 'sha256:' + [...new Uint8Array(hash)].map(byte => byte.toString(16).padStart(2, '0')).join('')
+}
+
+/** Matches Go strings.TrimSpace: NEL is whitespace, BOM is not. */
+export function trimKnowledgeQuery(value: string): string {
+  return value.replace(/^[\t\n\v\f\r \u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]+|[\t\n\v\f\r \u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]+$/g, '')
 }
 
 /** Verify the first page against the requested filters, not just later pages against it. */
@@ -96,7 +103,7 @@ export async function knowledgeQueryIdentity(query: KnowledgeQuery): Promise<str
   const tags = [...new Set(query.tags || [])].sort(compareKnowledgeIDs)
   const focus = query.focus || ''
   const depth = focus && !query.depth ? 1 : (query.depth || 0)
-  return digestFields([KNOWLEDGE_GRAPH_SCHEMA, query.scope || 'knowledge', (query.query || '').trim(),
+  return digestFields([KNOWLEDGE_GRAPH_SCHEMA, query.scope || 'knowledge', trimKnowledgeQuery(query.query || ''),
     query.unresolved || 'include', query.orphans || 'include', focus, String(depth), query.direction || 'both',
     String(query.limit || 2000), String(tags.length), ...tags])
 }
@@ -145,7 +152,8 @@ export class KnowledgePageCollector {
     return page
   }
 
-  async finish(): Promise<KnowledgePage> {
+  async finish(signal?: AbortSignal): Promise<KnowledgePage> {
+    signal?.throwIfAborted()
     const first = this.first
     check(first && this.terminal, 'snapshot is not fully retrieved.')
     check(this.nodes.size === first.counts.matched && this.edges.size === first.counts.matchedEdges, 'incomplete node/assertion set.')
@@ -158,13 +166,66 @@ export class KnowledgePageCollector {
     }
     const nodes = [...this.nodes.values()]
     const edges = [...this.edges.values()].sort((a, b) => compareKnowledgeIDs(a.id, b.id))
-    check(await knowledgeProjectionDigest(nodes, edges) === first.projectionDigest, 'logical set digest mismatch.')
+    const actualDigest = await knowledgeProjectionDigest(nodes, edges)
+    signal?.throwIfAborted()
+    check(actualDigest === first.projectionDigest, 'logical set digest mismatch.')
     return { ...first, offset: 0, complete: true, incompleteReason: undefined, nextCursor: undefined, nodes, edges }
   }
 }
 
-export async function assembleKnowledgePages(pages: KnowledgePage[]): Promise<KnowledgePage> {
+export async function assembleKnowledgePages(pages: KnowledgePage[], signal?: AbortSignal): Promise<KnowledgePage> {
   const collector = new KnowledgePageCollector()
-  for (const page of pages) collector.add(page)
-  return collector.finish()
+  for (const page of pages) { signal?.throwIfAborted(); collector.add(page) }
+  return collector.finish(signal)
+}
+
+export type KnowledgePageReader = (query: KnowledgeQuery, signal?: AbortSignal) => Promise<unknown>
+
+/** The single complete retrieval path; page readers never define another index. */
+export async function readCompleteKnowledgeGraph(read: KnowledgePageReader, query: KnowledgeQuery = {}, signal?: AbortSignal): Promise<KnowledgePage> {
+  signal?.throwIfAborted()
+  // Capture caller-owned arrays before the first await.
+  const original = { ...query, tags: query.tags?.slice(), cursor: undefined }
+  const queryId = await knowledgeQueryIdentity(original)
+  signal?.throwIfAborted()
+  const collector = new KnowledgePageCollector()
+  let next: KnowledgeQuery = original
+  for (;;) {
+    signal?.throwIfAborted()
+    const value = await read({ ...next, tags: next.tags?.slice() }, signal)
+    signal?.throwIfAborted()
+    validateKnowledgePage(value)
+    check(value.queryId === queryId, 'response belongs to a different query.')
+    check(value.scope === (original.scope || 'knowledge') && (value.query || '') === trimKnowledgeQuery(original.query || '') &&
+      (value.focus || '') === (original.focus || '') && (!next.snapshot || value.snapshot === next.snapshot), 'response belongs to a different request.')
+    const page = collector.add(value)
+    if (!page.nextCursor) return collector.finish(signal)
+    next = { ...original, snapshot: page.snapshot, cursor: page.nextCursor }
+  }
+}
+
+export type KnowledgeInspection = { snapshot: string; node: KnowledgeNode; outgoing: KnowledgeEdge[]; incoming: KnowledgeEdge[] }
+
+/** Inspect is authoritative even when an endpoint is outside the current view. */
+export function normalizeKnowledgeInspection(value: unknown, id: string, snapshot?: string): KnowledgeInspection {
+  check(object(value) && digest(value.snapshot) && (!snapshot || value.snapshot === snapshot), 'inspection belongs to another snapshot.')
+  const node = value.node
+  check(object(node) && node.id === id && typeof node.title === 'string' && text(node.kind) &&
+    typeof node.exists === 'boolean' && typeof node.unresolved === 'boolean' && node.exists !== node.unresolved && typeof node.orphan === 'boolean', 'inspection belongs to another resource or has invalid state.')
+  check(optionalText(node.path) && optionalText(node.digest) && (!node.exists || (node.path === id && digest(node.digest))), 'invalid inspected file revision.')
+  for (const [name, endpoint] of [['outgoing', 'source'], ['incoming', 'target']] as const) {
+    const list = value[name]
+    // Empty Go slices are null in the existing Inspect contract, not in graph pages.
+    check(list === null || Array.isArray(list), 'invalid inspected relationships.')
+    const seen = new Set<string>()
+    for (const edge of list || []) {
+      check(object(edge) && text(edge.id) && !seen.has(edge.id) && edge[endpoint] === id && text(edge.source) && text(edge.target) && text(edge.kind) &&
+        typeof edge.resolved === 'boolean' && typeof edge.self === 'boolean' && edge.self === (edge.source === edge.target) &&
+        digest(edge.sourceRevision) && optionalText(edge.anchor) && optionalText(edge.targetHint), 'invalid inspected assertion.')
+      check(endpoint !== 'source' || (node.exists && edge.sourceRevision === node.digest), 'inspected source revision mismatch.')
+      seen.add(edge.id)
+    }
+  }
+  return { snapshot: value.snapshot as string, node: node as KnowledgeNode,
+    outgoing: (value.outgoing ?? []) as KnowledgeEdge[], incoming: (value.incoming ?? []) as KnowledgeEdge[] }
 }

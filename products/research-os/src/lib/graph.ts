@@ -34,6 +34,10 @@ export interface GNode {
 }
 
 export interface GEdge {
+  resourceId?: string
+  sourceRevision?: string
+  anchor?: string
+  targetHint?: string
   s: number
   t: number
   self?: boolean

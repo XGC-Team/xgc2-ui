@@ -2,6 +2,7 @@ import {t as tr} from '../i18n'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ForceSim, GROUPS, type GraphData, type GNode, type GroupId } from '../lib/graph'
 import { cn } from '../lib/cn'
+import type { GraphCamera } from '../lib/graph-camera'
 
 /**
  * Obsidian 风格图谱着色：整图黑白灰，分组仅由灰度层级区分。
@@ -12,18 +13,14 @@ function groupTone(g: GroupId): number {
   return 0.25 + (i / (order.length - 1)) * 0.75 // 0.25 → 1 明度梯度
 }
 
-interface Cam {
-  x: number
-  y: number
-  k: number
-}
-
-export function GraphView({data,onSelect}:{data:GraphData;onSelect:(id:number)=>void}) {
+export function GraphView({data,onSelect,initialCamera,onCameraChange}:{data:GraphData;onSelect:(id:number)=>void;initialCamera?:GraphCamera;onCameraChange?:(camera:GraphCamera)=>void}) {
+  const cameraRef=useRef(initialCamera);cameraRef.current=initialCamera
+  const cameraChangedRef=useRef(onCameraChange);cameraChangedRef.current=onCameraChange
   const selectRef=useRef(onSelect);selectRef.current=onSelect
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
-  const cam = useRef<Cam>({ x: 0, y: 0, k: 0.75 })
-  const targetCam = useRef<Cam>({ x: 0, y: 0, k: 0.75 })
+  const cam = useRef<GraphCamera>({ x: 0, y: 0, k: 0.75 })
+  const targetCam = useRef<GraphCamera>({ x: 0, y: 0, k: 0.75 })
   const hoverRef = useRef<number>(-1)
 
   const [hovered, setHovered] = useState<GNode | null>(null)
@@ -56,6 +53,10 @@ export function GraphView({data,onSelect}:{data:GraphData;onSelect:(id:number)=>
     const wrap = wrapRef.current!
     const ctx = canvas.getContext('2d')!
     let raf = 0
+    let cameraTimer: ReturnType<typeof setTimeout> | undefined
+    const saveCamera = () => { const value={...targetCam.current};cameraRef.current=value;cameraChangedRef.current?.(value) }
+    const scheduleCameraSave = () => { clearTimeout(cameraTimer); cameraTimer=setTimeout(saveCamera,200) }
+    hoverRef.current=-1;setHovered(null);setSelected(null)
     let W = 0, H = 0, dpr = 1
 
     const resize = (repaint = false) => {
@@ -71,7 +72,9 @@ export function GraphView({data,onSelect}:{data:GraphData;onSelect:(id:number)=>
     }
     resize()
     // 用户未接管相机前，容器尺寸变化时保持自适应居中
-    let userMoved = false
+    const restored=cameraRef.current
+    const hasCamera=!!restored&&Number.isFinite(restored.x)&&Number.isFinite(restored.y)&&Number.isFinite(restored.k)&&restored.k>=0.08&&restored.k<=3.5
+    let userMoved = hasCamera
     const ro = new ResizeObserver(() => { resize(true); if (!userMoved) fit() })
     ro.observe(wrap)
 
@@ -88,7 +91,8 @@ export function GraphView({data,onSelect}:{data:GraphData;onSelect:(id:number)=>
     const easeBack = (p: number) => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(p - 1, 3) + c1 * Math.pow(p - 1, 2) }
     const enterOf = (id: number, now: number) => Math.min(1, Math.max(0, (now - bornAt - (enterDelay.get(id) ?? 0)) / ENTER_DUR))
     const scales = new Map<number, number>() // 节点视觉倍率弹簧：hover/邻点/拖拽各自有目标值
-    fit(true) // 相机直接落在初始簇上，从绽放点开始呼吸
+    if(hasCamera&&restored){cam.current={...restored};targetCam.current={...restored}}
+    else fit(true)
 
     /* ----- interaction state ----- */
     let panning = false
@@ -174,6 +178,13 @@ export function GraphView({data,onSelect}:{data:GraphData;onSelect:(id:number)=>
       if(dragNode){dragNode.fx=null;dragNode.fy=null;sim.reheat(.35)}
       dragNode = null
       panning = false
+      saveCamera()
+    }
+    const onCancel = (e: PointerEvent) => {
+      if(canvas.hasPointerCapture(e.pointerId))canvas.releasePointerCapture(e.pointerId)
+      if(dragNode){dragNode.fx=null;dragNode.fy=null}
+      dragNode=null;panning=false
+      saveCamera() // Cancellation never becomes a node click.
     }
     const onWheel = (e: WheelEvent) => {
       e.preventDefault()
@@ -186,6 +197,7 @@ export function GraphView({data,onSelect}:{data:GraphData;onSelect:(id:number)=>
       // 保持指针下点不动
       targetCam.current.x = (sx - W / 2) / k2 - w.x
       targetCam.current.y = (sy - H / 2) / k2 - w.y
+      scheduleCameraSave()
     }
 
     // 双击空白：复位视野并恢复自适应居中
@@ -194,12 +206,13 @@ export function GraphView({data,onSelect}:{data:GraphData;onSelect:(id:number)=>
       if (nodeAt(e.clientX - rect.left, e.clientY - rect.top)) return
       userMoved = false
       fit()
+      scheduleCameraSave()
     }
 
     canvas.addEventListener('pointerdown', onDown)
     canvas.addEventListener('pointermove', onMove)
     canvas.addEventListener('pointerup', onUp)
-    canvas.addEventListener('pointercancel', onUp)
+    canvas.addEventListener('pointercancel', onCancel)
     canvas.addEventListener('dblclick', onDblClick)
     canvas.addEventListener('wheel', onWheel, { passive: false })
 
@@ -312,7 +325,7 @@ export function GraphView({data,onSelect}:{data:GraphData;onSelect:(id:number)=>
       }
 
       const labelBoxes:{x:number;y:number;w:number}[]=[]
-      // nodes：入场按度数降序绽放（easeOutBack 过冲回弹）；hover/邻点/拖拽有弹簧倍率
+      // nodes：入场按度数降序绽放（easeOutBack 过冲回弹）；hover/邻点/拖拽各自有目标值
       for (const n of data.nodes) {
         const pIn = entering ? enterOf(n.id, now) : 1
         const eIn = entering ? easeOut(pIn) : 1
@@ -367,12 +380,16 @@ export function GraphView({data,onSelect}:{data:GraphData;onSelect:(id:number)=>
     raf = requestAnimationFrame(draw)
 
     return () => {
+      clearTimeout(cameraTimer)
+      saveCamera()
+      if(dragNode){dragNode.fx=null;dragNode.fy=null}
+      sim.simulation.stop()
       cancelAnimationFrame(raf)
       ro.disconnect()
       canvas.removeEventListener('pointerdown', onDown)
       canvas.removeEventListener('pointermove', onMove)
       canvas.removeEventListener('pointerup', onUp)
-      canvas.removeEventListener('pointercancel', onUp)
+      canvas.removeEventListener('pointercancel', onCancel)
       canvas.removeEventListener('dblclick', onDblClick)
       canvas.removeEventListener('wheel', onWheel)
     }
@@ -395,7 +412,7 @@ export function GraphView({data,onSelect}:{data:GraphData;onSelect:(id:number)=>
               <>
                 <div className="flex items-center gap-2">
                   <span className={cn('h-2 w-2 rounded-full bg-ink', n.hub ? 'opacity-95' : 'opacity-50')} />
-                  <span className="text-caption font-medium uppercase tracking-[0.06em] text-ink-3">{tr(group?.label ?? n.kind ?? n.group)}</span>
+                  <span className="text-caption font-medium uppercase tracking-[0.06em] text-ink-3">{tr(n.kind ?? group?.label ?? n.group)}</span>
                   {selected && <span className="ml-auto text-[10px] text-ink-3">{tr("pinned")}</span>}
                 </div>
                 <div className="mt-1 text-[13px] font-semibold leading-snug">{n.label}</div>
