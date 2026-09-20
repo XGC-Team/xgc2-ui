@@ -1,4 +1,4 @@
-import { validSourcePath, type DraftScope, type ResearchDraft } from '../projects/draft-model'
+import { validSourcePath, type ResearchDraft } from '../projects/draft-model.ts'
 
 export const ARTIFACT_SCHEMA = 'xgc.research.artifact/v1'
 export const ARTIFACT_KINDS = ['docx', 'pptx', 'video', 'remotion'] as const
@@ -134,12 +134,13 @@ export function kindFromDraft(draft: ResearchDraft): ArtifactKind {
   throw new Error('This draft kind has no non-LaTeX artifact renderer.')
 }
 
-export function definitionFromDraft(draft: ResearchDraft, options: { rights: string; attribution: string; kind?: ArtifactKind; template?: string; composition?: string; props?: string; source?: string }): ArtifactDefinition {
+export function definitionFromDraft(draft: ResearchDraft, options: { rights: string; attribution: string; kind?: ArtifactKind; template?: string; composition?: string; props?: string; source?: string; workspace?: string }): ArtifactDefinition {
   const kind = options.kind ?? kindFromDraft(draft)
   const paths = artifactPaths(draft.id)
   const dependencies: ArtifactDependency[] = []
   const seen = new Set<string>()
   for (const source of draft.sources) {
+    requireThat(!source.workspace || source.workspace === options.workspace, 'Artifact evidence must resolve in the same workspace; do not reinterpret a foreign path.')
     if (!source.digest || !validSourcePath(source.path) || !digestOK(source.digest)) continue
     const key = `evidence\0${source.id}`
     if (seen.has(key)) continue
@@ -161,62 +162,16 @@ export function definitionFromDraft(draft: ResearchDraft, options: { rights: str
   return parseArtifactDefinition(JSON.stringify(definition))
 }
 
-export type BuildOutput = { digest: string; mediaType: string; artifactRef?: string; sizeBytes?: number }
-export type BuildManifest = { buildId: string; status: string; completedAt?: string; diagnostics?: { message: string }[]; outputs?: BuildOutput[] }
-export type BuildRecord = {
-  task: { workspaceRef: string; entryPoint: string; manuscriptId?: string; gitCommit?: string; toolchain?: { engine?: string; pinKind?: string }; inputs?: { path: string; digest: string }[] }
-  manifest: BuildManifest
-}
-
-const OFFICE = /officedocument|presentationml|wordprocessingml|application\/vnd\.openxmlformats/i
-export function isNonLatexArtifact(record: BuildRecord): boolean {
-  const engine = record.task.toolchain?.engine || ''
-  if (engine.startsWith('research-artifact/')) return true
-  if (/\.artifact\.json$/i.test(record.task.entryPoint)) return true
-  return (record.manifest.outputs || []).some(output => OFFICE.test(output.mediaType) || output.mediaType === 'video/mp4' || output.mediaType === 'image/png')
-    && !/\.tex$/i.test(record.task.entryPoint)
-}
-
-export type ArtifactPreview = { kind: 'image' | 'video' | 'pdf' | 'file'; mediaType: string; digest: string; url: string }
-export function previewFromRecord(record: BuildRecord): ArtifactPreview | null {
-  if (record.manifest.status !== 'succeeded') return null
-  const outputs = record.manifest.outputs || []
-  const pick = (media: string, kind: ArtifactPreview['kind']) => {
-    const output = outputs.find(item => item.mediaType === media)
-    return output ? { kind, mediaType: output.mediaType, digest: rawDigest(output.digest), url: `/api/v1/manuscripts/build-records/${encodeURIComponent(record.manifest.buildId)}/artifacts/${rawDigest(output.digest)}` } : null
-  }
-  return pick('image/png', 'image') || pick('video/mp4', 'video') || pick('application/pdf', 'pdf')
-    || (outputs[0] ? { kind: 'file', mediaType: outputs[0].mediaType, digest: rawDigest(outputs[0].digest), url: `/api/v1/manuscripts/build-records/${encodeURIComponent(record.manifest.buildId)}/artifacts/${rawDigest(outputs[0].digest)}` } : null)
-}
-
-export type ArtifactView = {
-  phase: 'definition' | 'generated' | 'failed'
-  latest?: BuildRecord
-  successful?: BuildRecord
-  preview?: ArtifactPreview
-  laterFailure: boolean
-  scientific: 'not-claimed'
-}
-export function artifactView(records: BuildRecord[], scope: DraftScope, entryPoint: string): ArtifactView {
-  const relevant = records.filter(record => record.task.workspaceRef === scope.workspace && record.task.entryPoint === entryPoint && isNonLatexArtifact(record))
-    .sort((a, b) => (b.manifest.completedAt || '').localeCompare(a.manifest.completedAt || ''))
-  const latest = relevant[0]
-  const successful = relevant.find(record => record.manifest.status === 'succeeded' && previewFromRecord(record))
-  const laterFailure = Boolean(latest && successful && latest.manifest.buildId !== successful.manifest.buildId && latest.manifest.status !== 'succeeded')
-  if (!latest) return { phase: 'definition', laterFailure: false, scientific: 'not-claimed' }
-  if (latest.manifest.status === 'succeeded') return { phase: 'generated', latest, successful: latest, preview: previewFromRecord(latest) || undefined, laterFailure: false, scientific: 'not-claimed' }
-  return { phase: 'failed', latest, successful, preview: successful ? previewFromRecord(successful) || undefined : undefined, laterFailure, scientific: 'not-claimed' }
-}
-
 export function uniquePinnedInputs(items: { path: string; digest: string }[]): { path: string; digest: string }[] {
   const seen = new Map<string, string>()
   for (const item of items) {
+    requireThat(validSourcePath(item.path) && typeof item.digest === 'string' && digestOK(item.digest), 'Save receipt has an invalid path or SHA-256 digest.')
     const digest = rawDigest(item.digest)
     const previous = seen.get(item.path)
     if (previous && previous !== digest) throw new Error(`input path ${item.path} has conflicting SHA-256 digests`)
     seen.set(item.path, digest)
   }
-  return [...seen.entries()].map(([path, digest]) => ({ path, digest }))
+  return [...seen.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([path, digest]) => ({ path, digest }))
 }
 
 export function unpinnedSources(draft: ResearchDraft): string[] {

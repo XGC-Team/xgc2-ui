@@ -1,16 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { APIError } from '../src/lib/api'
 import {
-  artifactPaths, artifactView, definitionFromDraft, isNonLatexArtifact, markdownFromDraft, parseArtifactDefinition,
-  parseSecondsPerSlide, rawDigest, type BuildRecord,
+  artifactPaths, definitionFromDraft, markdownFromDraft, parseArtifactDefinition,
+  parseSecondsPerSlide,
 } from '../src/features/artifacts/artifact-model'
-import { requestArtifactBuild } from '../src/features/artifacts/artifact-api'
 import { experimentPhase, parseLatestDigests, parseResultBundle, parseVerificationPlan, scientificStatus } from '../src/features/experiments/experiment-model'
 import { inspectResult } from '../src/features/experiments/experiment-api'
 import { newDraft, type ResearchDraft } from '../src/features/projects/draft-model'
 
 const digest = 'a'.repeat(64)
-const other = 'b'.repeat(64)
 
 function slides(): ResearchDraft {
   const draft = newDraft('slides', 'Summary', '2026-09-20T00:00:00.000Z', 'summary1')
@@ -30,22 +28,9 @@ function storyboard(): ResearchDraft {
   return draft
 }
 
-const latex: BuildRecord = {
-  task: { workspaceRef: 'paper', entryPoint: 'main.tex', toolchain: { engine: 'latexmk' } },
-  manifest: { buildId: 'tex', status: 'succeeded', completedAt: '2026-09-20T01:00:00Z', outputs: [{ digest, mediaType: 'application/pdf' }] },
-}
-const generated: BuildRecord = {
-  task: { workspaceRef: 'paper', entryPoint: 'artifacts/summary1.artifact.json', manuscriptId: 'summary1', toolchain: { engine: 'research-artifact/pptx', pinKind: 'local-runtime-fingerprint' } },
-  manifest: { buildId: 'ok', status: 'succeeded', completedAt: '2026-09-20T02:00:00Z', outputs: [{ digest, mediaType: 'image/png' }, { digest: other, mediaType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' }] },
-}
-const failed: BuildRecord = {
-  task: generated.task,
-  manifest: { buildId: 'bad', status: 'failed', completedAt: '2026-09-20T03:00:00Z', diagnostics: [{ message: 'preview failed' }] },
-}
-
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks() })
 
-describe('artifact definitions and lifecycle', () => {
+describe('artifact definitions', () => {
   it('converts a saved slides draft into a strict artifact definition without Git identity', () => {
     const definition = definitionFromDraft(slides(), { rights: 'Author-owned; not approved for publication', attribution: 'Fixture' })
     expect(definition.kind).toBe('pptx')
@@ -64,36 +49,10 @@ describe('artifact definitions and lifecycle', () => {
     expect(() => definitionFromDraft(disagree, { rights: 'test rights', attribution: 'fixture' })).toThrow(/disagree/)
     expect(() => parseArtifactDefinition(JSON.stringify({ ...definitionFromDraft(slides(), { rights: 'r', attribution: 'a' }), filename: 'deck.pptx' }))).toThrow(/unknown field/)
   })
-  it('keeps a later failed generate from replacing the last successful preview and never claims science', () => {
-    expect(isNonLatexArtifact(latex)).toBe(false)
-    expect(isNonLatexArtifact(generated)).toBe(true)
-    const view = artifactView([latex, generated, failed], { projectId: 'paper', workspace: 'paper' }, 'artifacts/summary1.artifact.json')
-    expect(view.phase).toBe('failed')
-    expect(view.laterFailure).toBe(true)
-    expect(view.successful?.manifest.buildId).toBe('ok')
-    expect(view.preview?.kind).toBe('image')
-    expect(view.scientific).toBe('not-claimed')
-  })
 })
 
-describe('saved-source artifact requests', () => {
-  it('posts B saved-source fields and never consults git status or gitCommit', async () => {
-    const calls: { url: string; body: unknown }[] = []
-    vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
-      const url = String(input)
-      calls.push({ url, body: init?.body ? JSON.parse(String(init.body)) : null })
-      return { ok: false, status: 400, json: async () => ({ error: { message: 'old git task required', code: 'invalid_json' } }) } as Response
-    })
-    await expect(requestArtifactBuild({ workspaceRef: 'paper', entryPoint: 'artifacts/summary1.artifact.json', manuscriptId: 'summary1', expectedInputs: [{ path: 'artifacts/summary1.artifact.json', digest: `sha256:${digest}` }] })).rejects.toThrow(/saved-source/)
-    expect(calls.some(call => /git\/status/.test(call.url))).toBe(false)
-    expect(calls[0]?.body).toEqual({
-      workspaceRef: 'paper', entryPoint: 'artifacts/summary1.artifact.json', manuscriptId: 'summary1',
-      expectedInputs: [{ path: 'artifacts/summary1.artifact.json', digest }],
-    })
-    expect(calls[0]?.body).not.toHaveProperty('gitCommit')
-  })
-})
-
+// Saved-source receipt, scoped history, CAS and byte-integrity regressions live
+// in artifact-integrity.node-test.mjs and use complete current-v2 receipts.
 const pin = { stationId: 'station', targetId: 'target', experimentResourceId: 'experiment', experimentCommitId: 'revision', experimentDigest: digest }
 const session = {
   schemaVersion: 'xgc.research.experiment-ref/v1', contractSchemaVersion: 2, contractDigest: digest, sessionId: 'session',
