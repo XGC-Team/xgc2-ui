@@ -1,0 +1,35 @@
+name: Research saved-build UI validation
+on:
+  push:
+    branches: [research-save-compile-126]
+    paths: ['.github/workflows/research-saved-build.yml', 'products/research-os/**']
+  pull_request:
+    paths: ['.github/workflows/research-saved-build.yml', 'products/research-os/src/features/resources/**', 'products/research-os/src/features/review/*Provenance*', 'products/research-os/src/features/review/build-provenance.ts', 'products/research-os/tests/manuscript-build.test.ts']
+permissions:
+  contents: read
+concurrency:
+  group: research-saved-build-ui-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  saved-build-ui:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: products/research-os
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Saved-build race and CAS contracts
+        run: npm test -- tests/manuscript-build.test.ts
+      - name: Product regression
+        run: npm test
+      - name: Product typecheck and bundling
+        run: npm run build
+      - name: Build-surface lint
+        run: npx --no-install eslint src/features/resources/FilesPage.tsx src/features/resources/SavedSourceEditor.tsx src/features/resources/ManuscriptBuildStatus.tsx src/features/resources/manuscript.ts src/features/resources/manuscript-build.ts src/features/resources/useManuscriptBuild.ts src/features/resources/saved-source.ts src/features/resources/project-files.ts src/features/review/BuildProvenance.tsx src/features/review/build-provenance.ts tests/manuscript-build.test.ts
