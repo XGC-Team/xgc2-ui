@@ -1,3 +1,4 @@
+import { publishReviewBatch } from './review-batches.ts'
 import { observeSavedFile } from './file-observations.ts'
 import { request } from '../../lib/api.ts'
 import { createReviewEngine, type ReviewState } from './review-engine.ts'
@@ -8,12 +9,20 @@ import type { BuildRecord } from './build-provenance.ts'
 import { buildSourceMatch, previewProvenance } from './build-provenance.ts'
 const fileURL = (workspace: string, path: string) => `/workspaces/${encodeURIComponent(workspace)}/files/${path.split('/').map(encodeURIComponent).join('/')}`
 export const readReviewFile = (workspace: string, path: string) => request<FileRecord>(fileURL(workspace, path))
-export function connectReview(scope: Scope, changed: (s: ReviewState) => void) {
+export function connectReview(scope: Scope, changed: (s: ReviewState) => void, isCurrent?: () => boolean) {
   return createReviewEngine(scope, {
     read: readReviewFile,
+    isCurrent,
+    batchComplete: receipt => {
+      const failures = publishReviewBatch(receipt)
+      if (failures.length) throw new Error(failures.join("\n"))
+    },
     write: async (workspace, path, content, guard) => {
       const result=await request<{digest:string}>(fileURL(workspace,path),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({content,...guard})})
-      if(path!==REVIEW_PATH)observeSavedFile(scope,path,null,{content,digest:result.digest},'review')
+      check(typeof result?.digest === 'string' && result.digest, 'Target acknowledgement lacks a saved revision.')
+      // Observers are follow-ups, not part of the server CAS acknowledgement.
+      if(path!==REVIEW_PATH)try { observeSavedFile(scope,path,null,{content,digest:result.digest},'review') }
+      catch(cause) { console.error('Saved file observer failed; the source write was acknowledged.', cause) }
       return result
     },
     lease: acquireReviewWrite,

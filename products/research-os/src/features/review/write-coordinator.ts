@@ -4,7 +4,9 @@ const editors = new Map<string, Set<Editor>>()
 const held = new Set<string>()
 const listeners = new Set<() => void>()
 const key = (workspace: string, path: string) => JSON.stringify([workspace, path])
-const emit = () => listeners.forEach(fn => fn())
+const emit = () => listeners.forEach(fn => {
+  try { fn() } catch (cause) { console.error('Review lock observer failed.', cause) }
+})
 export const subscribeWrites = (fn: () => void) => { listeners.add(fn); return () => { listeners.delete(fn) } }
 export const isReviewLocked = (workspace: string, path: string) => held.has(key(workspace, path))
 export function registerReviewEditor(workspace: string, path: string, editor: Editor): () => void {
