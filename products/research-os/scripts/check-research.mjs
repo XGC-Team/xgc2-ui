@@ -101,7 +101,7 @@ try {
    await page.screenshot({path:join(data,'workflow-cancelled.png')});console.log('PASS actual workflow launch, approval navigation and cancellation; three-stage completion not asserted')
  }
  const bottom=page.getByRole('button',{name:'下栏',exact:true});if(await bottom.getAttribute('aria-pressed')!=='true')await bottom.click()
- await page.getByRole('button',{name:'打开终端',exact:true}).click();await page.locator('.xterm-helper-textarea').waitFor();await page.locator('.xterm-helper-textarea').fill("printf '\\nTERMINAL_%s\\n' VERIFIED; pwd");await page.locator('.xterm-helper-textarea').press('Enter');
+ await page.getByRole('button',{name:'打开终端',exact:true}).click();await page.locator('.xterm-helper-textarea').waitFor();await page.locator('.xterm-helper-textarea').fill("clear; printf 'TERMINAL_%s\\n' VERIFIED");await page.locator('.xterm-helper-textarea').press('Enter');
  try {
    await page.locator('.xterm-screen').getByText('TERMINAL_VERIFIED',{exact:true}).waitFor({timeout:90000});console.log('PASS real browser PTY shell')
  } catch(error) {
