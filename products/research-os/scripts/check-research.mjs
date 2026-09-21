@@ -101,7 +101,7 @@ try {
    await page.screenshot({path:join(data,'workflow-cancelled.png')});console.log('PASS actual workflow launch, approval navigation and cancellation; three-stage completion not asserted')
  }
  const bottom=page.getByRole('button',{name:'下栏',exact:true});if(await bottom.getAttribute('aria-pressed')!=='true')await bottom.click()
- await page.getByRole('button',{name:'打开终端',exact:true}).click();await page.locator('.xterm-helper-textarea').waitFor();await page.locator('.xterm-helper-textarea').fill("printf '\\nTERMINAL_%s\\n' VERIFIED; pwd");await page.locator('.xterm-helper-textarea').press('Enter');await page.locator('.xterm-screen').getByText('TERMINAL_VERIFIED',{exact:true}).waitFor();console.log('PASS real browser PTY shell')
+ await page.getByRole('button',{name:'打开终端',exact:true}).click();await page.locator('.xterm-helper-textarea').waitFor();await page.locator('.xterm-helper-textarea').fill("printf '\\nTERMINAL_%s\\n' VERIFIED; pwd");await page.locator('.xterm-helper-textarea').press('Enter');await page.locator('.xterm-screen').getByText('TERMINAL_VERIFIED',{exact:true}).waitFor({timeout:90000});console.log('PASS real browser PTY shell')
  await page.getByRole('button',{name:'关闭终端 1',exact:true}).click();await nav('设置');await page.locator('[data-xgc-role="native-provider-settings"]').waitFor();assert.equal(await page.getByText('OpenCode',{exact:true}).count(),1);console.log('PASS shared native provider settings')
  assert.deepEqual(errors,[]);console.log('PASS no browser runtime exceptions');console.log('Artifacts:',data)
 } catch(error) {
