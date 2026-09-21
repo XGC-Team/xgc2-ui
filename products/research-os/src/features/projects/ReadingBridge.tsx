@@ -1,9 +1,18 @@
 import { FeedbackButton } from '../review/FeedbackButton'
 import type { Anchor, Rect } from '../review/review-model'
+import { pageFromPdfId, pdfPageNumber } from '../resources/pdf-scroll'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Button } from '../../components/ui'
 import { useWorkbench } from '../../store'
 import type { DraftSource } from './draft-model'
+
+function pageHolding(root: HTMLElement | null, range: Range): HTMLElement | null {
+  if (!root) return null
+  for (const page of root.querySelectorAll<HTMLElement>('[data-xgc-role="pdf-page"]')) {
+    if (page.contains(range.startContainer) && page.contains(range.endContainer)) return page
+  }
+  return null
+}
 
 /** Selection is captured only inside this reader and tied to the version actually rendered. */
 export function ReadingBridge({ source, projectId, projectWorkspace, fill = false, active = true, children }: {
@@ -24,11 +33,11 @@ export function ReadingBridge({ source, projectId, projectWorkspace, fill = fals
       const selection = window.getSelection()
       if (!selection?.rangeCount) { setExcerpt(''); return }
       const range = selection.getRangeAt(0)
-      const surface = source.buildId ? root.current?.querySelector('[data-xgc-role="pdf-page"]') : root.current
+      const surface = source.buildId ? pageHolding(root.current, range) : root.current
       if (surface?.contains(range.startContainer) && surface.contains(range.endContainer)) {
         setExcerpt(selection.toString().trim())
         if (source.buildId && surface instanceof HTMLElement) {
-          const bounds = surface.getBoundingClientRect(), page = Number(surface.dataset.xgcId?.match(/:page:(\d+)$/)?.[1])
+          const bounds = surface.getBoundingClientRect(), page = pageFromPdfId(surface.dataset.xgcId)
           if (page && bounds.width && bounds.height) setReviewRegion({page, rects:[...range.getClientRects()].map(r=>({x:Math.max(0,(r.left-bounds.left)/bounds.width),y:Math.max(0,(r.top-bounds.top)/bounds.height),width:Math.min(1,r.width/bounds.width),height:Math.min(1,r.height/bounds.height)})).filter(r=>r.width>0&&r.height>0)})
         }
       }
@@ -72,8 +81,8 @@ export function ReadingBridge({ source, projectId, projectWorkspace, fill = fals
   }, [active, readingAnchor, source.workspace, source.path, source.digest, zh])
   const record = (kind: 'note' | 'material') => {
     if (!target || (kind === 'note' && (!excerpt || !source.digest))) return
-    const pageId = root.current?.querySelector<HTMLElement>('[data-xgc-role="pdf-page"]')?.dataset.xgcId
-    const page = source.page || (pageId ? Number(pageId.match(/:page:(\d+)$/)?.[1]) : undefined)
+    const visible = pdfPageNumber(root.current?.querySelector<HTMLElement>('[data-xgc-role="pdf-viewport"]')?.getAttribute('data-xgc-current-page'))
+    const page = reviewRegion?.page || visible || pdfPageNumber(source.page) || undefined
     requestDraftCapture({ id: crypto.randomUUID(), scope: { projectId: target, workspace: projectWorkspace || target }, kind,
       source: { ...source, ...(page ? { page } : {}), id: crypto.randomUUID(), ...(kind === 'note' ? { excerpt } : {}) } })
   }
@@ -95,8 +104,11 @@ export function ReadingBridge({ source, projectId, projectWorkspace, fill = fals
       onPointerCancelCapture={()=>{regionStart.current=null}}
       onPointerUpCapture={event=>{
         const start=regionStart.current;regionStart.current=null;if(!start||!active)return
-        const pageEl=root.current?.querySelector<HTMLElement>('[data-xgc-role="pdf-page"]'),box=pageEl?.getBoundingClientRect()
-        const page=Number(pageEl?.dataset.xgcId?.match(/:page:(\d+)$/)?.[1]);if(!box?.width||!box.height||!page)return
+        const pageEl = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-xgc-role="pdf-page"]') : null
+        if (!pageEl || !root.current?.contains(pageEl)) return
+        const box = pageEl.getBoundingClientRect()
+        const page = pageFromPdfId(pageEl.dataset.xgcId)
+        if (!box.width || !box.height || !page) return
         const clamp=(v:number)=>Math.max(0,Math.min(1,v)),left=clamp((Math.min(start.x,event.clientX)-box.left)/box.width),right=clamp((Math.max(start.x,event.clientX)-box.left)/box.width),top=clamp((Math.min(start.y,event.clientY)-box.top)/box.height),bottom=clamp((Math.max(start.y,event.clientY)-box.top)/box.height)
         if(right-left>.005&&bottom-top>.005){setExcerpt('');setReviewRegion({page,rects:[{x:left,y:top,width:right-left,height:bottom-top}]})}
       }}>{children}</div>
