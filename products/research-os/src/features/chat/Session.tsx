@@ -9,6 +9,9 @@ import {
   answerNativeRequest, cancelNativeTurn, createNativeSession,
   nativeClient, getNativeSettings, getNativeProfiles, getNativeSessions, reconnectNativeSession, sendNativePrompt,
 } from './client'
+import {
+  nativeConnectFailureCopy, nativeInventoryWorker, nativePendingFirstFailed, nativeShouldReconnect,
+} from './nativeSendGate'
 
 export function promoteNativeDraft(drafts: Record<string, string>, source: string, sessionId: string): Record<string, string> {
   if (!drafts[source]) return drafts
@@ -95,6 +98,8 @@ export function useNativeAgentSession(): NativeAgentSessionValue {
 }
 
 export function NativeAgentSessionProvider({ children, researchProjectId = '' }: { children: ReactNode; researchProjectId?: string }) {
+  const { locale: workbenchLocale } = useWorkbench()
+  const locale = workbenchLocale === 'en' ? 'en' : 'zh'
   const [settings, setSettings] = useState<NativeSettings | null>(null)
   const [settingsError, setSettingsError] = useState('')
   const [createOptions, setCreateOptions] = useState<NativeTurnOptions>({})
@@ -176,6 +181,11 @@ export function NativeAgentSessionProvider({ children, researchProjectId = '' }:
       }).catch((cause: unknown) => { if (!controller.signal.aborted) setError(describe(cause)) })
     return () => controller.abort()
   }, [refresh])
+  useEffect(() => {
+    const onFocus = () => setRefresh((value) => value + 1)
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
+  }, [])
 
   const openSession = async (id: string) => {
     const requestedProject = projectId
@@ -218,6 +228,14 @@ export function NativeAgentSessionProvider({ children, researchProjectId = '' }:
   const create = (event: FormEvent) => {event.preventDefault();void operation(createThread)}
   const startAndSend = async (text:string) => {
     if(starting.current || !text.trim())return
+    const provider = settings?.providers.find(item => item.id === profileId)
+    if (provider?.login.status === 'unauthenticated') {
+      const message = nativeConnectFailureCopy({
+        locale, login: provider.login, attempted: true, provider: provider.provider,
+      })
+      setError(message)
+      throw new Error(message)
+    }
     starting.current=true;setBusy(true);setError('')
     try {
       const next=await createThread()
@@ -236,11 +254,21 @@ export function NativeAgentSessionProvider({ children, researchProjectId = '' }:
   }
   const send = async (text: string) => {
     const current = requireCurrentSession()
-    if(text.trim()&&!current.busy&&!current.session.archived&&['closed','disconnected'].includes(current.state.worker)) {
+    const provider = settings?.providers.find(item => item.id === current.session.scope.profileId) ?? currentProvider
+    const worker = nativeInventoryWorker(current.session.state, current.state.worker)
+    if (text.trim() && nativeShouldReconnect({ worker, login: provider?.login })) {
       setBusy(true)
       try {await reconnectNativeSession(current.session.id);pendingFirst.current={id:current.session.id,text}}
       finally{setBusy(false)}
       return
+    }
+    if (text.trim() && (worker === 'closed' || worker === 'disconnected') && provider?.login.status === 'unauthenticated') {
+      const message = nativeConnectFailureCopy({
+        locale, login: provider.login, notices: current.state.notices, worker,
+        attempted: true, provider: provider.provider,
+      })
+      setError(message)
+      throw new Error(message)
     }
     if (!text.trim() || current.state.worker !== 'ready' || current.busy) throw new Error('当前原生会话不可发送。')
     const id = current.session.id
@@ -269,10 +297,20 @@ export function NativeAgentSessionProvider({ children, researchProjectId = '' }:
   }
   useEffect(()=>{
     const pending=pendingFirst.current
-    if(!pending||pending.id!==session?.id||!streamMatchesSelection||state.worker!=='ready'||busy)return
+    if(!pending||pending.id!==session?.id||!streamMatchesSelection||busy)return
+    if(state.worker==='ready'){
+      pendingFirst.current=null
+      void send(pending.text).then(()=>setDrafts(current=>({...current,[pending.id]:''}))).catch(cause=>{setDrafts(current=>({...current,[pending.id]:pending.text}));setError(describe(cause))})
+      return
+    }
+    if(!nativePendingFirstFailed(state.worker))return
     pendingFirst.current=null
-    void send(pending.text).then(()=>setDrafts(current=>({...current,[pending.id]:''}))).catch(cause=>{setDrafts(current=>({...current,[pending.id]:pending.text}));setError(describe(cause))})
-  },[session?.id,streamMatchesSelection,state.worker,busy])
+    const provider = settings?.providers.find(item => item.id === session.scope.profileId) ?? currentProvider
+    setError(nativeConnectFailureCopy({
+      locale, login: provider?.login, notices: state.notices, worker: state.worker,
+      attempted: true, provider: provider?.provider,
+    }) || describe('原生会话未能启动。'))
+  },[session?.id,streamMatchesSelection,state.worker,state.notices,busy,locale,settings,currentProvider,session])
   const respond = async (requestId: string, answer: NativeAnswer) => {
     const current = requireCurrentSession()
     const request = current.state.pending[requestId]

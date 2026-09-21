@@ -16,6 +16,7 @@ import { ContextPanel } from '../projects/ContextPanel'
 import { ContinueWriting } from '../workbench/ContinueWriting'
 import { DesignReviewDock } from '../workbench/DesignReviewDock'
 import { writingCopy } from '../workbench/writing-copy'
+import { nativeConnectFailureCopy, nativeInventoryWorker, nativeUnsignedHint } from './nativeSendGate'
 const rise={hidden:{opacity:0,y:10},show:{opacity:1,y:0,transition:{duration:0.45,ease:[0.2,0.8,0.2,1]}}}
 const SUGGESTIONS=["总结一篇论文的贡献与证据","对比两条技术路线","起草手稿的相关工作段落","审查我的数学推导"]
 export function ChatPage({projects}:{projects:Project[]}) {
@@ -26,6 +27,11 @@ export function ChatPage({projects}:{projects:Project[]}) {
   const providers=connected?(s.currentProvider?[s.currentProvider]:[]):(s.settings?.providers.filter(p=>p.enabled)||[])
   const date=new Date().toLocaleDateString(locale==='zh'?'zh-CN':'en-US',{year:'numeric',month:'long',day:'numeric',weekday:'long'})
   const [dragging,setDragging]=useState(false),[intakeNote,setIntakeNote]=useState('')
+  const provider=connected?s.currentProvider:s.connectionProvider
+  const worker=nativeInventoryWorker(s.session?.state,s.state.worker)
+  const connectError=nativeConnectFailureCopy({
+    locale, login:provider?.login, notices:s.state.notices, worker, attempted:connected, provider:provider?.provider,
+  })
   const onDrop=(e:React.DragEvent)=>{e.preventDefault();setDragging(false);setIntakeNote('')
     const files=[...e.dataTransfer.files]
     const text=e.dataTransfer.getData('text/uri-list')||e.dataTransfer.getData('text/plain')
@@ -52,7 +58,10 @@ export function ChatPage({projects}:{projects:Project[]}) {
     </div>}
     <div className="native-chat-host min-h-0 flex-1">
       {!connected||s.streamMatchesSelection?<NativeConversation active={activeNav==='chat'&&conversationVisible} state={connected?s.state:empty} locale={locale} onAnswer={s.respond} draft={s.draft} onDraftChange={s.setDraft}
-        disabled={s.busy} sendDisabled={s.busy||(connected?!['ready','closed','disconnected'].includes(s.state.worker)||Boolean(s.session?.archived)||Boolean(s.streamError):!s.profileId)}
+        disabled={s.busy} clearDraftOnSend={false}
+        sendDisabled={s.busy||(connected?!['ready','closed','disconnected'].includes(worker||'')||Boolean(s.session?.archived)||Boolean(s.streamError):!s.profileId)}
+        sendDisabledReason={nativeUnsignedHint(locale,provider?.login,provider?.provider)||undefined}
+        error={s.error||connectError}
         onSend={connected?s.send:s.startAndSend} onInterrupt={connected?s.interrupt:undefined}
         emptyState={projectId?<div className="grid h-full place-content-center px-6" data-xgc-role="writing-empty" data-xgc-id={projectId}>
           <div className="w-full max-w-xl">
