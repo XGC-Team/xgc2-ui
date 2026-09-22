@@ -14,7 +14,7 @@ import { readPreference, writePreference } from './lib/storage'
 import { CommandPalette } from './components/CommandPalette'
 import { NAV_ITEMS, useWorkbench, type NavId } from './store'
 import { researchProjects } from './features/workbench/writing-session'
-import { collection, post, listWorkspaces, type Project } from './lib/api'
+import { collection, listWorkspaces, type Project } from './lib/api'
 import { AgentSessionProvider, useNativeAgentSession } from './features/chat/Session'
 import { ChatPage } from './features/chat/ChatPage'
 import { WorkflowPage } from './features/workflow/WorkflowPage'
@@ -42,10 +42,7 @@ function Workbench(){
  useEffect(()=>{const c=new AbortController();setLoading(true);setError('')
    void (async()=>{
      const [spaces,records]=await Promise.all([listWorkspaces(c.signal),collection<Project&{projectId?:string}>('/research/projects',c.signal)])
-     const mapped=researchProjects(spaces,records)
-     setProjects(mapped)
-     // Only the two open manuscripts get a project record. Do not register or rewrite the others.
-     for(const p of mapped){if(c.signal.aborted)return;if(!records.some(r=>(r.projectId||r.id)===p.id))await post('/research/projects',{schemaVersion:'xgc.research.protocol/v1',projectId:p.id,slug:p.id,title:p.title,summary:'',createdBy:'researcher',createdAt:new Date().toISOString()})}
+     setProjects(researchProjects(spaces,records))
    })().catch(e=>{if(!c.signal.aborted)setError(e.message)}).finally(()=>{if(!c.signal.aborted)setLoading(false)});return()=>c.abort()
  },[reload])
  useEffect(()=>{const refresh=()=>setReload(n=>n+1);window.addEventListener('focus',refresh);const timer=setInterval(refresh,30000);return()=>{clearInterval(timer);window.removeEventListener('focus',refresh)}},[])
@@ -55,7 +52,6 @@ function Workbench(){
  const quote=useCallback((text:string,targetProject?:string)=>{native.appendDraft(text,targetProject);if(targetProject!==undefined&&targetProject!==projectId)enterWritingProject(targetProject);setActiveNav('chat')},[native,projectId,enterWritingProject,setActiveNav])
  const openSession=useCallback((id:string)=>void native.operation(async()=>{await native.openSession(id);setActiveNav('chat')}),[native,setActiveNav])
  const refreshProjects=useCallback(()=>setReload(n=>n+1),[])
- const expandRight=useCallback(()=>setSizes(s=>({...s,right:s.right>PANEL.right.max?PANEL.right.default:Math.min(960,window.innerWidth-528)})),[])
  const openBottom=useCallback(()=>setBottom(true),[]),closeBottom=useCallback(()=>setBottom(false),[])
  /* 拖拽尺寸按帧合流：pointermove 增量累积，每帧最多一次 setSizes */
  const acc=useRef({left:0,right:0,bottom:0}),frame=useRef(0)
@@ -99,7 +95,7 @@ function Workbench(){
    </main>
    {materials&&<ResizeHandle orientation="v" onDraggingChange={setDragging} onDelta={delta=>queueResize('right',-delta)}/>}
    <motion.aside initial={false} animate={{width:materials?sizes.right:0}} transition={panelMotion} className="shrink-0 overflow-hidden">
-    <div className="flex h-full flex-col bg-panel" style={{width:sizes.right}}><BrowserPanelM onQuote={quote} onExpand={expandRight}/></div>
+    <div className="flex h-full flex-col bg-panel" style={{width:sizes.right}}><BrowserPanelM onQuote={quote}/></div>
    </motion.aside>
   </div>
   <CommandPalette/><MarkPromptDock page={`${activeNav}${projectId&&projectView?' / '+projectId:''}`}/>

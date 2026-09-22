@@ -5,7 +5,7 @@ import { DraftsPage } from '../features/projects/DraftsPage'
 import { fileTargetLocation } from '../features/projects/project-object-model'
 import {t as tr} from '../i18n'
 import { useEffect,useRef,useState } from 'react'
-import { ArrowLeft, ArrowRight, BookOpen, Expand, FileText, Folder, Globe, Plus, RotateCw, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, BookOpen, FileText, Folder, Globe, Plus, RotateCw, X } from 'lucide-react'
 import { Button, IconBtn, RightMore } from './ui'
 import { FilesPage } from '../features/resources/FilesPage'
 import { DocumentPanel } from './DocumentPanel'
@@ -52,7 +52,7 @@ function NewTabMenu({onNew}:{onNew:(kind:'web'|'file'|'note')=>void}) {
 
 /* ---------- 右栏：标签页宿主。标签 = 打开的网页/文件/PDF/笔记，统一显示语义 ---------- */
 const KIND_ICON:Record<RightTab['kind'],typeof Globe>={web:Globe,file:Folder,pdf:FileText,note:BookOpen,drafts:FileText,reviews:FileText}
-export function BrowserPanel({onQuote,onExpand}:{onQuote:(text:string,targetProject?:string)=>void;onExpand:()=>void}) {
+export function BrowserPanel({onQuote}:{onQuote:(text:string,targetProject?:string)=>void}) {
  const {rightTabs:tabs,activeRightTab:active,activateRightTab:activate,closeRightTab:close,openRightTab:open,updateRightTab:update,projectId,openPDF}=useWorkbench()
  const preview=useProjectPreview(projectId)
  const openedFor=useRef('')
@@ -88,13 +88,13 @@ export function BrowserPanel({onQuote,onExpand}:{onQuote:(text:string,targetProj
     })}
    </div>
    <NewTabMenu onNew={kind=>open({kind})}/>
-   <IconBtn icon={Expand} label={tr("展开或还原浏览器宽度")} onClick={onExpand}/>
+   <div id="right-panel-tab-actions" className="flex shrink-0 items-center gap-1"/>
   </div>
   <div className="relative min-h-0 flex-1">
    {tabs.map(tab=><div key={tab.id} className="rtab-panel" hidden={tab.id!==active}>
     {tab.kind==='web'&&<WebTab url={tab.url} report={title=>update(tab.id,{title})}/>}
     {tab.kind==='file'&&<FilesPage target={tab.target} active={tab.id===active} onQuote={onQuote} onTitle={title=>update(tab.id,{title})}/>}
-    {tab.kind==='pdf'&&<ReadingBridge fill active={tab.id===active} projectId={tab.pdf.workspace} projectWorkspace={tab.pdf.workspace} source={{id:'pdf-reader',workspace:tab.pdf.workspace,path:tab.pdf.path,digest:tab.pdf.digest,buildId:tab.pdf.buildId}}><ManuscriptPreview key={`${tab.pdf.workspace}:${tab.pdf.path}`} pdf={tab.pdf} followCurrent={tab.id===followingTab} onPDF={pdf=>update(tab.id,{pdf,title:pdf.path.split('/').pop()||'PDF'})} onQuote={onQuote} onTitle={title=>update(tab.id,{title})}/></ReadingBridge>}
+    {tab.kind==='pdf'&&<ReadingBridge fill active={tab.id===active} projectId={tab.pdf.workspace} projectWorkspace={tab.pdf.workspace} source={{id:'pdf-reader',workspace:tab.pdf.workspace,path:tab.pdf.path,digest:tab.pdf.digest,buildId:tab.pdf.buildId}}><ManuscriptPreview key={`${tab.pdf.workspace}:${tab.pdf.path}`} pdf={tab.pdf} active={tab.id===active} followCurrent={tab.id===followingTab} onPDF={pdf=>update(tab.id,{pdf,title:pdf.path.split('/').pop()||'PDF'})} onQuote={onQuote} onTitle={title=>update(tab.id,{title})}/></ReadingBridge>}
     {tab.kind==='reviews'&&<ReviewPanel scope={tab.scope} tabId={tab.id} onTitle={title=>update(tab.id,{title})}/>}
     {tab.kind==='drafts'&&<WriteBoundary workspace={tab.scope.workspace} path="research-drafts.json"><DraftsPage scope={tab.scope} tabId={tab.id} onQuote={onQuote} onTitle={title=>update(tab.id,{title})}/></WriteBoundary>}
     {tab.kind==='note'&&<DocumentPanel active={tab.id===active} doc={tab.doc} onQuote={onQuote} onTitle={title=>update(tab.id,{title})}/>}

@@ -29,18 +29,13 @@ beforeEach(() => {
 })
 
 describe('writing project discovery', () => {
-  it('opens only the homogeneous and heterogeneous manuscripts', () => {
+  it('lists projects added through the API and ignores workspaces that were not added', () => {
     expect(researchProjects(
-      [
-        { workspaceId: 'paper-homo-dmpc' },
-        { workspaceId: 'paper-hetero-dmpc' },
-        { workspaceId: 'paper-comm-dmpc' },
-        { workspaceId: 'academic' },
-      ],
-      [{ projectId: 'paper-fifo-dmpc', title: 'fifo' }, { id: 'notes-extra', title: 'Field notes' }],
+      [{ workspaceId: 'paper-unregistered' }, { workspaceId: 'academic' }],
+      [{ projectId: 'paper-added', title: 'paper-added' }, { id: 'notes-extra', title: 'Field notes' }],
     )).toEqual([
-      { id: 'paper-homo-dmpc', title: '同构' },
-      { id: 'paper-hetero-dmpc', title: '异构' },
+      { id: 'notes-extra', title: 'Field notes' },
+      { id: 'paper-added', title: 'paper-added' },
     ])
   })
 })

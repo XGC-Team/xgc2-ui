@@ -52,23 +52,18 @@ export function rememberRecentProject(projectId: string): string[] {
 
 export type ProjectRecord = { id?: string; projectId?: string; title?: string }
 
-/** The left project list opens only these two manuscripts. Other paper workspaces stay untouched. */
-export const OPEN_MANUSCRIPTS = [
-  { id: 'paper-homo-dmpc', title: '同构' },
-  { id: 'paper-hetero-dmpc', title: '异构' },
-] as const
-
+/** Projects the operator added through the public project API. Workspaces are not opened by name. */
 export function researchProjects(
-  spaces: readonly { workspaceId: string }[],
+  _spaces: readonly { workspaceId: string }[],
   records: readonly ProjectRecord[],
 ): { id: string; title: string }[] {
-  const present = new Set<string>()
-  for (const space of spaces) present.add(space.workspaceId)
+  const projects = new Map<string, string>()
   for (const record of records) {
-    const id = record.projectId || record.id
-    if (id?.trim()) present.add(id)
+    const id = (record.projectId || record.id || '').trim()
+    if (!id) continue
+    projects.set(id, record.title?.trim() || id)
   }
-  return OPEN_MANUSCRIPTS.filter(item => present.has(item.id)).map(item => ({ id: item.id, title: item.title }))
+  return [...projects.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([id, title]) => ({ id, title }))
 }
 
 /** The current preview is the newest successful PDF of that entry.

@@ -348,17 +348,18 @@ await scenario('R11 zh/en locales render translated surfaces', async () => {
     } finally { await browser.close() }
   }
 })
-// R12: narrow viewport disables split with an explicit reason; surfaces stay usable.
-await scenario('R12 narrow viewport disables split with reason, canvas usable', async () => {
+// R12: the middle column switches surfaces by tab. A narrow viewport does not open a second column.
+await scenario('R12 middle column uses tabs instead of a nested split', async () => {
   const { browser, page, errors } = await launch({ viewport: { width: 900, height: 800 } })
   try {
     await page.goto(url)
     await page.locator(`[data-project-objects="${project}"] [data-project-object="canvas"]`).click()
-    const layout = page.locator('.research-workspace__toolbar [role="group"]')
-    const split = layout.getByRole('button', { name: 'Split', exact: true })
-    assert.equal(await split.isDisabled(), true)
-    assert.equal(await split.getAttribute('title'), 'Not enough workspace width. Collapse a side panel to use split view.')
+    const layout = page.locator('[data-xgc-role="research-middle-tabs"] [role="tablist"]')
+    await layout.getByRole('tab', { name: 'Research canvas', exact: true }).waitFor()
     await page.locator(`[data-canvas-project="${project}"]`).waitFor()
+    await layout.getByRole('tab', { name: 'Chat', exact: true }).click()
+    await page.locator('.native-chat-host').waitFor()
+    assert.equal(await page.locator('.research-workspace__toolbar').count(), 0)
     assert.deepEqual(errors, [])
   } finally { await browser.close() }
 })

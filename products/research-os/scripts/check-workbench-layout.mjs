@@ -14,7 +14,7 @@ try{
  assert.ok(Math.abs((await scroll.evaluate(el=>el.scrollTop))-before)<80,'Returning to chat should preserve the reading position')
  await page.getByRole('button',{name:'切换主题',exact:true}).click()
  await page.getByRole('tab',{name:'PDF',exact:true}).click();await page.locator('.research-pdf-text span').first().waitFor({timeout:15000});assert.ok((await page.locator('.research-pdf-text').innerText()).replace(/\s+/g,' ').includes('cannot establish the population distribution'))
- await page.getByRole('button',{name:'展开或还原右栏宽度',exact:true}).click();await page.waitForTimeout(500);const width=await page.locator('main').evaluate(el=>el.clientWidth);assert.ok(width>=479)
+ const width=await page.locator('main').evaluate(el=>el.clientWidth);assert.ok(width>=479)
  await page.screenshot({path:'artifacts/paper-temp-20260908/workbench-fixed.png'})
  assert.equal(await page.getByRole('region',{name:'下栏'}).evaluate(el=>el.getBoundingClientRect().height),40)
  await page.getByRole('tab',{name:'终端',exact:true}).click();await page.getByRole('button',{name:'打开终端',exact:true}).waitFor();await page.getByRole('button',{name:'收起下栏',exact:true}).click()

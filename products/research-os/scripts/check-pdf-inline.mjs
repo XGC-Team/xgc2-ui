@@ -10,7 +10,7 @@ try{
  const toolbar=await page.locator('[data-right-toolbar]').boundingBox(),viewport=await page.locator('[data-xgc-role="pdf-viewport"]').boundingBox();assert.ok(Math.abs(viewport.y-toolbar.y-toolbar.height)<2)
  assert.equal(await page.locator('[data-xgc-role="pdf-annotation-comment"]').count(),0)
  await page.locator('[data-xgc-role="chat-connection-status"]').click();await page.getByText('服务曾停止或重启，会话需要恢复；历史消息已保留。',{exact:true}).waitFor();await page.keyboard.press('Escape');assert.equal(await page.locator('section[aria-label="聊天"] .ui-error').count(),0)
- await page.getByRole('button',{name:'展开或还原右栏宽度',exact:true}).click();await page.waitForTimeout(800)
+
  const selected=await page.locator('.research-pdf-text').evaluate(el=>{const span=Array.from(el.querySelectorAll('span')).find(s=>s.textContent.includes('This file'));if(!span)throw Error('Text missing');const range=document.createRange();range.selectNodeContents(span);const selection=window.getSelection();selection.removeAllRanges();selection.addRange(range);return span.textContent})
  if(!await page.locator('[data-xgc-role="pdf-annotation-mark"][title="请明确说明：三个样本不足以推断总体分布。"]').count()){
  await page.locator('[data-xgc-role="pdf-page"]').dispatchEvent('mouseup')

@@ -1,11 +1,9 @@
 import {t as tr} from '../../i18n'
 import { useEffect, useState } from 'react'
-import { Moon, Sun } from 'lucide-react'
 import { AgentProviderSettings, type AgentSettings } from '@xgc2/agent-runtime/react'
 import { nativeClient } from './client'
 import { useNativeAgentSession } from './Session'
 import { useWorkbench } from '../../store'
-import { Tabs } from '../../components/ui'
 /* 设置页：编辑排版——衬线页题 + 小节规线 + 行内标签左/控件右（28px 同轨），分隔用发丝线不用卡 */
 function Section({title,children}:{title:string;children:React.ReactNode}){
  return <section aria-label={title} className="mb-10">
@@ -30,7 +28,7 @@ export function SettingsPage(){
   </header>
   {error&&<p role="alert" className="ui-error mb-6">{error}</p>}
   <Section title={tr("外观")}>
-   <Row label={tr("主题")}><Tabs id="界面主题" variant="pill" className="ui-tabs-fill w-56" tabs={[{id:'light',label:tr("浅色"),icon:<Sun size={13} strokeWidth={1.75}/>},{id:'dark',label:tr("深色"),icon:<Moon size={13} strokeWidth={1.75}/>}]} active={theme} onChange={id=>{if(id!==theme)toggleTheme()}}/></Row>
+   <Row label={tr("主题")}><select aria-label={tr("主题")} className="ui-select-compact w-56" value={theme} onChange={e=>{const next=e.target.value;if((next==='light'||next==='dark')&&next!==theme)toggleTheme()}}><option value="light">{tr("浅色")}</option><option value="dark">{tr("深色")}</option></select></Row>
    <Row label={tr("界面语言")}><select aria-label={tr("界面语言")} className="ui-select-compact w-56" value={locale} onChange={e=>setLocale(e.target.value as 'zh'|'en')}><option value="zh">简体中文</option><option value="en">English</option></select></Row>
   </Section>
   <Section title={tr("供应者")}>

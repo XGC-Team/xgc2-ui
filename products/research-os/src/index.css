@@ -335,6 +335,29 @@ body {
 .ui-control-md { height: var(--size-control-md); padding-inline: 12px; font-size: var(--type-body); }
 .ui-icon-control { width: var(--size-control-sm); height: var(--size-control-sm); }
 button:disabled { cursor: default; opacity: .45; }
+/* 供应者保存/放弃。聊天作用域把 --accent 收成悬停洗色，实底要用 --ink，否则浅字沉进纸色。未改动时不要整颗淡化。 */
+[data-xgc-role="agent-provider-save"],
+[data-xgc-role="agent-provider-discard"] { opacity: 1; }
+[data-xgc-role="agent-provider-save"] {
+  background: var(--ink);
+  color: var(--accent-fg);
+  border-color: transparent;
+}
+[data-xgc-role="agent-provider-save"]:disabled {
+  opacity: 1;
+  background: var(--bg-elevated);
+  color: var(--ink);
+  border-color: var(--line-strong);
+}
+[data-xgc-role="agent-provider-discard"] {
+  background: transparent;
+  color: var(--ink);
+  border-color: transparent;
+}
+[data-xgc-role="agent-provider-discard"]:disabled {
+  opacity: 1;
+  color: var(--ink-2);
+}
 button[aria-busy="true"]:disabled { opacity: .8; }
 :where(button, input, textarea, select, [tabindex]):focus-visible {
   outline: 2px solid var(--accent); outline-offset: -2px;
@@ -362,8 +385,6 @@ button[aria-busy="true"]:disabled { opacity: .8; }
   transition: transform var(--duration-base) var(--ease-standard), width var(--duration-base) var(--ease-standard);
 }
 .ui-tabs-pill { padding-block: 3px; }
-/* fill 变体：tab 均分容器宽（设置页等定宽控制列用），默认实例不受影响 */
-.ui-tabs-fill .ui-tab { flex: 1 1 0; min-width: 0; }
 .ui-tabs-pill .ui-tab { height: var(--size-control-sm); font-size: var(--type-secondary); border-radius: var(--radius-control); }
 .ui-tabs-pill .ui-tab-indicator { top: 3px; bottom: 3px; height: auto; background: var(--active); border-radius: var(--radius-control); }
 .ui-inverse {

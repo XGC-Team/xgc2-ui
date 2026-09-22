@@ -154,8 +154,8 @@ try {
     return point
   }
   await canvas.getByRole('button', { name: 'Research canvas', exact: true }).click()
-  const layout = page.locator('.research-workspace__toolbar [role="group"]')
-  await layout.getByRole('button', { name: 'Canvas', exact: true }).click()
+  const layout = page.locator('[data-xgc-role="research-middle-tabs"] [role="tablist"]')
+  await layout.getByRole('tab', { name: 'Research canvas', exact: true }).click()
   const deselect = async () => {
     const r = await canvas.locator('[role="region"][aria-label="Research canvas"]').boundingBox()
     await page.mouse.click(r.x + 6, r.y + 6)
@@ -224,7 +224,7 @@ try {
   assert.equal(nodeA.evidence[0].digest, 'src-v1')
   assert.equal(nodeA.evidence[1].digest, undefined)
   // Context: add the card to the visible Chat context; check and insert — never send.
-  await layout.getByRole('button', { name: 'Split', exact: true }).click()
+  await layout.getByRole('tab', { name: 'Chat', exact: true }).click()
   await inspector.getByRole('button', { name: 'Add to Chat context', exact: true }).click()
   const contextPanel = page.locator(`[data-context-panel="${project}"]`)
   await contextPanel.locator('summary').click()

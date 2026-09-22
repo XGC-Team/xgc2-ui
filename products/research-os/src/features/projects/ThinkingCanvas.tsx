@@ -15,7 +15,7 @@ import {OutlinePanel} from './OutlinePanel'
 import {openResearchSource} from './research-navigation'
 import {newContextItem} from './context-model'
 import {
-  CANVAS_PATH,PRIMARY_OUTLINE,SEMANTIC_RELATIONS,WRITING_FIELDS,addCanvasEdge,addNodeEvidence,canvasSentenceLines,canvasToPrompt,designCardBox,designLayoutOverlaps,emptyCanvasV2,isCanvasSentence,layoutDesignCanvas,
+  CANVAS_PATH,PRIMARY_OUTLINE,SEMANTIC_RELATIONS,WRITING_FIELDS,addCanvasEdge,addNodeEvidence,canvasSentenceLines,canvasToPrompt,designCardBox,emptyCanvasV2,isCanvasSentence,layoutDesignCanvas,
   newCanvasEvidence,removeCanvasNode,removeNodeBinding,removeNodeEvidence,setEdgeRelation,setNodeWriting,
   type CanvasNodeV2,type SemanticRelation,type ThinkingCanvasV2,type WritingField,
 } from './canvas-model'
@@ -60,19 +60,24 @@ export function ThinkingCanvas({project,active=true,onRequestConversation}:{proj
  },[documentState.value,mutate])
  const undo=useCallback(()=>{const prev=past.current.pop();const current=documentState.value;if(!prev||!current)return;future.current.push(current);setHistoryVersion(v=>v+1);mutate(()=>prev)},[documentState.value,mutate])
  const redo=useCallback(()=>{const next=future.current.pop();const current=documentState.value;if(!next||!current)return;past.current.push(current);setHistoryVersion(v=>v+1);mutate(()=>next)},[documentState.value,mutate])
+ const frameOf=useCallback((nodes:CanvasNodeV2[])=>{
+  const framed=nodes.filter(n=>!isCanvasSentence(n.id))
+  if(!framed.length)return {x:0,y:0,k:1}
+  const r=box.current?.getBoundingClientRect()
+  const boxes=framed.map(n=>({...designCardBox(n),x:n.x,y:n.y}))
+  const left=Math.min(...boxes.map(n=>n.x)),top=Math.min(...boxes.map(n=>n.y))
+  const w=Math.max(...boxes.map(n=>n.x+n.width))-left,h=Math.max(...boxes.map(n=>n.y+n.height))-top
+  const viewW=r?.width||800,viewH=r?.height||600
+  const k=Math.min(1.05,(viewW-64)/Math.max(w,1),(viewH-64)/Math.max(h,1))
+  return {k,x:32-left*k,y:32-top*k}
+ },[])
  /* Fit only after a successful load. Saves and local edits must not reset the camera. */
  useEffect(()=>{
   const parsed=documentState.value
   if(!parsed){fitted.current=false;setSel(null);setPicker(null);drag.current=null;setTempEdge(null);return}
   if(fitted.current)return;fitted.current=true
-  const framed=parsed.nodes.filter(n=>!isCanvasSentence(n.id))
-  if(framed.length){const r=box.current?.getBoundingClientRect();const boxes=framed.map(n=>({...designCardBox(n),x:n.x,y:n.y}))
-   const left=Math.min(...boxes.map(n=>n.x)),top=Math.min(...boxes.map(n=>n.y))
-   const w=Math.max(...boxes.map(n=>n.x+n.width))-left,h=Math.max(...boxes.map(n=>n.y+n.height))-top
-   const viewW=r?.width??800
-   const k=Math.min(1.05,Math.max(0.9,(viewW-64)/Math.max(w,1)))
-   setCam({k,x:32-left*k,y:32-top*k})}
- },[documentState.value])
+  setCam(frameOf(parsed.nodes))
+ },[documentState.value,frameOf])
  const toWorld=useCallback((cx:number,cy:number)=>{const r=box.current!.getBoundingClientRect();return{x:(cx-r.left-cam.x)/cam.k,y:(cy-r.top-cam.y)/cam.k}},[cam])
  /* 指针：背景平移 / 节点拖动（只改视觉位置）/ 拉边 */
  const onPointerDown=(e:React.PointerEvent)=>{if(e.target===e.currentTarget||(e.target as HTMLElement).dataset.world){box.current?.focus({preventScroll:true});drag.current={mode:'pan',sx:e.clientX,sy:e.clientY,cam};(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);setSel(null)}}
@@ -108,18 +113,13 @@ export function ThinkingCanvas({project,active=true,onRequestConversation}:{proj
   if(!current){arranged.current='';return}
   if(arranged.current===project)return
   arranged.current=project
-  if(!designLayoutOverlaps(current))return
+  const laid=layoutDesignCanvas(current)
+  const moved=laid.nodes.some((node,index)=>node.x!==current.nodes[index].x||node.y!==current.nodes[index].y)
+  if(!moved)return
   fitted.current=false
-  mutate(layoutDesignCanvas)
+  mutate(()=>laid)
  },[documentState.value,project,mutate])
- const fitCanvas=()=>{const r=box.current?.getBoundingClientRect();if(!r?.width||!r.height)return
-  const framed=canvas.nodes.filter(n=>!isCanvasSentence(n.id))
-  if(!framed.length){setCam({x:0,y:0,k:1});return}
-  const boxes=framed.map(n=>({...designCardBox(n),x:n.x,y:n.y}))
-  const left=Math.min(...boxes.map(n=>n.x)),top=Math.min(...boxes.map(n=>n.y))
-  const w=Math.max(...boxes.map(n=>n.x+n.width))-left,h=Math.max(...boxes.map(n=>n.y+n.height))-top
-  const k=Math.min(1.05,Math.max(0.9,(r.width-64)/Math.max(w,1)))
-  setCam({k,x:32-left*k,y:32-top*k})}
+ const fitCanvas=()=>{setCam(frameOf(canvas.nodes))}
  const locateOnCanvas=useCallback((id:string)=>{const n=nodeById.get(id);if(!n)return;setView('canvas');setSel({kind:'node',id})
   const r=box.current?.getBoundingClientRect();if(!r)return
   const size=designCardBox(n)
