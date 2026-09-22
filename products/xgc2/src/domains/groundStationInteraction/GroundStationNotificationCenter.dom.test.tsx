@@ -97,7 +97,7 @@ describe('global interaction attention', () => {
     const surface = (open: boolean) => <GroundStationNotificationCenter targetId="local" open={open}
       onOpenNativeSource={openSource} />;
     const view = render(surface(true));
-    const entrySelector = '[data-xgc-role="ground-station-native-notification"][data-xgc-id="session-a:request-a"]';
+    const entrySelector = '[data-xgc-role="ground-station-agent-notification"][data-xgc-id="session-a:request-a"]';
     const entry = () => {
       const element = document.querySelector<HTMLElement>(entrySelector);
       if (!element) throw new Error('The unresolved native request must remain reachable.');

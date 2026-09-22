@@ -78,22 +78,22 @@ export function useAgentConversationAttention(executionTargetId:string,bindings:
 
 function decodeAttention(value:unknown): Omit<Snapshot,'receivedAt'> {
   const object = (value:unknown): Record<string,unknown> => {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Invalid native attention response.');
+    if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Invalid attention response.');
     return value as Record<string,unknown>;
   };
   const safe = (value:unknown):string => {
-    if (typeof value !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,95}$/.test(value)) throw new Error('Invalid native attention identity.');
+    if (typeof value !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,95}$/.test(value)) throw new Error('Invalid attention identity.');
     return value;
   };
   const data = object(object(value).data);
-  if (!Array.isArray(data.sessions) || data.sessions.length > 128 || typeof data.revision !== 'string') throw new Error('Invalid native attention inventory.');
+  if (!Array.isArray(data.sessions) || data.sessions.length > 128 || typeof data.revision !== 'string') throw new Error('Invalid attention inventory.');
   const sessions = data.sessions.map(raw => {
     const session = object(raw), context = object(session.context);
     if (context.kind !== 'experiment' || !Number.isSafeInteger(session.lastSeq) || (session.lastSeq as number) < 0 || !Array.isArray(session.pending) || session.pending.length > 16) throw new Error('Invalid experiment attention scope.');
     return {sessionId:safe(session.sessionId),experimentId:safe(context.id),lastSeq:session.lastSeq as number,pending:session.pending.map(raw => {
       const input = object(raw);
       if (!['permission','question','plan'].includes(input.kind as string) || typeof input.title !== 'string' || input.title.length > 4096 || typeof input.submitted !== 'boolean'
-        || input.createdAt !== undefined && typeof input.createdAt !== 'string') throw new Error('Invalid native attention request.');
+        || input.createdAt !== undefined && typeof input.createdAt !== 'string') throw new Error('Invalid attention request.');
       return {id:safe(input.id),kind:input.kind as AgentRequest['kind'],title:input.title,submitted:input.submitted,createdAt:input.createdAt as string | undefined};
     })};
   });

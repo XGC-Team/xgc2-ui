@@ -81,10 +81,10 @@ export function GroundStationNotificationCenter({ targetId,open: controlledOpen,
 
   function renderNativeItem(item: GroundStationNativeAttentionItem) {
     return <article key={item.id} className="xgc-ground-station-notification-entry"
-      data-xgc-role="ground-station-native-notification" data-xgc-id={item.id}>
+      data-xgc-role="ground-station-agent-notification" data-xgc-id={item.id}>
       <div className="xgc-ground-station-notification-meta"><span>{t('Local AI')}</span></div>
       {item.summaryOnly ? <DecisionCard identity={item.id} title={item.request.title} state={item.submitted ? 'submitted' : 'pending'}
-        actions={<ControlButton dataXgcRole="ground-station-native-review" dataXgcId={item.id} onClick={() => {
+        actions={<ControlButton dataXgcRole="ground-station-agent-review" dataXgcId={item.id} onClick={() => {
           setSourceError(undefined);
           void native.readInputs?.(item.experimentId,item.sessionId).catch((cause:unknown) => setSourceError({id:item.id,message:cause instanceof Error ? cause.message : t('Notification source is unavailable')}));
         }}>{t('Review request')}</ControlButton>} /> : <AgentInput request={item.request} sessionId={item.sessionId} submitted={item.submitted}
@@ -92,7 +92,7 @@ export function GroundStationNotificationCenter({ targetId,open: controlledOpen,
             source={{kind:'native',sessionId:item.sessionId,requestId}} />}
         locale={language === 'zh-CN' ? 'zh' : 'en'} onAnswer={(answer) => native.answer(item,answer)} />}
       {onOpenNativeSource && <div className="xgc-ground-station-notification-actions">
-        <ControlButton size="compact" dataXgcRole="ground-station-native-notification-source" dataXgcId={item.id}
+        <ControlButton size="compact" dataXgcRole="ground-station-agent-notification-source" dataXgcId={item.id}
           onClick={() => {
             setSourceError(undefined);
             void (async () => {

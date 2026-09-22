@@ -14,8 +14,8 @@ export const contextCopy = {
   },
   en: {
     title: 'Chat context', addHint: 'Add from the canvas or research objects. Adding to context is not sending.',
-    uiProject: 'UI project', sessionScope: 'Session scope', noSession: 'No native session connected; checked against the UI project without creating a session.',
-    scopeMismatch: 'UI project and session scope differ. Switching the UI project does not switch the native session.',
+    uiProject: 'UI project', sessionScope: 'Session scope', noSession: 'No session connected; checked against the UI project without creating a session.',
+    scopeMismatch: 'UI project and session scope differ. Switching the UI project does not switch the session.',
     locate: 'Locate original', refresh: 'Refresh', remove: 'Remove', adopt: 'Adopt new revision', keepStale: 'Keep old snapshot (labeled)',
     checkSend: 'Pre-send check', insert: 'Insert context manifest into draft', inserted: 'Inserted into the draft; still not sent.',
     notSent: 'The manifest only enters the draft and is never auto-sent.', refreshFailed: 'Refresh failed; the reference is unchanged.',

@@ -8,7 +8,7 @@ function nativePath(input: RequestInfo | URL) {
   const experiment = /^\/api\/experiments\/[A-Za-z0-9._-]+\/native-agents(?:\/|$)/.test(url.pathname);
   const settings = /^\/api\/native-agents\/settings(?:\/refresh)?$/.test(url.pathname) && !url.search;
   if (url.origin !== window.location.origin || (!experiment && !settings)) {
-    throw new Error('Native Agent transport requires this station and an exact Experiment or provider settings resource.');
+    throw new Error('This request must stay on this station and use an exact Experiment or provider settings resource.');
   }
   return `${url.pathname}${url.search}`;
 }

@@ -40,10 +40,10 @@ export function useWritingReview(scope: Scope, review: Review, mapping: WritingM
     const live = latest.current
     check(alive.current && live.scope === key && live.native.projectId === scope.projectId, 'The project changed; this writing action cannot target the current conversation.')
     const current = live.native.requireCurrentSession()
-    check(!expectedSession || current.session.id === expectedSession, 'The native conversation changed before writing dispatch.')
-    check(belongsToResearchScope(current.session.scope, scope.projectId, scope.workspace, true), 'The native conversation belongs to another project/workspace.')
-    check(!current.session.archived && current.state.worker === 'ready' && !current.busy && !current.prompting.has(current.session.id), 'The native conversation is not ready. Resolve its existing permission/request or connection first.')
-    check(current.turnSelection.profileId === current.session.scope.profileId, 'Use the currently connected native provider.')
+    check(!expectedSession || current.session.id === expectedSession, 'The conversation changed before writing dispatch.')
+    check(belongsToResearchScope(current.session.scope, scope.projectId, scope.workspace, true), 'The conversation belongs to another project/workspace.')
+    check(!current.session.archived && current.state.worker === 'ready' && !current.busy && !current.prompting.has(current.session.id), 'The conversation is not ready. Resolve its existing permission, request, or connection first.')
+    check(current.turnSelection.profileId === current.session.scope.profileId, 'Use the currently connected provider.')
     return current
   }
   function sendBound(text: string, requestKey: string, sessionId: string): Promise<string> {

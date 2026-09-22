@@ -34,7 +34,7 @@ export function useGroundStationAgentBindings(executionTargetId: string,focusedE
   const createAttempts = useRef(new Map<string,{fingerprint:string; key:string}>());
   const promptAttempts = useRef(new Map<string,{fingerprint:string; key:string}>());
   const requireLocal = useCallback(() => {
-    if (current.current.executionTargetId !== 'local') throw new Error('Local native Agent is only available on the local execution target.');
+    if (current.current.executionTargetId !== 'local') throw new Error('The local client is only available on the local execution target.');
   },[]);
   const requiredBinding = useCallback((experimentId:string,sessionId = current.current.index.selected[experimentId]) => {
     const binding = current.current.index.bindings.find(item => item.sessionId === sessionId && item.experimentId === experimentId);
@@ -90,7 +90,7 @@ export function useGroundStationAgentBindings(executionTargetId: string,focusedE
   const answer = useCallback(async (item:GroundStationNativeAttentionItem,value:AgentAnswer) => {
     requireLocal();
     const pending = current.current.attention.items.find(input => input.id === item.id && input.experimentId === item.experimentId && input.sessionId === item.sessionId);
-    if (!pending || pending.summaryOnly || pending.submitted) throw new Error('This native input request is no longer available for a response.');
+    if (!pending || pending.summaryOnly || pending.submitted) throw new Error('This input request is no longer available for a response.');
     const result = await createGroundStationNativeClient(item.experimentId).answerNativeRequest(item.sessionId,item.request.id,value);
     await current.current.attention.readInputs(item.experimentId,item.sessionId);
     return result;

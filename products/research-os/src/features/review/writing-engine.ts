@@ -68,7 +68,7 @@ export function bindWritingReview(journal: Journal) {
     addDesignProposal: (request: DesignProposalRequest, completion: AgentWritingCompletion, expected: { sessionId: string; turnId: string }) => {
       const captured = structuredClone(request), result = structuredClone(completion)
       return journal.command(async () => {
-        check(scopeKey(captured.scope) === scopeKey(journal.scope) && result.sessionId === expected.sessionId && result.turnId === expected.turnId, 'Design response belongs to another project or native turn.')
+        check(scopeKey(captured.scope) === scopeKey(journal.scope) && result.sessionId === expected.sessionId && result.turnId === expected.turnId, 'Design response belongs to another project or turn.')
         const next = decodeDesignProposal(captured, result)
         validateProposal(next, journal.scope)
         const existing = journal.book().proposals.find(p => p.id === next.id)
@@ -106,7 +106,7 @@ export function bindWritingReview(journal: Journal) {
     }),
     dispatchWriting: (id: string, native: WritingNativePort) => journal.command(async () => {
       const sessionId = native.sessionId, send = native.send
-      check(/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/.test(sessionId) && writing(id).status === 'confirmed', 'Writing was already dispatched or has no current native session.')
+      check(/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/.test(sessionId) && writing(id).status === 'confirmed', 'Writing was already dispatched or has no current session.')
       return withDesign(id, async w => {
         await authorization(id, w); await assertSources(w); active(id)
         const execution = { sessionId, requestKey: w.confirmation!.id }
@@ -114,7 +114,7 @@ export function bindWritingReview(journal: Journal) {
         try {
           active(id)
           const turnId = await send(writingPrompt(id, w), execution.requestKey)
-          check(/^t_[a-f0-9]{32}$/.test(turnId), 'Native dispatch acknowledgement lacks a stable turn identity.')
+          check(/^t_[a-f0-9]{32}$/.test(turnId), 'Dispatch acknowledgement lacks a stable turn identity.')
           // Even a late acknowledgement belongs in its old journal. It never
           // redirects to the newly selected project or authorizes a target write.
           await update(id, { ...writing(id), execution: { ...execution, turnId } })
@@ -122,7 +122,7 @@ export function bindWritingReview(journal: Journal) {
         } catch (e) {
           if (!journal.auditUncertain()) {
             const refusal = [400, 401, 403, 404, 409, 412, 422].includes(status(e))
-            await update(id, { ...writing(id), status: refusal ? 'failed' : 'uncertain', detail: `Native dispatch not confirmed; do not resend automatically. ${describe(e)}` })
+            await update(id, { ...writing(id), status: refusal ? 'failed' : 'uncertain', detail: `Dispatch was not confirmed; do not resend automatically. ${describe(e)}` })
           }
           throw e
         }
@@ -132,14 +132,14 @@ export function bindWritingReview(journal: Journal) {
       const captured = structuredClone(completion)
       return journal.command(async () => {
         const w = writing(id)
-        check(captured.sessionId === w.execution?.sessionId && captured.turnId === w.execution?.turnId, 'Stale/foreign native writing completion.')
+        check(captured.sessionId === w.execution?.sessionId && captured.turnId === w.execution?.turnId, 'Stale or foreign writing completion.')
         if (stopped(id) || w.status === 'cancelled') return false
         if (w.resultDigest) {
           const decoded = await decodeWritingCompletion(id, w, captured)
-          check(decoded.resultDigest === w.resultDigest, 'Native turn returned conflicting results. Existing source operations were not replaced.')
+          check(decoded.resultDigest === w.resultDigest, 'The turn returned conflicting results. Existing source operations were not replaced.')
           return false
         }
-        check(w.status === 'running', 'Only the acknowledged native turn can supply a result; inspect interrupted/uncertain history explicitly.')
+        check(w.status === 'running', 'Only the acknowledged turn can supply a result; inspect interrupted or uncertain history explicitly.')
         try {
           return await withDesign(id, async current => {
             await authorization(id, current)
@@ -196,7 +196,7 @@ export function bindWritingReview(journal: Journal) {
       return (async () => {
         await journal.idle()
         await journal.command(async () => {
-          await update(id, { ...writing(id), status: 'cancelled', cancelled: cancellation, detail: 'Future review writes cancelled. Already dispatched native work/CAS may finish; no rollback is claimed.' })
+          await update(id, { ...writing(id), status: 'cancelled', cancelled: cancellation, detail: 'Future review writes cancelled. Already dispatched work may finish; no rollback is claimed.' })
         })
       })()
     },

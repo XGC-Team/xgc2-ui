@@ -33,7 +33,7 @@ export function useDesignWriting(scope: Scope, review: ReturnType<typeof useRevi
         requests.current.set(intent.id, request)
       }
       const sent = await writing.requestDesign(request)
-      check(sent.observing, 'The project or native conversation changed before discussion could be observed.')
+      check(sent.observing, 'The project or conversation changed before discussion could be observed.')
       if (alive.current) consumeReviewFeedback(intent.id)
     } catch (cause) { if (alive.current) setError(cause instanceof Error ? cause.message : String(cause)) }
     finally { pending.current = false; if (alive.current) setCapturing(false) }

@@ -7,16 +7,16 @@ import type { GroundStationNativeBinding } from './groundStationAgentTypes';
 export function useGroundStationAgentConversation(experimentId: string,binding?: GroundStationNativeBinding,options?:AgentTurnOptions) {
   const registry = useGroundStationNativeAgentRegistry();
   const send = useCallback((message: string) => {
-    if (!registry) return Promise.reject(new Error('The local native Agent registry is unavailable.'));
+    if (!registry) return Promise.reject(new Error('The local client is unavailable.'));
     return registry.send(experimentId,message,options);
   },[registry,experimentId,options]);
   const interrupt = useCallback(() => {
-    if (!registry) return Promise.reject(new Error('The local native Agent registry is unavailable.'));
+    if (!registry) return Promise.reject(new Error('The local client is unavailable.'));
     return registry.cancel(experimentId);
   },[registry,experimentId]);
   const answer = useCallback((requestId: string,value: AgentAnswer) => {
     const item = registry?.pendingInputs.find((pending) => pending.sessionId === binding?.sessionId && pending.request.id === requestId);
-    if (!registry || !item) return Promise.reject(new Error('This native input request is no longer pending.'));
+    if (!registry || !item) return Promise.reject(new Error('This input request is no longer pending.'));
     return registry.answer(item,value);
   },[registry,binding?.sessionId]);
   return {

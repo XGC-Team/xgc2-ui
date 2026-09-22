@@ -45,7 +45,7 @@ export function decodeGroundStationNativeCapabilities(value: unknown): GroundSta
   const envelope = record(value), data = record(envelope.data);
   if (typeof data.available !== 'boolean' || typeof data.detail !== 'string' || data.detail.length > 4096
     || data.executionTargetId !== 'local' || !Array.isArray(data.workspaces) || data.workspaces.length > 64) {
-    throw new Error('Invalid local native Agent capability response.');
+    throw new Error('Invalid capability response.');
   }
   const workspaces = data.workspaces.map((entry) => {
     const workspace = record(entry);
@@ -70,7 +70,7 @@ function decodeWorkspaceBinding(value:unknown):ExperimentWorkspaceBinding | null
 
 export function assertNativeExperimentSession(session: AgentSession,experimentId: string) {
   if (session.scope.context.kind !== 'experiment' || session.scope.context.id !== experimentId) {
-    throw new Error('The native session does not belong to this Experiment and local native Agent.');
+    throw new Error('This session does not belong to this Experiment.');
   }
   return session;
 }
@@ -80,7 +80,7 @@ function assertNativeExperimentId(experimentId: string) {
 }
 
 function record(value: unknown): Record<string,unknown> {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Invalid native Agent response.');
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Invalid response.');
   return value as Record<string,unknown>;
 }
 

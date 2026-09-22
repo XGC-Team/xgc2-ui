@@ -74,7 +74,7 @@ function AgentExperimentConversation({ experimentId,workspaceId,binding,entries,
   useGroundStationAgentStreamFocus(experimentId,active);
   useGroundStationVisibleReceipts(feedRef,[...chat.decisions,...chat.statuses,...chat.contexts],active,chat.targetId);
   if (!chat.enabled || !conversation.available) return null;
-  return <aside ref={feedRef} className="xgc-ground-station-chat-panel ground-station-native-chat"
+  return <aside ref={feedRef} className="xgc-ground-station-chat-panel ground-station-agent-chat"
     data-xgc-role="ground-station-chat-panel" data-xgc-id={chat.targetId} data-xgc-presentation="panel"
     aria-label={language === 'zh-CN' ? '地面站对话' : 'Ground station conversation'}
     onKeyDownCapture={suppressChatArrowKey}>

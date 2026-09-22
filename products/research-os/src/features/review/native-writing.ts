@@ -11,11 +11,11 @@ export function completedWritingTurn(state: StreamState, sessionId: string, turn
   const items = state.items.filter(item => item.turnId === turnId)
   const terminals = new Set(items.flatMap(item => item.turnStatus ? [item.turnStatus] : []))
   if (!terminals.size) return null
-  check(terminals.size === 1, 'Native turn has conflicting terminal facts. Reload the event record, not the write.')
+  check(terminals.size === 1, 'The turn has conflicting terminal facts. Reload the event record, not the write.')
   const status = [...terminals][0]
   if (status !== 'completed') return { sessionId, turnId, status, text: '', truncated: false }
   const assistants = items.filter(item => item.role === 'assistant' && item.text.trim() && !(item.details?.type === 'agentMessage' && item.details.phase === 'commentary'))
-  check(assistants.length === 1, 'The native turn must contain one complete structured final answer.')
+  check(assistants.length === 1, 'The turn must contain one complete structured final answer.')
   const answer = assistants[0]
   return { sessionId, turnId, status, text: answer.text, truncated: answer.truncated || answer.details?.truncated === true }
 }

@@ -16,7 +16,7 @@ describe('ground station remote dock host', () => {
   it('keeps conversation controls in panel chrome without another connection row', () => {
     expect(css).toContain('.ground-station-conversation-header-leading');
     expect(css).toContain('.ground-station-conversation-header-actions');
-    expect(css).not.toContain("ground-station-native-connection");
+    expect(css).not.toContain("ground-station-agent-connection");
     expect(css).not.toContain('ground-station-agent-composer-meta');
   });
 

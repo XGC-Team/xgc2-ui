@@ -1,5 +1,5 @@
 export const NATIVE_CONNECT_FAILED_NOTICE =
-  'Agent connection failed. Check the pinned CLI, native login and approved workspace; no provider fallback occurred.'
+  'Agent connection failed. Check the pinned CLI, sign-in, and the approved workspace. No provider fallback occurred.'
 
 export type AgentLoginStatus = { status?: string; detail?: string }
 
@@ -58,7 +58,7 @@ export function nativeConnectFailureCopy(input: {
     const name = nativeProviderLabel(input.provider)
     return input.locale === 'zh'
       ? `${name || '当前模型'} 未在本机登录，消息没有发出。请先在本机登录该客户端，或新建线程改用已登录的提供商。`
-      : `${name || 'This model'} is not signed in on the host, so the message was not sent. Sign in with the native client, or start a new thread with a signed-in provider.`
+      : `${name || 'This model'} is not signed in on the host, so the message was not sent. Sign in with that client, or start a new thread with a signed-in provider.`
   }
   return input.locale === 'zh'
     ? '连接失败。请检查本机客户端、登录和已批准的工作区。'

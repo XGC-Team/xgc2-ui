@@ -95,7 +95,7 @@ export function useGroundStationAgentConnection(experimentId: string,binding?: G
   useEffect(() => {
     if (error) initialization.resolve(error);
     else if (ready) initialization.resolve();
-    else if (capabilities && !capabilities.available) initialization.resolve(capabilities.detail || 'The local native Agent is unavailable.');
+    else if (capabilities && !capabilities.available) initialization.resolve(capabilities.detail || 'The local client is unavailable.');
   },[ready,error,capabilities,initialization]);
   useEffect(() => {
     initialization.mounted=true;
@@ -113,7 +113,7 @@ export function useGroundStationAgentConnection(experimentId: string,binding?: G
   const { model,effort,permission } = selection;
   const options = { model,effort,permission };
   const select = (value:AgentComposerSelection) => {
-    if (!canConnect && value.profileId !== selectedProfileId) throw new Error('Choose a model from the connected native provider.');
+    if (!canConnect && value.profileId !== selectedProfileId) throw new Error('Choose a model from the connected provider.');
     setProfileId(value.profileId);
     setDraft({key:canConnect ? `connect:${experimentId}:${value.profileId}` : selectionKey,value});
   };
@@ -143,8 +143,8 @@ export function useGroundStationAgentConnection(experimentId: string,binding?: G
     return workspaceBinding;
   };
   const create = async () => {
-    if (!registry) throw new Error('The local native Agent registry is unavailable.');
-    if (!profiles.some((profile) => profile.id === profileId)) throw new Error('Choose an available native provider.');
+    if (!registry) throw new Error('The local client is unavailable.');
+    if (!profiles.some((profile) => profile.id === profileId)) throw new Error('Choose an available provider.');
     const workspaceBinding = await adoptWorkspace();
     const workspace = capabilities?.workspaces.find((item) => item.id === workspaceBinding.workspace.id && item.revision === workspaceBinding.workspace.revision);
     if (!workspace) throw new Error('Choose an available experiment workspace.');
@@ -167,7 +167,7 @@ export function useGroundStationAgentConnection(experimentId: string,binding?: G
   };
   const send = async (message:string,onPrepared?:(sessionId:string)=>void) => {
     if (sending.current || busy) throw new Error('Wait for the current message to finish.');
-    if (!registry) throw new Error('The local native Agent registry is unavailable.');
+    if (!registry) throw new Error('The local client is unavailable.');
     sending.current = true; setBusy(true); setError('');
     try {
       const session = binding?.session ?? await create();
@@ -191,11 +191,11 @@ export function useGroundStationAgentConnection(experimentId: string,binding?: G
     }),
     providers:providers.filter((item) => canConnect || item.id === selectedProfileId),
     reconnect: () => operate(async () => {
-      if (!registry) throw new Error('The local native Agent registry is unavailable.');
+      if (!registry) throw new Error('The local client is unavailable.');
       return registry.reconnect(experimentId,controlled);
     }),
     recover: () => operate(async () => {
-      if (!registry) throw new Error('The local native Agent registry is unavailable.');
+      if (!registry) throw new Error('The local client is unavailable.');
       return registry.recover(experimentId);
     }),
     reload: () => registry?.reload(experimentId),

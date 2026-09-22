@@ -144,7 +144,7 @@ export function createReviewEngine(scope: Scope, port: ReviewPort, changed: (s: 
     }, true),
     add: (p: Proposal) => command(async () => {
       validateProposal(p, scope)
-      check(!p.writing, 'Use offerWriting; imported data cannot supply a confirmation or native receipt.')
+      check(!p.writing, 'Use offerWriting; imported data cannot supply a confirmation or receipt.')
       check(!p.promotion || (p.promotion.decision === 'pending' && !p.promotion.approvalDigest && !p.promotion.decidedBy && !p.promotion.decidedAt), 'Imported candidates cannot supply a knowledge approval.')
       check(!book!.proposals.some(existing => existing.id === p.id), 'Duplicate proposal.')
       await persist({ ...book!, proposals: [...book!.proposals, structuredClone(p)] })

@@ -122,7 +122,7 @@ describe('persistent experiment conversations',() => {
     await waitFor(()=>expect(screen.getByRole('textbox',{name:'Message the agent'})).toHaveTextContent(''));
     expect(screen.getByText('Read the current experiment status')).toBeVisible();
     expect(api.createNativeSession).not.toHaveBeenCalled();
-    expect(screen.queryByText('Choose an available native provider.')).toBeNull();
+    expect(screen.queryByText('Choose an available provider.')).toBeNull();
     await act(async()=>release());
     await waitFor(()=>expect(api.updateNativePromptQueue).toHaveBeenCalledTimes(1));
     expect(api.createNativeSession).toHaveBeenCalledTimes(1);
@@ -135,7 +135,7 @@ describe('persistent experiment conversations',() => {
     await screen.findByRole('button',{name:'Thinking effort'});
     expect(screen.getByRole('textbox',{name:'Message the agent'})).toBeVisible();
     expect(screen.queryByRole('button',{name:/connect/i})).toBeNull();
-    expect(document.querySelector('[data-xgc-role="ground-station-native-connection"]')).toBeNull();
+    expect(document.querySelector('[data-xgc-role="ground-station-agent-connection"]')).toBeNull();
     expect(screen.queryByText('Experiment workspace')).toBeNull();
     const header = screen.getByTestId('panel-header');
     const conversations = screen.getByRole('button',{name:'Conversations'});

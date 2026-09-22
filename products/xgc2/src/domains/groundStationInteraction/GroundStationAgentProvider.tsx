@@ -58,4 +58,4 @@ export function useGroundStationNativeAttention() {
   return {items:registry?.pendingInputs ?? [],answer:registry?.answer ?? unavailableAnswer,error:registry?.attentionError ?? '',readInputs:registry?.readInputs};
 }
 
-function unavailableAnswer() { return Promise.reject(new Error('The local native Agent registry is unavailable.')); }
+function unavailableAnswer() { return Promise.reject(new Error('The local client is unavailable.')); }

@@ -29,16 +29,16 @@ export function validateWritingSelection(value: unknown, scope: Scope): asserts 
 }
 
 export function validateWritingResult(value: unknown, proposalId: string, writing: WritingRecord): asserts value is WritingResult {
-  check(record(value), 'The native result must be one structured object.')
+  check(record(value), 'The result must be one structured object.')
   exactKeys(value, ['schema', 'proposalId', 'confirmationId', 'fingerprint', 'sources'])
-  check(value.schema === 'research-writing/result-v1' && value.proposalId === proposalId && value.confirmationId === writing.confirmation?.id && value.fingerprint === writing.confirmation?.fingerprint, 'The native response belongs to another confirmation.')
+  check(value.schema === 'research-writing/result-v1' && value.proposalId === proposalId && value.confirmationId === writing.confirmation?.id && value.fingerprint === writing.confirmation?.fingerprint, 'The response belongs to another confirmation.')
   check(Array.isArray(value.sources) && value.sources.length === writing.selection.sources.length, 'Every confirmed source needs an explicit result, including refusals.')
   const seen = new Set<string>()
   for (const result of value.sources) {
-    check(record(result) && identity(result.sourceId) && !seen.has(result.sourceId), 'Duplicate/invalid native source result.')
+    check(record(result) && identity(result.sourceId) && !seen.has(result.sourceId), 'Duplicate or invalid source result.')
     exactKeys(result, ['sourceId', 'status', 'reason', 'after']); seen.add(result.sourceId)
     const source = writing.selection.sources.find(s => s.id === result.sourceId)
-    check(source && ['replace', 'unchanged', 'refused'].includes(String(result.status)) && nonempty(result.reason), 'The native result exceeds the confirmed source scope.')
+    check(source && ['replace', 'unchanged', 'refused'].includes(String(result.status)) && nonempty(result.reason), 'The result exceeds the confirmed source scope.')
     if (result.status === 'replace') check(typeof result.after === 'string' && result.after.length <= MAX_TEXT && result.after !== source.anchor.quote, 'A replacement needs an actual local difference.')
     else check(result.after === undefined, 'Unchanged/refused results cannot carry an edit.')
   }
@@ -65,18 +65,18 @@ export function validateWritingRecord(value: unknown, scope: Scope, proposalId: 
   check(value.status === 'proposed' ? value.confirmation === undefined : ['cancelled', 'failed'].includes(String(value.status)) || value.confirmation !== undefined, 'Writing has no explicit confirmation.')
   if (value.execution !== undefined) {
     const e = value.execution
-    check(record(e) && identity(e.sessionId) && e.requestKey === (value.confirmation as WritingRecord['confirmation'])?.id && (e.turnId === undefined || /^t_[a-f0-9]{32}$/.test(String(e.turnId))), 'Invalid native writing identity.')
+    check(record(e) && identity(e.sessionId) && e.requestKey === (value.confirmation as WritingRecord['confirmation'])?.id && (e.turnId === undefined || /^t_[a-f0-9]{32}$/.test(String(e.turnId))), 'Invalid writing identity.')
   }
-  if (['running', 'ready', 'applying', 'settled', 'uncertain'].includes(String(value.status))) check(value.execution !== undefined, 'Missing native dispatch record.')
+  if (['running', 'ready', 'applying', 'settled', 'uncertain'].includes(String(value.status))) check(value.execution !== undefined, 'Missing dispatch record.')
   if (value.result !== undefined) {
-    check(value.execution !== undefined && (value.execution as Record<string, unknown>).turnId !== undefined && digest(value.resultDigest), 'A result needs its actual native turn and content fingerprint.')
+    check(value.execution !== undefined && (value.execution as Record<string, unknown>).turnId !== undefined && digest(value.resultDigest), 'A result needs its actual turn and content fingerprint.')
     validateWritingResult(value.result, proposalId, value as unknown as WritingRecord)
   }
-  if (['ready', 'applying', 'settled'].includes(String(value.status))) check(value.result !== undefined, 'Missing structured native result.')
+  if (['ready', 'applying', 'settled'].includes(String(value.status))) check(value.result !== undefined, 'Missing structured result.')
   if (value.cancelled !== undefined) check(record(value.cancelled) && nonempty(value.cancelled.actor) && date(value.cancelled.at) && nonempty(value.cancelled.reason), 'Invalid cancellation record.')
   if (value.status === 'cancelled') check(value.cancelled !== undefined, 'Missing cancellation identity.')
   if (value.mapping !== undefined) check(record(value.mapping) && ['pending', 'updated', 'failed'].includes(String(value.mapping.status)) && date(value.mapping.at), 'Invalid mapping update record.')
-  check(JSON.stringify(operations) === JSON.stringify(writingOperations(value as unknown as WritingRecord)), 'Source operations must be derived only from the confirmed native result.')
+  check(JSON.stringify(operations) === JSON.stringify(writingOperations(value as unknown as WritingRecord)), 'Source operations must be derived only from the confirmed result.')
 }
 
 /** Fingerprint is an equality binding, not a security token or server permission. */
@@ -89,7 +89,7 @@ export async function writingFingerprint(scope: Scope, proposalId: string, selec
 }
 
 export function writingPrompt(proposalId: string, writing: WritingRecord): string {
-  check(writing.confirmation, 'Confirm this saved design before starting native writing.')
+  check(writing.confirmation, 'Confirm this saved design before starting writing.')
   return [
     'Produce scoped manuscript replacements for the explicitly confirmed design below.',
     'Use only the supplied selected source text and design/evidence. Do not write files, edit the canvas, commit Git, or compile. The existing review/CAS owner applies accepted replacements.',
@@ -102,9 +102,9 @@ export function writingPrompt(proposalId: string, writing: WritingRecord): strin
 }
 
 export async function decodeWritingCompletion(proposalId: string, writing: WritingRecord, completion: AgentWritingCompletion) {
-  check(completion.sessionId === writing.execution?.sessionId && completion.turnId === writing.execution?.turnId, 'Stale/foreign native writing completion.')
-  check(completion.status === 'completed' && !completion.truncated, `Native writing did not produce a complete result (${completion.status}).`)
-  check(completion.text.length > 0 && completion.text.length <= MAX_TEXT, 'Native writing result is empty or too large.')
+  check(completion.sessionId === writing.execution?.sessionId && completion.turnId === writing.execution?.turnId, 'Stale or foreign writing completion.')
+  check(completion.status === 'completed' && !completion.truncated, `Writing did not produce a complete result (${completion.status}).`)
+  check(completion.text.length > 0 && completion.text.length <= MAX_TEXT, 'Writing result is empty or too large.')
   const result: unknown = JSON.parse(completion.text)
   validateWritingResult(result, proposalId, writing)
   return { result: structuredClone(result), resultDigest: await fingerprint(JSON.stringify(result)) }
