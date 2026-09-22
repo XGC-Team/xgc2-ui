@@ -1,5 +1,9 @@
 # @xgc2/ui-react
 
+## 0.16.17
+
+- Ship the 0.10.6 token contract inline: the global reduced-motion floor takes its animation duration from `--xgc-reduced-motion-animation-duration` (default `0.01ms` unchanged), so surfaces whose animation is the timer can declare their lifetime under `prefers-reduced-motion` without weakening the floor for anything else.
+
 ## 0.16.16
 
 - Code, JSON, and expression editors opt into the code role through the shared `data-xgc-format="monospace"` API on `Textarea` (element or `xgc-textarea-control` wrapper) and `Input` shells, replacing product selectors that reached into the control internals for monospace.

@@ -1,5 +1,11 @@
 # @xgc2/ui-tokens
 
+## 0.10.6
+
+### Patch Changes
+
+- The global reduced-motion floor reads its animation duration from `--xgc-reduced-motion-animation-duration`, defaulting to the unchanged `0.01ms`. Surfaces whose animation is the timer (animation-as-timer) set the custom property to keep their lifetime under `prefers-reduced-motion`; every other surface still collapses to the floor. Scroll behavior, transition duration, and iteration count declarations are unchanged.
+
 ## 0.10.5
 
 ### Patch Changes

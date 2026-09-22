@@ -1,6 +1,6 @@
 {
   "name": "@xgc2/ui-tokens",
-  "version": "0.10.5",
+  "version": "0.10.6",
   "description": "Shared XGC2 design tokens and theme contract",
   "type": "module",
   "sideEffects": ["*.css"],
@@ -13,7 +13,7 @@
   },
   "scripts": {
     "build": "node scripts/build.mjs",
-    "test": "node --test scripts/theme-contract.test.mjs scripts/validate.test.mjs && node scripts/validate.mjs --tokens ./src/v016.css",
+    "test": "node --test scripts/theme-contract.test.mjs scripts/validate.test.mjs scripts/reduced-motion-floor.test.mjs && node scripts/validate.mjs --tokens ./src/v016.css",
     "typecheck": "node scripts/validate.mjs",
     "validate:v016": "node scripts/validate.mjs --tokens ./src/v016.css"
   },

@@ -1,5 +1,9 @@
 # @xgc2/ui-policy
 
+## 0.16.17
+
+- Keep policy paired with React 0.16.17 and its exact peer dependency; gates are unchanged from 0.16.16.
+
 ## 0.16.16
 
 - New `rawCustomPropertyDurationViolations` rule: raw motion durations fail even inside custom properties (zero durations and `var()`-driven expressions stay legal), closing the hole where a raw value hid behind `--my-duration: 1.6s`.
