@@ -1,6 +1,6 @@
 import {describe,expect,it} from 'vitest'
 import {
-  canvasToPrompt,emptyCanvas,parseCanvas,parseEditableCanvas,serializeCanvas,setNodeWriting,
+  canvasSentenceLines,canvasToPrompt,emptyCanvas,parseCanvas,parseEditableCanvas,plainManuscript,serializeCanvas,setNodeWriting,
   type ThinkingCanvasV2,
 } from '../src/features/projects/canvas-model'
 
@@ -39,6 +39,11 @@ describe('canvas-model', () => {
     expect(prompt).toContain('## 语义关系\n- 引言 支持 贡献点三条')
     expect(prompt).toContain('## 待归档想法')
     expect(prompt).toContain('- 散落想法')
+  })
+  it('reads a manuscript sentence without commands and lists it under its claim', () => {
+    expect(plainManuscript('occupancy $\\mathcal{Y}_{i,s}(x, c)$ under \\eqref{eq:exploration_family}')).toBe('occupancy Y_{i,s}(x, c) under (eq:exploration_family)')
+    const withSentence: ThinkingCanvasV2 = { ...sample, nodes: [...sample.nodes, { id: 's-main-1', kind: 'idea', title: 'For every terminal pair $(x, c)$.', x: 0, y: 0 }], outlines: [{ artifact: 'canvas', items: [{ node: 'i1', children: [{ node: 's-main-1' }] }] }] }
+    expect(canvasSentenceLines(withSentence, 'i1')).toEqual([{ id: 's-main-1', text: 'For every terminal pair (x, c).', relation: undefined }])
   })
   it('cleared writing fields disappear instead of remaining as empty strings', () => {
     const cleared = setNodeWriting(sample, 'i1', 'purpose', '')

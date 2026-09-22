@@ -259,6 +259,49 @@ function updateArrangement(canvas: ThinkingCanvasV2, artifact: string, update: (
 export function getArrangement(canvas: ThinkingCanvasV2, artifact: string): OutlineArrangement {
   return canvas.outlines.find(outline => outline.artifact === artifact) ?? { artifact, items: [] }
 }
+
+/** Sentence cards are outline children of a claim. They are not a second layer of floating notes. */
+export function isCanvasSentence(id: string): boolean {
+  return id.startsWith('s-')
+}
+
+/** Readable manuscript text for a card. Display math and commands stay out of the sentence the operator reads. */
+export function plainManuscript(text: string): string {
+  return text
+    .replace(/\\IEEEPARstart\{([A-Za-z])\}\{([A-Za-z]+)\}/g, '$1$2')
+    .replace(/\\eqref\{([^}]+)\}/g, '($1)')
+    .replace(/\\(?:ref|label|cite)\{([^}]+)\}/g, '$1')
+    .replace(/\\(?:mathbb|mathcal|mathrm|boldsymbol|operatorname|text)\{([^{}]*)\}/g, '$1')
+    .replace(/\\ge\b/g, '≥').replace(/\\le\b/g, '≤').replace(/\\in\b/g, '∈')
+    .replace(/\\subseteq\b/g, '⊆').replace(/\\oplus\b/g, '⊕')
+    .replace(/\\[A-Za-z]+/g, '')
+    .replace(/\$/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function outlineItem(items: OutlineItem[], id: string): OutlineItem | undefined {
+  for (const item of items) {
+    if (item.node === id) return item
+    if (item.children) {
+      const found = outlineItem(item.children, id)
+      if (found) return found
+    }
+  }
+}
+
+/** Direct manuscript sentences under one claim, in writing order, with the sentence's own marked relation. */
+export function canvasSentenceLines(canvas: ThinkingCanvasV2, id: string): { id: string; text: string; relation?: SemanticRelation }[] {
+  const item = outlineItem(getArrangement(canvas, PRIMARY_OUTLINE).items, id)
+  if (!item?.children) return []
+  const byId = new Map(canvas.nodes.map(node => [node.id, node]))
+  return item.children.flatMap(child => {
+    const node = byId.get(child.node)
+    if (!node || !isCanvasSentence(node.id)) return []
+    const edge = canvas.edges.find(link => link.from === node.id && link.relation)
+    return [{ id: node.id, text: plainManuscript(node.title), relation: edge?.relation }]
+  })
+}
 export function ensureArrangement(canvas: ThinkingCanvasV2, artifact: string): ThinkingCanvasV2 {
   return canvas.outlines.some(outline => outline.artifact === artifact) ? canvas : { ...canvas, outlines: [...canvas.outlines, { artifact, items: [] }] }
 }

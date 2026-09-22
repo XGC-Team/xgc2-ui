@@ -15,7 +15,7 @@ import {OutlinePanel} from './OutlinePanel'
 import {openResearchSource} from './research-navigation'
 import {newContextItem} from './context-model'
 import {
-  CANVAS_PATH,PRIMARY_OUTLINE,SEMANTIC_RELATIONS,WRITING_FIELDS,addCanvasEdge,addNodeEvidence,canvasToPrompt,emptyCanvasV2,
+  CANVAS_PATH,PRIMARY_OUTLINE,SEMANTIC_RELATIONS,WRITING_FIELDS,addCanvasEdge,addNodeEvidence,canvasSentenceLines,canvasToPrompt,emptyCanvasV2,isCanvasSentence,
   newCanvasEvidence,removeCanvasNode,removeNodeBinding,removeNodeEvidence,setEdgeRelation,setNodeWriting,
   type CanvasNodeV2,type SemanticRelation,type ThinkingCanvasV2,type WritingField,
 } from './canvas-model'
@@ -66,7 +66,8 @@ export function ThinkingCanvas({project,active=true,onRequestConversation}:{proj
   const parsed=documentState.value
   if(!parsed){fitted.current=false;setSel(null);setPicker(null);drag.current=null;setTempEdge(null);return}
   if(fitted.current)return;fitted.current=true
-  if(parsed.nodes.length){const r=box.current?.getBoundingClientRect();const xs=parsed.nodes.map(n=>n.x),ys=parsed.nodes.map(n=>n.y)
+  const framed=parsed.nodes.filter(n=>!isCanvasSentence(n.id))
+  if(framed.length){const r=box.current?.getBoundingClientRect();const xs=framed.map(n=>n.x),ys=framed.map(n=>n.y)
    const w=Math.max(...xs)+NODE_W-Math.min(...xs),h=Math.max(...ys)+120-Math.min(...ys)
    const k=Math.min(1.2,Math.max(0.4,Math.min(((r?.width??800)-80)/w,((r?.height??600)-80)/h)))
    setCam({k,x:((r?.width??800)-w*k)/2-Math.min(...xs)*k,y:((r?.height??600)-h*k)/2-Math.min(...ys)*k})}
@@ -101,8 +102,9 @@ export function ThinkingCanvas({project,active=true,onRequestConversation}:{proj
  const prompt=()=>canvasToPrompt(canvas,project)
  const copyPrompt=async()=>{setCopyError('');setCopied(false);try{await navigator.clipboard.writeText(prompt());setCopied(true);clearTimeout(copyTimer.current);copyTimer.current=setTimeout(()=>setCopied(false),1500)}catch{setCopyError(copy.copyFailed)}}
  const fitCanvas=()=>{const r=box.current?.getBoundingClientRect();if(!r?.width||!r.height)return
-  if(!canvas.nodes.length){setCam({x:0,y:0,k:1});return}
-  const xs=canvas.nodes.map(n=>n.x),ys=canvas.nodes.map(n=>n.y),left=Math.min(...xs),top=Math.min(...ys)
+  const framed=canvas.nodes.filter(n=>!isCanvasSentence(n.id))
+  if(!framed.length){setCam({x:0,y:0,k:1});return}
+  const xs=framed.map(n=>n.x),ys=framed.map(n=>n.y),left=Math.min(...xs),top=Math.min(...ys)
   const w=Math.max(...xs)+240-left,h=Math.max(...ys)+180-top
   const k=Math.min(1.2,Math.max(0.35,Math.min(Math.max(1,r.width-64)/w,Math.max(1,r.height-64)/h)))
   setCam({k,x:(r.width-w*k)/2-left*k,y:(r.height-h*k)/2-top*k})}
@@ -171,15 +173,15 @@ export function ThinkingCanvas({project,active=true,onRequestConversation}:{proj
    onDoubleClick={e=>{if(e.target===e.currentTarget||(e.target as HTMLElement).dataset.world)addNode('idea',toWorld(e.clientX,e.clientY))}}>
    <div data-world="1" className="absolute left-0 top-0 h-0 w-0" style={{transform:`translate(${cam.x}px,${cam.y}px) scale(${cam.k})`}}>
     <svg className="pointer-events-none absolute overflow-visible" style={{left:0,top:0,width:1,height:1}}>
-     {canvas.edges.map((e,i)=>{const a=nodeById.get(e.from),b=nodeById.get(e.to);if(!a||!b)return null
+     {canvas.edges.map((e,i)=>{const a=nodeById.get(e.from),b=nodeById.get(e.to);if(!a||!b||isCanvasSentence(a.id)||isCanvasSentence(b.id))return null
       const x1=a.x+NODE_W,y1=a.y+28,x2=b.x,y2=b.y+28,mx=(x1+x2)/2
       return <path key={i} d={`M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`} fill="none" stroke={sel?.kind==='edge'&&sel.id===String(i)?'var(--ink)':e.relation?'var(--ink-2)':'var(--line-strong)'} strokeWidth={sel?.kind==='edge'&&sel.id===String(i)?2:1.5} strokeDasharray={e.relation?undefined:'4 4'} className="pointer-events-auto cursor-pointer" onClick={ev=>{ev.stopPropagation();box.current?.focus({preventScroll:true});setSel({kind:'edge',id:String(i)})}}/>})}
      {tempEdge&&(()=>{const a=nodeById.get(tempEdge.from);if(!a)return null;const x1=a.x+NODE_W,y1=a.y+28,mx=(x1+tempEdge.to.x)/2
       return <path d={`M${x1},${y1} C${mx},${y1} ${mx},${tempEdge.to.y} ${tempEdge.to.x},${tempEdge.to.y}`} fill="none" stroke="var(--ink-3)" strokeWidth={1.5} strokeDasharray="4 4"/>})()}
     </svg>
-    {canvas.edges.map((e,i)=>{if(!e.relation)return null;const a=nodeById.get(e.from),b=nodeById.get(e.to);if(!a||!b)return null
+    {canvas.edges.map((e,i)=>{if(!e.relation)return null;const a=nodeById.get(e.from),b=nodeById.get(e.to);if(!a||!b||isCanvasSentence(a.id)||isCanvasSentence(b.id))return null
      return <span key={`label-${i}`} className="absolute z-10 -translate-x-1/2 -translate-y-1/2 rounded-md border border-line bg-panel px-1 py-0.5 text-caption text-ink-2" style={{left:(a.x+NODE_W+b.x)/2,top:(a.y+b.y)/2+28}}>{copy[RELATION_COPY[e.relation]]}</span>})}
-    {canvas.nodes.map(n=>{const selected=sel?.kind==='node'&&sel.id===n.id
+    {canvas.nodes.filter(n=>!isCanvasSentence(n.id)).map(n=>{const selected=sel?.kind==='node'&&sel.id===n.id
      return <div key={n.id} data-node={n.id} className={cn('absolute select-none rounded-xl border bg-panel shadow-pop transition-shadow',selected?'border-ink':'border-line',n.kind==='chapter'?'w-60':'w-56')} style={{left:n.x,top:n.y}} onPointerDown={e=>nodeDown(e,n)}>
       <div className="flex items-center gap-1.5 px-3 pt-2.5">
        {n.kind==='chapter'?<BookOpen size={13} strokeWidth={1.75} className="shrink-0 text-ink-3"/>:<span aria-hidden className="grid h-3.5 w-3.5 shrink-0 place-items-center text-ink-3"><span className="h-1.5 w-1.5 rounded-full bg-current"/></span>}
@@ -214,6 +216,12 @@ export function ThinkingCanvas({project,active=true,onRequestConversation}:{proj
      <Button size="xs" onClick={()=>{apply(c=>({...c,edges:c.edges.filter((_,i)=>String(i)!==sel.id)}));setSel(null)}}>{copy.deleteEdge}</Button>
     </>}
     {selectedNode&&<>
+     {canvasSentenceLines(canvas, selectedNode.id).length>0&&<section className="space-y-1">
+      <p className="text-caption font-medium uppercase tracking-[0.06em] text-ink-3">{tr("句子")}</p>
+      <ol className="space-y-1.5 text-caption text-ink-2">
+       {canvasSentenceLines(canvas, selectedNode.id).map((line, index)=><li key={line.id} className="leading-5"><span className="text-ink-3">{index+1}. </span>{line.relation?`${copy[RELATION_COPY[line.relation]]} · `:''}{line.text}</li>)}
+      </ol>
+     </section>}
      <div className="flex flex-wrap gap-1">
       <Button size="xs" icon={Crosshair} onClick={()=>setView('outline')}>{copy.locateOutline}</Button>
       <Button size="xs" onClick={()=>addNodeToContext(selectedNode)}>{copy.addToContext}</Button>
