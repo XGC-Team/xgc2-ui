@@ -100,7 +100,7 @@ describe('guided study send', () => {
   it('reuses the current native session instead of creating another chat engine', async () => {
     const receipt = await sendLiteratureStudy(readyPort(), { selection: selection(), question: 'Why this paragraph?' })
     expect(receipt.outcome).toBe('sent')
-    if (receipt.outcome === 'sent') expect(receipt.nativeSessionId).toBe('native-1')
+    if (receipt.outcome === 'sent') expect(receipt.providerSessionId).toBe('native-1')
     expect(sendNativePrompt).toHaveBeenCalledTimes(1)
     expect(vi.mocked(sendNativePrompt).mock.calls[0][0]).toBe('native-1')
     expect(String(vi.mocked(sendNativePrompt).mock.calls[0][1])).toContain('BEGIN_UNTRUSTED_SOURCE')

@@ -1,7 +1,7 @@
 import {t as tr} from '../../i18n'
 import { useEffect, useState } from 'react'
 import { Moon, Sun } from 'lucide-react'
-import { NativeProviderSettings, type NativeSettings } from '@xgc2/agent-runtime/react'
+import { AgentProviderSettings, type AgentSettings } from '@xgc2/agent-runtime/react'
 import { nativeClient } from './client'
 import { useNativeAgentSession } from './Session'
 import { useWorkbench } from '../../store'
@@ -21,20 +21,20 @@ function Row({label,children}:{label:string;children:React.ReactNode}){
 }
 export function SettingsPage(){
  const {locale,setLocale,theme,toggleTheme}=useWorkbench()
- const native=useNativeAgentSession();const [settings,setSettings]=useState<NativeSettings|null>(null),[error,setError]=useState('')
+ const native=useNativeAgentSession();const [settings,setSettings]=useState<AgentSettings|null>(null),[error,setError]=useState('')
  useEffect(()=>{const c=new AbortController();nativeClient.getNativeSettings(c.signal).then(setSettings).catch(e=>{if(!c.signal.aborted)setError(e.message)});return()=>c.abort()},[])
  return <div className="h-full min-h-0 overflow-auto"><div className="mx-auto w-full max-w-[880px] px-8 pb-16 pt-10">
   <header className="mb-10">
    <h1 className="font-display text-[30px] leading-[1.2] tracking-tight">{tr("设置")}</h1>
-   <p className="mt-2 text-secondary text-ink-3">{tr("外观、语言与原生工作者。")}</p>
+   <p className="mt-2 text-secondary text-ink-3">{tr("外观、语言与供应者。")}</p>
   </header>
   {error&&<p role="alert" className="ui-error mb-6">{error}</p>}
   <Section title={tr("外观")}>
    <Row label={tr("主题")}><Tabs id="界面主题" variant="pill" className="ui-tabs-fill w-56" tabs={[{id:'light',label:tr("浅色"),icon:<Sun size={13} strokeWidth={1.75}/>},{id:'dark',label:tr("深色"),icon:<Moon size={13} strokeWidth={1.75}/>}]} active={theme} onChange={id=>{if(id!==theme)toggleTheme()}}/></Row>
    <Row label={tr("界面语言")}><select aria-label={tr("界面语言")} className="ui-select-compact w-56" value={locale} onChange={e=>setLocale(e.target.value as 'zh'|'en')}><option value="zh">简体中文</option><option value="en">English</option></select></Row>
   </Section>
-  <Section title={tr("原生工作者")}>
-   {settings?<NativeProviderSettings locale={locale} settings={settings} onSave={async update=>{setSettings(await nativeClient.updateNativeSettings(update));native.setRefresh(n=>n+1)}} onRefresh={async id=>{setSettings(await nativeClient.refreshNativeSettings(id));native.setRefresh(n=>n+1)}}/>:<p className="py-2 text-secondary text-ink-3">{tr("正在读取供应者设置…")}</p>}
+  <Section title={tr("供应者")}>
+   {settings?<AgentProviderSettings locale={locale} settings={settings} onSave={async update=>{setSettings(await nativeClient.updateNativeSettings(update));native.setRefresh(n=>n+1)}} onRefresh={async id=>{setSettings(await nativeClient.refreshNativeSettings(id));native.setRefresh(n=>n+1)}}/>:<p className="py-2 text-secondary text-ink-3">{tr("正在读取供应者设置…")}</p>}
   </Section>
  </div></div>
 }

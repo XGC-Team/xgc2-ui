@@ -1,9 +1,9 @@
 import { createDeadlineTimer } from '../../shared/eventCoalescer';
-import type { NativeSession } from '@xgc2/agent-runtime/state';
-import { assertNativeExperimentSession,createGroundStationNativeClient,nativeExperimentPath,openGroundStationNativeStream } from './groundStationNativeAgentService';
+import type { AgentSession } from '@xgc2/agent-runtime/state';
+import { assertNativeExperimentSession,createGroundStationNativeClient,nativeExperimentPath,openGroundStationAgentStream } from './groundStationAgentService';
 
 /** A first send waits for this runtime's journal. It never replays a prompt. */
-export async function waitForNativeConversation(experimentId:string,sessionId:string):Promise<NativeSession> {
+export async function waitForAgentConversation(experimentId:string,sessionId:string):Promise<AgentSession> {
   const client = createGroundStationNativeClient(experimentId);
   const initial = assertNativeExperimentSession(await client.getNativeSession(sessionId),experimentId);
   if (initial.state === 'ready') return initial;
@@ -11,9 +11,9 @@ export async function waitForNativeConversation(experimentId:string,sessionId:st
     throw new Error('The assistant could not prepare this conversation.');
   }
   return new Promise((resolve,reject) => {
-    const transport:{stream?:ReturnType<typeof openGroundStationNativeStream>} = {};
+    const transport:{stream?:ReturnType<typeof openGroundStationAgentStream>} = {};
     let done = false;
-    const finish = (error?:unknown,session?:NativeSession) => {
+    const finish = (error?:unknown,session?:AgentSession) => {
       if (done) return;
       done = true; timeout.cancel(); transport.stream?.close();
       if (error) reject(error); else resolve(session!);
@@ -30,7 +30,7 @@ export async function waitForNativeConversation(experimentId:string,sessionId:st
         }
       } catch (cause) { finish(cause); }
     };
-    transport.stream = openGroundStationNativeStream({
+    transport.stream = openGroundStationAgentStream({
       url:`/api${nativeExperimentPath(experimentId)}/sessions/${sessionId}/events`,lastEventId:()=>String(initial.lastSeq),
       onOpen:()=>void check(),
       onEvent:event => { if (event && typeof event === 'object' && 'kind' in event && event.kind === 'session.state') void check(); },

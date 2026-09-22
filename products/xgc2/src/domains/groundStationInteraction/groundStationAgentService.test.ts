@@ -1,6 +1,6 @@
 import { beforeEach,describe,expect,it,vi } from 'vitest';
 import { request } from '../../api/http';
-import { getGroundStationNativeCapabilities } from './groundStationNativeAgentService';
+import { getGroundStationNativeCapabilities } from './groundStationAgentService';
 
 vi.mock('../../api/http',() => ({ request: vi.fn() }));
 vi.mock('../../api/nativeAgent',() => ({ fetchNativeAgent: vi.fn(),openNativeAgentStream: vi.fn() }));

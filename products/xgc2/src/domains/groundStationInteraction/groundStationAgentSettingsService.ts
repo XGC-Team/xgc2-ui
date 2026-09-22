@@ -1,16 +1,16 @@
-import { createNativeAgentClient } from '@xgc2/agent-runtime/client';
-import type { NativeProviderSettingsUpdate } from '@xgc2/agent-runtime/react';
+import { createAgentClient } from '@xgc2/agent-runtime/client';
+import type { AgentProviderSettingsUpdate } from '@xgc2/agent-runtime/react';
 import { fetchNativeAgent } from '../../api/nativeAgent';
 
 // Both Settings and the Experiment composer consume the common workstation
 // settings authority. No browser copy of provider configuration is persisted.
-const client = createNativeAgentClient({ basePath:'/api/native-agents',fetch:fetchNativeAgent });
+const client = createAgentClient({ basePath:'/api/agent-runtime',fetch:fetchNativeAgent });
 
 export function getNativeProviderSettings(signal?:AbortSignal) {
   return client.getNativeSettings(signal);
 }
 
-export function updateNativeProviderSettings(update:NativeProviderSettingsUpdate) {
+export function updateNativeProviderSettings(update:AgentProviderSettingsUpdate) {
   return client.updateNativeSettings(update);
 }
 

@@ -1,9 +1,9 @@
 // Research session scope, idempotency and event identity adapted from the existing Research OS session provider.
 import { useWorkbench } from '../../store'
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type Dispatch, type FormEvent, type ReactNode, type SetStateAction } from 'react'
-import { useNativeStream, type NativeComposerSelection, type NativeSettings } from '@xgc2/agent-runtime/react'
+import { useAgentStream, type AgentComposerSelection, type AgentSettings } from '@xgc2/agent-runtime/react'
 import '@xgc2/agent-runtime/styles.css'
-import type { NativeAnswer, NativeProfile, NativeSession, NativeTurnOptions, Scope } from '@xgc2/agent-runtime/state'
+import type { AgentAnswer, AgentProfile, AgentSession, AgentTurnOptions, Scope } from '@xgc2/agent-runtime/state'
 import { listWorkspaces, type WorkspaceSummary } from '../../lib/api'
 import {
   answerNativeRequest, cancelNativeTurn, createNativeSession,
@@ -26,23 +26,23 @@ export function belongsToResearchScope(scope: Scope, projectId: string, workspac
   return engineering && (projectId ? scope.context.kind === 'research-project' && scope.context.id === projectId : scope.context.kind === 'research-workspace' && scope.context.id === workspaceId)
 }
 
-type NativeAgentSessionValue = {
+type AgentSessionValue = {
   appendDraft: (text: string, targetProject?: string) => void
   setDraft: (text: string) => void
   newThread: () => void
   startAndSend: (text: string) => Promise<void>
   updateThread: (id:string, update:{title?:string;archived?:boolean}) => Promise<void>
-  settings: NativeSettings | null
+  settings: AgentSettings | null
   engineering: boolean
   setEngineering: (value: boolean) => void
   busy: boolean
   connection: string
   disconnectReason: string
-  connectionProvider: NativeSettings['providers'][number] | undefined
+  connectionProvider: AgentSettings['providers'][number] | undefined
   consent: boolean
   create: (event: FormEvent) => void
-  createOptions: NativeTurnOptions
-  currentProvider: NativeSettings['providers'][number] | undefined
+  createOptions: AgentTurnOptions
+  currentProvider: AgentSettings['providers'][number] | undefined
   draft: string
   error: string
   externalWorkspace: boolean
@@ -50,7 +50,7 @@ type NativeAgentSessionValue = {
   openSession: (id: string) => Promise<void>
   operation: (action: () => Promise<unknown>) => Promise<void>
   profileId: string
-  profiles: NativeProfile[]
+  profiles: AgentProfile[]
   projectId: string
   prompting: ReadonlySet<string>
   reload: number
@@ -58,54 +58,54 @@ type NativeAgentSessionValue = {
     busy: boolean
     prompting: ReadonlySet<string>
     selectedId: string
-    session: NativeSession
-    state: ReturnType<typeof useNativeStream>['state']
+    session: AgentSession
+    state: ReturnType<typeof useAgentStream>['state']
     streamError: string
-    turnSelection: NativeComposerSelection
+    turnSelection: AgentComposerSelection
   }
-  respond: (requestId: string, answer: NativeAnswer) => Promise<void>
+  respond: (requestId: string, answer: AgentAnswer) => Promise<void>
   selectedId: string
-  selectedProfile: NativeProfile | undefined
+  selectedProfile: AgentProfile | undefined
   send: (text: string) => Promise<void>
-  session: NativeSession | undefined
-  sessions: NativeSession[]
-  allSessions: NativeSession[]
+  session: AgentSession | undefined
+  sessions: AgentSession[]
+  allSessions: AgentSession[]
   selectProjectThread:(project:string,id:string)=>void
   setConsent: (value: boolean) => void
-  setCreateOptions: (value: NativeTurnOptions) => void
+  setCreateOptions: (value: AgentTurnOptions) => void
   setDrafts: Dispatch<SetStateAction<Record<string, string>>>
   setProfileId: (id: string) => void
   setRefresh: Dispatch<SetStateAction<number>>
   setReload: Dispatch<SetStateAction<number>>
   setSelectedId: (id: string) => void
-  setSelections: Dispatch<SetStateAction<Record<string, NativeComposerSelection>>>
+  setSelections: Dispatch<SetStateAction<Record<string, AgentComposerSelection>>>
   setWorkspaceId: (id: string) => void
   settingsError: string
-  state: ReturnType<typeof useNativeStream>['state']
+  state: ReturnType<typeof useAgentStream>['state']
   streamError: string
   streamMatchesSelection: boolean
-  turnSelection: NativeComposerSelection
+  turnSelection: AgentComposerSelection
   workspaces: WorkspaceSummary[]
   workspaceId: string
 }
 
-const NativeAgentSessionContext = createContext<NativeAgentSessionValue | null>(null)
+const AgentSessionContext = createContext<AgentSessionValue | null>(null)
 
-export function useNativeAgentSession(): NativeAgentSessionValue {
-  const value = useContext(NativeAgentSessionContext)
+export function useNativeAgentSession(): AgentSessionValue {
+  const value = useContext(AgentSessionContext)
   if (!value) throw new Error('原生会话必须放在工作台会话上下文里。')
   return value
 }
 
-export function NativeAgentSessionProvider({ children, researchProjectId = '' }: { children: ReactNode; researchProjectId?: string }) {
+export function AgentSessionProvider({ children, researchProjectId = '' }: { children: ReactNode; researchProjectId?: string }) {
   const { locale: workbenchLocale } = useWorkbench()
   const locale = workbenchLocale === 'en' ? 'en' : 'zh'
-  const [settings, setSettings] = useState<NativeSettings | null>(null)
+  const [settings, setSettings] = useState<AgentSettings | null>(null)
   const [settingsError, setSettingsError] = useState('')
-  const [createOptions, setCreateOptions] = useState<NativeTurnOptions>({})
-  const [selections, setSelections] = useState<Record<string, NativeComposerSelection>>({})
-  const [profiles, setProfiles] = useState<NativeProfile[]>([])
-  const [sessions, setSessions] = useState<NativeSession[]>([])
+  const [createOptions, setCreateOptions] = useState<AgentTurnOptions>({})
+  const [selections, setSelections] = useState<Record<string, AgentComposerSelection>>({})
+  const [profiles, setProfiles] = useState<AgentProfile[]>([])
+  const [sessions, setSessions] = useState<AgentSession[]>([])
   const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([])
   const [profileId, setProfileId] = useState('')
   const projectId = researchProjectId
@@ -130,19 +130,19 @@ export function NativeAgentSessionProvider({ children, researchProjectId = '' }:
   const scopedSessions = sessions.filter(item => belongsToResearchScope(item.scope, projectId, workspaceId, engineering))
   const session = scopedSessions.find(({ id }) => id === selectedId)
   const [disconnectDetail,setDisconnectDetail]=useState({sessionId:'',text:''})
-  const openStream=useCallback<NonNullable<Parameters<typeof useNativeStream>[2]['openStream']>>(options=>{
+  const openStream=useCallback<NonNullable<Parameters<typeof useAgentStream>[2]['openStream']>>(options=>{
     const stream=new EventSource(options.url)
     stream.addEventListener('native-agent',message=>{try{const event=JSON.parse(message.data);options.onEvent(event);if(event.kind==='session.state')setDisconnectDetail({sessionId:event.sessionId,text:event.status==='disconnected'?event.text||'':''})}catch(cause){options.onInvalid(cause)}})
     stream.onopen=options.onOpen;stream.onerror=options.onError;return stream
   },[])
   const disconnectReason=disconnectDetail.sessionId===session?.id?disconnectDetail.text:''
-  const { state, connection, error: streamError } = useNativeStream(session, reload, { basePath: '/api/v1/native-agents',openStream })
+  const { state, connection, error: streamError } = useAgentStream(session, reload, { basePath: '/api/v1/agent-runtime',openStream })
   const selectedProfile = profiles.find(({ id }) => id === (session?.scope.profileId ?? profileId))
   const scopeDraftKey = `scope:${JSON.stringify([projectId, engineering, engineering ? workspaceId : ''])}`
   const draftKey = session?.id ?? scopeDraftKey
   const draft = drafts[draftKey] ?? ''
   const appendDraft = (text: string, targetProject?: string) => {const key=targetProject===undefined||targetProject===projectId?draftKey:`scope:${JSON.stringify([targetProject,false,''])}`;setDrafts(current => ({ ...current, [key]: [current[key], text].filter(Boolean).join('\n\n') }))}
-  const turnSelection: NativeComposerSelection = selections[selectedId] ?? { profileId: session?.scope.profileId ?? '', ...(session?.options ?? session?.scope.options) }
+  const turnSelection: AgentComposerSelection = selections[selectedId] ?? { profileId: session?.scope.profileId ?? '', ...(session?.options ?? session?.scope.options) }
   const currentProvider = settings?.providers.find(provider => provider.id === session?.scope.profileId)
   const connectionProvider = settings?.providers.find(provider => provider.id === profileId)
   const streamMatchesSelection = Boolean(session && state.sessionId === selectedId && state.provider === session.provider)
@@ -211,11 +211,11 @@ export function NativeAgentSessionProvider({ children, researchProjectId = '' }:
     if (projectId.startsWith('paper-')) {
       binding = {context:{kind:'research-repository',id:projectId},workspace:{id:projectId,revision:'working-tree'}}
     } else {
-      const response = await fetch(`/api/v1/native-agents/discussion-context?projectId=${encodeURIComponent(projectId)}`)
+      const response = await fetch(`/api/v1/agent-runtime/discussion-context?projectId=${encodeURIComponent(projectId)}`)
       if (!response.ok) throw new Error('研究空间未能读取。')
       binding = await response.json()
     }
-    const scope: Scope = {profileId,...binding,nativeAccessConfirmed:true,...(Object.keys(createOptions).length?{options:createOptions}:{})}
+    const scope: Scope = {profileId,...binding,accessConfirmed:true,...(Object.keys(createOptions).length?{options:createOptions}:{})}
     const fingerprint=JSON.stringify(scope)
     if(createAttempt.current?.fingerprint!==fingerprint)createAttempt.current={fingerprint,key:crypto.randomUUID()}
     const next=await createNativeSession(scope,createAttempt.current.key)
@@ -272,8 +272,8 @@ export function NativeAgentSessionProvider({ children, researchProjectId = '' }:
     }
     if (!text.trim() || current.state.worker !== 'ready' || current.busy) throw new Error('当前原生会话不可发送。')
     const id = current.session.id
-    if (current.turnSelection.profileId !== current.session.scope.profileId) throw new Error('只能为当前已连接的原生工作者选择模型。')
-    const options: NativeTurnOptions = { model: current.turnSelection.model, effort: current.turnSelection.effort, permission: current.turnSelection.permission }
+    if (current.turnSelection.profileId !== current.session.scope.profileId) throw new Error('只能为当前已连接的供应者选择模型。')
+    const options: AgentTurnOptions = { model: current.turnSelection.model, effort: current.turnSelection.effort, permission: current.turnSelection.permission }
     const fingerprint = JSON.stringify([id, text, options])
     let attempt = promptAttempts.current.get(fingerprint)
     if (attempt?.inFlight) {
@@ -311,7 +311,7 @@ export function NativeAgentSessionProvider({ children, researchProjectId = '' }:
       attempted: true, provider: provider?.provider,
     }) || describe('原生会话未能启动。'))
   },[session?.id,streamMatchesSelection,state.worker,state.notices,busy,locale,settings,currentProvider,session])
-  const respond = async (requestId: string, answer: NativeAnswer) => {
+  const respond = async (requestId: string, answer: AgentAnswer) => {
     const current = requireCurrentSession()
     const request = current.state.pending[requestId]
     if (!request || request.submitted || current.busy || ['disconnected', 'closed'].includes(current.state.worker)) {
@@ -325,14 +325,14 @@ export function NativeAgentSessionProvider({ children, researchProjectId = '' }:
     await cancelNativeTurn(current.session.id)
   }
 
-  return <NativeAgentSessionContext.Provider value={{
+  return <AgentSessionContext.Provider value={{
     appendDraft, setDraft:(text)=>setDrafts(current=>({...current,[draftKey]:text})), newThread, startAndSend, updateThread, settings, engineering, setEngineering, busy, connection, connectionProvider, consent, create, createOptions, currentProvider, draft, error,
     externalWorkspace, interrupt, openSession, operation, profileId, profiles, projectId, prompting, reload,
     requireCurrentSession, respond, selectedId, selectedProfile, send, session, sessions: scopedSessions, allSessions:sessions, selectProjectThread:(project,id)=>{if(project===projectId)setSelectedId(id);else{requestedThread.current={project,id};useWorkbench.getState().setProjectId(project)}useWorkbench.getState().setActiveNav('chat')},
     setConsent, setCreateOptions, setDrafts, setProfileId, setRefresh, setReload, setSelectedId,
     setSelections, setWorkspaceId, settingsError, state, streamError, disconnectReason, streamMatchesSelection, turnSelection,
     workspaces, workspaceId,
-  }}>{children}</NativeAgentSessionContext.Provider>
+  }}>{children}</AgentSessionContext.Provider>
 }
 
 

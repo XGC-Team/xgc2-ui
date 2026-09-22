@@ -53,11 +53,11 @@ describe('settings form geometry', () => {
     );
     const actions = ruleDeclarations(
       settingsCss,
-      ".settings-layout > [data-xgc-layout-family='form-settings'] > [data-xgc-role='config-section-body'] > [data-xgc-role='native-provider-config-actions']",
+      ".settings-layout > [data-xgc-layout-family='form-settings'] > [data-xgc-role='config-section-body'] > [data-xgc-role='agent-provider-config-actions']",
     );
     const actionButtons = ruleDeclarations(
       settingsCss,
-      ".settings-layout > [data-xgc-layout-family='form-settings'] > [data-xgc-role='config-section-body'] > [data-xgc-role='native-provider-config-actions'] > [data-xgc-role]",
+      ".settings-layout > [data-xgc-layout-family='form-settings'] > [data-xgc-role='config-section-body'] > [data-xgc-role='agent-provider-config-actions'] > [data-xgc-role]",
     );
     expect(disclosure.get('display')).toBe('grid');
     expect(disclosure.get('grid-template-columns')).toBe('minmax(0, 1fr) minmax(200px, 320px)');
@@ -80,7 +80,7 @@ describe('settings form geometry', () => {
     expect(settingsCss).toContain("[aria-expanded='false'] .config-section-disclosure-chevron");
     expect(settingsCss).not.toMatch(/config-section-disclosure:hover/);
     expect(settingsCss).not.toMatch(/config-section-disclosure-value/);
-    expect(settingsCss).not.toMatch(/station-native-provider-settings-body/);
-    expect(settingsCss).not.toMatch(/xgc-native-chat/);
+    expect(settingsCss).not.toMatch(/station-agent-provider-settings-body/);
+    expect(settingsCss).not.toMatch(/xgc-agent-chat/);
   });
 });

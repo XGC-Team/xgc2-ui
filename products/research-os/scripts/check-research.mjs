@@ -20,11 +20,11 @@ const academic=join(data,'academic');mkdirSync(join(academic,'memory/now'),{recu
 writeFileSync(join(academic,'memory/now.md'),'# Academic test map\n\n[[evidence]]\n')
 writeFileSync(join(academic,'memory/now/evidence.md'),'# Arithmetic source\n\n[[now]]\n\nValues: 2, 4, 6.\n')
 for(const cwd of [academic,join(academic,'project/paper-verification')]){execFileSync('git',['init'],{cwd,stdio:'pipe'});writeFileSync(join(cwd,'README.md'),'# Integration repository\n');execFileSync('git',['add','README.md'],{cwd});execFileSync('git',['-c','user.name=UI verification','-c','user.email=ui-verification@localhost','commit','-m','Initial evidence'],{cwd,stdio:'pipe'})}
-Object.assign(env,{RESEARCH_OS_ACADEMIC_ROOT:academic,RESEARCH_OS_DATA_ROOT:data,RESEARCH_OS_GO_ADDR:'127.0.0.1:3215',RESEARCH_OS_BROWSER_ALLOWED_PORTS:'3215,5175',RESEARCH_OS_NATIVE_AGENTS_CONFIG:join(data,'native-agents.json')})
+Object.assign(env,{RESEARCH_OS_ACADEMIC_ROOT:academic,RESEARCH_OS_DATA_ROOT:data,RESEARCH_OS_GO_ADDR:'127.0.0.1:3215',RESEARCH_OS_BROWSER_ALLOWED_PORTS:'3215,5175',RESEARCH_OS_NATIVE_AGENTS_CONFIG:join(data,'agent-runtime.json')})
 const api=spawn(binary,[],{cwd:research,env,stdio:['ignore','ignore','pipe']});let backendErrors='';api.stderr.on('data',c=>backendErrors+=c.toString())
 let server,browser,page
 const base='http://localhost:5175'
-const apiRequest=async(path,body)=>{const r=await fetch(base+'/api/v1'+path,body===undefined?undefined:{method:'POST',headers:{'Content-Type':'application/json','X-XGC-Native-Client':'1'},body:JSON.stringify(body)});const b=await r.json();assert.ok(r.ok,JSON.stringify(b));return b.data}
+const apiRequest=async(path,body)=>{const r=await fetch(base+'/api/v1'+path,body===undefined?undefined:{method:'POST',headers:{'Content-Type':'application/json','X-XGC-Agent-Client':'1'},body:JSON.stringify(body)});const b=await r.json();assert.ok(r.ok,JSON.stringify(b));return b.data}
 try {
  for(let i=0;i<80;i++){try{if((await fetch('http://127.0.0.1:3215/api/v1/health')).ok)break}catch{}await new Promise(r=>setTimeout(r,100));if(i===79)throw Error(backendErrors)}
  server=await createServer({root,configFile:join(root,'vite.config.ts'),cacheDir:join(data,'vite-cache'),server:{host:'127.0.0.1',port:5175,strictPort:true,proxy:{'/api':{target:'http://127.0.0.1:3215',changeOrigin:false,ws:true}}}});await server.listen()
@@ -83,7 +83,7 @@ try {
  const right=page.getByRole('region',{name:'右侧面板',exact:true})
  await right.getByRole('button',{name:'evidence.txt',exact:true}).click()
  await right.locator('pre').filter({hasText:'2\n4\n6'}).waitFor();console.log('PASS Git workspace file read')
- await nav('工作流');await page.getByRole('button',{name:'创建计划',exact:true}).click();await page.getByRole('textbox',{name:'计划名称',exact:true}).fill('Verify the arithmetic');await page.getByRole('textbox',{name:'研究目标',exact:true}).fill('Verify mean 4 from evidence.txt and report source.');await page.getByLabel('工作区',{exact:true}).selectOption('paper-verification');await page.getByLabel('已审阅 Git commit',{exact:true}).fill(head)
+ await nav('工作流');await page.getByRole('button',{name:'创建计划',exact:true}).click();await page.getByRole('textbox',{name:'计划名称',exact:true}).fill('Verify the arithmetic');await page.getByRole('textbox',{name:'研究目标',exact:true}).fill('Verify mean 4 from evidence.txt and report source.');await page.getByLabel('工作区',{exact:true}).selectOption('paper-verification');await page.getByLabel('工作区',{exact:true}).fill(head)
  for(const name of ['默认研究者','默认审查者','默认写作者'])await page.getByLabel(name,{exact:true}).selectOption(provider.id)
  await page.getByRole('button',{name:'编辑步骤: 证据研究',exact:true}).click();await page.getByRole('textbox',{name:'任务',exact:true}).fill('Read evidence.txt. Compute the arithmetic mean of 2, 4, 6. Report result 4 with reproducible arithmetic. Do not modify files.');await page.getByRole('textbox',{name:'证据输入（每行一个版本引用）',exact:true}).fill('evidence.txt@'+head);await page.getByRole('button',{name:'保存新版本',exact:true}).click();await page.getByRole('heading',{name:'Verify the arithmetic',exact:true}).waitFor();assert.equal(await page.getByRole('button',{name:'批准版本 1',exact:true}).isEnabled(),false)
  const downloadPromise=page.waitForEvent('download');await page.getByRole('button',{name:'导出 PlanWeave',exact:true}).click();const download=await downloadPromise;await download.saveAs(join(data,'planweave.json'));console.log('PASS plan version save, approval gate and PlanWeave export')
@@ -110,7 +110,7 @@ try {
    console.log('PTY diagnostics: sessions=',sessions,'screen=',JSON.stringify(screen.slice(-400)),'backend=',backendErrors.slice(-400));
    throw error
  }
- await page.getByRole('button',{name:'关闭终端 1',exact:true}).click();await nav('设置');await page.locator('[data-xgc-role="native-provider-settings"]').waitFor();assert.equal(await page.getByText('OpenCode',{exact:true}).count(),1);console.log('PASS shared native provider settings')
+ await page.getByRole('button',{name:'关闭终端 1',exact:true}).click();await nav('设置');await page.locator('[data-xgc-role="agent-provider-settings"]').waitFor();assert.equal(await page.getByText('OpenCode',{exact:true}).count(),1);console.log('PASS shared native provider settings')
  assert.deepEqual(errors,[]);console.log('PASS no browser runtime exceptions');console.log('Artifacts:',data)
 } catch(error) {
  if(page){await page.screenshot({path:join(data,'failure.png')}).catch(()=>{});console.log('Failure screen:',(await page.locator('body').innerText()).slice(-3500))}

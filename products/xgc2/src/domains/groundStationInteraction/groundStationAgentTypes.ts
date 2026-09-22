@@ -1,11 +1,11 @@
-import type { NativeAnswer,NativeRequest,NativeSession,NativeTurnOptions,Scope,StreamState } from '@xgc2/agent-runtime/state';
+import type { AgentAnswer,AgentRequest,AgentSession,AgentTurnOptions,Scope,StreamState } from '@xgc2/agent-runtime/state';
 
-export type NativeProjection = { state: StreamState; connection: string; error: string; receivedAt?: number };
+export type AgentProjection = { state: StreamState; connection: string; error: string; receivedAt?: number };
 export type GroundStationNativeBinding = {
   experimentId: string;
   sessionId: string;
-  session?: NativeSession;
-  projection?: NativeProjection;
+  session?: AgentSession;
+  projection?: AgentProjection;
   error?: string;
   reload: number;
 };
@@ -13,15 +13,15 @@ export type GroundStationNativeAttentionItem = {
   id: string;
   experimentId: string;
   sessionId: string;
-  request: NativeRequest;
+  request: AgentRequest;
   submitted: boolean;
   summaryOnly?: boolean;
 };
-export type NativeConversationInventory = { loading: boolean; error: string; nextCursor?: string };
+export type AgentConversationInventory = { loading: boolean; error: string; nextCursor?: string };
 export type GroundStationNativeRegistry = {
   bindings: GroundStationNativeBinding[];
   selected: Record<string,string | null>;
-  inventories: Record<string,NativeConversationInventory>;
+  inventories: Record<string,AgentConversationInventory>;
   select: (experimentId:string,sessionId:string | null) => void;
   open: (experimentId:string,sessionId:string) => Promise<void>;
   refresh: (experimentId:string,signal?:AbortSignal,more?:boolean) => Promise<void>;
@@ -29,9 +29,9 @@ export type GroundStationNativeRegistry = {
   readInputs: (experimentId:string,sessionId:string,signal?:AbortSignal) => Promise<void>;
   pendingInputs: GroundStationNativeAttentionItem[];
   attentionError: string;
-  connect: (experimentId: string,scope: Omit<Scope,'context'>,experimentServices?: boolean) => Promise<NativeSession>;
-  send: (experimentId: string,message: string,options?: NativeTurnOptions,sessionId?:string) => Promise<string | void>;
-  answer: (item: GroundStationNativeAttentionItem,answer: NativeAnswer) => Promise<unknown>;
+  connect: (experimentId: string,scope: Omit<Scope,'context'>,experimentServices?: boolean) => Promise<AgentSession>;
+  send: (experimentId: string,message: string,options?: AgentTurnOptions,sessionId?:string) => Promise<string | void>;
+  answer: (item: GroundStationNativeAttentionItem,answer: AgentAnswer) => Promise<unknown>;
   cancel: (experimentId: string) => Promise<unknown>;
   reconnect: (experimentId: string,experimentServices?: boolean) => Promise<unknown>;
   close: (experimentId: string) => Promise<unknown>;

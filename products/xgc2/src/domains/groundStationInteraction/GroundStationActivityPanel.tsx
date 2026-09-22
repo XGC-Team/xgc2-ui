@@ -1,6 +1,6 @@
 import { useLayoutEffect } from 'react';
 import { GroundStationActivityChat } from './GroundStationActivityChat';
-import { GroundStationNativeActivityChat } from './GroundStationNativeActivityChat';
+import { GroundStationAgentActivityChat } from './GroundStationAgentActivityChat';
 import { registerGroundStationActivityPanel } from './groundStationActivityPanelPresence';
 import { useGroundStationInteractionScope } from './GroundStationInteractionContext';
 import { GroundStationInteractionProvider } from './GroundStationInteractionProvider';
@@ -44,6 +44,6 @@ function GroundStationActivityPanelContent({ targetId,workspaceId }: { targetId:
     onOpenContext,
   };
   const identity = `${targetId}:${activityScope.experimentId ?? ''}`;
-  return activityScope.experimentId ? <GroundStationNativeActivityChat key={identity}
+  return activityScope.experimentId ? <GroundStationAgentActivityChat key={identity}
     {...props} experimentId={activityScope.experimentId} workspaceId={workspaceId} /> : <GroundStationActivityChat key={identity} {...props} />;
 }

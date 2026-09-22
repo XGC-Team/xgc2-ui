@@ -1,24 +1,24 @@
 import { useCallback,useEffect,useMemo,useRef } from 'react';
-import { useNativeStream } from '@xgc2/agent-runtime/react';
-import type { NativeAnswer,NativeSession,NativeTurnOptions,Scope,StreamState } from '@xgc2/agent-runtime/state';
-import { assertNativeExperimentSession,createGroundStationNativeClient,nativeExperimentPath,openGroundStationNativeStream } from './groundStationNativeAgentService';
-import type { GroundStationNativeAttentionItem,GroundStationNativeRegistry,NativeProjection } from './groundStationNativeAgentTypes';
+import { useAgentStream } from '@xgc2/agent-runtime/react';
+import type { AgentAnswer,AgentSession,AgentTurnOptions,Scope,StreamState } from '@xgc2/agent-runtime/state';
+import { assertNativeExperimentSession,createGroundStationNativeClient,nativeExperimentPath,openGroundStationAgentStream } from './groundStationAgentService';
+import type { GroundStationNativeAttentionItem,GroundStationNativeRegistry,AgentProjection } from './groundStationAgentTypes';
 import { useGroundStationConversationIndex } from './useGroundStationConversationIndex';
 import { remoteConversationScope,bindRemoteConversationDraft } from './groundStationRemoteMessages';
-import { useNativeConversationAttention } from './useNativeConversationAttention';
+import { useAgentConversationAttention } from './useAgentConversationAttention';
 
-function mergeNativeOptions(base:NativeTurnOptions = {},override:NativeTurnOptions = {}):NativeTurnOptions {
+function mergeNativeOptions(base:AgentTurnOptions = {},override:AgentTurnOptions = {}):AgentTurnOptions {
   const options = {...base};
   if (override.model && override.model !== base.model) delete options.effort;
   return {...options,...override};
 }
 
-function projectedOptions(session:NativeSession,state:StreamState) {
+function projectedOptions(session:AgentSession,state:StreamState) {
   return state.items.reduce((options,item) => item.details?.type === 'userMessage'
-    ? mergeNativeOptions(options,item.details.nativeOptions) : options,session.options ?? {});
+    ? mergeNativeOptions(options,item.details.providerOptions) : options,session.options ?? {});
 }
 
-function durableNativeSessionState(sessionState: NativeSession['state'] | undefined, worker: StreamState['worker']) {
+function durableNativeSessionState(sessionState: AgentSession['state'] | undefined, worker: StreamState['worker']) {
   // emptyStream starts as `starting`. That must not hide a disconnected HTTP
   // session, or send skips reconnect and waits forever on the journal.
   if ((sessionState === 'disconnected' || sessionState === 'closed') && worker === 'starting') return sessionState;
@@ -26,9 +26,9 @@ function durableNativeSessionState(sessionState: NativeSession['state'] | undefi
 }
 
 /** Coordinates the existing native journal, selected conversation and scoped commands. */
-export function useGroundStationNativeAgentBindings(executionTargetId: string,focusedExperimentId = '') {
+export function useGroundStationAgentBindings(executionTargetId: string,focusedExperimentId = '') {
   const index = useGroundStationConversationIndex(executionTargetId,focusedExperimentId);
-  const attention = useNativeConversationAttention(executionTargetId,index.bindings);
+  const attention = useAgentConversationAttention(executionTargetId,index.bindings);
   const current = useRef({index,attention,executionTargetId});
   current.current = {index,attention,executionTargetId};
   const createAttempts = useRef(new Map<string,{fingerprint:string; key:string}>());
@@ -42,11 +42,11 @@ export function useGroundStationNativeAgentBindings(executionTargetId: string,fo
     assertNativeExperimentSession(binding.session,experimentId);
     return binding;
   },[]);
-  const project = useCallback((experimentId:string,sessionId:string,projection:NativeProjection) => {
+  const project = useCallback((experimentId:string,sessionId:string,projection:AgentProjection) => {
     current.current.index.setBindings(items => items.map(item => item.experimentId === experimentId && item.sessionId === sessionId
       ? {...item,projection:{...projection,receivedAt:Date.now()},session:item.session ? {...item.session,
         state: durableNativeSessionState(item.session.state,projection.state.worker),
-        nativeSessionId:projection.state.nativeSessionId || item.session.nativeSessionId,
+        providerSessionId:projection.state.providerSessionId || item.session.providerSessionId,
         runtimeId:projection.state.runtimeId || item.session.runtimeId,
         options:projectedOptions(item.session,projection.state),
         ...(projection.state.metadata ?? {})} : item.session} : item));
@@ -67,7 +67,7 @@ export function useGroundStationNativeAgentBindings(executionTargetId: string,fo
     if (createAttempts.current.get(experimentId) === attempt) createAttempts.current.delete(experimentId);
     return session;
   },[requireLocal]);
-  const send = useCallback(async (experimentId:string,message:string,options?:NativeTurnOptions,sessionId?:string) => {
+  const send = useCallback(async (experimentId:string,message:string,options?:AgentTurnOptions,sessionId?:string) => {
     requireLocal();
     const api = createGroundStationNativeClient(experimentId);
     // Reuse the exact ready projection. A new/recovered conversation can precede
@@ -87,7 +87,7 @@ export function useGroundStationNativeAgentBindings(executionTargetId: string,fo
     if (promptAttempts.current.get(binding.sessionId) === attempt) promptAttempts.current.delete(binding.sessionId);
     return turnId;
   },[requiredBinding,requireLocal]);
-  const answer = useCallback(async (item:GroundStationNativeAttentionItem,value:NativeAnswer) => {
+  const answer = useCallback(async (item:GroundStationNativeAttentionItem,value:AgentAnswer) => {
     requireLocal();
     const pending = current.current.attention.items.find(input => input.id === item.id && input.experimentId === item.experimentId && input.sessionId === item.sessionId);
     if (!pending || pending.summaryOnly || pending.submitted) throw new Error('This native input request is no longer available for a response.');
@@ -145,9 +145,9 @@ export function useGroundStationNativeAgentBindings(executionTargetId: string,fo
 
 /** Only the selected visible conversation holds a transcript SSE. */
 export function useGroundStationNativeSessionProjection({experimentId,session,reload,onProjection}:{
-  experimentId:string; session:NativeSession; reload:number;
-  onProjection:(experimentId:string,sessionId:string,projection:NativeProjection) => void;
+  experimentId:string; session:AgentSession; reload:number;
+  onProjection:(experimentId:string,sessionId:string,projection:AgentProjection) => void;
 }) {
-  const {state,connection,error} = useNativeStream(session,reload,{basePath:`/api${nativeExperimentPath(experimentId)}`,openStream:openGroundStationNativeStream});
+  const {state,connection,error} = useAgentStream(session,reload,{basePath:`/api${nativeExperimentPath(experimentId)}`,openStream:openGroundStationAgentStream});
   useEffect(() => onProjection(experimentId,session.id,{state,connection,error}),[experimentId,session.id,state,connection,error,onProjection]);
 }

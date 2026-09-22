@@ -5,7 +5,7 @@ import {
   GroundStationLocalNotificationHost,
   GroundStationInteractionProvider,
   GroundStationNotificationCenter,
-  GroundStationNativeAgentProvider,
+  GroundStationAgentProvider,
   type GroundStationContextDestination,
   type GroundStationContextInteraction,
   type GroundStationInteraction,
@@ -156,12 +156,12 @@ export function AppFrame({ children }: { children: ReactNode }) {
   );
 
   return (
-    <GroundStationNativeAgentProvider executionTargetId={targetNavigation.executionTargetId}>
+    <GroundStationAgentProvider executionTargetId={targetNavigation.executionTargetId}>
       {targetNavigation.executionTargetAvailable ? <GroundStationInteractionProvider targetId={targetNavigation.executionTargetId}
         onOpenContext={openInteractionContext} onOpenSource={openInteractionSource}
         notificationCenterOpen={notificationCenterOpen} onNotificationCenterOpenChange={setNotificationCenterOpen}>
         {shell}
       </GroundStationInteractionProvider> : shell}
-    </GroundStationNativeAgentProvider>
+    </GroundStationAgentProvider>
   );
 }

@@ -11,19 +11,19 @@ describe('native Agent station transport',() => {
     localStorage.setItem('xgcStationToken','fixture-station-token');
     const fetchMock = vi.fn(async () => new Response('{}'));
     vi.stubGlobal('fetch',fetchMock);
-    await fetchNativeAgent('/api/experiments/experiment-a/native-agents/sessions',{ method: 'POST',headers: { 'X-XGC-Native-Client': '1' } });
+    await fetchNativeAgent('/api/experiments/experiment-a/native-agents/sessions',{ method: 'POST',headers: { 'X-XGC-Agent-Client': '1' } });
     const [,init] = fetchMock.mock.calls[0] as unknown as [string,RequestInit];
     expect(new Headers(init.headers).get('X-XGC-Station-Token')).toBe('fixture-station-token');
-    expect(new Headers(init.headers).get('X-XGC-Native-Client')).toBe('1');
+    expect(new Headers(init.headers).get('X-XGC-Agent-Client')).toBe('1');
     expect(() => fetchNativeAgent('https://elsewhere.test/api/experiments/experiment-a/native-agents/sessions')).toThrow();
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
   it('allows only the exact provider settings routes outside an Experiment',async () => {
     const fetchMock = vi.fn(async () => new Response('{}'));
     vi.stubGlobal('fetch',fetchMock);
-    await fetchNativeAgent('/api/native-agents/settings');
-    await fetchNativeAgent('/api/native-agents/settings/refresh',{method:'POST'});
-    for (const path of ['/api/native-agents/sessions','/api/native-agents/settings?target=other','/api/native-agents/settings/extra']) {
+    await fetchNativeAgent('/api/agent-runtime/settings');
+    await fetchNativeAgent('/api/agent-runtime/settings/refresh',{method:'POST'});
+    for (const path of ['/api/agent-runtime/sessions','/api/agent-runtime/settings?target=other','/api/agent-runtime/settings/extra']) {
       expect(() => fetchNativeAgent(path)).toThrow();
     }
     expect(fetchMock).toHaveBeenCalledTimes(2);

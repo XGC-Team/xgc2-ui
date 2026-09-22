@@ -634,7 +634,7 @@ describe('Robot control remote view',() => {
     writeSelection(['scout-01']);
     const action = actionPort();
     render(<>
-      <div data-xgc-role="native-agent-conversation" data-xgc-id="session-a">
+      <div data-xgc-role="agent-conversation" data-xgc-id="session-a">
         <GroundStationRemoteDock experimentId="experiment-a" />
         <div>Ask anything...</div>
       </div>
@@ -645,7 +645,7 @@ describe('Robot control remote view',() => {
     const dock = document.querySelector('[data-xgc-role="ground-station-remote-dock"]');
     expect(dock).toHaveAttribute('data-xgc-id','experiment-a');
     expect(dock).toContainElement(remote);
-    expect(document.querySelector('[data-xgc-role="native-agent-conversation"]')).toContainElement(remote);
+    expect(document.querySelector('[data-xgc-role="agent-conversation"]')).toContainElement(remote);
     expect(document.querySelector('.robot-remote-window-layer')).toBeNull();
     expect(remote).toHaveAttribute('data-xgc-docked','true');
     expect(remote).toHaveClass('robot-remote-window-docked');
@@ -713,7 +713,7 @@ describe('Robot control remote view',() => {
     expect(document.querySelector('.robot-remote-window-layer')).toContainElement(remote);
     expect(remote).not.toHaveAttribute('data-xgc-docked');
     view.rerender(<>
-      <div data-xgc-role="native-agent-conversation" data-xgc-id="session-a">
+      <div data-xgc-role="agent-conversation" data-xgc-id="session-a">
         <GroundStationRemoteDock experimentId="experiment-a" />
       </div>
       {panelTree()}

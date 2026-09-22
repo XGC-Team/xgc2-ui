@@ -9,7 +9,7 @@ manuscript domain owns compilation. No new approval database or scheduler exists
 
 Use **one** `useReview(scope, tabId, formDirty)` instance for the mounted review.
 Pass that instance to `useWritingReview(scope, review, { mapSaved })` inside the
-existing `NativeAgentSessionProvider`. Do not mount a second review writer to run
+existing `AgentSessionProvider`. Do not mount a second review writer to run
 writing. `mapSaved(receipt, selection)` is the canvas owner's update operation;
 its rejection is a mapping failure, not a source retry or a claim of rollback.
 

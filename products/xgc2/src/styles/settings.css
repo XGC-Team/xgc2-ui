@@ -68,7 +68,7 @@
   padding-inline-start: calc(14px + var(--space-md));
 }
 
-.settings-layout > [data-xgc-layout-family='form-settings'] > [data-xgc-role='config-section-body'] > [data-xgc-role='native-provider-config-actions'] {
+.settings-layout > [data-xgc-layout-family='form-settings'] > [data-xgc-role='config-section-body'] > [data-xgc-role='agent-provider-config-actions'] {
   box-sizing: border-box;
   width: 100%;
   max-width: 320px;
@@ -79,7 +79,7 @@
   gap: var(--space-md);
 }
 
-.settings-layout > [data-xgc-layout-family='form-settings'] > [data-xgc-role='config-section-body'] > [data-xgc-role='native-provider-config-actions'] > [data-xgc-role] {
+.settings-layout > [data-xgc-layout-family='form-settings'] > [data-xgc-role='config-section-body'] > [data-xgc-role='agent-provider-config-actions'] > [data-xgc-role] {
   width: 100%;
   min-width: 0;
 }
@@ -149,7 +149,7 @@
   }
 
   .config-section-disclosure-status,
-  .settings-layout > [data-xgc-layout-family='form-settings'] > [data-xgc-role='config-section-body'] > [data-xgc-role='native-provider-config-actions'] {
+  .settings-layout > [data-xgc-layout-family='form-settings'] > [data-xgc-role='config-section-body'] > [data-xgc-role='agent-provider-config-actions'] {
     justify-self: start;
     max-width: none;
   }

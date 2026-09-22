@@ -1,4 +1,4 @@
-import { NativeAgentClientError } from '@xgc2/agent-runtime/client';
+import { AgentClientError } from '@xgc2/agent-runtime/client';
 import { describe,expect,it } from 'vitest';
 import {
   isNativeCompanionUnavailable,
@@ -8,7 +8,7 @@ import {
 
 describe('native companion availability', () => {
   it('does not dump Core companion-down copy onto the operator surface', () => {
-    const cause = new NativeAgentClientError(502,'native_upstream_unavailable','原生客户端连接中断。');
+    const cause = new AgentClientError(502,'native_upstream_unavailable','原生客户端连接中断。');
     expect(isNativeCompanionUnavailable(cause)).toBe(true);
     expect(operatorNativeErrorMessage(cause)).toBe('');
     expect(isNativeCompanionUnavailableMessage('原生客户端连接中断。')).toBe(true);

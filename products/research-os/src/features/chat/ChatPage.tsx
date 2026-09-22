@@ -3,7 +3,7 @@ import {t as tr} from '../../i18n'
 import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { ArrowUpRight } from 'lucide-react'
-import { NativeConversation, NativeComposerControls } from '@xgc2/agent-runtime/react'
+import { AgentConversation, AgentComposerControls } from '@xgc2/agent-runtime/react'
 import { emptyStream } from '@xgc2/agent-runtime/state'
 import { useNativeAgentSession } from './Session'
 import { useWorkbench } from '../../store'
@@ -57,7 +57,7 @@ export function ChatPage({projects}:{projects:Project[]}) {
       <p className="mt-1 text-center text-secondary text-ink-3">{locale==='zh'?'PDF 归档；文本保存到所选项目；链接进入草稿':'PDF archive; text to selected project; links to draft'}</p>
     </div>}
     <div className="native-chat-host min-h-0 flex-1">
-      {!connected||s.streamMatchesSelection?<NativeConversation active={activeNav==='chat'&&conversationVisible} state={connected?s.state:empty} locale={locale} onAnswer={s.respond} draft={s.draft} onDraftChange={s.setDraft}
+      {!connected||s.streamMatchesSelection?<AgentConversation active={activeNav==='chat'&&conversationVisible} state={connected?s.state:empty} locale={locale} onAnswer={s.respond} draft={s.draft} onDraftChange={s.setDraft}
         disabled={s.busy} clearDraftOnSend={false}
         sendDisabled={s.busy||(connected?!['ready','closed','disconnected'].includes(worker||'')||Boolean(s.session?.archived)||Boolean(s.streamError):!s.profileId)}
         sendDisabledReason={nativeUnsignedHint(locale,provider?.login,provider?.provider)||undefined}
@@ -85,7 +85,7 @@ export function ChatPage({projects}:{projects:Project[]}) {
             </motion.div>
           </div>
         </motion.div>}
-        composerControls={<NativeComposerControls identityId={s.selectedId||'new-thread'} locale={locale} providers={providers.map(p=>({...p,models:p.models.map(m=>({...m,efforts:m.efforts.map(e=>({...e,label:locale==='zh'?({low:'低',medium:'中',high:'高',xhigh:'极高',minimal:'最低',none:'关闭'}[e.id]||e.label):e.label}))}))}))} value={connected?s.turnSelection:{profileId:s.profileId,...s.createOptions}} disabled={s.busy||(connected&&!['ready','closed','disconnected'].includes(s.state.worker))}
+        composerControls={<AgentComposerControls identityId={s.selectedId||'new-thread'} locale={locale} providers={providers.map(p=>({...p,models:p.models.map(m=>({...m,efforts:m.efforts.map(e=>({...e,label:locale==='zh'?({low:'低',medium:'中',high:'高',xhigh:'极高',minimal:'最低',none:'关闭'}[e.id]||e.label):e.label}))}))}))} value={connected?s.turnSelection:{profileId:s.profileId,...s.createOptions}} disabled={s.busy||(connected&&!['ready','closed','disconnected'].includes(s.state.worker))}
           onChange={value=>{if(connected)s.setSelections(current=>({...current,[s.selectedId]:value}));else{s.setProfileId(value.profileId);s.setCreateOptions({model:value.model,effort:value.effort,permission:value.permission})}}}/>}/>:<p className="p-6 text-ink-3">{tr("正在读取对话…")}</p>}
     </div>
   </div>}</ResearchWorkspace>

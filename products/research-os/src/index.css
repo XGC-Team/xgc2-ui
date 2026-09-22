@@ -473,7 +473,7 @@ textarea.ui-input { resize: vertical; min-height: 88px; }
 @media (prefers-reduced-motion:reduce) {.pdf-flash {animation:none;opacity:1}}
 
 /* Host contract used by the shared T3 conversation and decision controls. */
-.xgc-native-chat {
+.xgc-agent-chat {
   --color-bg-surface: var(--bg-panel);
   --color-bg-control: var(--bg-elevated);
   --color-bg-primary: var(--accent);
@@ -504,7 +504,7 @@ textarea.ui-input { resize: vertical; min-height: 88px; }
   --font-sm: 11px;
   --weight-medium: 500;
 }
-.native-chat-host [data-xgc-role="native-agent-request-queue"] {
+.native-chat-host [data-xgc-role="agent-request-queue"] {
   width: 100%; max-width: calc(48rem + 40px); margin-inline: auto;
   padding: 8px 20px; scrollbar-gutter: auto;
 }
@@ -515,23 +515,23 @@ textarea.ui-input { resize: vertical; min-height: 88px; }
   --xgc-decision-bg: var(--accent);
   --xgc-decision-fg: var(--accent-fg);
 }
-.native-chat-host [data-xgc-role="native-agent-decision-history"] {
+.native-chat-host [data-xgc-role="agent-decision-history"] {
   padding: 6px 10px; gap: 4px; background: var(--bg-inset);
   grid-template-columns: minmax(0,1fr) auto; font-size: 12px;
 }
-.native-chat-host [data-xgc-role="native-agent-decision-history"] > .xgc-decision-card-heading { grid-column: 1; grid-row: 1; }
-.native-chat-host [data-xgc-role="native-agent-decision-history"] > .xgc-decision-card-footer { grid-column: 2; grid-row: 1; border: 0; padding: 0; }
-.native-chat-host [data-xgc-role="native-agent-decision-history"] > .xgc-decision-card-body { display: none; }
+.native-chat-host [data-xgc-role="agent-decision-history"] > .xgc-decision-card-heading { grid-column: 1; grid-row: 1; }
+.native-chat-host [data-xgc-role="agent-decision-history"] > .xgc-decision-card-footer { grid-column: 2; grid-row: 1; border: 0; padding: 0; }
+.native-chat-host [data-xgc-role="agent-decision-history"] > .xgc-decision-card-body { display: none; }
 
 /* 设置页供应者面板：共享包定结构与可标注身份，产品定字号皮（13px 本体轨） */
-[data-xgc-role="native-provider-settings"] [data-slot="settings-row"] h3 { font-size: var(--type-body); font-weight: 500; letter-spacing: 0; }
-[data-xgc-role="native-provider-settings"] [data-slot="settings-row"] p { font-size: var(--type-secondary); color: var(--ink-3); }
-[data-xgc-role="native-provider-settings"] [data-xgc-role="native-provider-login-status"] { font-size: var(--type-secondary); }
-.native-chat-host [data-xgc-role="native-agent-decision-history"] > .xgc-decision-card-details { grid-column: 1 / -1; }
-.native-chat-host [data-xgc-role="native-agent-decision-history"] time { display: none; }
-.native-chat-host [data-xgc-role="native-agent-composer-input-editor"] { min-height: 64px; max-height: 180px; font-size: var(--type-body); }
+[data-xgc-role="agent-provider-settings"] [data-slot="settings-row"] h3 { font-size: var(--type-body); font-weight: 500; letter-spacing: 0; }
+[data-xgc-role="agent-provider-settings"] [data-slot="settings-row"] p { font-size: var(--type-secondary); color: var(--ink-3); }
+[data-xgc-role="agent-provider-settings"] [data-xgc-role="agent-provider-login-status"] { font-size: var(--type-secondary); }
+.native-chat-host [data-xgc-role="agent-decision-history"] > .xgc-decision-card-details { grid-column: 1 / -1; }
+.native-chat-host [data-xgc-role="agent-decision-history"] time { display: none; }
+.native-chat-host [data-xgc-role="agent-composer-input-editor"] { min-height: 64px; max-height: 180px; font-size: var(--type-body); }
 /* composer 控件同轨：按钮统一 12px/500 控件语（T3 基类 Button/SelectTrigger 默认 14px，在本产品偏大） */
-.native-chat-host [data-xgc-composer-row] [data-xgc-role^="native-composer-"] { font-size: var(--type-secondary); font-weight: 500; letter-spacing: 0; }
+.native-chat-host [data-xgc-composer-row] [data-xgc-role^="agent-composer-"] { font-size: var(--type-secondary); font-weight: 500; letter-spacing: 0; }
 
 #workbench-page-actions > * { flex-shrink: 0; }
 

@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
 import { fireEvent,render,screen,waitFor } from '@testing-library/react';
 import { beforeEach,describe,expect,it,vi } from 'vitest';
-import type { NativeSettings } from '@xgc2/agent-runtime/react';
-import { NativeAgentClientError } from '@xgc2/agent-runtime/client';
-import { NativeProvidersSettingsSection } from './NativeProvidersSettingsSection';
+import type { AgentSettings } from '@xgc2/agent-runtime/react';
+import { AgentClientError } from '@xgc2/agent-runtime/client';
+import { AgentProvidersSettingsSection } from './AgentProvidersSettingsSection';
 
 const mocks = vi.hoisted(() => ({ get: vi.fn(), save: vi.fn(), refresh: vi.fn() }));
-vi.mock('./groundStationNativeSettingsService', () => ({
+vi.mock('./groundStationAgentSettingsService', () => ({
   getNativeProviderSettings: mocks.get,
   updateNativeProviderSettings: mocks.save,
   refreshNativeProviderSettings: mocks.refresh,
@@ -19,7 +19,7 @@ const context = {
   onSkinChange: vi.fn(),
 };
 
-function settingsDoc(revision = 'one'): NativeSettings {
+function settingsDoc(revision = 'one'): AgentSettings {
   return {
     revision,
     providers: [
@@ -62,8 +62,8 @@ describe('native provider Settings contribution', () => {
   });
 
   it('keeps companion-down plumbing out of the Settings operator surface', async () => {
-    mocks.get.mockRejectedValue(new NativeAgentClientError(502,'native_upstream_unavailable','原生客户端连接中断。'));
-    render(<NativeProvidersSettingsSection {...context} />);
+    mocks.get.mockRejectedValue(new AgentClientError(502,'native_upstream_unavailable','原生客户端连接中断。'));
+    render(<AgentProvidersSettingsSection {...context} />);
     fireEvent.click(screen.getByRole('button', { name: 'AI providers' }));
     expect(await screen.findByRole('button', { name: 'Retry connection' })).toBeInTheDocument();
     expect(screen.queryByText('原生客户端连接中断。')).not.toBeInTheDocument();
@@ -71,7 +71,7 @@ describe('native provider Settings contribution', () => {
   });
 
   it('loads only when opened and does not start probes or native sessions', async () => {
-    render(<NativeProvidersSettingsSection {...context} />);
+    render(<AgentProvidersSettingsSection {...context} />);
     expect(mocks.get).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'AI providers' }));
     await waitFor(() => expect(mocks.get).toHaveBeenCalledTimes(1));
@@ -80,7 +80,7 @@ describe('native provider Settings contribution', () => {
   });
 
   it('places provider disclosures as ConfigSection body children instead of a nested T3 panel', async () => {
-    const { container } = render(<NativeProvidersSettingsSection {...context} />);
+    const { container } = render(<AgentProvidersSettingsSection {...context} />);
     fireEvent.click(screen.getByRole('button', { name: 'AI providers' }));
     const body = await waitFor(() => {
       const el = container.querySelector('[data-xgc-role="config-section-body"][data-xgc-id="native-providers"]');
@@ -110,31 +110,31 @@ describe('native provider Settings contribution', () => {
     expect(disclosures[0].querySelector('.config-section-disclosure-status .config-section-disclosure-chevron')).toBeNull();
     expect(body.querySelector('.xgc-status-text')).toBeNull();
     expect(body.querySelector('.config-section-disclosure-value')).toBeNull();
-    expect(body.querySelector('[data-xgc-role="station-native-provider-settings-body"]')).toBeNull();
-    expect(body.querySelector('.xgc-native-chat')).toBeNull();
-    expect(body.querySelector('[data-xgc-role="native-provider-select"]')).toBeNull();
-    expect(screen.queryByRole('navigation', { name: 'Native providers' })).not.toBeInTheDocument();
+    expect(body.querySelector('[data-xgc-role="station-agent-provider-settings-body"]')).toBeNull();
+    expect(body.querySelector('.xgc-agent-chat')).toBeNull();
+    expect(body.querySelector('[data-xgc-role="agent-provider-select"]')).toBeNull();
+    expect(screen.queryByRole('navigation', { name: 'Providers' })).not.toBeInTheDocument();
   });
 
   it('expands one provider into sibling FormFields and keeps the original revision on save', async () => {
-    const { container } = render(<NativeProvidersSettingsSection {...context} />);
+    const { container } = render(<AgentProvidersSettingsSection {...context} />);
     fireEvent.click(screen.getByRole('button', { name: 'AI providers' }));
     const claude = await screen.findByRole('button', { name: /Claude/ });
     fireEvent.click(claude);
 
     const body = container.querySelector('[data-xgc-role="config-section-body"][data-xgc-id="native-providers"]')!;
-    const enabled = body.querySelector('[data-xgc-role="native-provider-enabled"][data-xgc-id="claude"]');
+    const enabled = body.querySelector('[data-xgc-role="agent-provider-enabled"][data-xgc-id="claude"]');
     expect(enabled).toBe(body.querySelector('[data-xgc-role="config-section-disclosure"][data-xgc-id="native-providers:claude"] + .xgc-form-field'));
     expect(enabled?.closest('button')).toBeNull();
-    expect(enabled?.querySelector('[data-xgc-role="native-provider-enabled-label"][data-xgc-id="claude"]')).not.toBeNull();
-    expect(enabled?.querySelector('[data-xgc-role="native-provider-enabled-control"][data-xgc-id="claude"]')).not.toBeNull();
-    const actions = body.querySelector('[data-xgc-role="native-provider-config-actions"][data-xgc-id="claude"]');
-    expect(actions).toBe(body.querySelector('[data-xgc-role="native-provider-binary-path"][data-xgc-id="claude"] + [data-xgc-role="native-provider-config-actions"]'));
+    expect(enabled?.querySelector('[data-xgc-role="agent-provider-enabled-label"][data-xgc-id="claude"]')).not.toBeNull();
+    expect(enabled?.querySelector('[data-xgc-role="agent-provider-enabled-control"][data-xgc-id="claude"]')).not.toBeNull();
+    const actions = body.querySelector('[data-xgc-role="agent-provider-config-actions"][data-xgc-id="claude"]');
+    expect(actions).toBe(body.querySelector('[data-xgc-role="agent-provider-binary-path"][data-xgc-id="claude"] + [data-xgc-role="agent-provider-config-actions"]'));
     expect(actions?.parentElement).toBe(body);
     expect([...actions?.querySelectorAll(':scope > [data-xgc-role]') ?? []].map((el) => el.getAttribute('data-xgc-role'))).toEqual([
-      'native-provider-refresh',
-      'native-provider-discard',
-      'native-provider-save',
+      'agent-provider-refresh',
+      'agent-provider-discard',
+      'agent-provider-save',
     ]);
     expect(screen.getByLabelText('Enabled')).not.toBeChecked();
     expect(screen.queryByText(/Login status unknown/)).not.toBeInTheDocument();
@@ -157,7 +157,7 @@ describe('native provider Settings contribution', () => {
   });
 
   it('forwards the shared editor original revision even after a newer document arrives', async () => {
-    render(<NativeProvidersSettingsSection {...context} />);
+    render(<AgentProvidersSettingsSection {...context} />);
     fireEvent.click(screen.getByRole('button', { name: 'AI providers' }));
     fireEvent.click(await screen.findByRole('button', { name: /Codex/ }));
     fireEvent.click(screen.getByLabelText('Enabled'));

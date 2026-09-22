@@ -4,7 +4,7 @@ import { Bell,ExternalLink } from 'lucide-react';
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Notice,Stack } from '@xgc2/ui-react';
-import { DecisionCard,NativeInput } from '@xgc2/agent-runtime/react';
+import { DecisionCard,AgentInput } from '@xgc2/agent-runtime/react';
 import { DecisionPolicyControl } from './DecisionPolicyControl';
 import { useAppLanguage } from '../../shared/localization/localizedText';
 import { ConfigDrawer } from '../../components/ConfigDrawer';
@@ -17,7 +17,7 @@ import { groundStationInteractionOrigin,formatGroundStationTimestamp } from './g
 import { useAllLocalGroundStationNotifications } from './localGroundStationNotifications';
 import { useGroundStationText } from './groundStationMessages';
 import type { GroundStationInteraction } from './groundStationInteractionTypes';
-import { useGroundStationNativeAgentRegistry,useGroundStationNativeAttention,type GroundStationNativeAttentionItem } from './GroundStationNativeAgentProvider';
+import { useGroundStationNativeAgentRegistry,useGroundStationNativeAttention,type GroundStationNativeAttentionItem } from './GroundStationAgentProvider';
 import './GroundStationNotificationCenter.css';
 
 /** One entry into the existing interaction inventory, independent of the active page. */
@@ -87,7 +87,7 @@ export function GroundStationNotificationCenter({ targetId,open: controlledOpen,
         actions={<ControlButton dataXgcRole="ground-station-native-review" dataXgcId={item.id} onClick={() => {
           setSourceError(undefined);
           void native.readInputs?.(item.experimentId,item.sessionId).catch((cause:unknown) => setSourceError({id:item.id,message:cause instanceof Error ? cause.message : t('Notification source is unavailable')}));
-        }}>{t('Review request')}</ControlButton>} /> : <NativeInput request={item.request} sessionId={item.sessionId} submitted={item.submitted}
+        }}>{t('Review request')}</ControlButton>} /> : <AgentInput request={item.request} sessionId={item.sessionId} submitted={item.submitted}
           renderApprovalControls={requestId => <DecisionPolicyControl key={requestId} experimentId={item.experimentId}
             source={{kind:'native',sessionId:item.sessionId,requestId}} />}
         locale={language === 'zh-CN' ? 'zh' : 'en'} onAnswer={(answer) => native.answer(item,answer)} />}

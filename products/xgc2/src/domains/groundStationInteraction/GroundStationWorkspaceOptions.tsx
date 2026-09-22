@@ -2,8 +2,8 @@ import { useEffect,useState } from 'react';
 import { Notice } from '@xgc2/ui-react';
 import { FormField } from '../../components/FormPrimitives';
 import { SelectControl } from '../../components/controls/SelectControl';
-import { getGroundStationNativeCapabilities,type GroundStationNativeCapabilities } from './groundStationNativeAgentService';
-import { useGroundStationNativeText } from './groundStationNativeMessages';
+import { getGroundStationNativeCapabilities,type GroundStationNativeCapabilities } from './groundStationAgentService';
+import { useGroundStationNativeText } from './groundStationAgentMessages';
 
 /** The panel stores a workspace selection; each conversation retains its own binding. */
 export function GroundStationWorkspaceOptions({experimentId,options,onChange}:{

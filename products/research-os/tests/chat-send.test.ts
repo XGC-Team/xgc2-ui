@@ -52,6 +52,6 @@ describe('research native send gate', () => {
       worker: 'disconnected',
       attempted: true,
       login: { status: 'authenticated' },
-    })).toContain('Native connection failed')
+    })).toContain('Agent connection failed')
   })
 })

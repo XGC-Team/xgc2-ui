@@ -49,7 +49,7 @@ vi.mock('./useTargetCore', () => ({
 }));
 
 vi.mock('../domains/groundStationInteraction/groundStationInteractionPublic', () => ({
-  GroundStationNativeAgentProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
+  GroundStationAgentProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
   GroundStationNotificationCenter: ({ targetId }: { targetId: string }) => <button data-xgc-role="ground-station-notifications-trigger" data-xgc-id={targetId}>Notifications</button>,
   GroundStationLocalNotificationHost: () => <div data-xgc-role="ground-station-local-notifications-test" />,
   GroundStationInteractionProvider: ({ children }: { children: ReactNode }) => <>{children}</>,

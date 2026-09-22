@@ -1,7 +1,7 @@
 import { useCallback,useEffect,useRef,useState } from 'react';
-import type { NativeSession } from '@xgc2/agent-runtime/state';
-import { assertNativeExperimentSession,createGroundStationNativeClient,nativeExperimentPath } from './groundStationNativeAgentService';
-import type { GroundStationNativeBinding,NativeConversationInventory } from './groundStationNativeAgentTypes';
+import type { AgentSession } from '@xgc2/agent-runtime/state';
+import { assertNativeExperimentSession,createGroundStationNativeClient,nativeExperimentPath } from './groundStationAgentService';
+import type { GroundStationNativeBinding,AgentConversationInventory } from './groundStationAgentTypes';
 
 import { startRemoteConversationDraft } from './groundStationRemoteMessages';
 
@@ -12,7 +12,7 @@ const LEGACY_KEY = 'xgc.ground-station.native-agent.bindings.v1';
 export function useGroundStationConversationIndex(executionTargetId: string,focusedExperimentId: string) {
   const [bindings,setBindings] = useState<GroundStationNativeBinding[]>([]);
   const [selected,setSelected] = useState<Record<string,string | null>>(readSelection);
-  const [inventories,setInventories] = useState<Record<string,NativeConversationInventory>>({});
+  const [inventories,setInventories] = useState<Record<string,AgentConversationInventory>>({});
   const requests = useRef(new Map<string,number>());
   const current = useRef({bindings,selected,inventories,executionTargetId});
   current.current = {bindings,selected,inventories,executionTargetId};
@@ -23,7 +23,7 @@ export function useGroundStationConversationIndex(executionTargetId: string,focu
     } catch { /* Selection is optional; history remains on the workstation. */ }
   },[selected]);
 
-  const upsert = useCallback((experimentId: string,sessions: NativeSession[]) => {
+  const upsert = useCallback((experimentId: string,sessions: AgentSession[]) => {
     for (const session of sessions) assertNativeExperimentSession(session,experimentId);
     setBindings(items => {
       const byID = new Map(items.map(item => [item.sessionId,item]));
@@ -85,7 +85,7 @@ export function useGroundStationConversationIndex(executionTargetId: string,focu
     if (sessionId === null) startRemoteConversationDraft(experimentId);
     setSelected(items => ({...items,[experimentId]:sessionId}));
   },[]);
-  const chooseCreated = useCallback((experimentId: string,session: NativeSession) => {
+  const chooseCreated = useCallback((experimentId: string,session: AgentSession) => {
     upsert(experimentId,[session]);
     setSelected(items => ({...items,[experimentId]:session.id}));
   },[upsert]);

@@ -1,14 +1,14 @@
 import { Plus } from 'lucide-react';
 import { ControlButton } from '../../components/controls/ControlButton';
 import { SelectControl } from '../../components/controls/SelectControl';
-import { useGroundStationNativeAgentRegistry,type GroundStationNativeBinding } from './GroundStationNativeAgentProvider';
-import { useGroundStationNativeText } from './groundStationNativeMessages';
-import type { useGroundStationNativeConnection } from './useGroundStationNativeConnection';
+import { useGroundStationNativeAgentRegistry,type GroundStationNativeBinding } from './GroundStationAgentProvider';
+import { useGroundStationNativeText } from './groundStationAgentMessages';
+import type { useGroundStationAgentConnection } from './useGroundStationAgentConnection';
 import { GroundStationConversationHeaderPortal } from './GroundStationConversationFrame';
 
 export function GroundStationConversationManager({experimentId,binding,connection,active}:{
   experimentId:string; binding?:GroundStationNativeBinding;
-  connection:ReturnType<typeof useGroundStationNativeConnection>; active:boolean;
+  connection:ReturnType<typeof useGroundStationAgentConnection>; active:boolean;
 }) {
   const registry = useGroundStationNativeAgentRegistry();
   const t = useGroundStationNativeText();

@@ -1,15 +1,15 @@
 import { useCallback,useEffect,useMemo,useState } from 'react';
-import type { NativeRequest } from '@xgc2/agent-runtime/state';
+import type { AgentRequest } from '@xgc2/agent-runtime/state';
 import { createDeadlineTimer } from '../../shared/eventCoalescer';
-import { readGroundStationNativeAttention,createGroundStationNativeClient } from './groundStationNativeAgentService';
-import type { GroundStationNativeAttentionItem,GroundStationNativeBinding } from './groundStationNativeAgentTypes';
+import { readGroundStationNativeAttention,createGroundStationNativeClient } from './groundStationAgentService';
+import type { GroundStationNativeAttentionItem,GroundStationNativeBinding } from './groundStationAgentTypes';
 
-type Summary = {sessionId:string; experimentId:string; lastSeq:number; pending:Array<{id:string; kind:NativeRequest['kind']; title:string; createdAt?:string; submitted:boolean}>};
+type Summary = {sessionId:string; experimentId:string; lastSeq:number; pending:Array<{id:string; kind:AgentRequest['kind']; title:string; createdAt?:string; submitted:boolean}>};
 type Snapshot = {sessions:Summary[]; revision:string; receivedAt:number};
 
 /** A single bounded summary request monitors background conversations. Full
  * permission arguments are fetched only when their decision is opened. */
-export function useNativeConversationAttention(executionTargetId:string,bindings:GroundStationNativeBinding[]) {
+export function useAgentConversationAttention(executionTargetId:string,bindings:GroundStationNativeBinding[]) {
   const [snapshot,setSnapshot] = useState<Snapshot>();
   const [error,setError] = useState('');
   const [details,setDetails] = useState<Record<string,GroundStationNativeAttentionItem>>({});
@@ -94,7 +94,7 @@ function decodeAttention(value:unknown): Omit<Snapshot,'receivedAt'> {
       const input = object(raw);
       if (!['permission','question','plan'].includes(input.kind as string) || typeof input.title !== 'string' || input.title.length > 4096 || typeof input.submitted !== 'boolean'
         || input.createdAt !== undefined && typeof input.createdAt !== 'string') throw new Error('Invalid native attention request.');
-      return {id:safe(input.id),kind:input.kind as NativeRequest['kind'],title:input.title,submitted:input.submitted,createdAt:input.createdAt as string | undefined};
+      return {id:safe(input.id),kind:input.kind as AgentRequest['kind'],title:input.title,submitted:input.submitted,createdAt:input.createdAt as string | undefined};
     })};
   });
   return {sessions,revision:data.revision};

@@ -200,7 +200,7 @@ export function LiteratureWorkbench({
         <textarea className="ui-input mt-1 w-full" value={question} onChange={event => setQuestion(event.target.value)} rows={2}/>
       </label>
       <Button size="xs" disabled={!excerpt.trim() || !question.trim() || Boolean(busy)} onClick={() => void studyNow()}>{zh ? '发送研读问题' : 'Send study question'}</Button>
-      {study && <p role="status" className="text-caption">{study.outcome === 'sent' ? `${zh ? '已交给原生会话' : 'Sent to native session'} ${study.nativeSessionId} · ${study.requestKey}` : `${study.outcome}: ${study.reason}`}</p>}
+      {study && <p role="status" className="text-caption">{study.outcome === 'sent' ? `${zh ? '已交给原生会话' : 'Sent to native session'} ${study.providerSessionId} · ${study.requestKey}` : `${study.outcome}: ${study.reason}`}</p>}
     </>}
     {busy && <p className="text-caption text-ink-3">{busy}</p>}
     {error && <p role="alert" className="text-caption">{error}</p>}

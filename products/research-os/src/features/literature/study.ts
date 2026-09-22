@@ -1,4 +1,4 @@
-import type { NativeTurnOptions } from '@xgc2/agent-runtime/state'
+import type { AgentTurnOptions } from '@xgc2/agent-runtime/state'
 import { sendNativePrompt } from '../chat/client'
 import type { ReadingSelection, StudyReceipt } from './types'
 
@@ -58,11 +58,11 @@ export async function sendLiteratureStudy(port: StudyPort, input: StudyInput, si
   }
   if (signal?.aborted) return { outcome: 'refused', reason: 'aborted' }
   const requestKey = crypto.randomUUID()
-  const options: NativeTurnOptions = { model: current.turnSelection.model, effort: current.turnSelection.effort, permission: current.turnSelection.permission }
+  const options: AgentTurnOptions = { model: current.turnSelection.model, effort: current.turnSelection.effort, permission: current.turnSelection.permission }
   try {
     await sendNativePrompt(current.session.id, formatStudyPrompt(input), requestKey, options)
     if (signal?.aborted) return { outcome: 'uncertain', reason: 'aborted-after-send' }
-    return { outcome: 'sent', nativeSessionId: current.session.id, requestKey }
+    return { outcome: 'sent', providerSessionId: current.session.id, requestKey }
   } catch (error) {
     const status = typeof error === 'object' && error !== null && 'status' in error ? Number(error.status) : 0
     if (status >= 500 || status === 0) return { outcome: 'uncertain', reason: error instanceof Error ? error.message : 'send-failed' }

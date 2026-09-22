@@ -130,6 +130,6 @@ export type ExtractionResult = {
 }
 
 export type StudyReceipt =
-  | { outcome: 'sent'; nativeSessionId: string; requestKey: string }
+  | { outcome: 'sent'; providerSessionId: string; requestKey: string }
   | { outcome: 'refused'; reason: string }
   | { outcome: 'uncertain'; reason: string }

@@ -44,7 +44,7 @@ const settingsRoute = createPreloadableProductRoute(loadSettingsRoute);
 const AppearanceSettingsSection = lazy(() => import('../src/domains/settings/AppearanceSettingsSection').then((module) => ({ default: module.AppearanceSettingsSection })));
 const FieldTooltipsSettingsSection = lazy(() => import('../src/domains/settings/FieldTooltipsSettingsSection').then((module) => ({ default: module.FieldTooltipsSettingsSection })));
 const ToolsSettingsSection = lazy(() => import('../src/domains/settings/ToolsSettingsSection').then((module) => ({ default: module.ToolsSettingsSection })));
-const NativeProvidersSettingsSection = lazy(() => import('../src/domains/groundStationInteraction/NativeProvidersSettingsSection').then((module) => ({ default: module.NativeProvidersSettingsSection })));
+const AgentProvidersSettingsSection = lazy(() => import('../src/domains/groundStationInteraction/AgentProvidersSettingsSection').then((module) => ({ default: module.AgentProvidersSettingsSection })));
 
 // System.HostLogs, System.SSHService, and System.Firewall are intentionally
 // unwired on the product surface. Host log / sshd / firewall leaf modules stay
@@ -304,7 +304,7 @@ export function createCoreUserFeatureComposition(options: {
         ...(options.developer?.markPrompt
           ? [{ id: 'tools',component: ToolsSettingsSection }]
           : []),
-        { id: 'native-providers',component: NativeProvidersSettingsSection },
+        { id: 'native-providers',component: AgentProvidersSettingsSection },
       ],
     },
     developer: options.developer ?? {},

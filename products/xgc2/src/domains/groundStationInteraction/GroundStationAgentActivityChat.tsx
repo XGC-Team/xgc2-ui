@@ -1,11 +1,11 @@
 import { useEffect,useRef,useState,type ReactNode } from 'react';
-import { NativeConversation,NativeComposerControls,NativePromptQueue } from '@xgc2/agent-runtime/react';
+import { AgentConversation,AgentComposerControls,AgentPromptQueue } from '@xgc2/agent-runtime/react';
 import '@xgc2/agent-runtime/styles.css';
 import { useAppLanguage } from '../../shared/localization/localizedText';
 import { GroundStationActivityChat,type GroundStationActivityChatProps } from './GroundStationActivityChat';
-import { useGroundStationNativeAgentRegistry,useGroundStationNativeStreamFocus,type GroundStationNativeBinding } from './GroundStationNativeAgentProvider';
-import { useGroundStationNativeConnection } from './useGroundStationNativeConnection';
-import { useGroundStationNativeConversation } from './useGroundStationNativeConversation';
+import { useGroundStationNativeAgentRegistry,useGroundStationAgentStreamFocus,type GroundStationNativeBinding } from './GroundStationAgentProvider';
+import { useGroundStationAgentConnection } from './useGroundStationAgentConnection';
+import { useGroundStationAgentConversation } from './useGroundStationAgentConversation';
 import { useGroundStationActivityScope } from './groundStationActivityScope';
 import { useGroundStationRemoteMessages,remoteMessagesForConversation,remoteConversationScope } from './groundStationRemoteMessages';
 import { GroundStationRemoteDock } from './GroundStationRemoteDock';
@@ -13,20 +13,20 @@ import { GroundStationConversationManager } from './GroundStationConversationMan
 import { DecisionPolicyControl } from './DecisionPolicyControl';
 import { useGroundStationVisibleReceipts } from './useGroundStationVisibleReceipts';
 import { useGroundStationPromptQueue } from './useGroundStationPromptQueue';
-import './GroundStationNativeActivityChat.css';
+import './GroundStationAgentActivityChat.css';
 
-export function GroundStationNativeActivityChat({ experimentId,workspaceId,...props }: GroundStationActivityChatProps & { experimentId: string; workspaceId?:string }) {
+export function GroundStationAgentActivityChat({ experimentId,workspaceId,...props }: GroundStationActivityChatProps & { experimentId: string; workspaceId?:string }) {
   const registry = useGroundStationNativeAgentRegistry();
   const binding = registry?.bindings.find((item) => item.experimentId === experimentId && item.sessionId === registry.selected[experimentId]);
   if (!registry || props.targetId !== 'local') return <GroundStationActivityChat {...props} />;
   const decisions = props.decisions.filter(item => !item.payload.decision.agentAction
     || item.payload.decision.agentAction.conversationId === binding?.sessionId);
-  return <GroundStationActivityChat {...props} decisions={decisions} renderConversation={(entries) => <NativeExperimentConversation
+  return <GroundStationActivityChat {...props} decisions={decisions} renderConversation={(entries) => <AgentExperimentConversation
     experimentId={experimentId} workspaceId={workspaceId} binding={binding} entries={entries} chat={props}
   />} />;
 }
 
-function NativeExperimentConversation({ experimentId,workspaceId,binding,entries,chat }: {
+function AgentExperimentConversation({ experimentId,workspaceId,binding,entries,chat }: {
   experimentId: string;
   workspaceId?:string;
   binding?: GroundStationNativeBinding;
@@ -47,7 +47,7 @@ function NativeExperimentConversation({ experimentId,workspaceId,binding,entries
     if (!added) return;
     // Opening a controller is an explicit request to interact with the newest message.
     const frame = requestAnimationFrame(() => {
-      let node = feedRef.current?.querySelector('[data-xgc-role="native-agent-item"]')?.parentElement;
+      let node = feedRef.current?.querySelector('[data-xgc-role="agent-item"]')?.parentElement;
       while (node && node !== feedRef.current) {
         if (/auto|scroll/.test(getComputedStyle(node).overflowY)) {
           node.scrollTop = node.scrollHeight;
@@ -63,15 +63,15 @@ function NativeExperimentConversation({ experimentId,workspaceId,binding,entries
   const keepComposerFocus=useRef(false);
   useEffect(()=>{
     if(!keepComposerFocus.current)return;
-    const frame=requestAnimationFrame(()=>{if(document.activeElement===document.body)feedRef.current?.querySelector<HTMLElement>('[data-xgc-role="native-agent-composer-input-editor"]')?.focus();keepComposerFocus.current=false});
+    const frame=requestAnimationFrame(()=>{if(document.activeElement===document.body)feedRef.current?.querySelector<HTMLElement>('[data-xgc-role="agent-composer-input-editor"]')?.focus();keepComposerFocus.current=false});
     return ()=>cancelAnimationFrame(frame);
   },[draftId]);
   const [sendError,setSendError] = useState<{sessionId:string; message:string}>();
-  const connection = useGroundStationNativeConnection(experimentId,binding,workspaceId);
-  const conversation = useGroundStationNativeConversation(experimentId,binding,connection.options);
+  const connection = useGroundStationAgentConnection(experimentId,binding,workspaceId);
+  const conversation = useGroundStationAgentConversation(experimentId,binding,connection.options);
   const promptQueue=useGroundStationPromptQueue(experimentId,draftId,conversation.state.queue,connection.options,connection.prepareQueueSession);
   const active = chat.enabled && activity.visible;
-  useGroundStationNativeStreamFocus(experimentId,active);
+  useGroundStationAgentStreamFocus(experimentId,active);
   useGroundStationVisibleReceipts(feedRef,[...chat.decisions,...chat.statuses,...chat.contexts],active,chat.targetId);
   if (!chat.enabled || !conversation.available) return null;
   return <aside ref={feedRef} className="xgc-ground-station-chat-panel ground-station-native-chat"
@@ -79,19 +79,19 @@ function NativeExperimentConversation({ experimentId,workspaceId,binding,entries
     aria-label={language === 'zh-CN' ? '地面站对话' : 'Ground station conversation'}
     onKeyDownCapture={suppressChatArrowKey}>
     <GroundStationConversationManager experimentId={experimentId} binding={binding} connection={connection} active={active} />
-    <NativeConversation state={conversation.state} active={active} locale={language === 'zh-CN' ? 'zh' : 'en'}
+    <AgentConversation state={conversation.state} active={active} locale={language === 'zh-CN' ? 'zh' : 'en'}
       disabled={conversation.disabled && binding?.session?.state !== 'disconnected' && binding?.session?.state !== 'closed'}
       emptyState={null}
       draft={drafts[draftId] ?? ''}
       onDraftChange={value => {setDrafts(current => ({...current,[draftId]:value})); setSendError(undefined);}}
       queueEnabled
-      dock={<NativePromptQueue key={draftId} items={promptQueue.items} paused={promptQueue.paused} locale={language==='zh-CN'?'zh':'en'} disabled={!active} onEdit={promptQueue.edit} onRemove={promptQueue.remove} onReorder={promptQueue.reorder} onPause={promptQueue.pause} onRetry={promptQueue.retry}/>}
+      dock={<AgentPromptQueue key={draftId} items={promptQueue.items} paused={promptQueue.paused} locale={language==='zh-CN'?'zh':'en'} disabled={!active} onEdit={promptQueue.edit} onRemove={promptQueue.remove} onReorder={promptQueue.reorder} onPause={promptQueue.pause} onRetry={promptQueue.retry}/>}
       sendDisabled={Boolean(binding?.session?.archived) || Boolean(binding && !binding.session)
         || registry?.selected[experimentId] === undefined || Boolean(registry?.inventories[experimentId]?.error)}
       error={sendError?.sessionId === draftId ? sendError.message : undefined}
       renderApprovalControls={binding ? requestId => <DecisionPolicyControl key={requestId} experimentId={experimentId}
         source={{kind:'native',sessionId:binding.sessionId,requestId}} disabled={!active} /> : undefined}
-      composerControls={<NativeComposerControls providers={connection.providers} value={connection.selection}
+      composerControls={<AgentComposerControls providers={connection.providers} value={connection.selection}
         onChange={connection.select} locale={language === 'zh-CN' ? 'zh' : 'en'} active={active}
         disabled={connection.busy || conversation.disabled} />}
       additionalItems={[
@@ -111,7 +111,7 @@ function NativeExperimentConversation({ experimentId,workspaceId,binding,entries
           </article>})),
       ]}
       onSend={async message => {
-        try {if(draftId.startsWith('new:'))keepComposerFocus.current=feedRef.current?.querySelector('[data-xgc-role="native-agent-composer-input-editor"]')===document.activeElement;promptQueue.enqueue(message);setDrafts(current=>({...current,[draftId]:''}));setSendError(undefined)}
+        try {if(draftId.startsWith('new:'))keepComposerFocus.current=feedRef.current?.querySelector('[data-xgc-role="agent-composer-input-editor"]')===document.activeElement;promptQueue.enqueue(message);setDrafts(current=>({...current,[draftId]:''}));setSendError(undefined)}
         catch(cause){setSendError({sessionId:draftId,message:cause instanceof Error?cause.message:String(cause)});throw cause}
       }}
       onInterrupt={conversation.onInterrupt}

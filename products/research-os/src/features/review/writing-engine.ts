@@ -1,6 +1,6 @@
 import { check, now, scopeKey, uid, validateProposal, type Proposal, type ReviewBook, type Scope } from './review-model.ts'
 import { decodeDesignProposal, decodeWritingCompletion, validateWritingSelection, writingFingerprint, writingOperations, writingPrompt } from './writing-model.ts'
-import type { DesignProposalRequest, NativeWritingCompletion, ReviewBatchReceipt, WritingNativePort, WritingOffer, WritingRecord } from './writing-contract.ts'
+import type { DesignProposalRequest, AgentWritingCompletion, ReviewBatchReceipt, WritingNativePort, WritingOffer, WritingRecord } from './writing-contract.ts'
 import type { ReviewPort } from './review-engine.ts'
 
 type Journal = {
@@ -65,7 +65,7 @@ export function bindWritingReview(journal: Journal) {
     active(id)
   }
   return {
-    addDesignProposal: (request: DesignProposalRequest, completion: NativeWritingCompletion, expected: { sessionId: string; turnId: string }) => {
+    addDesignProposal: (request: DesignProposalRequest, completion: AgentWritingCompletion, expected: { sessionId: string; turnId: string }) => {
       const captured = structuredClone(request), result = structuredClone(completion)
       return journal.command(async () => {
         check(scopeKey(captured.scope) === scopeKey(journal.scope) && result.sessionId === expected.sessionId && result.turnId === expected.turnId, 'Design response belongs to another project or native turn.')
@@ -128,7 +128,7 @@ export function bindWritingReview(journal: Journal) {
         }
       })
     }),
-    acceptWritingResult: (id: string, completion: NativeWritingCompletion) => {
+    acceptWritingResult: (id: string, completion: AgentWritingCompletion) => {
       const captured = structuredClone(completion)
       return journal.command(async () => {
         const w = writing(id)

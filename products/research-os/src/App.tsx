@@ -15,7 +15,7 @@ import { CommandPalette } from './components/CommandPalette'
 import { NAV_ITEMS, useWorkbench, type NavId } from './store'
 import { researchProjects } from './features/workbench/writing-session'
 import { collection, post, listWorkspaces, type Project } from './lib/api'
-import { NativeAgentSessionProvider, useNativeAgentSession } from './features/chat/Session'
+import { AgentSessionProvider, useNativeAgentSession } from './features/chat/Session'
 import { ChatPage } from './features/chat/ChatPage'
 import { WorkflowPage } from './features/workflow/WorkflowPage'
 import { KnowledgePage } from './features/resources/KnowledgePage'
@@ -23,7 +23,7 @@ import { SourceStage } from './features/resources/SourceStage'
 import { SettingsPage } from './features/chat/SettingsPage'
 export default function App(){
  const {projectId}=useWorkbench()
- return <NativeAgentSessionProvider researchProjectId={projectId}><Workbench/></NativeAgentSessionProvider>
+ return <AgentSessionProvider researchProjectId={projectId}><Workbench/></AgentSessionProvider>
 }
 /* 面板尺寸系统：默认值与拖拽夹取范围集中在这里，与 index.css 令牌同轨 */
 const PANEL={left:{default:264,min:208,max:360},right:{default:396,min:300,max:560},bottom:{default:252,min:180,max:440}} as const

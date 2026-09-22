@@ -1,20 +1,20 @@
 import { useEffect,useMemo,useRef,useState } from 'react';
-import type { NativeComposerSelection,NativeProviderConfiguration } from '@xgc2/agent-runtime/react';
-import { useGroundStationNativeAgentRegistry } from './GroundStationNativeAgentProvider';
-import type { GroundStationNativeBinding } from './groundStationNativeAgentTypes';
-import { bindGroundStationWorkspace,getGroundStationNativeCapabilities,type GroundStationNativeCapabilities } from './groundStationNativeAgentService';
-import { getNativeProviderSettings,refreshNativeProviderSettings } from './groundStationNativeSettingsService';
+import type { AgentComposerSelection,AgentProviderConfiguration } from '@xgc2/agent-runtime/react';
+import { useGroundStationNativeAgentRegistry } from './GroundStationAgentProvider';
+import type { GroundStationNativeBinding } from './groundStationAgentTypes';
+import { bindGroundStationWorkspace,getGroundStationNativeCapabilities,type GroundStationNativeCapabilities } from './groundStationAgentService';
+import { getNativeProviderSettings,refreshNativeProviderSettings } from './groundStationAgentSettingsService';
 import { isNativeCompanionUnavailable,operatorNativeErrorMessage } from './nativeCompanionAvailability';
-import { waitForNativeConversation } from './waitForNativeConversation';
+import { waitForAgentConversation } from './waitForAgentConversation';
 
 /** Owns reviewed connection options, experiment-surface attach, and recovery decisions. */
-export function useGroundStationNativeConnection(experimentId: string,binding?: GroundStationNativeBinding,configuredWorkspaceId?:string) {
+export function useGroundStationAgentConnection(experimentId: string,binding?: GroundStationNativeBinding,configuredWorkspaceId?:string) {
   const registry = useGroundStationNativeAgentRegistry();
   const [capabilities,setCapabilities] = useState<GroundStationNativeCapabilities>();
   const [profileId,setProfileId] = useState('');
   const [workspaceId,setWorkspaceId] = useState('');
-  const [providers,setProviders] = useState<NativeProviderConfiguration[]>([]);
-  const [draft,setDraft] = useState<{ key:string; value:NativeComposerSelection }>();
+  const [providers,setProviders] = useState<AgentProviderConfiguration[]>([]);
+  const [draft,setDraft] = useState<{ key:string; value:AgentComposerSelection }>();
   const [refresh,setRefresh] = useState(0);
   const [busy,setBusy] = useState(false);
   const sending = useRef(false);
@@ -107,12 +107,12 @@ export function useGroundStationNativeConnection(experimentId: string,binding?: 
   const selectedProfileId = canConnect ? profileId : binding?.session?.scope.profileId ?? '';
   const selectionKey = canConnect ? `connect:${experimentId}:${selectedProfileId}` : binding?.sessionId ?? '';
   const provider = providers.find((item) => item.id === selectedProfileId);
-  const selection:NativeComposerSelection = draft?.key === selectionKey ? draft.value : {
+  const selection:AgentComposerSelection = draft?.key === selectionKey ? draft.value : {
     profileId:selectedProfileId,...provider?.defaults,...(!canConnect ? binding?.session?.options : undefined),
   };
   const { model,effort,permission } = selection;
   const options = { model,effort,permission };
-  const select = (value:NativeComposerSelection) => {
+  const select = (value:AgentComposerSelection) => {
     if (!canConnect && value.profileId !== selectedProfileId) throw new Error('Choose a model from the connected native provider.');
     setProfileId(value.profileId);
     setDraft({key:canConnect ? `connect:${experimentId}:${value.profileId}` : selectionKey,value});
@@ -148,13 +148,13 @@ export function useGroundStationNativeConnection(experimentId: string,binding?: 
     const workspaceBinding = await adoptWorkspace();
     const workspace = capabilities?.workspaces.find((item) => item.id === workspaceBinding.workspace.id && item.revision === workspaceBinding.workspace.revision);
     if (!workspace) throw new Error('Choose an available experiment workspace.');
-    return registry.connect(experimentId,{ profileId,workspace: { id: workspace.id,revision: workspace.revision },nativeAccessConfirmed: true,options },controlled);
+    return registry.connect(experimentId,{ profileId,workspace: { id: workspace.id,revision: workspace.revision },accessConfirmed: true,options },controlled);
   };
   const prepareCurrentSession = async (requestedSession:GroundStationNativeBinding['session']) => {
     const session = requestedSession ?? await create();
     if (session.archived) throw new Error('Restore this conversation before sending a message.');
     if (session.state === 'closed' || session.state === 'disconnected') await registry?.reconnect(experimentId,controlled);
-    if (session.state === 'starting' || session.state === 'closed' || session.state === 'disconnected') await waitForNativeConversation(experimentId,session.id);
+    if (session.state === 'starting' || session.state === 'closed' || session.state === 'disconnected') await waitForAgentConversation(experimentId,session.id);
     return session.id;
   };
   const currentPreparation = useRef({experimentId,prepare:prepareCurrentSession});
@@ -174,7 +174,7 @@ export function useGroundStationNativeConnection(experimentId: string,binding?: 
       onPrepared?.(session.id);
       if (session.archived) throw new Error('Restore this conversation before sending a message.');
       if (session.state === 'closed' || session.state === 'disconnected') await registry.reconnect(experimentId,controlled);
-      if (session.state !== 'ready') await waitForNativeConversation(experimentId,session.id);
+      if (session.state !== 'ready') await waitForAgentConversation(experimentId,session.id);
       const turnId = await registry.send(experimentId,message,options,session.id);
       return {sessionId:session.id,turnId};
     } finally { sending.current = false; setBusy(false); }

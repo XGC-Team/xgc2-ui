@@ -1,6 +1,6 @@
 import { decodeDecisionFacts,type DecisionFacts } from '@xgc2/agent-runtime/client';
 import { request } from '../../api/http';
-import { createGroundStationNativeClient,nativeExperimentPath } from './groundStationNativeAgentService';
+import { createGroundStationNativeClient,nativeExperimentPath } from './groundStationAgentService';
 
 export type DecisionRule = {id:string; mode:'manual'|'auto'|'deny'; scope:DecisionFacts; issuedAt:string; expiresAt:string; remainingUses:number};
 export type DecisionPolicy = {id:string; revision:string; actor:{id:string; label?:string}; rules:DecisionRule[]};

@@ -1,17 +1,17 @@
-import { createNativeAgentClient } from '@xgc2/agent-runtime/client';
-import { decodeProfiles,type NativeProfile,type NativeSession } from '@xgc2/agent-runtime/state';
+import { createAgentClient } from '@xgc2/agent-runtime/client';
+import { decodeProfiles,type AgentProfile,type AgentSession } from '@xgc2/agent-runtime/state';
 import { request } from '../../api/http';
 import { fetchNativeAgent,experimentServicesTransport } from '../../api/nativeAgent';
 
-export { openNativeAgentStream as openGroundStationNativeStream } from '../../api/nativeAgent';
+export { openNativeAgentStream as openGroundStationAgentStream } from '../../api/nativeAgent';
 
-export type NativeDebugWorkspace = { id: string; label: string; revision: string; directory?:string };
+export type AgentDebugWorkspace = { id: string; label: string; revision: string; directory?:string };
 export type ExperimentWorkspaceBinding = { experimentId:string; workspace:{id:string; revision:string}; revision:number };
 export type GroundStationNativeCapabilities = {
   available: boolean;
   detail: string;
-  profiles: NativeProfile[];
-  workspaces: NativeDebugWorkspace[];
+  profiles: AgentProfile[];
+  workspaces: AgentDebugWorkspace[];
   executionTargetId: 'local';
   experimentServices: boolean;
   workspaceBinding: ExperimentWorkspaceBinding | null;
@@ -25,7 +25,7 @@ export function nativeExperimentPath(experimentId: string) {
 
 export async function bindGroundStationWorkspace(experimentId:string,workspace:{id:string; revision:string},expectedRevision:number) {
   const result = await request<unknown>(`${nativeExperimentPath(experimentId)}/workspace`,{
-    method:'POST',headers:{'Content-Type':'application/json','X-XGC-Native-Client':'1'},body:JSON.stringify({workspace,expectedRevision}),
+    method:'POST',headers:{'Content-Type':'application/json','X-XGC-Agent-Client':'1'},body:JSON.stringify({workspace,expectedRevision}),
   });
   const binding = decodeWorkspaceBinding(record(result).data);
   if (!binding || binding.experimentId !== experimentId || binding.workspace.id !== workspace.id || binding.workspace.revision !== workspace.revision) throw new Error('Experiment workspace response did not match the selection.');
@@ -33,7 +33,7 @@ export async function bindGroundStationWorkspace(experimentId:string,workspace:{
 }
 
 export function createGroundStationNativeClient(experimentId: string,experimentServices = false) {
-  return createNativeAgentClient({ basePath: `/api${nativeExperimentPath(experimentId)}`,fetch: experimentServices ? experimentServicesTransport(true) : fetchNativeAgent });
+  return createAgentClient({ basePath: `/api${nativeExperimentPath(experimentId)}`,fetch: experimentServices ? experimentServicesTransport(true) : fetchNativeAgent });
 }
 
 export async function getGroundStationNativeCapabilities(experimentId: string,signal?: AbortSignal) {
@@ -68,7 +68,7 @@ function decodeWorkspaceBinding(value:unknown):ExperimentWorkspaceBinding | null
   return {experimentId:binding.experimentId,revision:binding.revision as number,workspace:{id:workspace.id,revision:workspace.revision}};
 }
 
-export function assertNativeExperimentSession(session: NativeSession,experimentId: string) {
+export function assertNativeExperimentSession(session: AgentSession,experimentId: string) {
   if (session.scope.context.kind !== 'experiment' || session.scope.context.id !== experimentId) {
     throw new Error('The native session does not belong to this Experiment and local native Agent.');
   }

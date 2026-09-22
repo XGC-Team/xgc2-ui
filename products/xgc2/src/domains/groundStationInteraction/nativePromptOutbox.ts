@@ -1,9 +1,9 @@
-import type {NativeTurnOptions,PromptQueue} from '@xgc2/agent-runtime/state';
-import {createGroundStationNativeClient} from './groundStationNativeAgentService';
-export type LocalPrompt={id:string;sessionId:string;draftId:string;text:string;options:NativeTurnOptions;error?:string};
+import type {AgentTurnOptions,PromptQueue} from '@xgc2/agent-runtime/state';
+import {createGroundStationNativeClient} from './groundStationAgentService';
+export type LocalPrompt={id:string;sessionId:string;draftId:string;text:string;options:AgentTurnOptions;error?:string};
 type Snapshot={items:LocalPrompt[];sending:string;receipts:Record<string,PromptQueue>};
 /** One sender per experiment across panel remounts; the host owns admitted queue items. */
-export class NativePromptOutbox {
+export class AgentPromptOutbox {
   private snapshot:Snapshot;private listeners=new Set<()=>void>();private preparations=new Map<string,()=>Promise<string>>();
   private storageKey:string;
   constructor(private experimentId:string){
@@ -14,7 +14,7 @@ export class NativePromptOutbox {
   getSnapshot=()=>this.snapshot;
   subscribe=(listener:()=>void)=>{this.listeners.add(listener);return()=>{this.listeners.delete(listener)}};
   private write(items:LocalPrompt[],sending=this.snapshot.sending){localStorage.setItem(this.storageKey,JSON.stringify(items));this.snapshot={...this.snapshot,items,sending};for(const listener of this.listeners)listener()}
-  enqueue(text:string,draftId:string,options:NativeTurnOptions,prepare:()=>Promise<string>){
+  enqueue(text:string,draftId:string,options:AgentTurnOptions,prepare:()=>Promise<string>){
     if(!text.trim())return;if(this.snapshot.items.length>=20)throw new Error('Message queue is full.');
     const task={id:crypto.randomUUID(),sessionId:draftId.startsWith('new:')?'':draftId,draftId,text,options:{...options}};
     this.preparations.set(task.id,prepare);this.write([...this.snapshot.items,task]);this.pump();
@@ -39,5 +39,5 @@ export class NativePromptOutbox {
     })();
   }
 }
-const stores=new Map<string,NativePromptOutbox>();
-export function nativePromptOutbox(experimentId:string){let store=stores.get(experimentId);if(!store){store=new NativePromptOutbox(experimentId);stores.set(experimentId,store)}return store}
+const stores=new Map<string,AgentPromptOutbox>();
+export function nativePromptOutbox(experimentId:string){let store=stores.get(experimentId);if(!store){store=new AgentPromptOutbox(experimentId);stores.set(experimentId,store)}return store}

@@ -40,7 +40,7 @@ export type WritingRecord = {
 export type WritingOffer = {
   id: string; author: string; title: string; feedback: Feedback; selection: WritingSelection
 }
-export type NativeWritingCompletion = {
+export type AgentWritingCompletion = {
   sessionId: string; turnId: string
   status: 'completed' | 'failed' | 'cancelled' | 'unknown' | 'incomplete' | 'refused' | 'blocked'
   text: string; truncated: boolean

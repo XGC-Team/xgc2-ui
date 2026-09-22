@@ -6,7 +6,7 @@ export { GROUND_STATION_ACTIVITY_PANEL_ID } from './groundStationActivityPanelPr
 export { GroundStationInteractionProvider } from './GroundStationInteractionProvider';
 export { GroundStationActivityScopeProvider } from './groundStationActivityScope';
 export { GroundStationNotificationCenter } from './GroundStationNotificationCenter';
-export { GroundStationNativeAgentProvider } from './GroundStationNativeAgentProvider';
+export { GroundStationAgentProvider } from './GroundStationAgentProvider';
 export { GroundStationRemoteDock } from './GroundStationRemoteDock';
 export { useGroundStationRemoteDock } from './groundStationRemoteDockRegistry';
 export type {
@@ -23,6 +23,6 @@ export type { LocalGroundStationNotificationInput } from './localGroundStationNo
 
 export { syncGroundStationRemoteMessages,isGroundStationRemoteMessageClosed,remoteConversationScope,useGroundStationRemoteMessages,remoteMessagesForConversation } from './groundStationRemoteMessages';
 
-export { useGroundStationNativeAgentRegistry } from './GroundStationNativeAgentProvider';
+export { useGroundStationNativeAgentRegistry } from './GroundStationAgentProvider';
 
 export { useGroundStationRemoteRequests } from './useGroundStationRemoteRequests';

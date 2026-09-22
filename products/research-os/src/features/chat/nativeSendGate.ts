@@ -1,7 +1,7 @@
 export const NATIVE_CONNECT_FAILED_NOTICE =
-  'Native connection failed. Check the pinned CLI, native login and approved workspace; no provider fallback occurred.'
+  'Agent connection failed. Check the pinned CLI, native login and approved workspace; no provider fallback occurred.'
 
-export type NativeLoginStatus = { status?: string; detail?: string }
+export type AgentLoginStatus = { status?: string; detail?: string }
 
 const labels: Record<string, string> = {
   grok: 'Grok',
@@ -17,7 +17,7 @@ export function nativeProviderLabel(provider?: string): string {
 }
 
 export function nativeConnectFailedNotice(notices: readonly string[] = []): boolean {
-  return notices.some((text) => text === NATIVE_CONNECT_FAILED_NOTICE || text.startsWith('Native connection failed.'))
+  return notices.some((text) => text === NATIVE_CONNECT_FAILED_NOTICE || text.startsWith('Agent connection failed.'))
 }
 
 export function nativeInventoryWorker<T extends string>(
@@ -30,7 +30,7 @@ export function nativeInventoryWorker<T extends string>(
 
 export function nativeUnsignedHint(
   locale: 'en' | 'zh',
-  login?: NativeLoginStatus,
+  login?: AgentLoginStatus,
   provider?: string,
 ): string {
   if (login?.status !== 'unauthenticated') return ''
@@ -42,7 +42,7 @@ export function nativeUnsignedHint(
 
 export function nativeConnectFailureCopy(input: {
   locale: 'en' | 'zh'
-  login?: NativeLoginStatus
+  login?: AgentLoginStatus
   notices?: readonly string[]
   worker?: string
   attempted?: boolean
@@ -62,12 +62,12 @@ export function nativeConnectFailureCopy(input: {
   }
   return input.locale === 'zh'
     ? '原生连接失败。请检查本机客户端、登录和已批准的工作区。'
-    : 'Native connection failed. Check the local CLI, sign-in and approved workspace.'
+    : 'Agent connection failed. Check the local CLI, sign-in and approved workspace.'
 }
 
 export function nativeShouldReconnect(input: {
   worker?: string
-  login?: NativeLoginStatus
+  login?: AgentLoginStatus
 }): boolean {
   if (input.login?.status === 'unauthenticated') return false
   return input.worker === 'disconnected' || input.worker === 'closed'

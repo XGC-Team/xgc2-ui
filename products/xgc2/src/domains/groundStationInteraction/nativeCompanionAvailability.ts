@@ -1,4 +1,4 @@
-import { NativeAgentClientError } from '@xgc2/agent-runtime/client';
+import { AgentClientError } from '@xgc2/agent-runtime/client';
 
 const COMPANION_CODES = new Set([
   'native_upstream_unavailable',
@@ -17,7 +17,7 @@ export function isTransportTimeout(cause: unknown): boolean {
 }
 
 export function isNativeCompanionUnavailable(cause: unknown): boolean {
-  if (cause instanceof NativeAgentClientError && COMPANION_CODES.has(cause.code)) return true;
+  if (cause instanceof AgentClientError && COMPANION_CODES.has(cause.code)) return true;
   const message = messageOf(cause);
   if (COMPANION_COPY.has(message)) return true;
   return isTransportTimeout(cause) && message.includes('/native-agents/');

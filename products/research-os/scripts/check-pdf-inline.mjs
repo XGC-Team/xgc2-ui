@@ -22,7 +22,7 @@ try{
  const original=await mark.evaluate(el=>({left:el.style.left,top:el.style.top,width:el.style.width}))
  await page.getByRole('button',{name:'关闭批注',exact:true}).click();await page.getByRole('button',{name:'PDF 操作',exact:true}).click();await page.getByRole('button',{name:'放大 PDF',exact:true}).click();await page.keyboard.press('Escape');assert.deepEqual(await mark.evaluate(el=>({left:el.style.left,top:el.style.top,width:el.style.width})),original)
  await mark.click();await page.getByRole('button',{name:'加入这次讨论',exact:true}).click()
- const draft=await page.locator('[data-xgc-role="native-agent-composer-input-editor"]').innerText();assert.ok(draft.includes(selected));assert.ok(draft.includes('PDF 版本：'));assert.ok(draft.includes('构建：'));assert.ok(draft.includes('在设计确认前不要改正文'))
+ const draft=await page.locator('[data-xgc-role="agent-composer-input-editor"]').innerText();assert.ok(draft.includes(selected));assert.ok(draft.includes('PDF 版本：'));assert.ok(draft.includes('构建：'));assert.ok(draft.includes('在设计确认前不要改正文'))
  await page.getByRole('button',{name:'关闭批注',exact:true}).click()
  const regionNote=page.locator('[data-xgc-role="pdf-annotation-mark"][title="请调整这个公式与前后正文的间距，并保持公式编号右对齐。"]')
  if(!await regionNote.count()){

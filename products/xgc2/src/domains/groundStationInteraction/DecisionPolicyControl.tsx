@@ -3,8 +3,8 @@ import type { DecisionFacts } from '@xgc2/agent-runtime/client';
 import { SelectControl } from '../../components/controls/SelectControl';
 import { Notice } from '@xgc2/ui-react';
 import { decisionModeForScope,readDecisionPolicy,readDecisionScope,replaceDecisionPolicy,sameDecisionScope,type DecisionPolicy,type DecisionSource,type DecisionRule } from './decisionPolicyService';
-import { createGroundStationNativeClient } from './groundStationNativeAgentService';
-import { useGroundStationNativeText } from './groundStationNativeMessages';
+import { createGroundStationNativeClient } from './groundStationAgentService';
+import { useGroundStationNativeText } from './groundStationAgentMessages';
 
 /** The same policy choice is used by native permissions and GCS decisions.
  * Scope comes from the pending request's backend, not the visible message. */

@@ -1,9 +1,9 @@
 import { useEffect,useState } from 'react';
 import { Notice } from '@xgc2/ui-react';
 import type {
-  NativeProviderConfiguration,
-  NativeProviderSettingsUpdate,
-  NativeSettings,
+  AgentProviderConfiguration,
+  AgentProviderSettingsUpdate,
+  AgentSettings,
 } from '@xgc2/agent-runtime/react';
 import { ConfigSection } from '../../components/ConfigSection';
 import { ControlButton } from '../../components/controls/ControlButton';
@@ -15,12 +15,12 @@ import {
   getNativeProviderSettings,
   refreshNativeProviderSettings,
   updateNativeProviderSettings,
-} from './groundStationNativeSettingsService';
+} from './groundStationAgentSettingsService';
 import { isNativeCompanionUnavailable,operatorNativeErrorMessage } from './nativeCompanionAvailability';
 
 type Draft = {
   revision: string;
-  provider: NativeProviderConfiguration;
+  provider: AgentProviderConfiguration;
   enabled: boolean;
   binaryPath: string;
   model: string;
@@ -36,10 +36,10 @@ const PROVIDER_TITLES: Record<string, string> = {
   opencode: 'OpenCode',
 };
 
-export function NativeProvidersSettingsSection({ language }: ProductSettingsContext) {
+export function AgentProvidersSettingsSection({ language }: ProductSettingsContext) {
   const [open,setOpen] = useState(false);
   const [expandedId,setExpandedId] = useState('');
-  const [settings,setSettings] = useState<NativeSettings>();
+  const [settings,setSettings] = useState<AgentSettings>();
   const [drafts,setDrafts] = useState<Record<string, Draft>>({});
   const [error,setError] = useState('');
   const [unavailable,setUnavailable] = useState(false);
@@ -71,7 +71,7 @@ export function NativeProvidersSettingsSection({ language }: ProductSettingsCont
       title={chinese ? 'AI 提供商' : 'AI providers'}
       open={open}
       onOpenChange={setOpen}
-      dataXgcRole="station-native-provider-settings"
+      dataXgcRole="station-agent-provider-settings"
       dataXgcId="native-providers"
     >
       {settings?.providers.map((provider) => (
@@ -129,7 +129,7 @@ export function NativeProvidersSettingsSection({ language }: ProductSettingsCont
         <ControlButton
           size="compact"
           disabled={busy}
-          dataXgcRole="station-native-provider-settings-retry"
+          dataXgcRole="station-agent-provider-settings-retry"
           dataXgcId="native-providers"
           onClick={() => setReload((value) => value + 1)}
         >{chinese ? '重试连接' : 'Retry connection'}</ControlButton>
@@ -158,9 +158,9 @@ function ProviderRows({
   onDiscard: () => void;
   onDraftChange: (draft: Draft) => void;
   onRefresh: () => Promise<void>;
-  onSave: (update: NativeProviderSettingsUpdate) => Promise<void>;
+  onSave: (update: AgentProviderSettingsUpdate) => Promise<void>;
   onToggle: () => void;
-  provider: NativeProviderConfiguration;
+  provider: AgentProviderConfiguration;
   revision: string;
 }) {
   const enabled = draft?.enabled ?? provider.enabled;
@@ -216,7 +216,7 @@ function ProviderRows({
         <>
           <FormField
             label={chinese ? '启用' : 'Enabled'}
-            dataXgcRole="native-provider-enabled"
+            dataXgcRole="agent-provider-enabled"
             dataXgcId={provider.id}
           >
             <SwitchControl
@@ -224,13 +224,13 @@ function ProviderRows({
               checked={enabled}
               disabled={locked}
               onChange={(next) => change({ enabled: next })}
-              dataXgcRole="native-provider-enabled-control"
+              dataXgcRole="agent-provider-enabled-control"
               dataXgcId={provider.id}
             />
           </FormField>
           <FormField
             label={chinese ? 'CLI 路径' : 'CLI path'}
-            dataXgcRole="native-provider-binary-path"
+            dataXgcRole="agent-provider-binary-path"
             dataXgcId={provider.id}
           >
             <InputControl
@@ -238,14 +238,14 @@ function ProviderRows({
               disabled={locked}
               placeholder={chinese ? '自动发现' : 'Automatic'}
               onChange={(next) => change({ binaryPath: next })}
-              dataXgcRole="native-provider-binary-path-input"
+              dataXgcRole="agent-provider-binary-path-input"
               dataXgcId={provider.id}
             />
           </FormField>
           {provider.models.length ? (
             <FormField
               label={chinese ? '默认模型' : 'Default model'}
-              dataXgcRole="native-provider-model-setting"
+              dataXgcRole="agent-provider-model-setting"
               dataXgcId={provider.id}
             >
               <SelectControl
@@ -254,11 +254,11 @@ function ProviderRows({
                 value={model}
                 ariaLabel={chinese ? '默认模型' : 'Default model'}
                 options={[
-                  { value: '', label: chinese ? '原生默认值' : 'Provider default' },
+                  { value: '', label: chinese ? '供应者默认值' : 'Provider default' },
                   ...provider.models.map((item) => ({ value: item.id, label: item.label })),
                 ]}
                 onChange={(next) => change({ model: next, effort: '' })}
-                dataXgcRole="native-provider-model"
+                dataXgcRole="agent-provider-model"
                 dataXgcId={provider.id}
               />
             </FormField>
@@ -266,7 +266,7 @@ function ProviderRows({
           {selectedModel?.efforts.length ? (
             <FormField
               label={chinese ? '默认思考强度' : 'Default thinking effort'}
-              dataXgcRole="native-provider-effort-setting"
+              dataXgcRole="agent-provider-effort-setting"
               dataXgcId={provider.id}
             >
               <SelectControl
@@ -275,11 +275,11 @@ function ProviderRows({
                 value={effort}
                 ariaLabel={chinese ? '默认思考强度' : 'Default thinking effort'}
                 options={[
-                  { value: '', label: chinese ? '原生默认值' : 'Provider default' },
+                  { value: '', label: chinese ? '供应者默认值' : 'Provider default' },
                   ...selectedModel.efforts.map((item) => ({ value: item.id, label: item.label })),
                 ]}
                 onChange={(next) => change({ effort: next })}
-                dataXgcRole="native-provider-effort"
+                dataXgcRole="agent-provider-effort"
                 dataXgcId={provider.id}
               />
             </FormField>
@@ -287,7 +287,7 @@ function ProviderRows({
           {provider.permissions.length ? (
             <FormField
               label={chinese ? '默认权限' : 'Default permissions'}
-              dataXgcRole="native-provider-permission-setting"
+              dataXgcRole="agent-provider-permission-setting"
               dataXgcId={provider.id}
             >
               <SelectControl
@@ -296,27 +296,27 @@ function ProviderRows({
                 value={permission}
                 ariaLabel={chinese ? '默认权限' : 'Default permissions'}
                 options={[
-                  { value: '', label: chinese ? '原生默认值' : 'Provider default' },
+                  { value: '', label: chinese ? '供应者默认值' : 'Provider default' },
                   ...provider.permissions.map((item) => ({ value: item.id, label: item.label })),
                 ]}
                 onChange={(next) => change({ permission: next })}
-                dataXgcRole="native-provider-permission"
+                dataXgcRole="agent-provider-permission"
                 dataXgcId={provider.id}
               />
             </FormField>
           ) : null}
-          <FormActions dataXgcRole="native-provider-config-actions" dataXgcId={provider.id}>
+          <FormActions dataXgcRole="agent-provider-config-actions" dataXgcId={provider.id}>
             <ControlButton
               size="compact"
               disabled={locked}
-              dataXgcRole="native-provider-refresh"
+              dataXgcRole="agent-provider-refresh"
               dataXgcId={provider.id}
               onClick={() => void onRefresh()}
             >{chinese ? '刷新状态' : 'Refresh status'}</ControlButton>
             <ControlButton
               size="compact"
               disabled={locked || !dirty}
-              dataXgcRole="native-provider-discard"
+              dataXgcRole="agent-provider-discard"
               dataXgcId={provider.id}
               onClick={onDiscard}
             >{chinese ? '放弃更改' : 'Discard'}</ControlButton>
@@ -324,7 +324,7 @@ function ProviderRows({
               size="compact"
               tone="primary"
               disabled={locked || !dirty}
-              dataXgcRole="native-provider-save"
+              dataXgcRole="agent-provider-save"
               dataXgcId={provider.id}
               onClick={() => void onSave(updateOf({
                 revision: draft?.revision ?? revision,
@@ -351,7 +351,7 @@ function DisclosureChevron() {
   );
 }
 
-function availabilityLabel(provider: NativeProviderConfiguration, chinese: boolean) {
+function availabilityLabel(provider: AgentProviderConfiguration, chinese: boolean) {
   if (!provider.enabled) return chinese ? '已停用' : 'Disabled';
   if (provider.available) return chinese ? '可用' : 'Available';
   return provider.detail || (chinese ? '不可用' : 'Unavailable');
@@ -359,14 +359,14 @@ function availabilityLabel(provider: NativeProviderConfiguration, chinese: boole
 
 function updateOf(draft: {
   revision: string;
-  provider: NativeProviderConfiguration;
+  provider: AgentProviderConfiguration;
   enabled: boolean;
   binaryPath: string;
   model: string;
   effort: string;
   permission: string;
-}): NativeProviderSettingsUpdate {
-  const defaults: NativeProviderConfiguration['defaults'] = {};
+}): AgentProviderSettingsUpdate {
+  const defaults: AgentProviderConfiguration['defaults'] = {};
   if (draft.model) defaults.model = draft.model;
   if (draft.effort) defaults.effort = draft.effort;
   if (draft.permission) defaults.permission = draft.permission;

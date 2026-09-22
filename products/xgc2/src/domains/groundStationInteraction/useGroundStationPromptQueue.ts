@@ -1,9 +1,9 @@
 import {useState,useSyncExternalStore} from 'react';
-import type {PromptQueue,NativeTurnOptions} from '@xgc2/agent-runtime/state';
-import {createGroundStationNativeClient} from './groundStationNativeAgentService';
+import type {PromptQueue,AgentTurnOptions} from '@xgc2/agent-runtime/state';
+import {createGroundStationNativeClient} from './groundStationAgentService';
 import {nativePromptOutbox} from './nativePromptOutbox';
 const emptyQueue:PromptQueue={revision:0,paused:false,items:[]};
-export function useGroundStationPromptQueue(experimentId:string,draftId:string,queue:PromptQueue|undefined,options:NativeTurnOptions,prepare:()=>Promise<string>) {
+export function useGroundStationPromptQueue(experimentId:string,draftId:string,queue:PromptQueue|undefined,options:AgentTurnOptions,prepare:()=>Promise<string>) {
   const store=nativePromptOutbox(experimentId),local=useSyncExternalStore(store.subscribe,store.getSnapshot);
   const [receipt,setReceipt]=useState<{sessionId:string;queue:PromptQueue}>();
   const sessionId=draftId.startsWith('new:')?'':draftId;

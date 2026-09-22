@@ -1,10 +1,10 @@
 import { useCallback } from 'react';
-import { emptyStream,type NativeAnswer,type NativeTurnOptions } from '@xgc2/agent-runtime/state';
-import { useGroundStationNativeAgentRegistry } from './GroundStationNativeAgentProvider';
-import type { GroundStationNativeBinding } from './groundStationNativeAgentTypes';
+import { emptyStream,type AgentAnswer,type AgentTurnOptions } from '@xgc2/agent-runtime/state';
+import { useGroundStationNativeAgentRegistry } from './GroundStationAgentProvider';
+import type { GroundStationNativeBinding } from './groundStationAgentTypes';
 
 /** Bind shared presentation intents to the exact Experiment and pending native request. */
-export function useGroundStationNativeConversation(experimentId: string,binding?: GroundStationNativeBinding,options?:NativeTurnOptions) {
+export function useGroundStationAgentConversation(experimentId: string,binding?: GroundStationNativeBinding,options?:AgentTurnOptions) {
   const registry = useGroundStationNativeAgentRegistry();
   const send = useCallback((message: string) => {
     if (!registry) return Promise.reject(new Error('The local native Agent registry is unavailable.'));
@@ -14,7 +14,7 @@ export function useGroundStationNativeConversation(experimentId: string,binding?
     if (!registry) return Promise.reject(new Error('The local native Agent registry is unavailable.'));
     return registry.cancel(experimentId);
   },[registry,experimentId]);
-  const answer = useCallback((requestId: string,value: NativeAnswer) => {
+  const answer = useCallback((requestId: string,value: AgentAnswer) => {
     const item = registry?.pendingInputs.find((pending) => pending.sessionId === binding?.sessionId && pending.request.id === requestId);
     if (!registry || !item) return Promise.reject(new Error('This native input request is no longer pending.'));
     return registry.answer(item,value);

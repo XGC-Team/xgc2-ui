@@ -4,51 +4,51 @@ import userEvent from '@testing-library/user-event';
 import { StrictMode } from 'react';
 import { act,fireEvent,render,screen,waitFor } from '@testing-library/react';
 import { afterEach,beforeEach,describe,expect,it,vi } from 'vitest';
-import { NativeConversation,type NativeStreamTransport,type NativeConversationProps } from '@xgc2/agent-runtime/react';
+import { AgentConversation,type AgentStreamTransport,type AgentConversationProps } from '@xgc2/agent-runtime/react';
 import type * as PromptOutboxModule from './nativePromptOutbox';
-import type * as NativeReact from '@xgc2/agent-runtime/react';
-import { emptyStream,NATIVE_SCHEMA,type NativeSession,type Scope,type PromptQueue } from '@xgc2/agent-runtime/state';
-import { useGroundStationNativeConversation } from './useGroundStationNativeConversation';
-import type { GroundStationNativeBinding } from './groundStationNativeAgentTypes';
-import { GroundStationNativeAgentProvider,useGroundStationNativeAgentRegistry } from './GroundStationNativeAgentProvider';
-import { GroundStationNativeActivityChat } from './GroundStationNativeActivityChat';
+import type * as AgentReact from '@xgc2/agent-runtime/react';
+import { emptyStream,AGENT_RUNTIME_SCHEMA,type AgentSession,type Scope,type PromptQueue } from '@xgc2/agent-runtime/state';
+import { useGroundStationAgentConversation } from './useGroundStationAgentConversation';
+import type { GroundStationNativeBinding } from './groundStationAgentTypes';
+import { GroundStationAgentProvider,useGroundStationNativeAgentRegistry } from './GroundStationAgentProvider';
+import { GroundStationAgentActivityChat } from './GroundStationAgentActivityChat';
 import { GroundStationConversationFrameProvider,GroundStationConversationHeaderActions,GroundStationConversationHeaderLeading } from './GroundStationConversationFrame';
-import type * as NativeService from './groundStationNativeAgentService';
+import type * as AgentService from './groundStationAgentService';
 
 const mocks = vi.hoisted(() => ({
   outboxes:new Map<string,unknown>(),
   clients:new Map<string,Record<string,ReturnType<typeof vi.fn>>>(),
-  streams:new Map<string,Parameters<NativeStreamTransport>[0]>(),closed:vi.fn(),conversation:vi.fn(),capabilities:vi.fn(),settings:vi.fn(),
+  streams:new Map<string,Parameters<AgentStreamTransport>[0]>(),closed:vi.fn(),conversation:vi.fn(),capabilities:vi.fn(),settings:vi.fn(),
   bindWorkspace:vi.fn(),attention:vi.fn(async () => ({data:{sessions:[],revision:'empty'}})),
 }));
 vi.mock('./nativePromptOutbox',async importOriginal => {
   const original=await importOriginal<typeof PromptOutboxModule>();
-  return {...original,nativePromptOutbox:(id:string)=>{if(!mocks.outboxes.has(id))mocks.outboxes.set(id,new original.NativePromptOutbox(id));return mocks.outboxes.get(id)}};
+  return {...original,nativePromptOutbox:(id:string)=>{if(!mocks.outboxes.has(id))mocks.outboxes.set(id,new original.AgentPromptOutbox(id));return mocks.outboxes.get(id)}};
 });
 vi.mock('@xgc2/agent-runtime/react',async importOriginal => {
-  const original=await importOriginal<typeof NativeReact>();
-  return {...original,NativeConversation:(props:NativeConversationProps) => {
-    mocks.conversation(props); return <original.NativeConversation {...props} />;
+  const original=await importOriginal<typeof AgentReact>();
+  return {...original,AgentConversation:(props:AgentConversationProps) => {
+    mocks.conversation(props); return <original.AgentConversation {...props} />;
   }};
 });
 vi.mock('../../api/http',() => ({request:mocks.attention}));
-vi.mock('../../api/nativeAgent',() => ({fetchNativeAgent:vi.fn(),openNativeAgentStream:(options:Parameters<NativeStreamTransport>[0]) => {
+vi.mock('../../api/nativeAgent',() => ({fetchNativeAgent:vi.fn(),openNativeAgentStream:(options:Parameters<AgentStreamTransport>[0]) => {
   mocks.streams.set(options.url,options); options.onOpen();
   return {close:() => {mocks.closed(options.url); if (mocks.streams.get(options.url) === options) mocks.streams.delete(options.url);}};
 }}));
-vi.mock('./groundStationNativeAgentService',async importOriginal => ({
-  ...await importOriginal<typeof NativeService>(),
+vi.mock('./groundStationAgentService',async importOriginal => ({
+  ...await importOriginal<typeof AgentService>(),
   createGroundStationNativeClient:(experimentId:string) => mocks.clients.get(experimentId),
   getGroundStationNativeCapabilities:mocks.capabilities,bindGroundStationWorkspace:mocks.bindWorkspace,
 }));
-vi.mock('./groundStationNativeSettingsService',() => ({getNativeProviderSettings:mocks.settings,refreshNativeProviderSettings:vi.fn()}));
+vi.mock('./groundStationAgentSettingsService',() => ({getNativeProviderSettings:mocks.settings,refreshNativeProviderSettings:vi.fn()}));
 const workspace = {id:'debug',revision:'a'.repeat(64)};
 const profile = {id:'codex-local',provider:'codex',protocol:'codex/app-server',available:true,detail:'',reviewedVersion:'fixture',interactiveRequests:true,toolMode:'native'};
-function nativeSession(experimentId:string,id = `s_${experimentId}`):NativeSession {
-  return {schemaVersion:NATIVE_SCHEMA,id,scope:{profileId:profile.id,context:{kind:'experiment',id:experimentId},workspace,nativeAccessConfirmed:true},
+function nativeSession(experimentId:string,id = `s_${experimentId}`):AgentSession {
+  return {schemaVersion:AGENT_RUNTIME_SCHEMA,id,scope:{profileId:profile.id,context:{kind:'experiment',id:experimentId},workspace,accessConfirmed:true},
     provider:'codex',state:'ready',createdAt:'2026-09-06T00:00:00Z',lastSeq:0,title:'',archived:false,metadataRevision:1,runtimeId:'r_fixture'};
 }
-function client(experimentId:string,initial:NativeSession[] = []) {
+function client(experimentId:string,initial:AgentSession[] = []) {
   const sessions = new Map(initial.map(session => [session.id,session]));
   const api = {
     getNativeSessionPage:vi.fn(async () => ({sessions:[...sessions.values()].reverse()})),
@@ -75,16 +75,16 @@ function client(experimentId:string,initial:NativeSession[] = []) {
 let registry:ReturnType<typeof useGroundStationNativeAgentRegistry>;
 function Probe() {registry = useGroundStationNativeAgentRegistry(); return null;}
 function Harness({experimentId='experiment-a',targetId='local',visible=true}:{experimentId?:string;targetId?:string;visible?:boolean}) {
-  return <GroundStationNativeAgentProvider executionTargetId={targetId}><Probe />
+  return <GroundStationAgentProvider executionTargetId={targetId}><Probe />
     <GroundStationConversationFrameProvider>
       <header data-testid="panel-header">
         <GroundStationConversationHeaderLeading />
         <GroundStationConversationHeaderActions />
       </header>
-      {visible ? <GroundStationNativeActivityChat key={experimentId} experimentId={experimentId} targetId={targetId} enabled presentation="panel"
+      {visible ? <GroundStationAgentActivityChat key={experimentId} experimentId={experimentId} targetId={targetId} enabled presentation="panel"
         decisions={[]} statuses={[]} contexts={[]} streamState="connected" inventoryError="" onDismiss={vi.fn()} onRespond={vi.fn()} /> : null}
     </GroundStationConversationFrameProvider>
-  </GroundStationNativeAgentProvider>;
+  </GroundStationAgentProvider>;
 }
 async function typeAndSend(message:string) {
   const editor = await screen.findByRole('textbox',{name:'Message the agent'});
@@ -155,7 +155,7 @@ describe('persistent experiment conversations',() => {
       options:{model:'model-one',effort:'medium',permission:'approval-required'}},expect.any(String));
   });
   it('discovers server history without localStorage and resumes the same conversation only on send',async () => {
-    const saved={...nativeSession('experiment-a'),state:'disconnected' as const,nativeSessionId:'native-thread-one'};
+    const saved={...nativeSession('experiment-a'),state:'disconnected' as const,providerSessionId:'native-thread-one'};
     const api=client('experiment-a',[saved]); render(<Harness />);
     await waitFor(() => expect(registry?.selected['experiment-a']).toBe(saved.id));
     expect(api.createNativeSession).not.toHaveBeenCalled(); expect(api.reconnectNativeSession).not.toHaveBeenCalled();
@@ -206,8 +206,8 @@ describe('persistent experiment conversations',() => {
     const session=nativeSession('experiment-a');
     const binding:GroundStationNativeBinding={experimentId:'experiment-a',sessionId:session.id,session,reload:0};
     function HydratingConversation({binding}:{binding:GroundStationNativeBinding}) {
-      const conversation=useGroundStationNativeConversation('experiment-a',binding);
-      return <NativeConversation state={conversation.state} active locale="en" queueEnabled onAnswer={vi.fn(async()=>undefined)} onSend={vi.fn(async()=>undefined)} />;
+      const conversation=useGroundStationAgentConversation('experiment-a',binding);
+      return <AgentConversation state={conversation.state} active locale="en" queueEnabled onAnswer={vi.fn(async()=>undefined)} onSend={vi.fn(async()=>undefined)} />;
     }
     const view=render(<HydratingConversation binding={binding} />);
     const editor=screen.getByRole('textbox',{name:'Message the agent'});

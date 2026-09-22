@@ -10,7 +10,7 @@ import {Input, Textarea, Select, FormField} from '../../components/forms'
 import {IconCanvas} from '../../components/icons'
 import {getNativeProfiles} from '../chat/client'
 import {listWorkspaces, request as apiRequest, type WorkspaceSummary} from '../../lib/api'
-import type {NativeProfile} from '@xgc2/agent-runtime/state'
+import type {AgentProfile} from '@xgc2/agent-runtime/state'
 import {useAcademicNotes} from '../resources/useAcademicNotes'
 import {parseCanvas, type CanvasNode} from '../projects/canvas-model'
 import {useWorkbench} from '../../store'
@@ -31,7 +31,7 @@ export function WorkflowPage({projectId, onQuote, onOpenSession}: {projectId: st
   const [editing, setEditing] = useState(false), [editingBaseVersion, setEditingBaseVersion] = useState(0)
   const [consent, setConsent] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState('')
   const [stream, setStream] = useState<StreamState>('connecting'), [streamMessage, setStreamMessage] = useState('')
-  const [profiles, setProfiles] = useState<NativeProfile[]>([]), [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([])
+  const [profiles, setProfiles] = useState<AgentProfile[]>([]), [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([])
   const [thoughts, setThoughts] = useState<CanvasNode[]>([]), [assembling, setAssembling] = useState('')
   const [invokeKind, setInvokeKind] = useState<InvokeKind>('research')
   const [subscriptionId, setSubscriptionId] = useState('')
@@ -190,9 +190,8 @@ export function WorkflowPage({projectId, onQuote, onOpenSession}: {projectId: st
           </> : <>
             <FormField htmlFor="plan-title" label={tr('计划名称')}><Input id="plan-title" value={draft.title} onChange={e => setDraft({...draft, title: e.target.value})}/></FormField>
             <FormField htmlFor="plan-goal" label={tr('研究目标')}><Textarea id="plan-goal" value={draft.goal} onChange={e => setDraft({...draft, goal: e.target.value})}/></FormField>
-            <FormField htmlFor="plan-workspace" label={tr('工作区')}><Select id="plan-workspace" value={draft.workspace.id} onValueChange={id => setDraft({...draft, workspace: {id, revision: workspaces.find(w => w.workspaceId === id)?.head || ''}})}><option value="">{tr('选择工作区')}</option>{workspaces.map(w => <option key={w.workspaceId} value={w.workspaceId}>{w.workspaceId}</option>)}</Select></FormField>
-            <FormField htmlFor="plan-revision" label={tr('已审阅 Git commit')}><Input id="plan-revision" value={draft.workspace.revision} onChange={e => setDraft({...draft, workspace: {...draft.workspace, revision: e.target.value}})}/></FormField>
-            {roles.map(role => <FormField key={role} htmlFor={`plan-${role}`} label={ROLE_LABEL[role]}><Select id={`plan-${role}`} value={draft[role]} onValueChange={id => setDraft({...draft, [role]: id})}><option value="">{tr('选择原生工作者')}</option>{available.map(p => <option key={p.id} value={p.id}>{p.provider} · {p.id}</option>)}</Select></FormField>)}
+            <FormField htmlFor="plan-workspace" label={tr('工作区')}><Select id="plan-workspace" value={draft.workspace.id} onValueChange={id => setDraft({...draft, workspace: {id, revision: id ? 'working-tree' : ''}})}><option value="">{tr('选择工作区')}</option>{workspaces.map(w => <option key={w.workspaceId} value={w.workspaceId}>{w.workspaceId}</option>)}</Select></FormField>
+            {roles.map(role => <FormField key={role} htmlFor={`plan-${role}`} label={ROLE_LABEL[role]}><Select id={`plan-${role}`} value={draft[role]} onValueChange={id => setDraft({...draft, [role]: id})}><option value="">{tr('选择供应者')}</option>{available.map(p => <option key={p.id} value={p.id}>{p.provider} · {p.id}</option>)}</Select></FormField>)}
             <p className="text-caption text-ink-3">默认角色仅决定未覆盖节点的执行者，不会添加隐藏的研究、审查或写作阶段。审查和综合必须作为节点明确加入。</p>
           </> : chosen ? <>
             <p className="text-caption">{tr(NODE_KINDS[chosen.kind])} · {nodeAgent(chosen, visible)} · {NODE_STATUS_LABEL[nodeStatus(chosen.id, latestRun)]}</p>
@@ -205,8 +204,8 @@ export function WorkflowPage({projectId, onQuote, onOpenSession}: {projectId: st
             <Button onClick={() => {beginEdit(); setSelectedNode(chosen.id)}}>{tr('编辑步骤')}</Button>
           </> : revision && <>
             <h3 className="text-title font-semibold">{revision.draft.title}</h3><p className="whitespace-pre-wrap text-secondary">{revision.draft.goal}</p>
-            <p className="break-all text-caption">v{revision.version} · {revision.approved ? '已批准' : '待批准'}<br/>{revision.digest}<br/>{revision.draft.workspace.id} @ {revision.draft.workspace.revision}</p>
-            {!revision.approved && <><label className="flex items-start gap-2 text-secondary"><input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)}/>批准此固定版本，并允许各节点指定的原生 Agent 访问工作区副本。正文应用仍需单独确认。</label><Button variant="solid" disabled={!consent || busy || !ready} onClick={() => void action(() => request(`${base}/${revision.version}/approve`, {digest: revision.digest, nativeAccessConfirmed: true}))}>{tr('批准版本')} {revision.version}</Button></>}
+            <p className="break-all text-caption">v{revision.version} · {revision.approved ? '已批准' : '待批准'}<br/>{revision.draft.workspace.id}</p>
+            {!revision.approved && <><label className="flex items-start gap-2 text-secondary"><input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)}/>批准此固定版本，并允许各节点指定的原生 Agent 访问工作区副本。正文应用仍需单独确认。</label><Button variant="solid" disabled={!consent || busy || !ready} onClick={() => void action(() => request(`${base}/${revision.version}/approve`, {digest: revision.digest, accessConfirmed: true}))}>{tr('批准版本')} {revision.version}</Button></>}
             {revision.runs.map(run => <details key={run.id} open={run === latestRun} className="border-t border-line pt-2"><summary className="text-secondary">{KIND_LABEL[run.kind || 'research']} · {RUN_LABEL[run.status]} · {run.startedAt}</summary><p className="break-all text-caption">{run.id}{run.subscriptionId ? ` · ${run.subscriptionId}` : ''}</p>{run.failure && <p role="alert" className="ui-error">{run.failure}</p>}{run.hypothesis && <p className="whitespace-pre-wrap text-secondary">命题：{run.hypothesis.claim}</p>}{(run.branches || []).map(branch => <p key={branch.stance} className="text-caption">{branch.stance === 'opposing' ? '反对分支' : '支持分支'} · {branch.status}{branch.error ? ` · ${branch.error}` : ''}</p>)}{run.status === 'awaiting-adjudication' && <AdjudicationPanel run={run} busy={busy} onSubmit={command => void action(() => request(`${base}/${revision.version}/runs/${encodeURIComponent(run.id)}/adjudicate`, command))}/>}<p className="text-caption">研究验收：{run.researchAcceptance === 'awaiting-human-acceptance' ? '执行审查通过；结论仍待人工验收' : run.researchAcceptance === 'needs-review' ? '证据或检查需补充' : '尚未独立审查'}。执行完成不等于科学结论成立。裁定不能把已记录的反例投成支持。</p>{run.receipts.map(r => <ReceiptRow key={r.stage} receipt={r} onQuote={onQuote} onOpenSession={onOpenSession}/>)}</details>)}
             {revision.approved && !activeRun && <InvocationPanel kind={invokeKind} onKind={setInvokeKind} subscriptionId={subscriptionId} onSubscriptionId={setSubscriptionId} claim={hypothesisClaim} onClaim={setHypothesisClaim} grounds={hypothesisGrounds} onGrounds={setHypothesisGrounds} request={request}/>}
             <Button onClick={() => void download('archify')}>{tr('导出 Archify 图源')}</Button><a className="block text-secondary underline" href={`${base}/${revision.version}/export/html`} download>{tr('导出交互图')}</a>

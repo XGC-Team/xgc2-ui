@@ -1,12 +1,12 @@
 import type { StreamState } from '@xgc2/agent-runtime/state'
 import { check } from './review-model.ts'
-import type { NativeWritingCompletion } from './writing-contract.ts'
+import type { AgentWritingCompletion } from './writing-contract.ts'
 
 /** Consume the existing native reducer's per-turn end facts. Do not use the
  * latest chat message, activeTurnId or global lastTurnStatus as proof of a result.
  * Missing/ambiguous/truncated output is a failure to admit, never a body write.
  */
-export function completedWritingTurn(state: StreamState, sessionId: string, turnId: string): NativeWritingCompletion | null {
+export function completedWritingTurn(state: StreamState, sessionId: string, turnId: string): AgentWritingCompletion | null {
   if (state.sessionId !== sessionId) return null
   const items = state.items.filter(item => item.turnId === turnId)
   const terminals = new Set(items.flatMap(item => item.turnStatus ? [item.turnStatus] : []))

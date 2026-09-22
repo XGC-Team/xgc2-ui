@@ -3,7 +3,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
-const css = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'GroundStationNativeActivityChat.css'), 'utf8');
+const css = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'GroundStationAgentActivityChat.css'), 'utf8');
 
 describe('ground station remote dock host', () => {
   it('hides an empty dock and stacks occupied remotes without a second card', () => {
@@ -17,7 +17,7 @@ describe('ground station remote dock host', () => {
     expect(css).toContain('.ground-station-conversation-header-leading');
     expect(css).toContain('.ground-station-conversation-header-actions');
     expect(css).not.toContain("ground-station-native-connection");
-    expect(css).not.toContain('ground-station-native-composer-meta');
+    expect(css).not.toContain('ground-station-agent-composer-meta');
   });
 
   it('keeps the docked remote pad height without an extra shortcut row', () => {

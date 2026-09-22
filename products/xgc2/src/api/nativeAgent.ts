@@ -1,4 +1,4 @@
-import type { NativeStreamTransport } from '@xgc2/agent-runtime/react';
+import type { AgentStreamTransport } from '@xgc2/agent-runtime/react';
 import { requestStationResponse } from './http';
 import { openReplayJSONStream } from './streams';
 
@@ -19,7 +19,7 @@ export const fetchNativeAgent: typeof fetch = (input,init) => {
   return requestStationResponse(path,init);
 };
 
-export const openNativeAgentStream: NativeStreamTransport = (options) => {
+export const openNativeAgentStream: AgentStreamTransport = (options) => {
   const path = nativePath(options.url).slice('/api'.length);
   return openReplayJSONStream({
     path: () => path,

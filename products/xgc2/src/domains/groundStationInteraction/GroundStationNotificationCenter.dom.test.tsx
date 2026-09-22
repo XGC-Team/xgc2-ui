@@ -10,12 +10,12 @@ import { GroundStationActivityScopeProvider } from './groundStationActivityScope
 import { decodeGroundStationInteraction } from './groundStationInteractionDecoder';
 import type { GroundStationDecisionInteraction } from './groundStationInteractionTypes';
 import { hideGroundStationNotification } from './groundStationAttention';
-import type { GroundStationNativeAttentionItem } from './GroundStationNativeAgentProvider';
+import type { GroundStationNativeAttentionItem } from './GroundStationAgentProvider';
 import { dismissLocalGroundStationNotification,publishLocalGroundStationNotification } from './localGroundStationNotifications';
 
 const feed = vi.hoisted(() => ({ decisions: [] as GroundStationDecisionInteraction[],respond: vi.fn(),dismiss: vi.fn() }));
 const native = vi.hoisted(() => ({ items: [] as GroundStationNativeAttentionItem[],answer: vi.fn() }));
-vi.mock('./GroundStationNativeAgentProvider', () => ({
+vi.mock('./GroundStationAgentProvider', () => ({
   useGroundStationNativeAttention: () => native,
   useGroundStationNativeAgentRegistry: () => null,
 }));

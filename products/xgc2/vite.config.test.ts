@@ -43,9 +43,9 @@ describe('Vite API proxy forwarding authority', () => {
   });
 
   it.each([
-    { method: 'GET',url: '/api/native-agents/settings' },
-    { method: 'POST',url: '/api/native-agents/settings' },
-    { method: 'POST',url: '/api/native-agents/settings/refresh' },
+    { method: 'GET',url: '/api/agent-runtime/settings' },
+    { method: 'POST',url: '/api/agent-runtime/settings' },
+    { method: 'POST',url: '/api/agent-runtime/settings/refresh' },
   ])('preserves the browser authority for $method $url', ({ method,url }) => {
     const recorder = headerRecorder({ host: '127.0.0.1:8787' });
     const request = { method,url,headers: { host: 'localhost:5174' },socket: {} };
@@ -60,16 +60,16 @@ describe('Vite API proxy forwarding authority', () => {
   });
 
   it.each([
-    '/api/native-agents/settings?view=brief',
-    '/api/native-agents/settings/refresh?view=brief',
-    '/api/native-agents/settings-other',
-    '/api/native-agents/settings-other?view=brief',
-    '/api/native-agents/settings/refresh-other',
-    '/api/native-agents/settings/refresh/extra',
-    '/api/native-agents/settings/sessions',
-    '/api/native-agents/sessions',
-    '/api/native-agents/sessions?view=brief',
-    '/api/native-agents',
+    '/api/agent-runtime/settings?view=brief',
+    '/api/agent-runtime/settings/refresh?view=brief',
+    '/api/agent-runtime/settings-other',
+    '/api/agent-runtime/settings-other?view=brief',
+    '/api/agent-runtime/settings/refresh-other',
+    '/api/agent-runtime/settings/refresh/extra',
+    '/api/agent-runtime/settings/sessions',
+    '/api/agent-runtime/sessions',
+    '/api/agent-runtime/sessions?view=brief',
+    '/api/agent-runtime',
     '/api/experiments/experiment-a/native-agents-other/sessions',
     '/api/experiments//native-agents/sessions',
   ])('keeps the proxy target Host outside the bounded native routes: %s', (url) => {

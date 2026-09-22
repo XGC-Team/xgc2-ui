@@ -1,5 +1,5 @@
 import { check, date, fileKey, fingerprint, record, validateAnchor, type Operation, type Proposal, type Scope } from './review-model.ts'
-import type { DesignProposalRequest, DesignProposalResult, NativeWritingCompletion, WritingRecord, WritingResult, WritingSelection } from './writing-contract.ts'
+import type { DesignProposalRequest, DesignProposalResult, AgentWritingCompletion, WritingRecord, WritingResult, WritingSelection } from './writing-contract.ts'
 
 const nonempty = (v: unknown): v is string => typeof v === 'string' && !!v.trim()
 const identity = (v: unknown): v is string => typeof v === 'string' && /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/.test(v)
@@ -101,7 +101,7 @@ export function writingPrompt(proposalId: string, writing: WritingRecord): strin
   ].join('\n\n')
 }
 
-export async function decodeWritingCompletion(proposalId: string, writing: WritingRecord, completion: NativeWritingCompletion) {
+export async function decodeWritingCompletion(proposalId: string, writing: WritingRecord, completion: AgentWritingCompletion) {
   check(completion.sessionId === writing.execution?.sessionId && completion.turnId === writing.execution?.turnId, 'Stale/foreign native writing completion.')
   check(completion.status === 'completed' && !completion.truncated, `Native writing did not produce a complete result (${completion.status}).`)
   check(completion.text.length > 0 && completion.text.length <= MAX_TEXT, 'Native writing result is empty or too large.')
@@ -132,7 +132,7 @@ export function designProposalPrompt(request: DesignProposalRequest): string {
     JSON.stringify(request),
   ].join('\n\n')
 }
-export function decodeDesignProposal(request: DesignProposalRequest, completion: NativeWritingCompletion): Proposal {
+export function decodeDesignProposal(request: DesignProposalRequest, completion: AgentWritingCompletion): Proposal {
   validateDesignRequest(request)
   check(completion.status === 'completed' && !completion.truncated && completion.text.length <= MAX_TEXT, 'Design proposal is incomplete or truncated.')
   const value: unknown = JSON.parse(completion.text)
