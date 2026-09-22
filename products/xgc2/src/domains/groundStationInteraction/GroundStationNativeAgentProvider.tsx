@@ -1,5 +1,5 @@
 import { createContext,useCallback,useContext,useEffect,useState,type ReactNode } from 'react';
-import type { NativeSession } from '@xgc2/native-agent/state';
+import type { NativeSession } from '@xgc2/agent-runtime/state';
 import type { GroundStationNativeRegistry,NativeProjection } from './groundStationNativeAgentTypes';
 import { useGroundStationNativeAgentBindings,useGroundStationNativeSessionProjection } from './useGroundStationNativeAgentBindings';
 

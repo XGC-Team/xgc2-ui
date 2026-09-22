@@ -1,4 +1,4 @@
-import type {NativeTurnOptions,PromptQueue} from '@xgc2/native-agent/state';
+import type {NativeTurnOptions,PromptQueue} from '@xgc2/agent-runtime/state';
 import {createGroundStationNativeClient} from './groundStationNativeAgentService';
 export type LocalPrompt={id:string;sessionId:string;draftId:string;text:string;options:NativeTurnOptions;error?:string};
 type Snapshot={items:LocalPrompt[];sending:string;receipts:Record<string,PromptQueue>};

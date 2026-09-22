@@ -4,10 +4,10 @@ import userEvent from '@testing-library/user-event';
 import { StrictMode } from 'react';
 import { act,fireEvent,render,screen,waitFor } from '@testing-library/react';
 import { afterEach,beforeEach,describe,expect,it,vi } from 'vitest';
-import { NativeConversation,type NativeStreamTransport,type NativeConversationProps } from '@xgc2/native-agent/react';
+import { NativeConversation,type NativeStreamTransport,type NativeConversationProps } from '@xgc2/agent-runtime/react';
 import type * as PromptOutboxModule from './nativePromptOutbox';
-import type * as NativeReact from '@xgc2/native-agent/react';
-import { emptyStream,NATIVE_SCHEMA,type NativeSession,type Scope,type PromptQueue } from '@xgc2/native-agent/state';
+import type * as NativeReact from '@xgc2/agent-runtime/react';
+import { emptyStream,NATIVE_SCHEMA,type NativeSession,type Scope,type PromptQueue } from '@xgc2/agent-runtime/state';
 import { useGroundStationNativeConversation } from './useGroundStationNativeConversation';
 import type { GroundStationNativeBinding } from './groundStationNativeAgentTypes';
 import { GroundStationNativeAgentProvider,useGroundStationNativeAgentRegistry } from './GroundStationNativeAgentProvider';
@@ -25,7 +25,7 @@ vi.mock('./nativePromptOutbox',async importOriginal => {
   const original=await importOriginal<typeof PromptOutboxModule>();
   return {...original,nativePromptOutbox:(id:string)=>{if(!mocks.outboxes.has(id))mocks.outboxes.set(id,new original.NativePromptOutbox(id));return mocks.outboxes.get(id)}};
 });
-vi.mock('@xgc2/native-agent/react',async importOriginal => {
+vi.mock('@xgc2/agent-runtime/react',async importOriginal => {
   const original=await importOriginal<typeof NativeReact>();
   return {...original,NativeConversation:(props:NativeConversationProps) => {
     mocks.conversation(props); return <original.NativeConversation {...props} />;

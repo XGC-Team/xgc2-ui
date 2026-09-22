@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import type {NativeItem} from '@xgc2/native-agent/state';
+import type {NativeItem} from '@xgc2/agent-runtime/state';
 import {pendingMessageVisible,type PendingChatMessage} from './groundStationPendingMessages';
 const message:PendingChatMessage={id:'local',sessionId:'a',text:'same',createdAt:'now',state:'sending',knownKeys:['old']};
 const item=(key:string,turnId:string):NativeItem=>({key,turnId,id:'user',role:'user',text:'same',title:'',status:'submitted',truncated:false});

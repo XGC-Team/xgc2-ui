@@ -1,4 +1,4 @@
-import { decodeDecisionFacts,type DecisionFacts } from '@xgc2/native-agent/client';
+import { decodeDecisionFacts,type DecisionFacts } from '@xgc2/agent-runtime/client';
 import { request } from '../../api/http';
 import { createGroundStationNativeClient,nativeExperimentPath } from './groundStationNativeAgentService';
 

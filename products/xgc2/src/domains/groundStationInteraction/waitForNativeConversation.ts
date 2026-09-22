@@ -1,5 +1,5 @@
 import { createDeadlineTimer } from '../../shared/eventCoalescer';
-import type { NativeSession } from '@xgc2/native-agent/state';
+import type { NativeSession } from '@xgc2/agent-runtime/state';
 import { assertNativeExperimentSession,createGroundStationNativeClient,nativeExperimentPath,openGroundStationNativeStream } from './groundStationNativeAgentService';
 
 /** A first send waits for this runtime's journal. It never replays a prompt. */

@@ -1,5 +1,5 @@
 import { useCallback,useEffect,useMemo,useState } from 'react';
-import type { NativeRequest } from '@xgc2/native-agent/state';
+import type { NativeRequest } from '@xgc2/agent-runtime/state';
 import { createDeadlineTimer } from '../../shared/eventCoalescer';
 import { readGroundStationNativeAttention,createGroundStationNativeClient } from './groundStationNativeAgentService';
 import type { GroundStationNativeAttentionItem,GroundStationNativeBinding } from './groundStationNativeAgentTypes';

@@ -8,9 +8,9 @@ importers:
 
   .:
     dependencies:
-      '@xgc2/native-agent':
-        specifier: file:../../common/native-agent/web
-        version: file:../../common/native-agent/web(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(supports-color@7.2.0)(yjs@13.6.32)
+      '@xgc2/agent-runtime':
+        specifier: file:../../common/agent-runtime/web
+        version: file:../../common/agent-runtime/web(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(supports-color@7.2.0)(yjs@13.6.32)
       '@xgc2/ui-react':
         specifier: https://github.com/XGC-Team/xgc2-ui/releases/download/v0.16.8/xgc2-ui-react-0.16.8.tgz
         version: https://github.com/XGC-Team/xgc2-ui/releases/download/v0.16.8/xgc2-ui-react-0.16.8.tgz(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -1012,8 +1012,8 @@ packages:
   '@vitest/utils@4.1.10':
     resolution: {integrity: sha512-fy9am/HWxbaGt/Sawrp90vt6Y6jQwf1RX77cz3uwoJwJVMli/e1IEwRPnMNJ7vKfPTwo0diXifkpPvwH9v7nGA==}
 
-  '@xgc2/native-agent@file:../../common/native-agent/web':
-    resolution: {directory: ../../common/native-agent/web, type: directory}
+  '@xgc2/agent-runtime@file:../../common/agent-runtime/web':
+    resolution: {directory: ../../common/agent-runtime/web, type: directory}
     peerDependencies:
       react: ^19.0.0
       react-dom: ^19.0.0
@@ -3322,7 +3322,7 @@ snapshots:
       convert-source-map: 2.0.0
       tinyrainbow: 3.1.1
 
-  '@xgc2/native-agent@file:../../common/native-agent/web(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(supports-color@7.2.0)(yjs@13.6.32)':
+  '@xgc2/agent-runtime@file:../../common/agent-runtime/web(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(supports-color@7.2.0)(yjs@13.6.32)':
     dependencies:
       '@base-ui/react': 1.5.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@legendapp/list': 3.3.5(react-dom@19.2.8(react@19.2.8))(react@19.2.8)

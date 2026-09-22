@@ -1,4 +1,4 @@
-import type { NativeAnswer,NativeRequest,NativeSession,NativeTurnOptions,Scope,StreamState } from '@xgc2/native-agent/state';
+import type { NativeAnswer,NativeRequest,NativeSession,NativeTurnOptions,Scope,StreamState } from '@xgc2/agent-runtime/state';
 
 export type NativeProjection = { state: StreamState; connection: string; error: string; receivedAt?: number };
 export type GroundStationNativeBinding = {

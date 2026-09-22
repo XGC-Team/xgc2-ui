@@ -1,7 +1,7 @@
 import { UserRound } from 'lucide-react';
 import { Stack,StatusText } from '@xgc2/ui-react';
-import { DecisionCard,type DecisionCardState } from '@xgc2/native-agent/react';
-import '@xgc2/native-agent/styles.css';
+import { DecisionCard,type DecisionCardState } from '@xgc2/agent-runtime/react';
+import '@xgc2/agent-runtime/styles.css';
 import { GroundStationChatEntry } from './GroundStationChatEntry';
 import { ExperimentAgentActionReview } from './ExperimentAgentActionReview';
 import { DecisionPolicyControl } from './DecisionPolicyControl';

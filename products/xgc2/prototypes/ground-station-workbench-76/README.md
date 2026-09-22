@@ -41,7 +41,7 @@ This HTML is a disposable vanilla-DOM interaction fixture. Its small Markdown re
 
 Production integration should reuse `NativeConversation`, `NativeInput`, `NativeComposerControls`, `NativeProviderSettings`, the shared T3 timeline/Markdown/editor, GCS domain slots, existing notification/visibility owners and xgc2-ui controls. Current source baseline: product `e85ed750de8420a96a3c4bdce9db769f1c37a0b5`; common/devops `aebd32ec12b61cf9ea63bbdfe69016769b21bfe4`; memory `9a7fdce80dd964a2c855633a6d287f3b7733eaaf`; harness `706bdf80243fa5e7c9e11339aa09e850dc68937d`.
 
-The maintained T3 migration is pinned to `6349a0e68a958cc51b7b5198683c1d1db88b8d28`, MIT / T3 Tools Inc. Its existing provenance and license remain in `common/native-agent/web`. The design record cites inspected sources and distinguishes their accepted features, missing contracts and #67-owned defects. This directory copies no upstream implementations or font assets and changes no licenses/dependencies.
+The maintained T3 migration is pinned to `6349a0e68a958cc51b7b5198683c1d1db88b8d28`, MIT / T3 Tools Inc. Its existing provenance and license remain in `common/agent-runtime/web`. The design record cites inspected sources and distinguishes their accepted features, missing contracts and #67-owned defects. This directory copies no upstream implementations or font assets and changes no licenses/dependencies.
 
 Files/images/voice remain proposals. The inspected shared send callback is text-only; no end-to-end media support is claimed for Codex, Claude, Cursor, Grok or OpenCode. “Attach original as text context” uses only the labelled synthetic strings in this page. No speculative media controls or secret/settings forms are added.
 

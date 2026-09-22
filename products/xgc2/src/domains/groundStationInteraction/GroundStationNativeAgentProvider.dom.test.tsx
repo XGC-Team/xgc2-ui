@@ -2,7 +2,7 @@
 
 import { render,screen,waitFor } from '@testing-library/react';
 import { afterEach,beforeEach,describe,expect,it,vi } from 'vitest';
-import { emptyStream,type NativeSession,type StreamState } from '@xgc2/native-agent/state';
+import { emptyStream,type NativeSession,type StreamState } from '@xgc2/agent-runtime/state';
 import type * as NativeAgentServiceModule from './groundStationNativeAgentService';
 import {
   GroundStationNativeAgentProvider,
@@ -18,7 +18,7 @@ const native = vi.hoisted(() => ({
   getNativeSessionPage: vi.fn(),
 }));
 
-vi.mock('@xgc2/native-agent/react', () => ({
+vi.mock('@xgc2/agent-runtime/react', () => ({
   // The shared hook returns a fresh wrapper on every render, even if all
   // three values are unchanged. Registry projection must not loop on it.
   useNativeStream: () => ({ state: native.state,connection: native.connection,error: native.error }),

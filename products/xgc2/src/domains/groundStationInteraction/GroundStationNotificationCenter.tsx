@@ -1,10 +1,10 @@
-import '@xgc2/native-agent/styles.css';
+import '@xgc2/agent-runtime/styles.css';
 import { isGroundStationInteractionOpen } from './groundStationInteractionDecoder';
 import { Bell,ExternalLink } from 'lucide-react';
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Notice,Stack } from '@xgc2/ui-react';
-import { DecisionCard,NativeInput } from '@xgc2/native-agent/react';
+import { DecisionCard,NativeInput } from '@xgc2/agent-runtime/react';
 import { DecisionPolicyControl } from './DecisionPolicyControl';
 import { useAppLanguage } from '../../shared/localization/localizedText';
 import { ConfigDrawer } from '../../components/ConfigDrawer';

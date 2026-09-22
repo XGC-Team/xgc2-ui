@@ -1,6 +1,6 @@
 import { useEffect,useRef,useState,type ReactNode } from 'react';
-import { NativeConversation,NativeComposerControls,NativePromptQueue } from '@xgc2/native-agent/react';
-import '@xgc2/native-agent/styles.css';
+import { NativeConversation,NativeComposerControls,NativePromptQueue } from '@xgc2/agent-runtime/react';
+import '@xgc2/agent-runtime/styles.css';
 import { useAppLanguage } from '../../shared/localization/localizedText';
 import { GroundStationActivityChat,type GroundStationActivityChatProps } from './GroundStationActivityChat';
 import { useGroundStationNativeAgentRegistry,useGroundStationNativeStreamFocus,type GroundStationNativeBinding } from './GroundStationNativeAgentProvider';

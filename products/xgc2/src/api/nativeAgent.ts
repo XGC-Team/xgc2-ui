@@ -1,4 +1,4 @@
-import type { NativeStreamTransport } from '@xgc2/native-agent/react';
+import type { NativeStreamTransport } from '@xgc2/agent-runtime/react';
 import { requestStationResponse } from './http';
 import { openReplayJSONStream } from './streams';
 

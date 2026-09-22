@@ -1,6 +1,6 @@
 import { useCallback,useEffect,useMemo,useRef } from 'react';
-import { useNativeStream } from '@xgc2/native-agent/react';
-import type { NativeAnswer,NativeSession,NativeTurnOptions,Scope,StreamState } from '@xgc2/native-agent/state';
+import { useNativeStream } from '@xgc2/agent-runtime/react';
+import type { NativeAnswer,NativeSession,NativeTurnOptions,Scope,StreamState } from '@xgc2/agent-runtime/state';
 import { assertNativeExperimentSession,createGroundStationNativeClient,nativeExperimentPath,openGroundStationNativeStream } from './groundStationNativeAgentService';
 import type { GroundStationNativeAttentionItem,GroundStationNativeRegistry,NativeProjection } from './groundStationNativeAgentTypes';
 import { useGroundStationConversationIndex } from './useGroundStationConversationIndex';

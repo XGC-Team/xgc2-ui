@@ -1,4 +1,4 @@
-import type { StreamState } from '@xgc2/native-agent/state'
+import type { StreamState } from '@xgc2/agent-runtime/state'
 import { check } from './review-model.ts'
 import type { NativeWritingCompletion } from './writing-contract.ts'
 

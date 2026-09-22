@@ -1,4 +1,4 @@
-import { NativeAgentClientError } from '@xgc2/native-agent/client';
+import { NativeAgentClientError } from '@xgc2/agent-runtime/client';
 
 const COMPANION_CODES = new Set([
   'native_upstream_unavailable',

@@ -4,7 +4,7 @@ import type {
   NativeProviderConfiguration,
   NativeProviderSettingsUpdate,
   NativeSettings,
-} from '@xgc2/native-agent/react';
+} from '@xgc2/agent-runtime/react';
 import { ConfigSection } from '../../components/ConfigSection';
 import { ControlButton } from '../../components/controls/ControlButton';
 import { InputControl } from '../../components/controls/TextControls';

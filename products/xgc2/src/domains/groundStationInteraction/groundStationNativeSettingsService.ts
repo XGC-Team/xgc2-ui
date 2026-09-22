@@ -1,5 +1,5 @@
-import { createNativeAgentClient } from '@xgc2/native-agent/client';
-import type { NativeProviderSettingsUpdate } from '@xgc2/native-agent/react';
+import { createNativeAgentClient } from '@xgc2/agent-runtime/client';
+import type { NativeProviderSettingsUpdate } from '@xgc2/agent-runtime/react';
 import { fetchNativeAgent } from '../../api/nativeAgent';
 
 // Both Settings and the Experiment composer consume the common workstation

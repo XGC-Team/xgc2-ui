@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { fireEvent,render,screen } from '@testing-library/react';
 import { describe,expect,it,vi } from 'vitest';
-import { NativeConversation } from '@xgc2/native-agent/react';
-import { emptyStream } from '@xgc2/native-agent/state';
+import { NativeConversation } from '@xgc2/agent-runtime/react';
+import { emptyStream } from '@xgc2/agent-runtime/state';
 
 describe('shared native conversation embedding', () => {
   it('keeps one viewport owner while preserving the same native decision callback', () => {

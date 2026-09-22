@@ -1,9 +1,9 @@
 // Research session scope, idempotency and event identity adapted from the existing Research OS session provider.
 import { useWorkbench } from '../../store'
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type Dispatch, type FormEvent, type ReactNode, type SetStateAction } from 'react'
-import { useNativeStream, type NativeComposerSelection, type NativeSettings } from '@xgc2/native-agent/react'
-import '@xgc2/native-agent/styles.css'
-import type { NativeAnswer, NativeProfile, NativeSession, NativeTurnOptions, Scope } from '@xgc2/native-agent/state'
+import { useNativeStream, type NativeComposerSelection, type NativeSettings } from '@xgc2/agent-runtime/react'
+import '@xgc2/agent-runtime/styles.css'
+import type { NativeAnswer, NativeProfile, NativeSession, NativeTurnOptions, Scope } from '@xgc2/agent-runtime/state'
 import { listWorkspaces, type WorkspaceSummary } from '../../lib/api'
 import {
   answerNativeRequest, cancelNativeTurn, createNativeSession,

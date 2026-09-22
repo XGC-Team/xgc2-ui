@@ -1,5 +1,5 @@
 import { useEffect,useMemo,useRef,useState } from 'react';
-import type { NativeComposerSelection,NativeProviderConfiguration } from '@xgc2/native-agent/react';
+import type { NativeComposerSelection,NativeProviderConfiguration } from '@xgc2/agent-runtime/react';
 import { useGroundStationNativeAgentRegistry } from './GroundStationNativeAgentProvider';
 import type { GroundStationNativeBinding } from './groundStationNativeAgentTypes';
 import { bindGroundStationWorkspace,getGroundStationNativeCapabilities,type GroundStationNativeCapabilities } from './groundStationNativeAgentService';

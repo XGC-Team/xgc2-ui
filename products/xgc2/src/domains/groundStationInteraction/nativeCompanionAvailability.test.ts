@@ -1,4 +1,4 @@
-import { NativeAgentClientError } from '@xgc2/native-agent/client';
+import { NativeAgentClientError } from '@xgc2/agent-runtime/client';
 import { describe,expect,it } from 'vitest';
 import {
   isNativeCompanionUnavailable,

@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { act,render,screen } from '@testing-library/react';
 import { afterEach,beforeEach,describe,expect,it,vi } from 'vitest';
-import { useNativeStream,type NativeStreamTransport } from '@xgc2/native-agent/react';
-import { NATIVE_SCHEMA,type NativeSession } from '@xgc2/native-agent/state';
+import { useNativeStream,type NativeStreamTransport } from '@xgc2/agent-runtime/react';
+import { NATIVE_SCHEMA,type NativeSession } from '@xgc2/agent-runtime/state';
 
 const session: NativeSession = { schemaVersion: NATIVE_SCHEMA,id: 's_default',provider: 'codex',state: 'ready',createdAt: '2026-09-06T00:00:00Z',lastSeq: 0,title:'',archived:false,metadataRevision:1,
   scope: { profileId: 'codex',context: { kind: 'research-project',id: 'project-one' },workspace: { id: 'workspace-one',revision: 'fixture' },nativeAccessConfirmed: true } };

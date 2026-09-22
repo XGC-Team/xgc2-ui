@@ -1,4 +1,4 @@
-import type { NativeTurnOptions } from '@xgc2/native-agent/state'
+import type { NativeTurnOptions } from '@xgc2/agent-runtime/state'
 import { sendNativePrompt } from '../chat/client'
 import type { ReadingSelection, StudyReceipt } from './types'
 

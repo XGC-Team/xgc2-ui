@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { fireEvent,render,screen,waitFor } from '@testing-library/react';
 import { beforeEach,describe,expect,it,vi } from 'vitest';
-import type { NativeSettings } from '@xgc2/native-agent/react';
-import { NativeAgentClientError } from '@xgc2/native-agent/client';
+import type { NativeSettings } from '@xgc2/agent-runtime/react';
+import { NativeAgentClientError } from '@xgc2/agent-runtime/client';
 import { NativeProvidersSettingsSection } from './NativeProvidersSettingsSection';
 
 const mocks = vi.hoisted(() => ({ get: vi.fn(), save: vi.fn(), refresh: vi.fn() }));

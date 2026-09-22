@@ -1,5 +1,5 @@
 import { useCallback,useEffect,useRef,useState } from 'react';
-import type { NativeSession } from '@xgc2/native-agent/state';
+import type { NativeSession } from '@xgc2/agent-runtime/state';
 import { assertNativeExperimentSession,createGroundStationNativeClient,nativeExperimentPath } from './groundStationNativeAgentService';
 import type { GroundStationNativeBinding,NativeConversationInventory } from './groundStationNativeAgentTypes';
 

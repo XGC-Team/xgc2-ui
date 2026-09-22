@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe,expect,it } from 'vitest';
-import type { DecisionFacts } from '@xgc2/native-agent/client';
+import type { DecisionFacts } from '@xgc2/agent-runtime/client';
 import { decisionModeForScope,type DecisionPolicy,type DecisionRule } from './decisionPolicyService';
 
 const now=Date.parse('2026-09-08T01:00:00Z');

@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { emptyStream,type NativeAnswer,type NativeTurnOptions } from '@xgc2/native-agent/state';
+import { emptyStream,type NativeAnswer,type NativeTurnOptions } from '@xgc2/agent-runtime/state';
 import { useGroundStationNativeAgentRegistry } from './GroundStationNativeAgentProvider';
 import type { GroundStationNativeBinding } from './groundStationNativeAgentTypes';
 

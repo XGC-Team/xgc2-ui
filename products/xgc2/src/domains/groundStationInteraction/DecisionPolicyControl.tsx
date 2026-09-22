@@ -1,5 +1,5 @@
 import { useCallback,useRef,useState } from 'react';
-import type { DecisionFacts } from '@xgc2/native-agent/client';
+import type { DecisionFacts } from '@xgc2/agent-runtime/client';
 import { SelectControl } from '../../components/controls/SelectControl';
 import { Notice } from '@xgc2/ui-react';
 import { decisionModeForScope,readDecisionPolicy,readDecisionScope,replaceDecisionPolicy,sameDecisionScope,type DecisionPolicy,type DecisionSource,type DecisionRule } from './decisionPolicyService';

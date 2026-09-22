@@ -37,7 +37,7 @@
     "preview": "vite preview --host 127.0.0.1"
   },
   "dependencies": {
-    "@xgc2/native-agent": "file:../../common/native-agent/web",
+    "@xgc2/agent-runtime": "file:../../common/agent-runtime/web",
     "@xgc2/ui-react": "https://github.com/XGC-Team/xgc2-ui/releases/download/v0.16.10/xgc2-ui-react-0.16.10.tgz",
     "@xgc2/ui-workflow": "https://github.com/XGC-Team/xgc2-ui/releases/download/v0.16.0/xgc2-ui-workflow-0.4.0.tgz",
     "@xterm/addon-fit": "^0.11.0",

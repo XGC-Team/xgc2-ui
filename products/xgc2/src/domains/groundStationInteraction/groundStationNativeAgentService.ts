@@ -1,5 +1,5 @@
-import { createNativeAgentClient } from '@xgc2/native-agent/client';
-import { decodeProfiles,type NativeProfile,type NativeSession } from '@xgc2/native-agent/state';
+import { createNativeAgentClient } from '@xgc2/agent-runtime/client';
+import { decodeProfiles,type NativeProfile,type NativeSession } from '@xgc2/agent-runtime/state';
 import { request } from '../../api/http';
 import { fetchNativeAgent,experimentServicesTransport } from '../../api/nativeAgent';
 

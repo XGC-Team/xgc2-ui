@@ -1,7 +1,7 @@
 import {t as tr} from '../../i18n'
 import { useEffect, useState } from 'react'
 import { Moon, Sun } from 'lucide-react'
-import { NativeProviderSettings, type NativeSettings } from '@xgc2/native-agent/react'
+import { NativeProviderSettings, type NativeSettings } from '@xgc2/agent-runtime/react'
 import { nativeClient } from './client'
 import { useNativeAgentSession } from './Session'
 import { useWorkbench } from '../../store'

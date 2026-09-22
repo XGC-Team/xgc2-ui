@@ -1,5 +1,5 @@
 import {useState,useSyncExternalStore} from 'react';
-import type {PromptQueue,NativeTurnOptions} from '@xgc2/native-agent/state';
+import type {PromptQueue,NativeTurnOptions} from '@xgc2/agent-runtime/state';
 import {createGroundStationNativeClient} from './groundStationNativeAgentService';
 import {nativePromptOutbox} from './nativePromptOutbox';
 const emptyQueue:PromptQueue={revision:0,paused:false,items:[]};
