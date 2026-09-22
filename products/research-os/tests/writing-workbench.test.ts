@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { annotationDiscussion, bypassesDesignConfirmation, pdfFeedbackAnchor } from '../src/features/workbench/annotation-discussion'
-import { isIdleWebTab, matchReadingPdf, researchProjects } from '../src/features/workbench/writing-session'
+import { isIdleWebTab, matchReadingPdf, researchProjectCreate, researchProjects } from '../src/features/workbench/writing-session'
 import { loadProjectPreview } from '../src/features/workbench/useProjectPreview'
 import { APIError } from '../src/lib/api'
 
@@ -30,6 +30,12 @@ beforeEach(() => {
 
 describe('writing project discovery', () => {
   it('lists projects added through the API and ignores workspaces that were not added', () => {
+    const registration = researchProjectCreate('paper-homo-dmpc', '2026-09-22T00:00:00Z')
+    expect(registration.project).toMatchObject({ projectId: 'paper-homo-dmpc', slug: 'paper-homo-dmpc', title: 'paper-homo-dmpc' })
+    expect(registration.workspace).toEqual({ workspaceId: 'paper-homo-dmpc' })
+    expect(registration.idempotencyKey).toBe('open-project-paper-homo-dmpc')
+    expect(researchProjectCreate('  paper-hetero-dmpc ', '2026-09-22T00:00:00Z').project.projectId).toBe('paper-hetero-dmpc')
+    expect(researchProjectCreate('Field notes', '2026-09-22T00:00:00Z').project.projectId).toBe('Field notes')
     expect(researchProjects(
       [{ workspaceId: 'paper-unregistered' }, { workspaceId: 'academic' }],
       [{ projectId: 'paper-added', title: 'paper-added' }, { id: 'notes-extra', title: 'Field notes' }],

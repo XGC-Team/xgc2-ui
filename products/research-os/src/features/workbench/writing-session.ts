@@ -52,6 +52,25 @@ export function rememberRecentProject(projectId: string): string[] {
 
 export type ProjectRecord = { id?: string; projectId?: string; title?: string }
 
+/** Same body the startup script posts. The caller supplies the workspace id; this client does not mint one. */
+export function researchProjectCreate(workspaceId: string, createdAt: string) {
+  const id = workspaceId.trim()
+  if (!id) throw new Error('workspace id is required')
+  return {
+    idempotencyKey: `open-project-${id}`,
+    workspace: { workspaceId: id },
+    project: {
+      schemaVersion: 'xgc.research.protocol/v1',
+      projectId: id,
+      slug: id,
+      title: id,
+      summary: '',
+      createdBy: 'researcher',
+      createdAt,
+    },
+  }
+}
+
 /** Projects the operator added through the public project API. Workspaces are not opened by name. */
 export function researchProjects(
   _spaces: readonly { workspaceId: string }[],

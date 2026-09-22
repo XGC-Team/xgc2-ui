@@ -3,10 +3,13 @@ import {
   dominantPdfPage,
   fitPageScale,
   layoutPdfPages,
+  nextPdfZoom,
   pageFromPdfId,
   pdfPageId,
   pdfPageNumber,
   pdfPagesToPaint,
+  pdfWheelZoom,
+  scrollToHoldPoint,
 } from '../src/features/resources/pdf-scroll'
 
 const letter = { w: 612, h: 792 }
@@ -43,6 +46,28 @@ describe('continuous PDF scroll', () => {
     expect(pdfPagesToPaint(layout, last, height)).toContain(16)
     expect(pdfPagesToPaint(layout, last, height)).not.toContain(1)
     expect(pdfPagesToPaint(layout, last, height, [1])).toEqual(expect.arrayContaining([1, 16]))
+  })
+
+  it('zooms the PDF from the wheel without taking over a plain scroll', () => {
+    expect(pdfWheelZoom(1, { deltaY: -100 })).toBeNull()
+    const zoomIn = pdfWheelZoom(1, { ctrlKey: true, deltaY: -100 })
+    const zoomOut = pdfWheelZoom(1, { metaKey: true, deltaY: 100 })
+    expect(zoomIn).toBeGreaterThan(1)
+    expect(zoomOut).toBeLessThan(1)
+    expect(pdfWheelZoom(3, { ctrlKey: true, deltaY: -400 })).toBeNull()
+    expect(pdfWheelZoom(0.5, { ctrlKey: true, deltaY: 400 })).toBeNull()
+    expect(nextPdfZoom(1, -16)).toBeGreaterThan(1)
+    expect(pdfWheelZoom(1, { ctrlKey: true, deltaY: -4, deltaMode: 1 })).toBeCloseTo(nextPdfZoom(1, -64), 5)
+  })
+
+  it('keeps the page point under the pointer after a zoom reflow', () => {
+    const before = { pageLeft: 40, pageTop: 120, pageWidth: 400, pageHeight: 520, fractionX: 0.25, fractionY: 0.5, viewportX: 80, viewportY: 200 }
+    const held = scrollToHoldPoint(before)
+    expect(before.pageLeft + before.fractionX * before.pageWidth - held.left).toBeCloseTo(before.viewportX)
+    expect(before.pageTop + before.fractionY * before.pageHeight - held.top).toBeCloseTo(before.viewportY)
+    const grown = scrollToHoldPoint({ ...before, pageLeft: 10, pageTop: 80, pageWidth: 800, pageHeight: 1040 })
+    expect(10 + 0.25 * 800 - grown.left).toBeCloseTo(before.viewportX)
+    expect(80 + 0.5 * 1040 - grown.top).toBeCloseTo(before.viewportY)
   })
 
   it('keeps the earlier page when two pages share the viewport equally', () => {

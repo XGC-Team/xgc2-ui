@@ -23,6 +23,62 @@ export function pdfPageNumber(value: unknown): number | null {
   return null
 }
 
+export const PDF_ZOOM_MIN = 0.5
+export const PDF_ZOOM_MAX = 3
+
+/** Wheel up and a pinch-out both arrive as a negative delta and zoom in. */
+export function clampPdfZoom(value: number): number {
+  if (!Number.isFinite(value)) return 1
+  return Math.min(PDF_ZOOM_MAX, Math.max(PDF_ZOOM_MIN, value))
+}
+
+export function wheelDeltaPixels(delta: number, mode = 0): number {
+  if (!Number.isFinite(delta)) return 0
+  if (mode === 1) return delta * 16
+  if (mode === 2) return delta * 800
+  return delta
+}
+
+export function nextPdfZoom(current: number, deltaY: number): number {
+  const base = clampPdfZoom(current)
+  if (!Number.isFinite(deltaY) || deltaY === 0) return base
+  return clampPdfZoom(base * Math.exp(-deltaY * 0.0015))
+}
+
+/** Ctrl/Cmd+wheel changes the PDF scale. A plain wheel keeps scrolling. */
+export function pdfWheelZoom(current: number, gesture: { ctrlKey?: boolean; metaKey?: boolean; deltaY: number; deltaMode?: number }): number | null {
+  if (!gesture.ctrlKey && !gesture.metaKey) return null
+  const pixels = wheelDeltaPixels(gesture.deltaY, gesture.deltaMode ?? 0)
+  if (!pixels) return null
+  const next = nextPdfZoom(current, pixels)
+  return next === clampPdfZoom(current) ? null : next
+}
+
+export type PdfPointHold = {
+  page: number
+  fractionX: number
+  fractionY: number
+  viewportX: number
+  viewportY: number
+}
+
+/** Keep one page point under the same viewport pixel after the pages reflow. */
+export function scrollToHoldPoint(input: {
+  pageLeft: number
+  pageTop: number
+  pageWidth: number
+  pageHeight: number
+  fractionX: number
+  fractionY: number
+  viewportX: number
+  viewportY: number
+}): { left: number; top: number } {
+  return {
+    left: input.pageLeft + input.fractionX * input.pageWidth - input.viewportX,
+    top: input.pageTop + input.fractionY * input.pageHeight - input.viewportY,
+  }
+}
+
 /** Fit the page to the viewport width, then apply the operator zoom. Matches the previous single-page scale. */
 export function fitPageScale(pageWidth: number, availableWidth: number, zoom: number): number {
   const width = availableWidth > 0 ? availableWidth : 380

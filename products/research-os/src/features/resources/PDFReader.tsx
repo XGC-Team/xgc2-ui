@@ -1,6 +1,7 @@
 import { decodeAnnotation, encodeAnnotation, relativeRect, type PDFAnchor, type PDFRect } from './pdf-annotations'
 import { listPDFVersions, type ManuscriptPDF } from './manuscript'
 import {
+  clampPdfZoom,
   dominantPdfPage,
   layoutPdfPages,
   pageFromPdfId,
@@ -8,8 +9,11 @@ import {
   PDF_SCROLL_PAD,
   pdfPageId,
   pdfPagesToPaint,
+  pdfWheelZoom,
   samePageSet,
+  scrollToHoldPoint,
   type PageBox,
+  type PdfPointHold,
 } from './pdf-scroll'
 import { t as tr } from '../../i18n'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
@@ -225,7 +229,9 @@ export default function PDFReader({ pdf, onPDF, onTitle, onDraftChange }: {
   const viewportRef = useRef<HTMLDivElement>(null)
   const pageDims = useRef(new Map<number, { w: number; h: number }>())
   const restorePage = useRef<number | null>(null)
-  const zoomAnchor = useRef<{ page: number; ratio: number } | null>(null)
+  const zoomAnchor = useRef<({ page: number; ratio: number } | PdfPointHold) | null>(null)
+  const scaleRef = useRef(scale)
+  scaleRef.current = scale
   const attempt = useRef<{ body: string; key: string } | null>(null)
   const draftChangeRef = useRef(onDraftChange)
   draftChangeRef.current = onDraftChange
@@ -345,7 +351,22 @@ export default function PDFReader({ pdf, onPDF, onTitle, onDraftChange }: {
       const held = zoomAnchor.current
       zoomAnchor.current = null
       const el = pageNode(viewport, pdf.digest, held.page)
-      if (el) {
+      if (el && 'fractionX' in held) {
+        const view = viewport.getBoundingClientRect()
+        const box = el.getBoundingClientRect()
+        const next = scrollToHoldPoint({
+          pageLeft: box.left - view.left + viewport.scrollLeft,
+          pageTop: box.top - view.top + viewport.scrollTop,
+          pageWidth: box.width,
+          pageHeight: box.height,
+          fractionX: held.fractionX,
+          fractionY: held.fractionY,
+          viewportX: held.viewportX,
+          viewportY: held.viewportY,
+        })
+        viewport.scrollLeft = Math.max(0, next.left)
+        viewport.scrollTop = Math.max(0, next.top)
+      } else if (el && 'ratio' in held) {
         const top = el.getBoundingClientRect().top - viewport.getBoundingClientRect().top + viewport.scrollTop
         viewport.scrollTop = Math.max(0, top + held.ratio * el.clientHeight)
       }
@@ -405,6 +426,46 @@ export default function PDFReader({ pdf, onPDF, onTitle, onDraftChange }: {
     window.addEventListener('keydown', close)
     return () => window.removeEventListener('keydown', close)
   }, [busy])
+  useEffect(() => {
+    const viewport = viewportRef.current
+    if (!viewport) return
+    const onWheel = (event: WheelEvent) => {
+      if (!event.ctrlKey && !event.metaKey) return
+      event.preventDefault()
+      const next = pdfWheelZoom(scaleRef.current, event)
+      if (next == null) return
+      const hit = window.document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>('[data-xgc-role="pdf-page"]')
+      const pageNumber = hit && viewport.contains(hit) ? pageFromPdfId(hit.dataset.xgcId) : null
+      const pageBox = hit?.getBoundingClientRect()
+      const viewBox = viewport.getBoundingClientRect()
+      if (hit && pageNumber && pageBox && pageBox.width > 0 && pageBox.height > 0) {
+        zoomAnchor.current = {
+          page: pageNumber,
+          fractionX: (event.clientX - pageBox.left) / pageBox.width,
+          fractionY: (event.clientY - pageBox.top) / pageBox.height,
+          viewportX: event.clientX - viewBox.left,
+          viewportY: event.clientY - viewBox.top,
+        }
+      } else rememberViewport()
+      scaleRef.current = next
+      setScale(next)
+    }
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== '0' || event.altKey || event.shiftKey || !(event.ctrlKey || event.metaKey)) return
+      if (!viewport.matches(':hover')) return
+      event.preventDefault()
+      if (scaleRef.current === 1) return
+      rememberViewport()
+      scaleRef.current = 1
+      setScale(1)
+    }
+    viewport.addEventListener('wheel', onWheel, { passive: false })
+    window.addEventListener('keydown', onKey, true)
+    return () => {
+      viewport.removeEventListener('wheel', onWheel)
+      window.removeEventListener('keydown', onKey, true)
+    }
+  }, [pdf.digest, count])
   function resetSelection() { setAnchor(null); setSelectedNote(null); setComment(''); setQuote(''); window.getSelection()?.removeAllRanges() }
   function chooseText(notePage: number, rects: PDFRect[], text: string, context: string) {
     setSelectedNote(null)
@@ -465,7 +526,9 @@ export default function PDFReader({ pdf, onPDF, onTitle, onDraftChange }: {
   }
   function zoom(delta: number) {
     rememberViewport()
-    setScale(current => Math.min(3, Math.max(.5, current + delta)))
+    const next = clampPdfZoom(scaleRef.current + delta)
+    scaleRef.current = next
+    setScale(next)
   }
   if (!pdf) return <div className="grid flex-1 place-content-center p-6 text-secondary text-ink-3">{tr('打开稿件并编译，即可阅读 PDF 和添加批注。')}</div>
   const legacy = parsed.filter(note => note.page === page && !note.anchor)
@@ -484,7 +547,7 @@ export default function PDFReader({ pdf, onPDF, onTitle, onDraftChange }: {
       </RightMore>
     </div>
     {error && <p role="alert" className="ui-error">{error}</p>}
-    <div ref={viewportRef} className="min-h-0 flex-1 overflow-auto overscroll-contain bg-inset p-3" data-xgc-role="pdf-viewport" data-xgc-flow="scroll" data-xgc-current-page={page}>
+    <div ref={viewportRef} className="min-h-0 flex-1 overflow-auto overscroll-contain bg-inset p-3" data-xgc-role="pdf-viewport" data-xgc-flow="scroll" data-xgc-current-page={page} data-xgc-zoom={scale}>
       <div className="flex w-max min-w-full flex-col items-center">
         {document && layout.map((box, index) => {
           const pageNotes = parsed.filter(note => note.page === box.page)
