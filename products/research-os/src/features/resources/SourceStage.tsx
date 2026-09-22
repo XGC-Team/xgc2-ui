@@ -108,7 +108,7 @@ export function SourceStage(){
   {error&&<p role="alert" className="ui-error">{error}</p>}
   <div ref={bodyRef} className="min-h-0 flex-1 overflow-auto py-4">
    {loading&&!digest&&<p className="px-6 text-secondary text-ink-3">{tr('正在读取…')}</p>}
-   {digest&&<div className="min-w-max font-mono text-[12.5px] leading-[1.7]">
+   {digest&&<div className="min-w-max font-mono text-secondary leading-[1.7]">
     {lines.map((text,i)=>{const n=i+1,target=mapping==='match'&&n===view.line,active=n===cursor
      return <button type="button" key={n} data-line={n} onClick={()=>setCursor(n)} className={`flex w-full cursor-pointer pr-6 text-left transition-colors duration-150 ${target?'bg-ink/[0.07]':active?'bg-ink/[0.04]':'hover:bg-ink/[0.03]'}`}>
       <span className={`w-14 shrink-0 select-none pr-4 text-right tabular-nums ${target||active?'text-ink':'text-ink-3'}`}>{n}</span>

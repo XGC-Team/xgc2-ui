@@ -68,7 +68,7 @@ export function Reader({onQuote}:{onQuote?:(text:string)=>void}){
    <header className="mb-8"><div className="flex items-center justify-between gap-3">
     <p className="min-w-0 truncate text-caption text-ink-3">{doc.path}</p>
     <button type="button" onClick={closeDocument} className="flex h-6 shrink-0 items-center gap-1.5 rounded-md px-2 text-caption text-ink-3 hover:bg-hover" title={tr('返回图谱')}><IconGraph size={12} strokeWidth={1.75}/>{tr('图谱')}</button>
-   </div><h1 className="mt-2 font-display text-[30px] leading-[1.2] tracking-tight">{doc.title}</h1>
+   </div><h1 className="mt-2 font-display text-display-md leading-display-loose tracking-tight">{doc.title}</h1>
     {meta.length>0&&<dl className="mt-4 flex flex-wrap gap-x-6 gap-y-1.5">{meta.map(m=><div key={m.key} className="flex gap-2 text-caption"><dt className="text-ink-3">{m.key}</dt><dd className="text-ink-2">{m.value}</dd></div>)}</dl>}
    </header>
    {loading?<p role="status" className="text-ink-3">{tr("正在读取…")}</p>:!error&&digest&&<ReadingBridge active={activeNav==='knowledge'} source={{id:'knowledge',workspace:doc.workspace,path:doc.path,digest}}><div className="research-document break-words text-body leading-[1.75] text-ink-2"><MarkdownView content={content}/></div></ReadingBridge>}

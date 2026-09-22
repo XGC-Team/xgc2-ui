@@ -65,7 +65,7 @@ export function ChatPage({projects}:{projects:Project[]}) {
         onSend={connected?s.send:s.startAndSend} onInterrupt={connected?s.interrupt:undefined}
         emptyState={projectId?<div className="grid h-full place-content-center px-6" data-xgc-role="writing-empty" data-xgc-id={projectId}>
           <div className="w-full max-w-xl">
-            <h1 className="font-display text-[28px] leading-[1.15] tracking-tight">{copy.writingEmpty}</h1>
+            <h1 className="font-display text-display-sm leading-display tracking-tight">{copy.writingEmpty}</h1>
             <p className="mt-3 text-body text-ink-2">{copy.writingEmptyBody}</p>
           </div>
         </div>:chatSurface!=='generic'?<ContinueWriting projects={projects} onOpen={enterWritingProject}/>:<motion.div initial="hidden" animate="show" variants={{hidden:{},show:{transition:{staggerChildren:0.06,delayChildren:0.08}}}} className="grid h-full place-content-center px-6">
@@ -74,7 +74,7 @@ export function ChatPage({projects}:{projects:Project[]}) {
               <span className="text-caption font-medium uppercase tracking-[0.14em] text-ink-3">{date}</span>
               <span aria-hidden className="h-px w-12 bg-line-strong"/>
             </motion.div>
-            <motion.h1 variants={rise} className="mt-5 font-display text-[36px] leading-[1.15] tracking-tight">{tr("有什么想研究的？")}</motion.h1>
+            <motion.h1 variants={rise} className="mt-5 font-display text-display-lg leading-display tracking-tight">{tr("有什么想研究的？")}</motion.h1>
             <motion.p variants={rise} className="mt-3 text-body text-ink-2">{tr("对话、研读、写作与验证，从一个问题开始。")}</motion.p>
             <motion.div variants={rise} className="mt-9">
               {SUGGESTIONS.map((label,i)=><button key={label} type="button" onClick={()=>s.setDraft(tr(label))} className="group flex w-full items-baseline gap-4 rounded-md px-1 py-2.5 text-left transition-colors duration-150 hover:bg-hover">

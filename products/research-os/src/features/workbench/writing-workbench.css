@@ -24,7 +24,7 @@
   place-content: center;
   min-height: 0;
   flex: 1;
-  padding: 24px;
+  padding: calc(var(--space-panel) * 2);
   text-align: left;
 }
 .writing-home {

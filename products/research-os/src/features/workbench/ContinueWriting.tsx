@@ -14,7 +14,7 @@ export function ContinueWriting({ projects, onOpen }: { projects: Project[]; onO
   const last = recent[0]
   return <div className="writing-home" data-xgc-role="continue-writing" data-xgc-id="continue-writing">
     <div className="w-full max-w-xl">
-      <h1 className="font-display text-[28px] leading-[1.15] tracking-tight">{copy.continueTitle}</h1>
+      <h1 className="font-display text-display-sm leading-display tracking-tight">{copy.continueTitle}</h1>
       <p className="mt-3 text-body text-ink-2">{copy.continueBody}</p>
       {last && <div className="mt-6"><Button variant="solid" data-xgc-role="resume-last-project" data-xgc-id={last.id} onClick={() => onOpen(last.id)}>{copy.openLast} · {last.title}</Button></div>}
       {recent.length > 0 && <section className="writing-home__list" aria-label={copy.recent}>

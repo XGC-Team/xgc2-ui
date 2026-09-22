@@ -413,7 +413,7 @@ export function GraphView({data,onSelect,initialCamera,onCameraChange}:{data:Gra
                 <div className="flex items-center gap-2">
                   <span className={cn('h-2 w-2 rounded-full bg-ink', n.hub ? 'opacity-95' : 'opacity-50')} />
                   <span className="text-caption font-medium uppercase tracking-[0.06em] text-ink-3">{tr(n.kind ?? group?.label ?? n.group)}</span>
-                  {selected && <span className="ml-auto text-[10px] text-ink-3">{tr("pinned")}</span>}
+                  {selected && <span className="ml-auto text-caption text-ink-3">{tr("pinned")}</span>}
                 </div>
                 <div className="mt-1 text-[13px] font-semibold leading-snug">{n.label}</div>
                 {n.unresolved && <div className="mt-1 text-[11px] text-ink-3">{tr('未解析目标')}</div>}

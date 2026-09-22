@@ -21,12 +21,18 @@
   --type-body: 13px;
   --type-title: 14px;
   --type-display: 24px;
+  --type-display-sm: 28px;
+  --type-display-md: 30px;
+  --type-display-lg: 36px;
+  --leading-display: 1.15;
+  --leading-display-loose: 1.2;
   /* 字体：正文 Inter Variable（唯一来源，@theme inline 自映射到此）；标题/品牌用衬线 */
   --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
   --font-display: Charter, "Bitstream Charter", "Songti SC", "Noto Serif CJK SC", "SimSun", ui-serif, Georgia, serif;
   /* 面板尺寸系统：默认 / 最小 / 最大（拖拽夹取在 App.tsx PANEL） */
   --size-footer: 28px;
   --size-sidebar: 264px;
+  --size-sidebar-indent: 18px;
   --size-right: 396px;
   --size-bottom: 252px;
   /* 动效节奏：hover 快、面板中、主题慢；按压用 spring */
@@ -95,11 +101,17 @@
   --spacing-panel-header: var(--size-header);
   --spacing-app-header: var(--size-app-header);
   --spacing-control-md: var(--size-control-md);
+  --spacing-sidebar-indent: var(--size-sidebar-indent);
   --text-caption: var(--type-caption);
   --text-secondary: var(--type-secondary);
   --text-body: var(--type-body);
   --text-title: var(--type-title);
   --text-display: var(--type-display);
+  --text-display-sm: var(--type-display-sm);
+  --text-display-md: var(--type-display-md);
+  --text-display-lg: var(--type-display-lg);
+  --leading-display: var(--leading-display);
+  --leading-display-loose: var(--leading-display-loose);
   --color-app: var(--bg-app);
   --color-panel: var(--bg-panel);
   --color-elevated: var(--bg-elevated);

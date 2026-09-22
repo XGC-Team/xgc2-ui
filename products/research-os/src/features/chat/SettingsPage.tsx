@@ -25,7 +25,7 @@ export function SettingsPage(){
  useEffect(()=>{const c=new AbortController();nativeClient.getNativeSettings(c.signal).then(setSettings).catch(e=>{if(!c.signal.aborted)setError(e.message)});return()=>c.abort()},[])
  return <div className="h-full min-h-0 overflow-auto"><div className="mx-auto w-full max-w-[880px] px-8 pb-16 pt-10">
   <header className="mb-10">
-   <h1 className="font-display text-[30px] leading-[1.2] tracking-tight">{tr("设置")}</h1>
+   <h1 className="font-display text-display-md leading-display-loose tracking-tight">{tr("设置")}</h1>
    <p className="mt-2 text-secondary text-ink-3">{tr("外观、语言与供应者。")}</p>
   </header>
   {error&&<p role="alert" className="ui-error mb-6">{error}</p>}

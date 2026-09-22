@@ -25,7 +25,7 @@ export function ProjectObjects({ project }: { project: Project }) {
     { id: 'drafts', label: draftCopy[locale].title, icon: IconCanvas, open: () => { select(); selectResearchDraft({ projectId: project.id, workspace }, '') } },
     { id: 'builds', label: copy.builds, icon: FileText, open: () => openFiles('builds') },
   ]
-  return <nav data-project-objects={project.id} aria-label={`${copy.objects} · ${project.title}`} className="ml-[18px] border-l border-line py-1 pl-1.5">
+  return <nav data-project-objects={project.id} aria-label={`${copy.objects} · ${project.title}`} className="ml-sidebar-indent border-l border-line py-1 pl-1.5">
     {actions.map(action => <button key={action.id} type="button" data-project-object={action.id}
       className="flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-secondary text-ink-2 transition-colors duration-150 hover:bg-hover hover:text-ink"
       onClick={action.open}>
