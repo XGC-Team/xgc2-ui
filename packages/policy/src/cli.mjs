@@ -9,6 +9,7 @@ import {
   forbiddenControlAppearanceDefinitions,
   isProductProductionSource,
   pageFamilySelectorCouplingViolations,
+  rawCustomPropertyDurationViolations,
   rawFoundationValueViolations,
   rawSpacingLiteralViolations,
   semanticGeometryViolations,
@@ -138,6 +139,7 @@ function inspectCss(file, css, violations) {
   for (const message of pageFamilySelectorCouplingViolations(declarations)) record(violations, file, message);
   for (const message of rawFoundationValueViolations(declarations)) record(violations, file, message);
   for (const message of rawSpacingLiteralViolations(declarations)) record(violations, file, message);
+  for (const message of rawCustomPropertyDurationViolations(declarations)) record(violations, file, message);
   for (const message of semanticGeometryViolations(declarations)) record(violations, file, message);
   for (const message of sharedSelectorViolations(declarations, sharedClasses)) {
     record(violations, file, `${message}; compose through a product-owned class or component API`);

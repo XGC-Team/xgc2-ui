@@ -1,5 +1,11 @@
 # @xgc2/ui-policy
 
+## 0.16.16
+
+- New `rawCustomPropertyDurationViolations` rule: raw motion durations fail even inside custom properties (zero durations and `var()`-driven expressions stay legal), closing the hole where a raw value hid behind `--my-duration: 1.6s`.
+- The ownership snapshot now covers the v016, monochrome, responsive, and focus stylesheets, so shared classes such as `xgc-page-frame-*` and `xgc-workbench-*` are protected again.
+- Keep policy paired with React 0.16.16 and its exact peer dependency.
+
 ## 0.16.15
 
 - New `rawSpacingLiteralViolations` rule: raw pixel literals in `padding`, `margin`, `gap`, and `inset` declarations fail the gate. Exempt honest geometry: `0` resets, `1px` hairlines, the `-1px` visually-hidden idiom, and any token-driven value (`var()`, including relative `calc()` compositions). Spacing must come from the bounded scale or a semantic role.

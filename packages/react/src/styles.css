@@ -253,6 +253,10 @@ button.xgc-workflow-status-card[data-xgc-layout='tile'][data-xgc-appearance='sol
   font-size: var(--font-base);
 }
 
+.xgc-input[data-xgc-format='monospace'] > input {
+  font-family: var(--font-mono);
+}
+
 .xgc-input > input[type='number'] {
   appearance: textfield;
 }
@@ -377,6 +381,14 @@ button.xgc-workflow-status-card[data-xgc-layout='tile'][data-xgc-appearance='sol
 .xgc-textarea:disabled,
 .xgc-textarea:read-only {
   opacity: var(--opacity-disabled);
+}
+
+/* Code, JSON, and expression editors opt into the code role through one shared
+ * API instead of product selectors reaching into the control. */
+.xgc-textarea[data-xgc-format='monospace'],
+.xgc-textarea-control[data-xgc-format='monospace'] .xgc-textarea {
+  font-family: var(--font-mono);
+  line-height: var(--line-height-normal);
 }
 
 .xgc-select {

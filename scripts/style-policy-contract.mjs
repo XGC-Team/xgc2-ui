@@ -272,6 +272,26 @@ export function rawSpacingLiteralViolations(css) {
   return [...new Set(violations)];
 }
 
+const RAW_DURATION_VALUE = /(-?\d+(?:\.\d+)?)(ms|s)\b/gi;
+
+/** Motion durations come from the `--duration-*` tokens everywhere, including
+ * custom properties — a raw value does not become legal by hiding in one. */
+export function rawCustomPropertyDurationViolations(css) {
+  const source = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  const violations = [];
+  for (const match of source.matchAll(/([\w-]+)\s*:\s*([^;{}]+)(?:;|(?=\}))/g)) {
+    const property = match[1];
+    if (!property.startsWith('--')) continue;
+    const value = match[2];
+    if (/var\(/i.test(value)) continue;
+    for (const literal of value.matchAll(RAW_DURATION_VALUE)) {
+      if (Number.parseFloat(literal[1]) === 0) continue;
+      violations.push(`raw motion duration ${literal[0]} in ${property}`);
+    }
+  }
+  return [...new Set(violations)];
+}
+
 const GEOMETRY_PROPERTY = /^(?:(?:min-|max-)?(?:width|height|inline-size|block-size))$/i;
 const GEOMETRY_TOKEN = /(?:size|width|height|handle|reserve|(?:^|[-_])track(?:$|[-_]))/i;
 const RELATIVE_LAYOUT_BASIS = /(?:^|[^\w.-])(?:\d+(?:\.\d*)?|\.\d+)(?:%|[dls]?v[wh]|vmin|vmax|cq[whib]|cqmin|cqmax)\b/i;

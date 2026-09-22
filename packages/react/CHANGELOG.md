@@ -1,5 +1,9 @@
 # @xgc2/ui-react
 
+## 0.16.16
+
+- Code, JSON, and expression editors opt into the code role through the shared `data-xgc-format="monospace"` API on `Textarea` (element or `xgc-textarea-control` wrapper) and `Input` shells, replacing product selectors that reached into the control internals for monospace.
+
 ## 0.16.15
 
 - Publish the 0.16.15 pair for the policy raw-spacing-literal gate; component code is unchanged from 0.16.14.

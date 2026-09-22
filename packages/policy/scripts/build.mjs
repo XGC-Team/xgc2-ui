@@ -10,7 +10,12 @@ await mkdir(dist, { recursive: true });
 const cssFiles = [
   'packages/tokens/src/index.css',
   'packages/tokens/src/base.css',
+  'packages/tokens/src/v016.css',
+  'packages/tokens/src/v016-monochrome.css',
   'packages/react/src/styles.css',
+  'packages/react/src/styles-v016.css',
+  'packages/react/src/responsive.generated.css',
+  'packages/react/src/styles/focus.css',
   'packages/workflow/src/styles.css',
 ];
 const css = (await Promise.all(cssFiles.map((file) => readFile(new URL(file, workspaceRoot), 'utf8')))).join('\n');
