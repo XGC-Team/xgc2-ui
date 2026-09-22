@@ -122,7 +122,7 @@
   --color-warn-soft: var(--warn-soft);
   --color-err: var(--err);
   --color-err-soft: var(--err-soft);
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, "Cascadia Code", Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   --shadow-soft: var(--shadow-soft);
   --shadow-pop: var(--shadow-pop);
   /* rounded-md = 控件、rounded-lg = 卡片/面板，与 --radius-control/panel 同轨 */
