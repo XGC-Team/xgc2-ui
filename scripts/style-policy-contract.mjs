@@ -249,6 +249,29 @@ export function rawFoundationValueViolations(css) {
   return [...new Set(violations)];
 }
 
+const SPACING_PROPERTY = /^(?:(?:padding|margin|inset)(?:-(?:block|inline|top|right|bottom|left|block-start|block-end|inline-start|inline-end))?|(?:row-|column-)?gap)$/i;
+const SPACING_LITERAL = /(-?\d+(?:\.\d+)?)px\b/gi;
+
+/** Spacing comes from the bounded scale or a semantic role; raw literals are debt.
+ * Exempt honest geometry: 0 resets, ±1px hairlines and the visually-hidden idiom,
+ * and any token-driven value (var(), including relative calc compositions). */
+export function rawSpacingLiteralViolations(css) {
+  const source = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  const violations = [];
+  for (const match of source.matchAll(/([\w-]+)\s*:\s*([^;{}]+)(?:;|(?=\}))/g)) {
+    const property = match[1];
+    if (!SPACING_PROPERTY.test(property)) continue;
+    const value = match[2];
+    if (/var\(/i.test(value)) continue;
+    for (const literal of value.matchAll(SPACING_LITERAL)) {
+      const amount = Number.parseFloat(literal[1]);
+      if (amount === 0 || Math.abs(amount) === 1) continue;
+      violations.push(`raw spacing literal ${literal[0]} in ${property}`);
+    }
+  }
+  return [...new Set(violations)];
+}
+
 const GEOMETRY_PROPERTY = /^(?:(?:min-|max-)?(?:width|height|inline-size|block-size))$/i;
 const GEOMETRY_TOKEN = /(?:size|width|height|handle|reserve|(?:^|[-_])track(?:$|[-_]))/i;
 const RELATIVE_LAYOUT_BASIS = /(?:^|[^\w.-])(?:\d+(?:\.\d*)?|\.\d+)(?:%|[dls]?v[wh]|vmin|vmax|cq[whib]|cqmin|cqmax)\b/i;

@@ -1,5 +1,9 @@
 # @xgc2/ui-react
 
+## 0.16.15
+
+- Publish the 0.16.15 pair for the policy raw-spacing-literal gate; component code is unchanged from 0.16.14.
+
 ## 0.16.14
 
 - Ship the 0.10.5 token contract inline: `--font-sans` resolves to Inter Variable and `--font-mono` to JetBrains Mono ahead of one shared system fallback chain with the CJK chain at the end, so station and satellite surfaces render the same faces. Font family is a semantic role — sans for prose, labels, status, and values; monospace for code, paths, terminals, JSON, and identifiers; numeric readouts stay sans with `font-variant-numeric: tabular-nums`.

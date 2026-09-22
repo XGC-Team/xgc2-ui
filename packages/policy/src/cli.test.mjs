@@ -74,6 +74,8 @@ test('rejects the full cross-product visual drift contract', async () => {
       .layout { width: calc(var(--space-lg) * 10); }
       .fork .xgc-button { --color-text: red; opacity: 0.5; }
       .xgc-list-page .xgc-config-section { padding: var(--space-md); }
+      .raw-gap { gap: 12px; padding: clamp(20px, 4cqi, 64px); }
+      .honest-geometry { gap: 1px; margin: -1px; padding: 0; inset: calc(50% - 1px); }
     `);
     const result = run(project.directory, '--root', 'src', '--html', 'index.html');
     assert.equal(result.status, 1);
@@ -84,6 +86,9 @@ test('rejects the full cross-product visual drift contract', async () => {
     assert.match(result.stderr, /page-family selector couples resource-directory and form-settings-operator/);
     assert.match(result.stderr, /product redefines shared token --color-text/);
     assert.match(result.stderr, /raw opacity 0\.5/);
+    assert.match(result.stderr, /raw spacing literal 12px in gap/);
+    assert.match(result.stderr, /raw spacing literal 20px in padding/);
+    assert.doesNotMatch(result.stderr, /raw spacing literal 1px/);
     assert.match(result.stderr, /direct documentElement skin dataset access/);
     assert.match(result.stderr, /direct localStorage getItem for skin\/theme key fixture\.skin/);
   } finally {

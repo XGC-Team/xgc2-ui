@@ -1,5 +1,10 @@
 # @xgc2/ui-policy
 
+## 0.16.15
+
+- New `rawSpacingLiteralViolations` rule: raw pixel literals in `padding`, `margin`, `gap`, and `inset` declarations fail the gate. Exempt honest geometry: `0` resets, `1px` hairlines, the `-1px` visually-hidden idiom, and any token-driven value (`var()`, including relative `calc()` compositions). Spacing must come from the bounded scale or a semantic role.
+- Keep policy paired with React 0.16.15 and its exact peer dependency.
+
 ## 0.16.14
 
 - Keep policy paired with React 0.16.14 and its exact peer dependency. Existing policy rules remain unchanged.
