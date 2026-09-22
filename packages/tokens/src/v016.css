@@ -1,8 +1,8 @@
 :root {
   color-scheme: dark;
-  --font-sans: Inter, "SF Pro Text", "Segoe UI Variable Text", "Segoe UI", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-display: Inter, "SF Pro Display", "Segoe UI Variable Display", var(--font-sans);
-  --font-mono: "SFMono-Regular", "Cascadia Code", ui-monospace, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  --font-sans: "Inter Variable", Inter, "SF Pro Text", "Segoe UI Variable Text", "Segoe UI", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+  --font-display: "Inter Variable", Inter, "SF Pro Display", "Segoe UI Variable Display", var(--font-sans);
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, "Cascadia Code", Menlo, Monaco, Consolas, "Liberation Mono", monospace;
 
   /* 0.16 keeps the bounded spatial rhythm but raises the legibility floor. */
   --space-2xs: 2px;

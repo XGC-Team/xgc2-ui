@@ -1,5 +1,9 @@
 # @xgc2/ui-policy
 
+## 0.16.14
+
+- Keep policy paired with React 0.16.14 and its exact peer dependency. Existing policy rules remain unchanged.
+
 ## 0.16.13
 
 - Keep policy paired with React 0.16.13 and its exact peer dependency. Existing policy rules remain unchanged.

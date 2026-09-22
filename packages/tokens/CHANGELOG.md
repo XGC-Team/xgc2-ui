@@ -1,5 +1,11 @@
 # @xgc2/ui-tokens
 
+## 0.10.5
+
+### Patch Changes
+
+- Resolve `--font-sans` to Inter Variable and `--font-mono` to JetBrains Mono as bundled product assets, ahead of one shared system fallback chain that now ends in the CJK chain (`PingFang SC`, `Hiragino Sans GB`, `Microsoft YaHei`, `Noto Sans CJK SC`). The legacy `index.css` and `v016.css` stacks carry identical family declarations so every consumer renders the same faces.
+
 ## 0.10.4
 
 ### Patch Changes

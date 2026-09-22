@@ -1,5 +1,9 @@
 # @xgc2/ui-react
 
+## 0.16.14
+
+- Ship the 0.10.5 token contract inline: `--font-sans` resolves to Inter Variable and `--font-mono` to JetBrains Mono ahead of one shared system fallback chain with the CJK chain at the end, so station and satellite surfaces render the same faces. Font family is a semantic role — sans for prose, labels, status, and values; monospace for code, paths, terminals, JSON, and identifiers; numeric readouts stay sans with `font-variant-numeric: tabular-nums`.
+
 ## 0.16.13
 
 - Add opt-in row windowing to `SortableDataTable` via `virtualizeRows`. With `bodyScroll` and at least 100 rows, the bounded row viewport renders only the visible window plus overscan, reserving the unrendered range with spacer rows, while sticky header, column width sync, row stamping, sort, and selection contracts are unchanged. Shorter lists render exactly as before.
