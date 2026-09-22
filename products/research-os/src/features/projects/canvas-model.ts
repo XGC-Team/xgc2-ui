@@ -265,6 +265,75 @@ export function isCanvasSentence(id: string): boolean {
   return id.startsWith('s-')
 }
 
+/** Chapter column, then each claim column. Widths match the card chrome, not a fixed 132px stack. */
+const DESIGN_COLUMN_X = [48, 336, 664] as const
+const DESIGN_CARD_GAP = 28
+
+/** Width and height of one design card from its own title, body and writing notes. */
+export function designCardBox(node: CanvasNodeV2): { width: number; height: number } {
+  const width = node.kind === 'chapter' ? 240 : 280
+  const charsPerLine = Math.max(12, Math.floor((width - 28) / 14))
+  const titleLines = Math.max(1, Math.ceil((node.title.trim() || ' ').length / Math.max(8, Math.floor((width - 56) / 15))))
+  const bodyLines = (node.body ?? '').trim().split('\n').filter(line => line.trim()).reduce(
+    (sum, line) => sum + Math.max(1, Math.ceil(line.trim().length / charsPerLine)), 0)
+  const notes = WRITING_FIELDS.reduce((sum, field) => {
+    const text = node.writing?.[field]?.trim()
+    return text ? sum + Math.max(1, Math.ceil(text.length / charsPerLine)) : sum
+  }, 0)
+  const height = 52 + titleLines * 24 + (bodyLines ? 8 + bodyLines * 22 : 0) + (notes ? 8 + notes * 22 : 0)
+  return { width, height }
+}
+
+function boxesOverlap(a: { x: number; y: number; width: number; height: number }, b: { x: number; y: number; width: number; height: number }): boolean {
+  return a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height
+}
+
+/** True when two visible design cards occupy the same space. Sentence rows are not cards. */
+export function designLayoutOverlaps(canvas: ThinkingCanvasV2): boolean {
+  const boxes = canvas.nodes.filter(node => !isCanvasSentence(node.id)).map(node => ({ ...designCardBox(node), x: node.x, y: node.y }))
+  return boxes.some((box, index) => boxes.slice(index + 1).some(other => boxesOverlap(box, other)))
+}
+
+/**
+ * Place each chapter and its claims from the outline.
+ * A claim column starts beside its chapter; the next chapter starts below that group.
+ * Manuscript sentence nodes stay where they are and are not drawn as cards.
+ */
+export function layoutDesignCanvas(canvas: ThinkingCanvasV2): ThinkingCanvasV2 {
+  const byId = new Map(canvas.nodes.map(node => [node.id, node]))
+  const positions = new Map<string, { x: number; y: number }>()
+  const place = (items: OutlineItem[], depth: number, top: number): number => {
+    let y = top
+    for (const item of items) {
+      if (isCanvasSentence(item.node)) {
+        if (item.children?.length) y = Math.max(y, place(item.children, depth, y))
+        continue
+      }
+      const node = byId.get(item.node)
+      if (!node) continue
+      const x = DESIGN_COLUMN_X[Math.min(depth, DESIGN_COLUMN_X.length - 1)]
+      positions.set(node.id, { x, y })
+      const ownBottom = y + designCardBox(node).height
+      const childBottom = item.children?.length ? place(item.children, depth + 1, y) : y
+      y = Math.max(ownBottom, childBottom) + DESIGN_CARD_GAP
+    }
+    return y
+  }
+  let bottom = place(getArrangement(canvas, PRIMARY_OUTLINE).items, 0, 40)
+  for (const node of canvas.nodes) {
+    if (positions.has(node.id) || isCanvasSentence(node.id)) continue
+    positions.set(node.id, { x: DESIGN_COLUMN_X[0], y: bottom })
+    bottom += designCardBox(node).height + DESIGN_CARD_GAP
+  }
+  return {
+    ...canvas,
+    nodes: canvas.nodes.map(node => {
+      const at = positions.get(node.id)
+      return at ? { ...node, x: at.x, y: at.y } : node
+    }),
+  }
+}
+
 /** Readable manuscript text for a card. Display math and commands stay out of the sentence the operator reads. */
 export function plainManuscript(text: string): string {
   return text

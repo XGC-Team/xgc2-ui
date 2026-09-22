@@ -15,7 +15,7 @@ import {OutlinePanel} from './OutlinePanel'
 import {openResearchSource} from './research-navigation'
 import {newContextItem} from './context-model'
 import {
-  CANVAS_PATH,PRIMARY_OUTLINE,SEMANTIC_RELATIONS,WRITING_FIELDS,addCanvasEdge,addNodeEvidence,canvasSentenceLines,canvasToPrompt,emptyCanvasV2,isCanvasSentence,
+  CANVAS_PATH,PRIMARY_OUTLINE,SEMANTIC_RELATIONS,WRITING_FIELDS,addCanvasEdge,addNodeEvidence,canvasSentenceLines,canvasToPrompt,designCardBox,designLayoutOverlaps,emptyCanvasV2,isCanvasSentence,layoutDesignCanvas,
   newCanvasEvidence,removeCanvasNode,removeNodeBinding,removeNodeEvidence,setEdgeRelation,setNodeWriting,
   type CanvasNodeV2,type SemanticRelation,type ThinkingCanvasV2,type WritingField,
 } from './canvas-model'
@@ -25,7 +25,6 @@ import {readDesignFocus,requestDesignFocus,subscribeDesignFocus} from './design-
    v2：x/y 只表达视觉位置；层级与写作顺序在大纲视图；连线语义需要显式标注。 */
 type Cam={x:number;y:number;k:number}
 type Sel={kind:'node'|'edge';id:string}|null
-const NODE_W=224
 const EMPTY_CANVAS=emptyCanvasV2()
 const RELATION_COPY:Record<SemanticRelation,'relationSupports'|'relationContradicts'|'relationDepends'|'relationExemplifies'|'relationContinues'|'relationCites'>={
   supports:'relationSupports',contradicts:'relationContradicts',depends:'relationDepends',exemplifies:'relationExemplifies',continues:'relationContinues',cites:'relationCites',
@@ -67,10 +66,12 @@ export function ThinkingCanvas({project,active=true,onRequestConversation}:{proj
   if(!parsed){fitted.current=false;setSel(null);setPicker(null);drag.current=null;setTempEdge(null);return}
   if(fitted.current)return;fitted.current=true
   const framed=parsed.nodes.filter(n=>!isCanvasSentence(n.id))
-  if(framed.length){const r=box.current?.getBoundingClientRect();const xs=framed.map(n=>n.x),ys=framed.map(n=>n.y)
-   const w=Math.max(...xs)+NODE_W-Math.min(...xs),h=Math.max(...ys)+120-Math.min(...ys)
-   const k=Math.min(1.2,Math.max(0.4,Math.min(((r?.width??800)-80)/w,((r?.height??600)-80)/h)))
-   setCam({k,x:((r?.width??800)-w*k)/2-Math.min(...xs)*k,y:((r?.height??600)-h*k)/2-Math.min(...ys)*k})}
+  if(framed.length){const r=box.current?.getBoundingClientRect();const boxes=framed.map(n=>({...designCardBox(n),x:n.x,y:n.y}))
+   const left=Math.min(...boxes.map(n=>n.x)),top=Math.min(...boxes.map(n=>n.y))
+   const w=Math.max(...boxes.map(n=>n.x+n.width))-left,h=Math.max(...boxes.map(n=>n.y+n.height))-top
+   const viewW=r?.width??800
+   const k=Math.min(1.05,Math.max(0.9,(viewW-64)/Math.max(w,1)))
+   setCam({k,x:32-left*k,y:32-top*k})}
  },[documentState.value])
  const toWorld=useCallback((cx:number,cy:number)=>{const r=box.current!.getBoundingClientRect();return{x:(cx-r.left-cam.x)/cam.k,y:(cy-r.top-cam.y)/cam.k}},[cam])
  /* 指针：背景平移 / 节点拖动（只改视觉位置）/ 拉边 */
@@ -89,7 +90,7 @@ export function ThinkingCanvas({project,active=true,onRequestConversation}:{proj
  const onWheel=(e:React.WheelEvent)=>{const r=box.current!.getBoundingClientRect();const k=Math.min(1.8,Math.max(0.35,cam.k*Math.exp(-e.deltaY*0.0012)));const mx=e.clientX-r.left,my=e.clientY-r.top
   setCam({k,x:mx-(mx-cam.x)*(k/cam.k),y:my-(my-cam.y)*(k/cam.k)})}
  const addNode=(kind:CanvasNodeV2['kind'],at?:{x:number;y:number})=>{const r=box.current!.getBoundingClientRect();const p=at??toWorld(r.left+r.width/2+(Math.random()*80-40),r.top+r.height/2+(Math.random()*60-30))
-  const node:CanvasNodeV2={id:crypto.randomUUID().slice(0,8),kind,title:kind==='chapter'?tr('新章节'):tr('新想法'),x:p.x-NODE_W/2,y:p.y-24}
+  const node:CanvasNodeV2={id:crypto.randomUUID().slice(0,8),kind,title:kind==='chapter'?tr('新章节'):tr('新想法'),x:p.x-designCardBox({id:'',kind,title:'',x:0,y:0}).width/2,y:p.y-24}
   apply(c=>({...c,nodes:[...c.nodes,node]}));setSel({kind:'node',id:node.id});requestDesignFocus(project,[node.id])}
  /* 删除键与撤销只处理当前画布内的事件；隐藏画布不注册全局快捷键。 */
  const onKey=(e:React.KeyboardEvent)=>{if(!active)return
@@ -101,16 +102,28 @@ export function ThinkingCanvas({project,active=true,onRequestConversation}:{proj
  const nodeById=useMemo(()=>new Map(canvas.nodes.map(n=>[n.id,n])),[canvas.nodes])
  const prompt=()=>canvasToPrompt(canvas,project)
  const copyPrompt=async()=>{setCopyError('');setCopied(false);try{await navigator.clipboard.writeText(prompt());setCopied(true);clearTimeout(copyTimer.current);copyTimer.current=setTimeout(()=>setCopied(false),1500)}catch{setCopyError(copy.copyFailed)}}
+ const arranged=useRef('')
+ useEffect(()=>{
+  const current=documentState.value
+  if(!current){arranged.current='';return}
+  if(arranged.current===project)return
+  arranged.current=project
+  if(!designLayoutOverlaps(current))return
+  fitted.current=false
+  mutate(layoutDesignCanvas)
+ },[documentState.value,project,mutate])
  const fitCanvas=()=>{const r=box.current?.getBoundingClientRect();if(!r?.width||!r.height)return
   const framed=canvas.nodes.filter(n=>!isCanvasSentence(n.id))
   if(!framed.length){setCam({x:0,y:0,k:1});return}
-  const xs=framed.map(n=>n.x),ys=framed.map(n=>n.y),left=Math.min(...xs),top=Math.min(...ys)
-  const w=Math.max(...xs)+240-left,h=Math.max(...ys)+180-top
-  const k=Math.min(1.2,Math.max(0.35,Math.min(Math.max(1,r.width-64)/w,Math.max(1,r.height-64)/h)))
-  setCam({k,x:(r.width-w*k)/2-left*k,y:(r.height-h*k)/2-top*k})}
+  const boxes=framed.map(n=>({...designCardBox(n),x:n.x,y:n.y}))
+  const left=Math.min(...boxes.map(n=>n.x)),top=Math.min(...boxes.map(n=>n.y))
+  const w=Math.max(...boxes.map(n=>n.x+n.width))-left,h=Math.max(...boxes.map(n=>n.y+n.height))-top
+  const k=Math.min(1.05,Math.max(0.9,(r.width-64)/Math.max(w,1)))
+  setCam({k,x:32-left*k,y:32-top*k})}
  const locateOnCanvas=useCallback((id:string)=>{const n=nodeById.get(id);if(!n)return;setView('canvas');setSel({kind:'node',id})
   const r=box.current?.getBoundingClientRect();if(!r)return
-  setCam(c=>({k:c.k,x:r.width/2-(n.x+NODE_W/2)*c.k,y:r.height/2-(n.y+60)*c.k}))},[nodeById])
+  const size=designCardBox(n)
+  setCam(c=>({k:c.k,x:r.width/2-(n.x+size.width/2)*c.k,y:r.height/2-(n.y+size.height/2)*c.k}))},[nodeById])
  useEffect(()=>{
   const applyFocus=(focus:{project:string;cardIds:readonly string[]})=>{
    if(focus.project!==project)return
@@ -152,6 +165,7 @@ export function ThinkingCanvas({project,active=true,onRequestConversation}:{proj
    <IconBtn icon={Undo2} label={copy.undo} disabled={!past.current.length&&!historyVersion} onClick={undo}/>
    <IconBtn icon={Redo2} label={copy.redo} disabled={!future.current.length} onClick={redo}/>
    {view==='canvas'&&<IconBtn icon={Expand} label={copy.fit} onClick={fitCanvas}/>}
+   {view==='canvas'&&<Button size="xs" onClick={()=>{fitted.current=false;arranged.current=project;apply(layoutDesignCanvas)}}>{copy.tidy}</Button>}
    <span role="status" className="min-w-0 flex-1 truncate text-caption text-ink-3" title={`${project}/${CANVAS_PATH}`}>{statusLabel}</span>
    <IconBtn icon={Send} label={copy.addToDraft} onClick={()=>{native.appendDraft(prompt(),project);setActiveNav('chat');onRequestConversation?.()}}/>
    <RightMore label={copy.more}><Button size="xs" icon={Copy} onClick={()=>void copyPrompt()}>{copied?tr("已复制"):tr("复制提示词")}</Button></RightMore>
@@ -174,21 +188,26 @@ export function ThinkingCanvas({project,active=true,onRequestConversation}:{proj
    <div data-world="1" className="absolute left-0 top-0 h-0 w-0" style={{transform:`translate(${cam.x}px,${cam.y}px) scale(${cam.k})`}}>
     <svg className="pointer-events-none absolute overflow-visible" style={{left:0,top:0,width:1,height:1}}>
      {canvas.edges.map((e,i)=>{const a=nodeById.get(e.from),b=nodeById.get(e.to);if(!a||!b||isCanvasSentence(a.id)||isCanvasSentence(b.id))return null
-      const x1=a.x+NODE_W,y1=a.y+28,x2=b.x,y2=b.y+28,mx=(x1+x2)/2
+      const aBox=designCardBox(a),bBox=designCardBox(b)
+      const x1=a.x+aBox.width,y1=a.y+aBox.height/2,x2=b.x,y2=b.y+bBox.height/2,mx=(x1+x2)/2
       return <path key={i} d={`M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`} fill="none" stroke={sel?.kind==='edge'&&sel.id===String(i)?'var(--ink)':e.relation?'var(--ink-2)':'var(--line-strong)'} strokeWidth={sel?.kind==='edge'&&sel.id===String(i)?2:1.5} strokeDasharray={e.relation?undefined:'4 4'} className="pointer-events-auto cursor-pointer" onClick={ev=>{ev.stopPropagation();box.current?.focus({preventScroll:true});setSel({kind:'edge',id:String(i)})}}/>})}
-     {tempEdge&&(()=>{const a=nodeById.get(tempEdge.from);if(!a)return null;const x1=a.x+NODE_W,y1=a.y+28,mx=(x1+tempEdge.to.x)/2
+     {tempEdge&&(()=>{const a=nodeById.get(tempEdge.from);if(!a)return null;const aBox=designCardBox(a);const x1=a.x+aBox.width,y1=a.y+aBox.height/2,mx=(x1+tempEdge.to.x)/2
       return <path d={`M${x1},${y1} C${mx},${y1} ${mx},${tempEdge.to.y} ${tempEdge.to.x},${tempEdge.to.y}`} fill="none" stroke="var(--ink-3)" strokeWidth={1.5} strokeDasharray="4 4"/>})()}
     </svg>
     {canvas.edges.map((e,i)=>{if(!e.relation)return null;const a=nodeById.get(e.from),b=nodeById.get(e.to);if(!a||!b||isCanvasSentence(a.id)||isCanvasSentence(b.id))return null
-     return <span key={`label-${i}`} className="absolute z-10 -translate-x-1/2 -translate-y-1/2 rounded-md border border-line bg-panel px-1 py-0.5 text-caption text-ink-2" style={{left:(a.x+NODE_W+b.x)/2,top:(a.y+b.y)/2+28}}>{copy[RELATION_COPY[e.relation]]}</span>})}
-    {canvas.nodes.filter(n=>!isCanvasSentence(n.id)).map(n=>{const selected=sel?.kind==='node'&&sel.id===n.id
-     return <div key={n.id} data-node={n.id} className={cn('absolute select-none rounded-xl border bg-panel shadow-pop transition-shadow',selected?'border-ink':'border-line',n.kind==='chapter'?'w-60':'w-56')} style={{left:n.x,top:n.y}} onPointerDown={e=>nodeDown(e,n)}>
+     const aBox=designCardBox(a),bBox=designCardBox(b)
+     return <span key={`label-${i}`} className="absolute z-10 -translate-x-1/2 -translate-y-1/2 rounded-md border border-line bg-panel px-1 py-0.5 text-caption text-ink-2" style={{left:(a.x+aBox.width+b.x)/2,top:(a.y+aBox.height/2+b.y+bBox.height/2)/2}}>{copy[RELATION_COPY[e.relation]]}</span>})}
+    {canvas.nodes.filter(n=>!isCanvasSentence(n.id)).map(n=>{const selected=sel?.kind==='node'&&sel.id===n.id;const size=designCardBox(n)
+     const notes=WRITING_FIELDS.flatMap(key=>{const text=n.writing?.[key]?.trim();return text?[{key,text}]:[]})
+     return <div key={n.id} data-node={n.id} className={cn('absolute select-none rounded-xl border bg-panel shadow-pop transition-shadow',selected?'border-ink':'border-line')} style={{left:n.x,top:n.y,width:size.width,minHeight:size.height}} onPointerDown={e=>nodeDown(e,n)}>
       <div className="flex items-center gap-1.5 px-3 pt-2.5">
        {n.kind==='chapter'?<BookOpen size={13} strokeWidth={1.75} className="shrink-0 text-ink-3"/>:<span aria-hidden className="grid h-3.5 w-3.5 shrink-0 place-items-center text-ink-3"><span className="h-1.5 w-1.5 rounded-full bg-current"/></span>}
        <input aria-label={tr("节点标题")} className={cn('min-w-0 flex-1 bg-transparent outline-none',n.kind==='chapter'?'font-display text-[15px] tracking-tight':'text-body')} value={n.title} onChange={e=>apply(c=>({...c,nodes:c.nodes.map(x=>x.id===n.id?{...x,title:e.target.value}:x)}),`title:${n.id}`)}/>
        <span data-handle="1" title={tr("拖到另一节点建立关联")} className="grid h-4 w-4 shrink-0 cursor-crosshair place-items-center text-ink-3 hover:text-ink" onPointerDown={e=>handleDown(e,n)}><span className="h-2 w-2 rounded-full border border-current"/></span>
       </div>
-      {(selected||n.body)&&<textarea aria-label={tr("节点正文")} placeholder={tr("补一句思路…")} rows={selected?3:1} className="mt-1 w-full resize-none bg-transparent px-3 pb-1 text-secondary text-ink-2 outline-none placeholder:text-ink-3" value={n.body??''} onChange={e=>apply(c=>({...c,nodes:c.nodes.map(x=>x.id===n.id?{...x,body:e.target.value}:x)}),`body:${n.id}`)}/>}
+      {selected?<textarea aria-label={tr("节点正文")} placeholder={tr("补一句思路…")} rows={Math.max(3,(n.body??'').split('\n').length)} className="mt-1 w-full resize-none bg-transparent px-3 pb-1 text-secondary text-ink-2 outline-none placeholder:text-ink-3" value={n.body??''} onChange={e=>apply(c=>({...c,nodes:c.nodes.map(x=>x.id===n.id?{...x,body:e.target.value}:x)}),`body:${n.id}`)}/>
+       :n.body?.trim()&&<p className="mt-1 whitespace-pre-wrap px-3 pb-1 text-secondary text-ink-2">{n.body}</p>}
+      {notes.length>0&&<div className="space-y-1 px-3 pb-1">{notes.map(note=><p key={note.key} className="whitespace-pre-wrap text-caption text-ink-2"><span className="text-ink-3">{copy[note.key]} · </span>{note.text}</p>)}</div>}
       <div className="flex items-center gap-1 px-2 pb-2 pt-1">
        {n.ref&&<button className="flex min-w-0 items-center gap-1 rounded-md bg-elevated px-1.5 py-0.5 text-caption text-ink-2 hover:text-ink" title={n.ref.path} onClick={()=>openDocument({workspace:'academic',path:n.ref!.path,title:n.ref!.title})}><Link2 size={11} strokeWidth={1.75} className="shrink-0"/><span className="truncate">{n.ref.title}</span></button>}
        {n.anchor&&<button className="flex min-w-0 items-center gap-1 rounded-md bg-elevated px-1.5 py-0.5 text-caption text-ink-2 hover:text-ink" title={n.anchor} onClick={()=>{try{openRightTab({kind:'file',target:fileTarget(project,project,'files',n.anchor!)})}catch(error){setCopyError(error instanceof Error?error.message:String(error))}}}><FileText size={11} strokeWidth={1.75} className="shrink-0"/><span className="truncate">{n.anchor.split('/').pop()}</span></button>}

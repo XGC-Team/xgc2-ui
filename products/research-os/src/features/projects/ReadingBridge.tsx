@@ -90,13 +90,14 @@ export function ReadingBridge({ source, projectId, projectWorkspace, fill = fals
     kind: source.buildId ? 'pdf' : 'text', workspace:source.workspace, path:source.path, digest:source.digest, quote:excerpt,
     ...(source.buildId ? {origin:'project-build' as const,buildId:source.buildId,page:reviewRegion?.page || source.page || 1,rects:reviewRegion?.rects || []} : {}),
   } : undefined
+  const acting = Boolean(excerpt || reviewRegion)
   return <div className={fill ? 'flex h-full min-h-0 flex-col' : 'min-h-0'}>
-    <div className="mb-3 flex flex-wrap gap-1">
+    {acting && <div className="mb-3 flex flex-wrap gap-1">
       <Button size="xs" title={excerpt} disabled={!target || !excerpt || !source.digest} onPointerDown={event => event.preventDefault()} onClick={() => record('note')}>{zh ? '选区形成来源笔记' : 'Create note from selection'}</Button>
       <Button size="xs" disabled={!target} onClick={() => record('material')}>{zh ? '收入项目材料引用' : 'Add project material reference'}</Button>
       {feedbackAnchor && <FeedbackButton scope={{projectId:target,workspace:projectWorkspace||target}} anchor={feedbackAnchor} body={annotationText} disabled={!active}/> }
-      <span className="text-caption text-ink-3">{target ? `${zh ? '目标项目' : 'Target project'} · ${target}` : zh ? '先选择目标项目' : 'Select a target project first'}</span>
-    </div>
+      {!target && <span className="text-caption text-ink-3">{zh ? '先选择目标项目' : 'Select a target project first'}</span>}
+    </div>}
     {notice && <p role="status" className="mb-2 text-caption text-ink-3">{notice}</p>}
     <div ref={root} className={fill ? 'flex min-h-0 flex-1 flex-col' : undefined}
       onInputCapture={event=>{const el=event.target;if(el instanceof HTMLTextAreaElement&&el.closest('[data-xgc-role="pdf-annotation-editor"]'))setAnnotationText(el.value)}}

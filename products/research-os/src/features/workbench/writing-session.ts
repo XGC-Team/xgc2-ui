@@ -52,30 +52,32 @@ export function rememberRecentProject(projectId: string): string[] {
 
 export type ProjectRecord = { id?: string; projectId?: string; title?: string }
 
-/** Discover writing projects from registered records plus paper-* workspaces. Do not hard-code manuscript names. */
+/** The left project list opens only these two manuscripts. Other paper workspaces stay untouched. */
+export const OPEN_MANUSCRIPTS = [
+  { id: 'paper-homo-dmpc', title: '同构' },
+  { id: 'paper-hetero-dmpc', title: '异构' },
+] as const
+
 export function researchProjects(
   spaces: readonly { workspaceId: string }[],
   records: readonly ProjectRecord[],
 ): { id: string; title: string }[] {
-  const titles = new Map<string, string>()
+  const present = new Set<string>()
+  for (const space of spaces) present.add(space.workspaceId)
   for (const record of records) {
     const id = record.projectId || record.id
-    if (!id?.trim()) continue
-    titles.set(id, record.title?.trim() || id)
+    if (id?.trim()) present.add(id)
   }
-  const ids = new Set<string>([
-    ...titles.keys(),
-    ...spaces.filter(space => space.workspaceId.startsWith('paper-')).map(space => space.workspaceId),
-  ])
-  return [...ids].sort((a, b) => a.localeCompare(b)).map(id => ({ id, title: titles.get(id) || id }))
+  return OPEN_MANUSCRIPTS.filter(item => present.has(item.id)).map(item => ({ id: item.id, title: item.title }))
 }
 
+/** The current preview is the newest successful PDF of that entry.
+ * A remembered page must not keep a superseded compile, including an older engine's PDF. */
 export function matchReadingPdf<T extends { path: string; buildId: string; digest: string }>(
   versions: readonly T[],
   place: ReadingPlace | null,
 ): T | undefined {
+  if (!versions.length) return undefined
   if (!place) return versions[0]
-  return versions.find(item => item.buildId === place.buildId && item.digest === place.digest && item.path === place.path)
-    || versions.find(item => item.path === place.path)
-    || versions[0]
+  return versions.find(item => item.path === place.path) ?? versions[0]
 }

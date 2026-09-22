@@ -1,6 +1,6 @@
 import {describe,expect,it} from 'vitest'
 import {
-  canvasSentenceLines,canvasToPrompt,emptyCanvas,parseCanvas,parseEditableCanvas,plainManuscript,serializeCanvas,setNodeWriting,
+  canvasSentenceLines,canvasToPrompt,designCardBox,designLayoutOverlaps,emptyCanvas,layoutDesignCanvas,parseCanvas,parseEditableCanvas,plainManuscript,serializeCanvas,setNodeWriting,
   type ThinkingCanvasV2,
 } from '../src/features/projects/canvas-model'
 
@@ -44,6 +44,25 @@ describe('canvas-model', () => {
     expect(plainManuscript('occupancy $\\mathcal{Y}_{i,s}(x, c)$ under \\eqref{eq:exploration_family}')).toBe('occupancy Y_{i,s}(x, c) under (eq:exploration_family)')
     const withSentence: ThinkingCanvasV2 = { ...sample, nodes: [...sample.nodes, { id: 's-main-1', kind: 'idea', title: 'For every terminal pair $(x, c)$.', x: 0, y: 0 }], outlines: [{ artifact: 'canvas', items: [{ node: 'i1', children: [{ node: 's-main-1' }] }] }] }
     expect(canvasSentenceLines(withSentence, 'i1')).toEqual([{ id: 's-main-1', text: 'For every terminal pair (x, c).', relation: undefined }])
+  })
+  it('arranges a chapter beside its claims and keeps later cards from covering them', () => {
+    const crowded: ThinkingCanvasV2 = {
+      ...sample,
+      nodes: [
+        { ...sample.nodes[0], x: 48, y: 40 },
+        { ...sample.nodes[1], x: 48, y: 48 },
+        { ...sample.nodes[2], x: 48, y: 56 },
+      ],
+      outlines: [{ artifact: 'canvas', items: [{ node: 'c1', children: [{ node: 'i1' }, { node: 'i2' }] }] }],
+    }
+    expect(designLayoutOverlaps(crowded)).toBe(true)
+    const laid = layoutDesignCanvas(crowded)
+    const at = (id: string) => laid.nodes.find(node => node.id === id)!
+    expect(at('c1').x).toBeLessThan(at('i1').x)
+    expect(at('i1').y).toBe(at('c1').y)
+    expect(at('i2').y).toBeGreaterThanOrEqual(at('i1').y + designCardBox(at('i1')).height)
+    expect(designLayoutOverlaps(laid)).toBe(false)
+    expect(layoutDesignCanvas(laid)).toEqual(laid)
   })
   it('cleared writing fields disappear instead of remaining as empty strings', () => {
     const cleared = setNodeWriting(sample, 'i1', 'purpose', '')

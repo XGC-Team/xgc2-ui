@@ -11,6 +11,8 @@ cd devops/products/common/agent-runtime/web
 npm pack            # prepack runs the build; produces xgc2-agent-runtime-<version>.tgz
 ```
 
-Then copy the archive under `products/research-os/vendor/` (the current snapshot is `xgc2-agent-runtime-0.1.0-wording.tgz`), update the `file:` dependency in `products/research-os/package.json`, run `npm install` in `products/research-os` to refresh the lockfile integrity hash, and verify with `npm test` and `npm run build`. Reusing a tarball filename does not refresh the lock.
+Then copy the archive under `products/research-os/vendor/` (the current snapshot is `xgc2-agent-runtime-0.1.0-provider.tgz`), update the `file:` dependency in `products/research-os/package.json`, run `npm install` in `products/research-os` to refresh the lockfile integrity hash, and verify with `npm test` and `npm run build`. Reusing a tarball filename does not refresh the lock.
 
 Chinese composer labels (for example thinking-effort names) are applied host-side in `src/features/chat/ChatPage.tsx`, which maps effort IDs per UI locale; the vendored snapshot needs no local patch.
+
+Provider list buttons (`agent-provider-select`) show the name and availability only. A CLI version or commit hash belongs in the right-hand editor (`agent-provider-version`) after that provider is available. Shipping that rule requires a new snapshot and a refreshed lock; editing the shared source alone does not change this app.

@@ -1,14 +1,13 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { Button } from '../../components/ui'
 import { useWorkbench } from '../../store'
-import { BuildProvenance } from '../review/BuildProvenance'
 import type { ManuscriptPDF } from '../resources/manuscript'
 import { useManuscriptBuild } from '../resources/useManuscriptBuild'
 import { canAdvancePreview } from './preview-selection'
 
 const PDFReader = lazy(() => import('../resources/PDFReader'))
 
-/** Viewer selection belongs here; the build owner only supplies verified candidates. */
+/** Viewer selection belongs here. Build ids and digests stay off this surface. */
 export function ManuscriptPreview({ pdf, followCurrent = false, onPDF, onQuote, onTitle }: {
   pdf: ManuscriptPDF
   followCurrent?: boolean
@@ -35,7 +34,6 @@ export function ManuscriptPreview({ pdf, followCurrent = false, onPDF, onQuote, 
       {busy && <Button size="xs" onClick={build.cancel}>{zh ? '取消' : 'Cancel'}</Button>}
     </div>}
     {build.error && <p role="alert" className="ui-error">{build.error}</p>}
-    <BuildProvenance pdf={pdf}/>
     <Suspense fallback={<p className="p-4 text-ink-3">{zh ? '正在打开 PDF…' : 'Opening PDF…'}</p>}>
       <PDFReader pdf={pdf} onDraftChange={setDirty} onPDF={version => { setFollowing(false); onPDF(version) }} onQuote={onQuote} onTitle={onTitle}/>
     </Suspense>

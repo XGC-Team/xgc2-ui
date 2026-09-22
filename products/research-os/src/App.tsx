@@ -44,8 +44,8 @@ function Workbench(){
      const [spaces,records]=await Promise.all([listWorkspaces(c.signal),collection<Project&{projectId?:string}>('/research/projects',c.signal)])
      const mapped=researchProjects(spaces,records)
      setProjects(mapped)
-     // Paper workspaces still need a project record; registered non-paper records are already listed.
-     for(const p of mapped){if(c.signal.aborted)return;if(!p.id.startsWith('paper-'))continue;if(!records.some(r=>(r.projectId||r.id)===p.id))await post('/research/projects',{schemaVersion:'xgc.research.protocol/v1',projectId:p.id,slug:p.id,title:p.title,summary:'',createdBy:'researcher',createdAt:new Date().toISOString()})}
+     // Only the two open manuscripts get a project record. Do not register or rewrite the others.
+     for(const p of mapped){if(c.signal.aborted)return;if(!records.some(r=>(r.projectId||r.id)===p.id))await post('/research/projects',{schemaVersion:'xgc.research.protocol/v1',projectId:p.id,slug:p.id,title:p.title,summary:'',createdBy:'researcher',createdAt:new Date().toISOString()})}
    })().catch(e=>{if(!c.signal.aborted)setError(e.message)}).finally(()=>{if(!c.signal.aborted)setLoading(false)});return()=>c.abort()
  },[reload])
  useEffect(()=>{const refresh=()=>setReload(n=>n+1);window.addEventListener('focus',refresh);const timer=setInterval(refresh,30000);return()=>{clearInterval(timer);window.removeEventListener('focus',refresh)}},[])

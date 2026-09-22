@@ -29,14 +29,18 @@ beforeEach(() => {
 })
 
 describe('writing project discovery', () => {
-  it('lists registered records and paper workspaces without hard-coding manuscript names', () => {
+  it('opens only the homogeneous and heterogeneous manuscripts', () => {
     expect(researchProjects(
-      [{ workspaceId: 'paper-homo-dmpc' }, { workspaceId: 'academic' }, { workspaceId: 'paper-lab' }],
-      [{ projectId: 'notes-extra', title: 'Field notes' }, { id: 'paper-lab', title: 'Lab paper' }],
+      [
+        { workspaceId: 'paper-homo-dmpc' },
+        { workspaceId: 'paper-hetero-dmpc' },
+        { workspaceId: 'paper-comm-dmpc' },
+        { workspaceId: 'academic' },
+      ],
+      [{ projectId: 'paper-fifo-dmpc', title: 'fifo' }, { id: 'notes-extra', title: 'Field notes' }],
     )).toEqual([
-      { id: 'notes-extra', title: 'Field notes' },
-      { id: 'paper-homo-dmpc', title: 'paper-homo-dmpc' },
-      { id: 'paper-lab', title: 'Lab paper' },
+      { id: 'paper-homo-dmpc', title: '同构' },
+      { id: 'paper-hetero-dmpc', title: '异构' },
     ])
   })
 })
@@ -101,7 +105,7 @@ describe('writing workbench store', () => {
 })
 
 describe('project preview from existing PDFs', () => {
-  it('opens the remembered successful PDF without compiling', async () => {
+  it('restores the page and shows the latest successful PDF without compiling', async () => {
     const versions = [
       { workspace: 'paper-lab', path: 'manuscript/main.tex', buildId: 'new', digest: 'sha256:new', url: '/new', completedAt: '2026-09-20T12:00:00Z' },
       { workspace: 'paper-lab', path: 'manuscript/main.tex', buildId: 'old', digest: 'sha256:old', url: '/old', completedAt: '2026-09-19T12:00:00Z' },
@@ -111,8 +115,8 @@ describe('project preview from existing PDFs', () => {
       ? JSON.stringify({ path: 'manuscript/main.tex', buildId: 'old', digest: 'sha256:old', page: 4 })
       : null)
     const preview = await loadProjectPreview('paper-lab')
-    expect(preview).toEqual({ status: 'ready', projectId: 'paper-lab', pdf: versions[1], page: 4, followCurrent: false })
-    expect(matchReadingPdf(versions, { path: 'manuscript/main.tex', buildId: 'old', digest: 'sha256:old', page: 4 })).toBe(versions[1])
+    expect(preview).toEqual({ status: 'ready', projectId: 'paper-lab', pdf: versions[0], page: 4, followCurrent: true })
+    expect(matchReadingPdf(versions, { path: 'manuscript/main.tex', buildId: 'old', digest: 'sha256:old', page: 4 })).toBe(versions[0])
     expect(request).not.toHaveBeenCalled()
   })
   it('reports a missing compiler instead of showing a fake build button', async () => {

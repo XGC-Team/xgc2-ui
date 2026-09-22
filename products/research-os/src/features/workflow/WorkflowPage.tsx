@@ -30,7 +30,7 @@ export function WorkflowPage({projectId, onQuote, onOpenSession}: {projectId: st
   const [draft, setDraft] = useState<Draft>(blank), [selectedNode, setSelectedNode] = useState('')
   const [editing, setEditing] = useState(false), [editingBaseVersion, setEditingBaseVersion] = useState(0)
   const [consent, setConsent] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState('')
-  const [stream, setStream] = useState<StreamState>('connecting'), [streamMessage, setStreamMessage] = useState('')
+  const [stream, setStream] = useState<StreamState>('connecting')
   const [profiles, setProfiles] = useState<AgentProfile[]>([]), [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([])
   const [thoughts, setThoughts] = useState<CanvasNode[]>([]), [assembling, setAssembling] = useState('')
   const [invokeKind, setInvokeKind] = useState<InvokeKind>('research')
@@ -48,7 +48,7 @@ export function WorkflowPage({projectId, onQuote, onOpenSession}: {projectId: st
     draftProject.current = projectId; inFlight.current = false
     setBusy(false); setRevisions([]); setSelectedVersion(0); setSelectedNode(''); setProfiles([]); setWorkspaces([])
     setDraft(savedDrafts.current[projectId || '']?.draft || blank()); setEditing(false); setConsent(false); setError(''); setAssembling(''); setThoughts([])
-    setStream('connecting'); setStreamMessage('')
+    setStream('connecting')
     if (!projectId) return
     const stop = subscribeWorkflow(projectId, {
       snapshot: snapshot => {
@@ -57,7 +57,7 @@ export function WorkflowPage({projectId, onQuote, onOpenSession}: {projectId: st
         try { for (const r of snapshot.revisions) reconcileExecutionIntent(window.localStorage, projectId, r) }
         catch (reason) { setError(message(reason)) }
       },
-      state: (state, reason) => {if (current === generation.current) {setStream(state); setStreamMessage(reason || '')}},
+      state: (state) => {if (current === generation.current) setStream(state)},
     })
     const controller = new AbortController()
     void Promise.allSettled([getNativeProfiles(controller.signal), listWorkspaces(controller.signal)]).then(([p, w]) => {
@@ -151,8 +151,7 @@ export function WorkflowPage({projectId, onQuote, onOpenSession}: {projectId: st
         {revision && <><Button disabled={busy} onClick={beginEdit}>{tr('修订计划')}</Button><Button icon={Download} onClick={() => void download('planweave')}>{tr('导出 PlanWeave')}</Button><IconBtn icon={Settings2} label={tr('计划设置')} onClick={() => setSelectedNode('')}/></>}
       </>}
     </PageActions>
-    {projectId && <div className="flex flex-wrap items-center gap-3 border-b border-line px-4 py-2 text-caption text-ink-2" aria-live="polite">
-      <span>{ready ? '回执已连接' : streamMessage || '正在连接运行回执'} · 离开页面不会停止后台运行</span>
+    {projectId && (revisions.length > 0 || activeRun) && <div className="flex flex-wrap items-center gap-3 border-b border-line px-4 py-2 text-caption text-ink-2">
       {revisions.length > 0 && <Select aria-label="查看计划版本" value={String(revision?.version || 0)} onValueChange={value => {setSelectedVersion(Number(value)); setSelectedNode('')}}>{revisions.map(r => <option key={r.version} value={String(r.version)}>v{r.version} · {r.draft.title}</option>)}</Select>}
       {activeRun && <button type="button" className="underline" onClick={() => {setSelectedVersion(activeRevision!.version); setEditing(false); setSelectedNode('')}}>v{activeRevision!.version} · {RUN_LABEL[activeRun.status]}{activeRun.control ? ` · ${activeRun.control === 'pause' ? '暂停待生效' : '取消待确认'}` : ''}</button>}
     </div>}

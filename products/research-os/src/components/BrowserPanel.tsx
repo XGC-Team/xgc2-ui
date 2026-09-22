@@ -59,11 +59,19 @@ export function BrowserPanel({onQuote,onExpand}:{onQuote:(text:string,targetProj
  const [followingTab,setFollowingTab]=useState('')
  useEffect(()=>{openedFor.current=''},[projectId])
  useEffect(()=>{
-  if(preview.status!=='ready'||preview.projectId!==projectId||openedFor.current===projectId)return
+  if(preview.status!=='ready'||preview.projectId!==projectId)return
+  const current=useWorkbench.getState().rightTabs.find(tab=>tab.kind==='pdf'&&tab.pdf.workspace===preview.pdf.workspace&&tab.pdf.path===preview.pdf.path)
+  if(current&&current.pdf.digest!==preview.pdf.digest){
+    update(current.id,{pdf:preview.pdf,title:preview.pdf.path.split('/').pop()||'PDF'})
+    if(preview.followCurrent)setFollowingTab(current.id)
+    openedFor.current=projectId
+    return
+  }
+  if(openedFor.current===projectId)return
   openedFor.current=projectId
   openPDF(preview.pdf)
   if(preview.followCurrent)setFollowingTab(useWorkbench.getState().activeRightTab)
- },[preview,projectId,openPDF])
+ },[preview,projectId,openPDF,update])
  const writingPreview=Boolean(projectId)&&preview.status!=='idle'&&preview.status!=='ready'
  return <section aria-label={tr("右侧面板")} className="flex h-full min-h-0 flex-col">
   <div className="flex h-panel-header shrink-0 items-center gap-1 pl-2 pr-1.5">
