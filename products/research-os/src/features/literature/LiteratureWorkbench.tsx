@@ -196,11 +196,11 @@ export function LiteratureWorkbench({
         <Button size="xs" disabled={Boolean(busy)} onClick={() => void promote(turn)}>{zh ? '沉淀为阅读笔记回执' : 'Promote reading-note receipt'}</Button>
       </div>)}
       {promotion && <p role="status" className="text-caption">{zh ? '知识回执' : 'Knowledge receipt'} · {promotion.item.id} / {promotion.revision.id} / {promotion.promotion.id}</p>}
-      <label className="block text-secondary">{zh ? '辅助提问（需已有原生会话）' : 'Guided question (requires a native session)'}
+      <label className="block text-secondary">{zh ? '辅助提问（需已有会话）' : 'Guided question (requires a session)'}
         <textarea className="ui-input mt-1 w-full" value={question} onChange={event => setQuestion(event.target.value)} rows={2}/>
       </label>
       <Button size="xs" disabled={!excerpt.trim() || !question.trim() || Boolean(busy)} onClick={() => void studyNow()}>{zh ? '发送研读问题' : 'Send study question'}</Button>
-      {study && <p role="status" className="text-caption">{study.outcome === 'sent' ? `${zh ? '已交给原生会话' : 'Sent to native session'} ${study.providerSessionId} · ${study.requestKey}` : `${study.outcome}: ${study.reason}`}</p>}
+      {study && <p role="status" className="text-caption">{study.outcome === 'sent' ? `${zh ? '已交给会话' : 'Sent to the session'} ${study.providerSessionId} · ${study.requestKey}` : `${study.outcome}: ${study.reason}`}</p>}
     </>}
     {busy && <p className="text-caption text-ink-3">{busy}</p>}
     {error && <p role="alert" className="text-caption">{error}</p>}

@@ -6,10 +6,10 @@ const COMPANION_CODES = new Set([
 ]);
 
 const COMPANION_COPY = new Set([
-  '原生客户端连接中断。',
-  '本机原生客户端服务连接中断。',
-  '原生客户端未连接。',
-  '本机原生客户端服务尚未连接。',
+  '客户端连接中断。',
+  '本机客户端服务连接中断。',
+  '客户端未连接。',
+  '本机客户端服务尚未连接。',
 ]);
 
 export function isTransportTimeout(cause: unknown): boolean {

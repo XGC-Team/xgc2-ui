@@ -44,9 +44,9 @@ describe('shared native stream default and injected transports',() => {
   });
   it('closes an injected stream even when it reports invalid data synchronously during opening',() => {
     const close = vi.fn();
-    const openStream: AgentStreamTransport = (options) => { options.onInvalid(new Error('Invalid native stream')); return { close }; };
+    const openStream: AgentStreamTransport = (options) => { options.onInvalid(new Error('Invalid stream')); return { close }; };
     render(<Projection openStream={openStream} />);
-    expect(screen.getByTestId('native-error')).toHaveTextContent('Invalid native stream');
+    expect(screen.getByTestId('native-error')).toHaveTextContent('Invalid stream');
     expect(close).toHaveBeenCalledTimes(1);
     expect(EventSourceFixture.instances).toHaveLength(0);
   });

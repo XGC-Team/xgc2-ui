@@ -79,13 +79,13 @@ describe('createCoreUserFeatureComposition factory', () => {
 
   it('contributes Tools settings only when Mark Prompt is composed', () => {
     expect(coreDevComposition.settings.sections.map((section) => section.id))
-      .toEqual(['appearance','field-tooltips','tools','native-providers']);
+      .toEqual(['appearance','field-tooltips','tools','agent-providers']);
     expect(coreReleaseComposition.settings.sections.map((section) => section.id))
-      .toEqual(['appearance','field-tooltips','native-providers']);
+      .toEqual(['appearance','field-tooltips','agent-providers']);
     expect(createCoreUserFeatureComposition({
       id: 'factory-without-mark-prompt',
       agentLinkComputeTargets: true,
-    }).settings.sections.map((section) => section.id)).toEqual(['appearance','field-tooltips','native-providers']);
+    }).settings.sections.map((section) => section.id)).toEqual(['appearance','field-tooltips','agent-providers']);
   });
 
   it('core-dev and core-release include Home route/nav and both card owners', () => {

@@ -8,10 +8,10 @@ import {
 
 describe('native companion availability', () => {
   it('does not dump Core companion-down copy onto the operator surface', () => {
-    const cause = new AgentClientError(502,'native_upstream_unavailable','原生客户端连接中断。');
+    const cause = new AgentClientError(502,'native_upstream_unavailable','客户端连接中断。');
     expect(isNativeCompanionUnavailable(cause)).toBe(true);
     expect(operatorNativeErrorMessage(cause)).toBe('');
-    expect(isNativeCompanionUnavailableMessage('原生客户端连接中断。')).toBe(true);
+    expect(isNativeCompanionUnavailableMessage('客户端连接中断。')).toBe(true);
     expect(operatorNativeErrorMessage(new Error('Settings changed; reload the draft.'))).toBe('Settings changed; reload the draft.');
   });
 

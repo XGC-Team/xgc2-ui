@@ -1,8 +1,8 @@
 export const contextCopy = {
   zh: {
     title: 'Chat 上下文', addHint: '从画布或研究对象加入；加入上下文不等于发送。',
-    uiProject: '界面项目', sessionScope: '会话范围', noSession: '尚未连接原生会话；以界面项目核对，不创建会话。',
-    scopeMismatch: '界面项目与会话范围不同；切换界面项目不等于原生会话已切换。',
+    uiProject: '界面项目', sessionScope: '会话范围', noSession: '尚未连接会话；以界面项目核对，不创建会话。',
+    scopeMismatch: '界面项目与会话范围不同；切换界面项目不等于会话已切换。',
     locate: '定位原文', refresh: '刷新', remove: '移除', adopt: '采用新版本', keepStale: '保留旧快照（明确标注）',
     checkSend: '发送前检查', insert: '插入上下文清单到草稿', inserted: '已插入草稿；仍未发送。',
     notSent: '清单只进入草稿，不会自动发送。', refreshFailed: '刷新失败，未改动此引用。',

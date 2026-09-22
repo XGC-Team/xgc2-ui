@@ -72,7 +72,7 @@ export function AgentProvidersSettingsSection({ language }: ProductSettingsConte
       open={open}
       onOpenChange={setOpen}
       dataXgcRole="station-agent-provider-settings"
-      dataXgcId="native-providers"
+      dataXgcId="agent-providers"
     >
       {settings?.providers.map((provider) => (
         <ProviderRows
@@ -130,7 +130,7 @@ export function AgentProvidersSettingsSection({ language }: ProductSettingsConte
           size="compact"
           disabled={busy}
           dataXgcRole="station-agent-provider-settings-retry"
-          dataXgcId="native-providers"
+          dataXgcId="agent-providers"
           onClick={() => setReload((value) => value + 1)}
         >{chinese ? '重试连接' : 'Retry connection'}</ControlButton>
       ) : null}
@@ -183,7 +183,7 @@ function ProviderRows({
       ...patch,
     });
   }
-  const disclosureId = `native-providers:${provider.id}`;
+  const disclosureId = `agent-providers:${provider.id}`;
   return (
     <>
       <div

@@ -6,7 +6,7 @@ const messages: MessageCatalog = {
   'Reconnect': '重新连接',
   'Workspace': '工作区',
   'Retry': '重试',
-  'Configure a native provider in Settings to connect to this Experiment.': '在设置中配置原生提供商，即可连接此实验。',
+  'Configure a provider in Settings to connect to this Experiment.': '在设置中配置供应者，即可连接此实验。',
   'Reload conversation': '重新读取对话',
   'Conversations': '会话',
   'New conversation': '新建会话',

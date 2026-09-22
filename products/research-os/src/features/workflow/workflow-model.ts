@@ -32,7 +32,7 @@ export type Revision = {projectId: string; version: number; digest: string; crea
 export type WorkflowSnapshot = {schemaVersion: typeof SNAPSHOT_SCHEMA; projectId: string; revisions: Revision[]}
 export type NodeStatus = 'idle' | 'queued' | 'running' | 'awaiting' | 'done' | 'failed' | 'interrupted' | 'paused' | 'cancelled' | 'needs-review'
 export const NODE_STATUS_LABEL: Record<NodeStatus, string> = {
-  idle: '未运行', queued: '待执行', running: '执行中', awaiting: '等待原生审批', done: '执行完成',
+  idle: '未运行', queued: '待执行', running: '执行中', awaiting: '等待审批', done: '执行完成',
   failed: '执行失败', interrupted: '结果待恢复核对', paused: '已暂停', cancelled: '已确认取消', 'needs-review': '证据需补充',
 }
 export type DefaultRole = 'researcher' | 'reviewer' | 'writer'

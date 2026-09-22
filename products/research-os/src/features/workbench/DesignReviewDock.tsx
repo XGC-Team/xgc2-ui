@@ -30,7 +30,7 @@ function ProjectDesignReviewDock({ projectId }: { projectId: string }) {
       <Button size="xs" data-xgc-role="collapse-review" data-xgc-id={projectId} onClick={() => setReviewDockOpen(false)}>{copy.collapseReview}</Button>
     </div>
     <p className="px-3 pb-2 text-caption text-ink-2">{copy.reviewHint}</p>
-    {writing.busy && <p role="status" className="px-3 pb-2 text-caption">{locale === 'zh' ? '正在处理当前设计与改稿请求；原生会话中的权限请求仍需在对话里处理。' : 'Processing the current design or writing request. Resolve native permission requests in the conversation.'}</p>}
+    {writing.busy && <p role="status" className="px-3 pb-2 text-caption">{locale === 'zh' ? '正在处理当前设计与改稿请求；会话中的权限请求仍需在对话里处理。' : 'Processing the current design or writing request. Resolve permission requests in the conversation.'}</p>}
     {(error || writing.error) && <p role="alert" className="px-3 pb-2 text-caption">{error || writing.error}</p>}
     {writing.incoming.map(intent => <div key={intent.id} className="px-3 pb-2 text-caption">
       <p>{intent.body}</p>

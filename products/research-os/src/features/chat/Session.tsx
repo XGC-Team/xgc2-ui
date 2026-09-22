@@ -93,7 +93,7 @@ const AgentSessionContext = createContext<AgentSessionValue | null>(null)
 
 export function useNativeAgentSession(): AgentSessionValue {
   const value = useContext(AgentSessionContext)
-  if (!value) throw new Error('原生会话必须放在工作台会话上下文里。')
+  if (!value) throw new Error('会话必须放在工作台会话上下文里。')
   return value
 }
 
@@ -153,7 +153,7 @@ export function AgentSessionProvider({ children, researchProjectId = '' }: { chi
     const current = currentSelection.current
     if (!session || current.selectedId !== session.id || current.session?.id !== session.id || current.session.provider !== session.provider
       || current.state.sessionId !== session.id || current.state.provider !== session.provider
-      || (current.streamError && !allowStreamError)) throw new Error('当前会话与原生事件记录尚未同步，请重新读取会话记录。')
+      || (current.streamError && !allowStreamError)) throw new Error('当前会话与事件记录尚未同步，请重新读取会话记录。')
     return { ...current, session }
   }
 
@@ -270,7 +270,7 @@ export function AgentSessionProvider({ children, researchProjectId = '' }: { chi
       setError(message)
       throw new Error(message)
     }
-    if (!text.trim() || current.state.worker !== 'ready' || current.busy) throw new Error('当前原生会话不可发送。')
+    if (!text.trim() || current.state.worker !== 'ready' || current.busy) throw new Error('当前会话不可发送。')
     const id = current.session.id
     if (current.turnSelection.profileId !== current.session.scope.profileId) throw new Error('只能为当前已连接的供应者选择模型。')
     const options: AgentTurnOptions = { model: current.turnSelection.model, effort: current.turnSelection.effort, permission: current.turnSelection.permission }
@@ -309,19 +309,19 @@ export function AgentSessionProvider({ children, researchProjectId = '' }: { chi
     setError(nativeConnectFailureCopy({
       locale, login: provider?.login, notices: state.notices, worker: state.worker,
       attempted: true, provider: provider?.provider,
-    }) || describe('原生会话未能启动。'))
+    }) || describe('会话未能启动。'))
   },[session?.id,streamMatchesSelection,state.worker,state.notices,busy,locale,settings,currentProvider,session])
   const respond = async (requestId: string, answer: AgentAnswer) => {
     const current = requireCurrentSession()
     const request = current.state.pending[requestId]
     if (!request || request.submitted || current.busy || ['disconnected', 'closed'].includes(current.state.worker)) {
-      throw new Error('此原生请求已不再可答复，请重新读取会话记录。')
+      throw new Error('此请求已不再可答复，请重新读取会话记录。')
     }
     await answerNativeRequest(current.session.id, requestId, answer)
   }
   const interrupt = async () => {
     const current = requireCurrentSession()
-    if (current.busy || !['running', 'awaiting-input'].includes(current.state.worker)) throw new Error('当前会话没有可取消的原生任务。')
+    if (current.busy || !['running', 'awaiting-input'].includes(current.state.worker)) throw new Error('当前会话没有可取消的任务。')
     await cancelNativeTurn(current.session.id)
   }
 

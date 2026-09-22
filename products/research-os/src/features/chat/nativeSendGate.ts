@@ -61,7 +61,7 @@ export function nativeConnectFailureCopy(input: {
       : `${name || 'This model'} is not signed in on the host, so the message was not sent. Sign in with the native client, or start a new thread with a signed-in provider.`
   }
   return input.locale === 'zh'
-    ? '原生连接失败。请检查本机客户端、登录和已批准的工作区。'
+    ? '连接失败。请检查本机客户端、登录和已批准的工作区。'
     : 'Agent connection failed. Check the local CLI, sign-in and approved workspace.'
 }
 

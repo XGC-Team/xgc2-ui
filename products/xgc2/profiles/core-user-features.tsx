@@ -304,7 +304,7 @@ export function createCoreUserFeatureComposition(options: {
         ...(options.developer?.markPrompt
           ? [{ id: 'tools',component: ToolsSettingsSection }]
           : []),
-        { id: 'native-providers',component: AgentProvidersSettingsSection },
+        { id: 'agent-providers',component: AgentProvidersSettingsSection },
       ],
     },
     developer: options.developer ?? {},

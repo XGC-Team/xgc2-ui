@@ -62,11 +62,11 @@ describe('native provider Settings contribution', () => {
   });
 
   it('keeps companion-down plumbing out of the Settings operator surface', async () => {
-    mocks.get.mockRejectedValue(new AgentClientError(502,'native_upstream_unavailable','原生客户端连接中断。'));
+    mocks.get.mockRejectedValue(new AgentClientError(502,'native_upstream_unavailable','客户端连接中断。'));
     render(<AgentProvidersSettingsSection {...context} />);
     fireEvent.click(screen.getByRole('button', { name: 'AI providers' }));
     expect(await screen.findByRole('button', { name: 'Retry connection' })).toBeInTheDocument();
-    expect(screen.queryByText('原生客户端连接中断。')).not.toBeInTheDocument();
+    expect(screen.queryByText('客户端连接中断。')).not.toBeInTheDocument();
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 
@@ -83,15 +83,15 @@ describe('native provider Settings contribution', () => {
     const { container } = render(<AgentProvidersSettingsSection {...context} />);
     fireEvent.click(screen.getByRole('button', { name: 'AI providers' }));
     const body = await waitFor(() => {
-      const el = container.querySelector('[data-xgc-role="config-section-body"][data-xgc-id="native-providers"]');
+      const el = container.querySelector('[data-xgc-role="config-section-body"][data-xgc-id="agent-providers"]');
       expect(el?.querySelector('[data-xgc-role="config-section-disclosure"]')).not.toBeNull();
       return el as HTMLElement;
     });
 
     const disclosures = [...body.querySelectorAll(':scope > [data-xgc-role="config-section-disclosure"]')];
     expect(disclosures.map((el) => el.getAttribute('data-xgc-id'))).toEqual([
-      'native-providers:claude',
-      'native-providers:codex',
+      'agent-providers:claude',
+      'agent-providers:codex',
     ]);
     expect(disclosures[0].tagName).not.toBe('BUTTON');
     expect(disclosures[0]).toHaveTextContent('Claude');
@@ -101,10 +101,10 @@ describe('native provider Settings contribution', () => {
     const claudeToggle = disclosures[0].querySelector('[data-xgc-role="config-section-disclosure-toggle"]');
     const claudeStatus = disclosures[0].querySelector('[data-xgc-role="config-section-disclosure-status"]');
     expect(claudeToggle?.tagName).toBe('BUTTON');
-    expect(claudeToggle?.getAttribute('data-xgc-id')).toBe('native-providers:claude');
+    expect(claudeToggle?.getAttribute('data-xgc-id')).toBe('agent-providers:claude');
     expect(claudeToggle).toHaveTextContent('Claude');
     expect(claudeToggle).not.toHaveTextContent('Disabled');
-    expect(claudeStatus?.getAttribute('data-xgc-id')).toBe('native-providers:claude');
+    expect(claudeStatus?.getAttribute('data-xgc-id')).toBe('agent-providers:claude');
     expect(claudeStatus).toHaveTextContent('Disabled');
     expect(disclosures[0].querySelector('.config-section-disclosure-toggle .config-section-disclosure-chevron')).not.toBeNull();
     expect(disclosures[0].querySelector('.config-section-disclosure-status .config-section-disclosure-chevron')).toBeNull();
@@ -122,9 +122,9 @@ describe('native provider Settings contribution', () => {
     const claude = await screen.findByRole('button', { name: /Claude/ });
     fireEvent.click(claude);
 
-    const body = container.querySelector('[data-xgc-role="config-section-body"][data-xgc-id="native-providers"]')!;
+    const body = container.querySelector('[data-xgc-role="config-section-body"][data-xgc-id="agent-providers"]')!;
     const enabled = body.querySelector('[data-xgc-role="agent-provider-enabled"][data-xgc-id="claude"]');
-    expect(enabled).toBe(body.querySelector('[data-xgc-role="config-section-disclosure"][data-xgc-id="native-providers:claude"] + .xgc-form-field'));
+    expect(enabled).toBe(body.querySelector('[data-xgc-role="config-section-disclosure"][data-xgc-id="agent-providers:claude"] + .xgc-form-field'));
     expect(enabled?.closest('button')).toBeNull();
     expect(enabled?.querySelector('[data-xgc-role="agent-provider-enabled-label"][data-xgc-id="claude"]')).not.toBeNull();
     expect(enabled?.querySelector('[data-xgc-role="agent-provider-enabled-control"][data-xgc-id="claude"]')).not.toBeNull();
