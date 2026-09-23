@@ -126,3 +126,38 @@ describe('revision → outputs', () => {
     expect(parseDraftBook(JSON.stringify(book), scope).drafts).toHaveLength(2)
   })
 })
+
+describe('finding → global knowledge promotion request', async () => {
+  const { findingPromotionProposal } = await import('../src/features/revision/revision-model')
+  const { validateProposal } = await import('../src/features/review/review-model')
+  const { createReviewEngine } = await import('../src/features/review/review-engine')
+  const { knowledgePromotionDigest } = await import('../src/features/resources/knowledge-promotion')
+  const scope = { projectId: 'paper-lab', workspace: 'paper-lab' }
+  const finding = { path: 'memory/findings/paper-lab/2026-09-24-bound.md', digest: 'sha256:f1', title: 'Bound holds online', body: 'Projection keeps alpha < 1.' }
+  const make = () => findingPromotionProposal({ project: 'paper-lab', finding, author: 'researcher', locale: 'en', at: new Date('2026-09-24T10:00:00Z'), id: 'prop-1' })
+  it('is a valid journal proposal whose evidence is the finding pinned at its digest', () => {
+    const p = make()
+    expect(() => validateProposal(p, scope)).not.toThrow()
+    expect(p.operations).toEqual([])
+    expect(p.promotion).toMatchObject({ destination: 'global-knowledge', decision: 'pending', verification: 'unverified' })
+    expect(p.promotion!.candidate!.evidence).toEqual([{ workspace: 'academic', path: finding.path, digest: 'sha256:f1', anchor: `file:${finding.path}` }])
+    expect(p.promotion!.approvalDigest).toBeUndefined()
+  })
+  it('approval pins the canonical intent digest; writing is refused before approval', async () => {
+    let file: { content: string; digest: string } | null = null
+    const engine = createReviewEngine(scope, {
+      read: async () => { if (!file) throw Object.assign(new Error('missing'), { status: 404 }); return file },
+      write: async (_w, _p, content) => { file = { content, digest: `sha256:j${content.length}` }; return { digest: file.digest } },
+      lease: () => async () => {},
+    }, () => {})
+    await engine.load(); await engine.add(make())
+    const execute = async () => ({ outcome: 'written' } as never)
+    await expect(engine.applyPromotion('prop-1', execute)).rejects.toThrow(/Approve/)
+    await engine.decidePromotion('prop-1', 'approved-scope', 'researcher')
+    const saved = engine.snapshot().book!.proposals[0].promotion!
+    expect(saved.approvalDigest).toBe(await knowledgePromotionDigest(scope, 'prop-1', make().promotion as never))
+    let called: unknown[] = []
+    await engine.applyPromotion('prop-1', async (...args) => { called = args; return { outcome: 'written' } as never })
+    expect(called).toEqual([scope, 'prop-1', file!.digest])
+  })
+})

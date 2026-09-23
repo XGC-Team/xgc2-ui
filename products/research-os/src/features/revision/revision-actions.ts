@@ -3,7 +3,8 @@ import type { DraftScope } from '../projects/draft-model'
 import { isReviewLocked } from '../review/write-coordinator'
 import { CONTENT_PATH, type ContentDocument, type ContentObject, type ResourceReference } from '../content/content-model'
 import { sharedContentSession } from '../content/useContentDocument'
-import { findingMarkdown, findingPath } from './revision-model'
+import { findingMarkdown, findingPath, findingPromotionProposal } from './revision-model'
+import { connectReview } from '../review/review-api'
 
 /* All writes go through the one shared content writer (autosave + CAS) or a saved-file receipt.
    Each helper reports why it could not act instead of pretending it did. */
@@ -59,4 +60,18 @@ export async function captureFinding(input: { scope: DraftScope; object: Pick<Co
   if (typeof window !== 'undefined') window.dispatchEvent(new Event('research:knowledge-changed'))
   const linked = await editResearchContent(input.scope, document => addObjectSource(document, input.object.id, { kind: 'knowledge', workspace: 'academic', path, digest: saved.digest, title: input.title }))
   return { path, digest: saved.digest, linked }
+}
+
+/** File a promotion request for one saved finding in the project's review journal. Nothing is written to
+ * global knowledge here: approval (in the review panel) and the executor's receipt are separate, later steps. */
+export async function proposeFindingPromotion(input: { scope: DraftScope; path: string; title: string; locale: 'zh' | 'en'; author?: string }): Promise<{ proposalId: string }> {
+  // Pin the evidence to the bytes on disk now; the executor re-verifies this digest before writing.
+  const file = await request<{ content: string; digest: string }>(`/workspaces/academic/files/${input.path.split('/').map(encodeURIComponent).join('/')}`)
+  if (typeof file?.content !== 'string' || !file.digest) throw new Error('The finding note has no readable saved revision.')
+  const body = file.content.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, '').trimStart().replace(/^#\s+.*\n+/, '').trim()
+  const proposal = findingPromotionProposal({ project: input.scope.projectId, finding: { path: input.path, digest: file.digest, title: input.title, body }, author: input.author || 'researcher', locale: input.locale, at: new Date(), id: crypto.randomUUID() })
+  const engine = connectReview(input.scope, () => {})
+  try { await engine.load(); await engine.add(proposal) } finally { engine.dispose() }
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('research:review-journal-changed', { detail: input.scope }))
+  return { proposalId: proposal.id }
 }

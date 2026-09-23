@@ -61,6 +61,19 @@ This round follows the owner's ordered list and `RESEARCH_OS_DESIGN_DEEPEN.md`. 
 - **Tests:** `clampRect` insets and tiny viewports, the `tearOffPoint` threshold and `tornRect` landing.
 - **Still open:** the canvas can float only through the side pane. There is no independent third window, and there are no OS-level pop-out windows: everything stays in-page.
 
+**5. Closed-loop gaps: wired where a real API exists, documented where not**
+
+| Gap | Status | How |
+| --- | --- | --- |
+| Native-agent live round-trip | **Verified live** | In the scratch backend, Claude was enabled; login discovery reported `authenticated`. Then: New revision thread (brief chip) → a real turn (`s_d98185`) → Claude answered with one `research-canvas-patch` → the tray showed "Agent 提出 1 项画布修改 · 审阅" → the board listed it as "Agent 回复 · claude" → Accept wrote it at content revision `ff7a658d`. The brief was sent with the first message and then detached. The status bar read "Agent · 1 个已登录". |
+| Finding → global knowledge | **Wired to the real executor, verified live** | Finding row "晋升审查" → a review-journal proposal with a `candidate`; its evidence is the finding file pinned at the digest just read (`findingPromotionProposal`). "仅认可此审查范围" pins `approvalDigest` = the canonical intent digest (`knowledgePromotionDigest`). "写入全局知识库" calls `POST /workspaces/{ws}/knowledge-promotions/{id}` and shows the receipt. Live, the executor re-derived the same digest (frontend and Go agree), re-verified the evidence, and wrote `academic/memory/knowledge/note/paper-sample-derivation/<id>.md` with outcome `written`. The review hook re-reads the journal when another surface appends to it (`research:review-journal-changed`), so the open dock doesn't hit a stale-digest conflict. |
+| Shared proposal inbox | Done in round 3 | `research-proposals.json` in the project workspace, CAS-written through the generic file API. A dedicated validated route still belongs in the backend. |
+| PDF ↔ manuscript-source proposals | **Not wired (no API to wire to here)** | SyncTeX mapping exists only for built PDFs, and the LaTeX builder is disabled on this host (`/capabilities.latex.available=false`, shown in the status bar). Canvas → source diffs would go through the existing writing-review flow (`offerWriting`), which needs a signed-in agent *and* a buildable manuscript. Not faked. |
+| Backend sibling skew | **Unchanged, documented** | `xgc2-research-os@1aa0f63` still `replace`s `native-agent` with `../../products/common/native-agent`, which doesn't exist (`go build ./cmd/researchd` fails at `cmd/researchd/native_agents.go`). All UI work in this round is verified against the runnable devops tree (`xgc2-harness/devops/platforms/research-os`, read and run only, not modified). Someone who owns both repositories needs to pick the canonical tree. |
+| Artifact-renderer capability | **Backend gap** | See item 3: `/capabilities` should report the artifact renderer; until then the UI gates on observed refusals only. |
+
+**Tests:** `npm test` passes 267 tests. The new ones are `tests/quiet-surface.test.ts` (status model, thread brief, renderer gate, artifacts tab) and the finding-promotion cases in `tests/revision-model.test.ts` (the proposal is valid, approval pins the canonical digest, writing is refused before approval). `npm run build` and `npm run lint:review` pass.
+
 - **Known leftover:** the composer placeholder "Ask anything..." is hard-coded in the vendored `@xgc2/agent-runtime` and ignores locale. The fix belongs in the shared package, not a product overlay.
 
 ---

@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { BookOpen } from 'lucide-react'
+import { ArrowUpRight, BookOpen } from 'lucide-react'
 import { Button } from '../../components/ui'
 import { Input, Textarea } from '../../components/forms'
 import { useWorkbench } from '../../store'
 import type { ContentObject, ResourceReference } from '../content/content-model'
 import { useNativeAgentSession } from '../chat/Session'
-import { captureFinding, editFailureCopy } from './revision-actions'
+import { captureFinding, editFailureCopy, proposeFindingPromotion } from './revision-actions'
+import { FINDINGS_ROOT } from './revision-model'
 
 /** Knowledge notes linked from a card, plus the form that saves a new finding and links it back. */
 export function LinkedKnowledge({ project, workspace = project, object, sources }: { project: string; workspace?: string; object: Pick<ContentObject, 'id' | 'title' | 'body'>; sources: ResourceReference[] }) {
@@ -24,13 +25,26 @@ export function LinkedKnowledge({ project, workspace = project, object, sources 
       setNote(result.linked.ok ? (zh ? `已保存 academic/${result.path}，并链接到此卡片。` : `Saved academic/${result.path} and linked it to this card.`) : `${zh ? `已保存 academic/${result.path}，但未能链接：` : `Saved academic/${result.path}, but could not link it: `}${editFailureCopy(result.linked, locale)}`)
     } catch (reason) { setError(reason instanceof Error ? reason.message : String(reason)) } finally { setBusy(false) }
   }
+  const promote = async (path: string, noteTitle: string) => {
+    setBusy(true); setError(''); setNote('')
+    try {
+      await proposeFindingPromotion({ scope: { projectId: project, workspace }, path, title: noteTitle, locale })
+      setNote(zh ? '已在审阅日志中提出晋升请求（未写入全局知识）。在「设计审阅」中认可后再写入。' : 'Promotion request filed in the review journal (global knowledge not written). Approve it in Design review, then write.')
+      useWorkbench.getState().setReviewDockOpen(true); useWorkbench.getState().showConversation()
+    } catch (reason) { setError(reason instanceof Error ? reason.message : String(reason)) } finally { setBusy(false) }
+  }
   return <section className="space-y-2" data-xgc-role="linked-knowledge" data-xgc-id={object.id}>
     <p className="text-caption font-medium uppercase tracking-[0.06em] text-ink-3">{zh ? '关联知识笔记' : 'Linked knowledge notes'}</p>
-    {notes.map(source => <button key={source.path} type="button" className="flex w-full items-center gap-1.5 rounded-md bg-elevated px-2 py-1 text-left text-caption text-ink-2 hover:text-ink" title={`academic/${source.path}${source.digest ? ` @ ${source.digest}` : ''}`}
-      onClick={() => openDocument({ workspace: source.workspace || 'academic', path: source.path!, title: String(source.title ?? source.path!.split('/').pop()) })}>
-      <BookOpen size={11} strokeWidth={1.75} className="shrink-0"/><span className="min-w-0 flex-1 truncate">{String(source.title ?? source.path!.split('/').pop())}</span>
-      <span className="shrink-0 text-ink-3">{source.digest ? (zh ? '已保存' : 'saved') : (zh ? '未校验' : 'unverified')}</span>
-    </button>)}
+    {notes.map(source => <div key={source.path} className="flex items-center gap-1 rounded-md bg-elevated pr-1">
+      <button type="button" className="flex min-w-0 flex-1 items-center gap-1.5 px-2 py-1 text-left text-caption text-ink-2 hover:text-ink" title={`academic/${source.path}${source.digest ? ` @ ${source.digest}` : ''}`}
+        onClick={() => openDocument({ workspace: source.workspace || 'academic', path: source.path!, title: String(source.title ?? source.path!.split('/').pop()) })}>
+        <BookOpen size={11} strokeWidth={1.75} className="shrink-0"/><span className="min-w-0 flex-1 truncate">{String(source.title ?? source.path!.split('/').pop())}</span>
+        <span className="shrink-0 text-ink-3">{source.digest ? (zh ? '已保存' : 'saved') : (zh ? '未校验' : 'unverified')}</span>
+      </button>
+      {/* 发现 → 全局知识：只在审阅日志里提出晋升请求；认可与写入在设计审阅里，由执行器给回执 */}
+      {source.path!.startsWith(`${FINDINGS_ROOT}/`) && <button type="button" data-xgc-role="propose-promotion" disabled={busy} title={zh ? '在审阅日志中提出晋升为全局知识；认可后才写入' : 'File a promotion request in the review journal; nothing is written until approved'}
+        className="flex h-6 shrink-0 items-center gap-1 rounded px-1.5 text-caption text-ink-3 hover:bg-hover hover:text-ink disabled:opacity-50" onClick={() => void promote(source.path!, String(source.title ?? source.path!.split('/').pop()))}><ArrowUpRight size={11}/>{zh ? '晋升审查' : 'Promote'}</button>}
+    </div>)}
     {!notes.length && !open && <p className="text-caption text-ink-3">{zh ? '尚无。把这张卡上的推导或发现沉淀为知识笔记。' : 'None yet. Capture a derivation or finding from this card as a knowledge note.'}</p>}
     {open ? <div className="space-y-1.5 rounded-md bg-elevated p-2">
       <Input aria-label={zh ? '发现标题' : 'Finding title'} className="ui-input w-full" value={title} onChange={e => setTitle(e.target.value)}/>

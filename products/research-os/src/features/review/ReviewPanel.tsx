@@ -1,5 +1,7 @@
 import { observedFiles, subscribeObservations } from './file-observations'
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { applyKnowledgePromotion } from '../resources/knowledge-promotion-api'
+import type { PromotionReceipt } from '../resources/knowledge-promotion'
 import { Button } from '../../components/ui'
 import { saveDownload } from '../../lib/api'
 import { useWorkbench } from '../../store'
@@ -31,6 +33,7 @@ export function ReviewPanelContents({scope, tabId, onTitle, surface = 'panel', a
   const [feedbackId, setFeedbackId] = useState(''), [selected, setSelected] = useState('')
   const seed = incoming.find(i => i.id === feedbackId) || incoming[0]
   const [title, setTitle] = useState(''), [body, setBody] = useState(''), [author, setAuthor] = useState('researcher')
+  const [promotionReceipts, setPromotionReceipts] = useState<Record<string, PromotionReceipt>>({})
   const [operations, setOperations] = useState<Operation[]>([]), [localError, setLocalError] = useState('')
   const [kind, setKind] = useState<'text' | 'canvas' | 'block'>('text'), [path, setPath] = useState('')
   const [source, setSource] = useState<FileRecord | null>(null), [choice, setChoice] = useState('0'), [range, setRange] = useState({start: 0, end: 0})
@@ -232,6 +235,18 @@ export function ReviewPanelContents({scope, tabId, onTitle, surface = 'panel', a
           <p role="status">{proposal.promotion.decision} · {proposal.promotion.decidedBy} · {proposal.promotion.decidedAt}</p>
           <Button disabled={busy || proposal.promotion.decision !== 'pending'} onClick={() => void call(() => api.action(e => e.decidePromotion(proposal.id, 'approved-scope', author)))}>{t('仅认可此审查范围', 'Approve this scope only')}</Button>
           <Button disabled={busy || proposal.promotion.decision !== 'pending'} onClick={() => void call(() => api.action(e => e.decidePromotion(proposal.id, 'rejected', author)))}>{t('拒绝晋升', 'Reject promotion')}</Button>
+          {proposal.promotion.candidate && <div className="space-y-1 border-t border-line pt-2" data-xgc-role="promotion-candidate">
+            <p className="text-caption text-ink-3">{t('候选知识', 'Knowledge candidate')} · {proposal.promotion.candidate.kind} · {proposal.promotion.candidate.evidence.map(e => `${e.workspace}/${e.path}`).join(', ')}</p>
+            <p className="max-h-32 overflow-auto whitespace-pre-wrap text-caption">{proposal.promotion.candidate.body}</p>
+            {proposal.promotion.approvalDigest && <p className="break-all text-caption text-ink-3">{t('认可指纹', 'Approval digest')} · {proposal.promotion.approvalDigest}</p>}
+            {proposal.promotion.decision === 'approved-scope' && proposal.promotion.approvalDigest && <Button size="xs" variant="outline" data-xgc-role="apply-promotion" disabled={busy} onClick={() => void call(async () => {
+              const receipt = await api.action(e => e.applyPromotion(proposal.id, applyKnowledgePromotion))
+              setPromotionReceipts(v => ({ ...v, [proposal.id]: receipt }))
+            })}>{t('写入全局知识库', 'Write to global knowledge')}</Button>}
+            {promotionReceipts[proposal.id] && <p role="status" data-xgc-role="promotion-receipt" data-outcome={promotionReceipts[proposal.id].outcome} className="break-all text-caption">
+              {promotionReceipts[proposal.id].outcome}{promotionReceipts[proposal.id].document ? ` · academic/${promotionReceipts[proposal.id].document!.path} @ ${promotionReceipts[proposal.id].document!.digest}` : ''}{promotionReceipts[proposal.id].detail ? ` · ${promotionReceipts[proposal.id].detail}` : ''}
+            </p>}
+          </div>}
         </section>}
         {api.book!.decisions.filter(d => d.proposalId === proposal.id).map(d => <p key={d.id} className="text-caption">{t('拒绝记录', 'Rejection record')} · {d.actor} · {d.at} · {d.reason} · {d.operationIds.join(', ')}</p>)}
         {api.book!.notDispatched?.filter(d => d.proposalId === proposal.id).map(d => <p role="status" key={d.id} className="whitespace-pre-wrap text-caption">{d.mode} · {d.at} · {d.detail}</p>)}

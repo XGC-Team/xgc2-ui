@@ -1,3 +1,4 @@
+import type { Proposal } from '../review/review-model'
 import { CARD_TYPES, CONTENT_PATH, cardType, cardTypeFields, isCardType, type CardType, type ContentDocument, type ContentObject, type ContentRelation } from '../content/content-model'
 import { SEMANTIC_RELATIONS, type SemanticRelation } from '../projects/canvas-model'
 import type { DraftBlock, DraftSource, ResearchDraft } from '../projects/draft-model'
@@ -267,5 +268,29 @@ export function revisionOutputDraft(input: { document: ContentDocument; kind: 'p
   return {
     id: makeId(), kind, status: 'draft', createdAt: at, updatedAt: at, blocks, sources,
     title: kind === 'paper' ? (zh ? '审稿意见回复信' : 'Response to reviewers') : (zh ? '修订答辩幻灯片' : 'Revision talk slides'),
+  }
+}
+
+// ---------- finding → global knowledge (through the review journal; the executor writes) ----------
+
+/** A review-journal proposal that asks for one saved finding to be promoted into global knowledge.
+ * Evidence is the finding file pinned at the digest just read; approval later pins the canonical intent digest,
+ * and only the domain executor (`POST …/knowledge-promotions/{id}`) writes the global note. */
+export function findingPromotionProposal(input: { project: string; finding: { path: string; digest: string; title: string; body: string }; author: string; locale: 'zh' | 'en'; at: Date; id: string }): Proposal {
+  const zh = input.locale === 'zh', { finding } = input
+  const anchor = { kind: 'text' as const, workspace: 'academic', path: finding.path, digest: finding.digest, quote: finding.title }
+  return {
+    id: input.id, author: input.author, at: input.at.toISOString(),
+    title: zh ? `晋升发现：${finding.title}` : `Promote finding: ${finding.title}`,
+    feedback: { id: `${input.id}-finding`, author: input.author, at: input.at.toISOString(), body: zh ? '请求把这条项目发现晋升为全局知识。' : 'Request to promote this project finding into global knowledge.', anchor },
+    operations: [],
+    promotion: {
+      destination: 'global-knowledge',
+      scope: zh ? `项目 ${input.project} 的发现，晋升为全局知识笔记` : `A finding of project ${input.project}, promoted to a global knowledge note`,
+      conditions: zh ? `仅在项目 ${input.project} 的设定与证据下成立；复用前核对前提。` : `Holds under the setting and evidence of project ${input.project}; check its premises before reuse.`,
+      verification: 'unverified',
+      decision: 'pending',
+      candidate: { kind: 'note', body: finding.body.trim() || finding.title, evidence: [{ workspace: 'academic', path: finding.path, digest: finding.digest, anchor: `file:${finding.path}` }] },
+    },
   }
 }

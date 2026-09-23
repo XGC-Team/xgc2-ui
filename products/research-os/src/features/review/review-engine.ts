@@ -2,6 +2,7 @@ import { check, emptyReviewBook, fingerprint, now, operationState, parseReviewBo
 import { patchText } from './review-text.ts'
 import { bindWritingReview } from './writing-engine.ts'
 import { reviewBatchReceipt } from './review-batches.ts'
+import { knowledgePromotionDigest, type KnowledgePromotion, type PromotionReceipt } from '../resources/knowledge-promotion.ts'
 import type { ReviewBatchListener, ReviewBatchReceipt } from './writing-contract.ts'
 export type ReviewPort = {
   read: (workspace: string, path: string) => Promise<FileRecord>
@@ -189,8 +190,18 @@ export function createReviewEngine(scope: Scope, port: ReviewPort, changed: (s: 
     decidePromotion: (id: string, decision: 'approved-scope' | 'rejected', actor: string) => command(async () => {
       check(actor.trim(), 'Actor is required.')
       const p = proposal(id); check(p.promotion && p.promotion.decision === 'pending', 'Knowledge scope already decided.')
-      // Approval is a review of this exact scope, never a global knowledge write.
-      await persist({ ...book!, proposals: book!.proposals.map(x => x.id === id ? { ...x, promotion: { ...x.promotion!, decision, decidedBy: actor, decidedAt: now() } } : x) })
+      // Approval is a review of this exact scope, never a global knowledge write. With a candidate, it pins the
+      // canonical intent digest the executor re-derives: any later change to candidate, scope or evidence voids it.
+      const approvalDigest = decision === 'approved-scope' && p.promotion.candidate ? await knowledgePromotionDigest(scope, id, p.promotion as KnowledgePromotion) : undefined
+      await persist({ ...book!, proposals: book!.proposals.map(x => x.id === id ? { ...x, promotion: { ...x.promotion!, decision, decidedBy: actor, decidedAt: now(), ...(approvalDigest ? { approvalDigest } : {}) } } : x) })
+    }),
+    /** Ask the domain executor to write an approved candidate into global knowledge. The journal is not modified;
+     * the receipt (written / already-written / conflict / not-written / uncertain) is returned as observed. */
+    applyPromotion: (id: string, execute: (scope: Scope, proposalId: string, journalDigest: string) => Promise<PromotionReceipt>) => command(async () => {
+      const p = proposal(id)
+      check(p.promotion?.candidate && p.promotion.decision === 'approved-scope' && p.promotion.approvalDigest, 'Approve the knowledge candidate before writing it.')
+      check(digest, 'Reload the review journal before writing knowledge.')
+      return execute(scope, id, digest!)
     }),
     dispose: () => { disposed = true },
   }
