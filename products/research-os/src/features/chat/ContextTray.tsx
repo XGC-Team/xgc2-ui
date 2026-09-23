@@ -9,7 +9,8 @@ import { sharedContentSession } from '../content/useContentDocument'
 import { checkContextForSend, contextManifest, newContextItem, type ContextItem } from '../projects/context-model'
 import { ContextPanel } from '../projects/ContextPanel'
 import { useAcademicNotes } from '../resources/useAcademicNotes'
-import { patchContract } from '../revision/revision-model'
+import { extractCanvasPatches, patchContract } from '../revision/revision-model'
+import { agentProposalKey, proposalCounts, useProposals } from '../revision/proposal-store'
 import { sessionProject } from '../revision/useRevisionThread'
 
 /* Chat 是控制面：研究对象以「版本化引用」挂到输入框上方（T3/Cursor 的附件语法），
@@ -81,13 +82,27 @@ function AttachList({ project, onPick }: { project: string; onPick: (candidate: 
 }
 
 export function ContextTray({ blockedReason }: { blockedReason?: string }) {
-  const { locale, projectId, contextItems, addContextItem, removeContextItem, openSettings } = useWorkbench()
+  const { locale, projectId, contextItems, addContextItem, removeContextItem, openSettings, openResource } = useWorkbench()
   const native = useNativeAgentSession()
   const zh = locale === 'zh'
   const [manage, setManage] = useState(false), [note, setNote] = useState('')
   const project = sessionProject(native.session) || projectId
   const items = contextItems.filter(item => item.project === project)
   const stale = (item: ContextItem) => item.state !== 'current'
+  // Proposals the agent made in this thread: detected here, recorded only when the user chooses to review them.
+  const { proposals, propose, load } = useProposals()
+  useEffect(() => { if (project) void load(project) }, [project, load])
+  const bound = Boolean(native.session && sessionProject(native.session) === project && native.streamMatchesSelection)
+  const detected = useMemo(() => bound ? native.state.items.filter(item => item.role === 'assistant' && item.text.includes('```research-canvas-patch'))
+    .flatMap(item => extractCanvasPatches(item.text).flatMap((p, i) => p.patch ? [{ key: agentProposalKey(native.selectedId, item.id, i, p.patch), patch: p.patch }] : [])) : [], [bound, native.state.items, native.selectedId])
+  const known = new Set(proposals.filter(p => p.project === project).map(p => p.key))
+  const unseen = detected.filter(d => !known.has(d.key))
+  const pending = proposalCounts(proposals, project).pending
+  const review = async () => {
+    try { for (const d of unseen) await propose({ project, origin: 'agent', sourceLabel: `${native.session?.title || native.session?.provider || 'thread'} · ${native.selectedId.slice(0, 8)}`, key: d.key, patch: d.patch }) }
+    catch (error) { setNote(error instanceof Error ? error.message : String(error)); return }
+    openResource({ kind: 'research', workspace: project, view: 'revision' }, 'primary')
+  }
   const insert = (withContract: boolean) => {
     const { include, issues } = checkContextForSend(items, project)
     if (!include.length) return
@@ -112,6 +127,10 @@ export function ContextTray({ blockedReason }: { blockedReason?: string }) {
         <Button size="xs" onClick={() => insert(true)}>{zh ? '请 Agent 提议画布修改' : 'Ask agent for canvas changes'}</Button>
         <Button size="xs" onClick={() => setManage(v => !v)}>{manage ? (zh ? '收起版本管理' : 'Hide version details') : (zh ? '管理引用与版本…' : 'Manage references…')}</Button>
       </RightMore>}
+      {project && (unseen.length > 0 || pending > 0) && <button type="button" onClick={() => void review()} data-xgc-role="review-proposals" data-pending={pending + unseen.length}
+        className="flex h-6 items-center gap-1 rounded-md border border-line-strong px-1.5 text-caption text-ink hover:bg-hover">
+        {unseen.length ? (zh ? `Agent 提出 ${unseen.length} 项画布修改 · 审阅` : `Agent proposed ${unseen.length} canvas change(s) · Review`) : (zh ? `${pending} 项画布提议待审` : `${pending} canvas proposal(s) to review`)}
+      </button>}
       {/* 环境闸门只占一行安静状态，不再是正文里的警告卡片 */}
       {blockedReason && <button type="button" onClick={() => openSettings('connections')} className="ml-auto truncate px-1 text-caption text-ink-3 hover:text-ink-2" title={blockedReason} data-xgc-role="no-agent-notice">{zh ? '未连接原生 Agent · 连接与模型' : 'No native agent · Connections'}</button>}
     </div>

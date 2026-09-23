@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Check, Crosshair, MessageSquarePlus, Plus, X } from 'lucide-react'
 import { Button, RightMore } from '../../components/ui'
 import { Textarea } from '../../components/forms'
@@ -9,7 +9,7 @@ import { newContextItem } from '../projects/context-model'
 import { requestDesignFocus } from '../projects/design-focus'
 import { CARD_TYPE_LABELS, CONTENT_PATH, cardType, type ContentDocument, type ContentObject } from '../content/content-model'
 import { LinkedKnowledge } from './FindingCapture'
-import { useProposals, type CanvasProposal, type ProposalOrigin } from './proposal-store'
+import { agentProposalKey, useProposals, type CanvasProposal, type ProposalOrigin } from './proposal-store'
 import { editFailureCopy, editResearchContent } from './revision-actions'
 import {
   REVISION_STATUSES, addRevisionItems, applyCanvasPatch, extractCanvasPatches, revisionOutputDraft, sampleRevisionProposal, splitReviewComments, validateCanvasPatch,
@@ -72,7 +72,10 @@ export function RevisionBoard({ project, workspace, document, digest, dirty, edi
   const c = COPY[locale], zh = locale === 'zh'
   const native = useNativeAgentSession()
   const startThread = useStartRevisionThread()
-  const { proposals, propose, decide, clearDecided } = useProposals()
+  const { proposals, propose, decide, clearDecided, load, projects } = useProposals()
+  useEffect(() => { void load(project) }, [project, load])
+  const proposalError = projects[project]?.error ?? ''
+  const safely = (action: Promise<unknown>) => { void action.catch(error => setNote(error instanceof Error ? error.message : String(error))) }
   const [intakeOpen, setIntakeOpen] = useState(false), [intake, setIntake] = useState(''), [pasted, setPasted] = useState(''), [pasting, setPasting] = useState(false)
   const [note, setNote] = useState(''), [busy, setBusy] = useState(''), [expanded, setExpanded] = useState<string | null>(null)
   const scope = { projectId: project, workspace }
@@ -92,22 +95,24 @@ export function RevisionBoard({ project, workspace, document, digest, dirty, edi
     addContextItem(newContextItem({ project, kind: 'canvas-node', label: item.title, ref: `${CONTENT_PATH}#object/${item.id}`, digest: digest || undefined, excerpt: item.body?.slice(0, 200), source: { id: item.id, path: CONTENT_PATH, workspace, digest: digest || undefined, excerpt: item.body?.slice(0, 200) } }))
     setNote(c.attached)
   }
-  const record = (patches: { patch?: CanvasPatch; error?: string }[], origin: ProposalOrigin, sourceLabel: string, keyBase: string) => {
+  const record = async (patches: { patch?: CanvasPatch; error?: string; key?: string }[], origin: ProposalOrigin, sourceLabel: string, keyBase: string) => {
     const valid = patches.filter(p => p.patch)
     const errors = patches.filter(p => p.error).map(p => p.error)
     if (!patches.length) { setNote(c.noPatch); return }
-    const count = valid.filter((p, i) => propose({ project, origin, sourceLabel, key: `${keyBase}:${i}:${JSON.stringify(p.patch)}`, patch: p.patch! })).length
+    let count = 0
+    try { for (const [i, p] of valid.entries()) if (await propose({ project, origin, sourceLabel, key: p.key ?? `${keyBase}:${i}:${JSON.stringify(p.patch)}`, patch: p.patch! })) count += 1 }
+    catch (error) { errors.push(error instanceof Error ? error.message : String(error)) }
     setNote([fill(c.added, { n: count }), ...errors].join(' '))
   }
   const fromThread = () => {
     const bound = native.session && sessionProject(native.session) === project && native.streamMatchesSelection
     const replies = bound ? native.state.items.filter(item => item.role === 'assistant' && item.text) : []
     if (!replies.length) { setNote(c.noThread); return }
-    const found = replies.flatMap(item => extractCanvasPatches(item.text).map(p => ({ ...p, item })))
-    record(found, 'agent', `${native.session?.title || native.session?.provider || 'thread'} · ${native.selectedId.slice(0, 8)}`, `agent:${native.selectedId}`)
+    const found = replies.flatMap(item => extractCanvasPatches(item.text).map((p, i) => ({ ...p, ...(p.patch ? { key: agentProposalKey(native.selectedId, item.id, i, p.patch) } : {}) })))
+    void record(found, 'agent', `${native.session?.title || native.session?.provider || 'thread'} · ${native.selectedId.slice(0, 8)}`, `agent:${native.selectedId}`)
   }
-  const fromPaste = () => { record(extractCanvasPatches(pasted), 'pasted', zh ? '粘贴的回复' : 'Pasted reply', `pasted:${pasted.length}`); setPasted(''); setPasting(false) }
-  const sample = () => { const patch = sampleRevisionProposal(document, locale); if (!patch) { setNote(c.noSample); return } record([{ patch }], 'sample', c.origin_sample, `sample:${digest}`) }
+  const fromPaste = () => { void record(extractCanvasPatches(pasted), 'pasted', zh ? '粘贴的回复' : 'Pasted reply', `pasted:${pasted.length}`); setPasted(''); setPasting(false) }
+  const sample = () => { const patch = sampleRevisionProposal(document, locale); if (!patch) { setNote(c.noSample); return } void record([{ patch }], 'sample', c.origin_sample, `sample:${digest}`) }
   const draftOutput = async (kind: 'paper' | 'slides') => {
     setBusy(kind)
     const draft = revisionOutputDraft({ document, kind, locale, digest: digest || undefined, at: new Date() })
@@ -121,7 +126,7 @@ export function RevisionBoard({ project, workspace, document, digest, dirty, edi
     const result = await editResearchContent(scope, d => { try { return applyCanvasPatch(d, proposal.patch) } catch (error) { failure = error instanceof Error ? error.message : String(error); return d } }, true)
     setBusy('')
     if (failure) { setNote(failure); return }
-    if (result.ok) { decide(proposal.id, 'applied', result.revision); setNote(fill(c.appliedAt, { rev: short(result.revision) })) } else report(result)
+    if (result.ok) { safely(decide(proposal.id, 'applied', result.revision)); setNote(fill(c.appliedAt, { rev: short(result.revision) })) } else report(result)
   }
 
   return <div className="h-full min-h-0 overflow-y-auto" data-xgc-role="revision-board" data-xgc-id={project}>
@@ -173,8 +178,9 @@ export function RevisionBoard({ project, workspace, document, digest, dirty, edi
         <Button size="xs" variant="outline" onClick={fromThread}>{c.fromThread}</Button>
         <Button size="xs" onClick={() => setPasting(v => !v)}>{c.paste}</Button>
         <Button size="xs" onClick={sample} data-xgc-role="sample-proposal">{c.sample}</Button>
-        {mine.some(p => p.status !== 'pending') && <Button size="xs" onClick={() => clearDecided(project)}>{c.clear}</Button>}
+        {mine.some(p => p.status !== 'pending') && <Button size="xs" onClick={() => safely(clearDecided(project))}>{c.clear}</Button>}
       </RightMore>}>{c.proposals}</Rule>
+      {proposalError && <p role="alert" className="mb-1 text-caption text-ink-2">{proposalError}</p>}
       {!mine.length && !pasting && <p className="text-secondary text-ink-3" title={c.proposalsHint}>{zh ? 'Agent 在对话中提出的画布修改会出现在这里，由你接受或拒绝。' : 'Canvas changes the agent proposes in chat appear here for you to accept or reject.'}</p>}
       {pasting && <div className="mt-2 space-y-1">
         <Textarea aria-label={c.paste} rows={5} className="ui-input w-full resize-y font-mono text-caption" value={pasted} onChange={e => setPasted(e.target.value)} placeholder={'```research-canvas-patch\n{"ops":[…]}\n```'}/>
@@ -194,7 +200,7 @@ export function RevisionBoard({ project, workspace, document, digest, dirty, edi
             {issues.map(issue => <p key={issue} role="alert" className="mt-1 text-caption text-ink-2">⚠ {issue}</p>)}
             {proposal.status === 'pending' && <div className="mt-2 flex gap-1">
               <Button size="xs" variant="outline" icon={Check} disabled={!editable || issues.length > 0 || dirty} loading={busy === proposal.id} onClick={() => void accept(proposal)}>{c.accept}</Button>
-              <Button size="xs" icon={X} onClick={() => decide(proposal.id, 'rejected')}>{c.reject}</Button>
+              <Button size="xs" icon={X} onClick={() => safely(decide(proposal.id, 'rejected'))}>{c.reject}</Button>
             </div>}
           </li>
         })}

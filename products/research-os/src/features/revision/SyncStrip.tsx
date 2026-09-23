@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useWorkbench } from '../../store'
 import { isOriginalPDF } from '../resources/manuscript'
 import { proposalCounts, useProposals } from './proposal-store'
@@ -8,7 +9,8 @@ const short = (digest?: string) => digest ? digest.replace(/^sha256:/, '').slice
  * PDF (build vs original, never implying a fresh compile), canvas revision, and proposal vs applied counts. */
 export function SyncStrip({ project, digest, dirty, status }: { project: string; digest: string; dirty: boolean; status: string }) {
   const { locale, resourceLayout } = useWorkbench()
-  const proposals = useProposals(s => s.proposals)
+  const proposals = useProposals(s => s.proposals), load = useProposals(s => s.load)
+  useEffect(() => { void load(project) }, [project, load])
   const zh = locale === 'zh'
   const counts = proposalCounts(proposals, project)
   const tabs = resourceLayout.tabs.filter(tab => tab.projectId === project)
