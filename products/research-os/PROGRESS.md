@@ -1,10 +1,68 @@
 # Research OS: agent-native workbench progress (2026-09-24)
 
-Branch: `feat/research-os-agent-native-workbench` · Refs XGC-Team/xgc2-research-os#12
+Branch: `feat/research-os-agent-native-workbench` · Draft PR XGC-Team/xgc2-ui#34 · Refs XGC-Team/xgc2-research-os#12
+
+## Round 2: review-driven revision closed loop (TRO-shaped)
+
+The goal of this round is that a researcher can run review-driven revision in the GUI instead of CLI and handmade files. Everything below lives on the existing shell and on the one `research-content.json` model. There is no new page family, no vault KM, and no new agent loop.
+
+**The loop, verified in a browser against a live `researchd`.** Every step below writes through real APIs unless marked otherwise.
+1. **Start the thread.** Open a project and choose **New revision thread** (sidebar project row, ⌘K, or the board). This docks the discussion, opens Research content › **Revision**, and drafts a message into the composer without sending it. The draft lists each revision card's id, title and status, plus the `research-canvas-patch` proposal contract.
+2. **Turn comments into cards.** Paste reviewer comments (Reviewer N headings and numbered items). Each comment becomes a **revision-item card** with status open / planned / addressed / declined, saved in research content.
+3. **Annotate the PDF.** Files › `manuscript/submitted-v1.pdf` opens in the annotating reader beside the canvas (Chat | canvas | PDF). A region annotation is saved as a thread knowledge item (existing route). From that annotation:
+   - **Create canvas card:** a revision card anchored to the PDF digest, page and quote, created once per annotation.
+   - **Add to chat context:** a versioned reference, not pasted text.
+4. **Attach context.** Knowledge notes (reader: "Add to chat context") and canvas cards (inspector, board, ⌘K "Attach selected card to chat") join the same visible context set. It keeps its existing scope and version checks before anything is inserted.
+5. **Review proposals.** The board reads fenced `research-canvas-patch` blocks from three sources: the current thread's agent replies, a pasted reply, or a **rule-based sample, labelled as not an agent**. Each proposal lists readable steps and validation problems. **Accept and write** applies it through the shared content writer and records the content revision it produced. **Reject** changes nothing.
+6. **Work on the canvas.** Cards show their type (question, revision item, claim, decision, evidence, assumption, constraint…) and the inspector can change it. Accepted decisions sit beside the item they answer, with typed relations (supports, contradicts/rebuts, depends, cites…).
+7. **Capture findings.** From the card inspector or a revision item, **Capture as knowledge** writes `academic/memory/findings/<project>/<date>-<slug>.md`. The note carries front-matter back-links to the card, the content revision and the thread, and is labelled "not yet promoted to global knowledge". The card then lists it under **Linked knowledge notes** with its saved digest.
+8. **Draft outputs.** **Draft response letter** or **Draft talk slides** builds a project draft from the same revision and decision cards. The slides open in the existing drafts editor and `ArtifactStudio` (pptx / video / Remotion definitions). Rendering stays gated on the artifact worker.
+9. **Sync strip.** A line under Research content shows:
+   - which PDF is open: built vs original, with its digest;
+   - the canvas revision, and whether it is saved;
+   - proposals pending vs applied.
+   It never implies a TeX compile.
+
+**What is durable and what is local**
+- **Durable (backend files):**
+  - revision, decision and evidence cards, their relations and statuses (`research-content.json`, CAS-saved);
+  - PDF annotations (thread knowledge items);
+  - finding notes (academic memory);
+  - letter and slides drafts.
+- **Local to this browser:**
+  - pending and decided proposals (`research-ui-canvas-proposals-v1`). A proposal is an intent, not content, and only its accepted effect is persisted.
+  - the chat context set (as before).
+- **Constraint discovered live:** the backend (`researchcontent.Validate`) accepts only `question|claim|assumption|evidence|design|note|method|workflow|tool`. So decision, constraint and revision item are stored as a preserved `role` field on claim, assumption and question. A test pins that every written object uses a backend-valid kind.
+
+**Tests:** `tests/revision-model.test.ts` covers:
+- comment splitting;
+- patch extraction, validation and application;
+- placement of new cards;
+- the labelled sample proposer;
+- role round-trips through the canvas;
+- the backend-kind invariant;
+- annotation → card;
+- finding notes;
+- letter/slides drafts accepted by the draft book.
+
+`npm test` passes 248 tests, and `npm run build` and `npm run lint:review` pass.
+
+**How to reproduce the walkthrough.** You need a running `researchd` with a sample project that contains a PDF (see "Live backend" below). Any workspace PDF works; I used a synthetic one-page `manuscript/submitted-v1.pdf` marked "SYNTHETIC SAMPLE".
+
+**Open after round 2**
+- **Live agent round-trip:** no native client is signed in here, so "Read proposals from this thread" was verified only up to extraction. The same parser was verified live through the paste path. A signed-in Codex, Claude, Grok, OpenCode or Cursor thread is needed to see a real agent answer the seeded contract.
+- **Manuscript source:** there is no PDF → TeX source proposal yet (SyncTeX exists only for built PDFs, and the builder is disabled here). Canvas → manuscript proposals are also not wired; a decision does not yet produce a source diff.
+- **Promotion to global knowledge:** a finding stays a project finding. Promoting it goes through the existing review-journal promotion flow, which is not wired from the finding note yet.
+- **Proposals are per browser:** a shared proposal inbox needs a backend route.
+- **Chat column empty state:** it still reads "继续这篇论文", and the design-review dock stacks above the composer. Both need a calmer layout for revision threads.
+
+---
+
+## Round 1: shell, agent-native Chat, canvas vs workflow
 
 This round advances the existing `products/research-os` app. There is no parallel IA, no vault-style Today/Topics/Library, and no new agent loop. Slices A–C of the task are done. D and E were not started.
 
-## What changed
+### What changed
 
 **A — Shell and IA**
 - Non-Chat pages (Workflow, Knowledge, Settings) now show a localized serif page title in the main-column header. It replaces the raw, untranslated `Workflow` / `Settings` / `Knowledge` nav key.
@@ -26,7 +84,7 @@ This round advances the existing `products/research-os` app. There is no paralle
 
 New rules for this round are recorded at the end of `DESIGN_SYSTEM.md`, including one trap: inside `.native-chat-host`, `variant="solid"` buttons wash out because the shared T3 CSS redefines `--accent`.
 
-## How to review
+### How to review
 
 ```sh
 cd products/research-os
@@ -48,7 +106,7 @@ Walkthrough (zh default; switch to English in Settings):
 - Workflow plans list as empty.
 - LaTeX and the artifact worker are reported unavailable.
 
-## Still blocked or open
+### Still blocked or open
 
 Blocked on the backend or environment:
 - **Sibling backend build skew:** `xgc2-research-os/cmd/researchd` imports `products/common/native-agent`, which is missing locally (renamed to `agent-runtime`). Even when redirected, the API doesn't match (`undefined: nativeagent`). Someone needs to reconcile which backend tree is canonical.
