@@ -11,8 +11,19 @@ import {cn} from '../lib/cn'
 import {Button,IconBtn,SectionLabel} from './ui'
 import {IconCanvas} from './icons'
 import {KnowledgeNav} from '../features/resources/KnowledgeNav'
+import {AgentRoster} from '../features/chat/AgentRoster'
 /* 二级面板：顶层菜单在左侧常驻 rail，这里按页上下文化。
-   对话/工作流 = 线程 + 项目树（项目入口集中于此）；知识库 = 文件树。搜索唯一起在顶栏。 */
+   对话/工作流 = 线程 + 项目树（项目入口集中于此）；知识库 = 文件树；设置 = 分节目录 + 原生 Agent 名册。搜索唯一起在顶栏。 */
+function SettingsNav(){
+ const {locale,openSettings}=useWorkbench();const zh=locale==='zh'
+ return <>
+  <SectionLabel>{tr("设置")}</SectionLabel>
+  <button className={cn(threadItem,'text-ink-2 hover:text-ink')} onClick={()=>openSettings('appearance')}>{tr("外观")}</button>
+  <button className={cn(threadItem,'text-ink-2 hover:text-ink')} onClick={()=>openSettings('connections')}>{zh?'连接与模型':'Connections & models'}</button>
+  <SectionLabel>{zh?'原生 Agent':'Native agents'}</SectionLabel>
+  <AgentRoster dense/>
+ </>
+}
 const threadItem='flex w-full items-center gap-2 rounded-md px-2 h-7 text-secondary transition-colors duration-150 hover:bg-hover'
 export function Sidebar({projects,onRefresh,loading,error}:{projects:Project[];onRefresh:()=>void;loading:boolean;error:string}) {
  const {activeNav,setActiveNav,projectId,setProjectId,enterWritingProject,openResource,openCanvas,showConversation,locale}=useWorkbench();const native=useNativeAgentSession()
@@ -26,7 +37,7 @@ export function Sidebar({projects,onRefresh,loading,error}:{projects:Project[];o
  </div>})}<button className={cn(threadItem,'text-ink-3 hover:text-ink-2')} onClick={()=>newThread(project)}><Plus size={13} strokeWidth={1.75} className="shrink-0"/>{tr("新线程")}</button></div>}
  return <div className="flex h-full w-full flex-col">
  <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3 pt-2">
- {activeNav==='knowledge'?<KnowledgeNav/>:<>
+ {activeNav==='knowledge'?<KnowledgeNav/>:activeNav==='settings'?<SettingsNav/>:<>
  <SectionLabel onAdd={()=>newThread('')}>{tr("对话")}</SectionLabel>
  {threads('',false)}
  <SectionLabel onAdd={()=>setAdding(s=>!s)}>{tr("PROJECTS")}</SectionLabel>
