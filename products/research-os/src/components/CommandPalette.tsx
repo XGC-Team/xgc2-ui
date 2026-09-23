@@ -13,7 +13,7 @@ import { useAcademicNotes } from '../features/resources/useAcademicNotes'
 import { useNativeAgentSession } from '../features/chat/Session'
 type PaletteAction={label:string;run:()=>void;icon?:'globe'|'note';hint?:string}
 export function CommandPalette() {
- const {paletteOpen,setPaletteOpen,setActiveNav,toggleTheme,openResource,previewDocument,projectId,openCanvas,chatDock,setChatDock,openSettings,showConversation,locale,addContextItem}=useWorkbench();const native=useNativeAgentSession();const zh=locale==='zh';const [query,setQuery]=useState(''),[index,setIndex]=useState(0);const ref=useRef<HTMLInputElement>(null)
+ const {paletteOpen,setPaletteOpen,setActiveNav,toggleTheme,openResource,previewDocument,projectId,openCanvas,chatDock,setChatDock,chatFloat,setChatFloat,sideFloat,setSideFloat,openSettings,showConversation,locale,addContextItem}=useWorkbench();const native=useNativeAgentSession();const zh=locale==='zh';const [query,setQuery]=useState(''),[index,setIndex]=useState(0);const ref=useRef<HTMLInputElement>(null)
  const {notes}=useAcademicNotes()
  // 网址即动作：查询形如 URL/域名时，首条给出「打开网页」（局部地址栏已退场，这里是一入口）
  let webUrl='';if(looksLikeUrl(query)){try{webUrl=normalizeWebUrl(query)}catch{/* 非法地址不出动作 */}}
@@ -34,6 +34,8 @@ export function CommandPalette() {
    {label:zh?'沉淀发现到知识库':'Promote finding to knowledge',hint:focusObject.title,run:()=>{openResource({kind:'research',workspace:projectId,view:'canvas'},'primary');requestDesignFocus(projectId,[focusObject.id])}},
   ]:[]),
   {label:chatDock?(zh?'取消停靠讨论':'Undock discussion'):(zh?'停靠讨论（讨论 | 画布 | 制品）':'Dock discussion (discussion | canvas | artifact)'),run:()=>setChatDock(!chatDock)},
+  {label:chatFloat?(zh?'停回讨论窗口':'Dock the discussion window'):(zh?'浮动讨论窗口':'Float the discussion'),run:()=>setChatFloat(!chatFloat)},
+  {label:sideFloat?(zh?'停回并排区':'Dock the side pane'):(zh?'浮动并排区（PDF / 制品）':'Float the side pane (PDF / artifacts)'),run:()=>setSideFloat(!sideFloat)},
   {label:zh?'连接与模型':'Connections & models',hint:tr('Settings'),run:()=>openSettings('connections')},
   {label:zh?'开发：显示/隐藏标注工具':'Developer: toggle mark tool',hint:'Mark · Herdr',run:()=>writeMarkPromptDockVisible(!readMarkPromptDockVisible())},
  ]

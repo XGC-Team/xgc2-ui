@@ -53,3 +53,31 @@ describe('docked discussion (Chat | canvas | artifact)', () => {
     expect(state().settingsFocus?.section).toBe('appearance')
   })
 })
+
+describe('detachable panels', () => {
+  it('floating the discussion frees its tab slot without closing any tab, and docking clears floating', () => {
+    useWorkbench.setState({ chatFloat: false, sideFloat: false })
+    state().openResource({ kind: 'research', workspace: 'paper-a', view: 'canvas' }, 'primary')
+    state().showConversation()
+    const tabs = state().resourceLayout.tabs.length
+    state().setChatFloat(true)
+    expect(state().chatFloat).toBe(true)
+    expect(kindOf(primaryActive())).toBe('research')
+    expect(state().resourceLayout.tabs).toHaveLength(tabs)
+    state().showConversation()
+    expect(kindOf(primaryActive())).toBe('research')
+    state().setChatDock(true)
+    expect(state()).toMatchObject({ chatDock: true, chatFloat: false })
+  })
+
+  it('floating the side pane opens it', () => {
+    useWorkbench.setState({ secondaryOpen: false, sideFloat: false })
+    state().setSideFloat(true)
+    expect(state()).toMatchObject({ sideFloat: true, secondaryOpen: true })
+  })
+
+  it('keeps floating windows inside the viewport at a usable size', async () => {
+    const { clampRect } = await import('../src/components/FloatingPanel')
+    expect(clampRect({ x: 5000, y: -40, w: 100, h: 5000 }, { w: 1200, h: 800 })).toEqual({ x: 872, y: 8, w: 320, h: 784 })
+  })
+})

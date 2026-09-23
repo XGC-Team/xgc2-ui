@@ -1,5 +1,6 @@
 import { memo, useEffect, useRef, useState } from 'react'
-import { ArrowLeft, ArrowLeftToLine, ArrowRightToLine, BookOpen, Columns3, FileCode2, FileText, Folder, Globe, MessageSquare, Network, X } from 'lucide-react'
+import { ArrowLeft, ArrowLeftToLine, ArrowRightToLine, BookOpen, Columns3, FileCode2, FileText, Folder, Globe, MessageSquare, Network, PictureInPicture2, X } from 'lucide-react'
+import { FloatFrame, FloatGrip, floatPart, useFloatRect, type FloatRect } from '../../components/FloatingPanel'
 import { Button, IconBtn, RightMore } from '../../components/ui'
 import { ResizeHandle } from '../../components/ResizeHandle'
 import { DocumentPanel } from '../../components/DocumentPanel'
@@ -31,12 +32,13 @@ import './resource-workbench.css'
 const Chat = memo(ChatPage), Workflow = memo(WorkflowPage), Knowledge = memo(KnowledgePage), Settings = memo(SettingsPage)
 const icons = { chat: MessageSquare, research: Network, source: FileCode2, original: FileText, reviews: FileText, drafts: FileText, web: Globe, file: Folder, pdf: FileText, note: BookOpen }
 
-function ResourceTabs({area}: {area: WorkArea}) {
-  const { resourceLayout, projectId, locale, openResource, activateResource, closeResource, moveResource, backResource, chatDock, setChatDock } = useWorkbench()
+function ResourceTabs({area, floating}: {area: WorkArea; floating?: {rect: FloatRect; onRect: (rect: FloatRect) => void}}) {
+  const { resourceLayout, projectId, locale, openResource, activateResource, closeResource, moveResource, backResource, chatDock, setChatDock, chatFloat, setChatFloat, sideFloat, setSideFloat } = useWorkbench()
   const zh = locale === 'zh', active = resourceLayout.active[projectId]?.[area]
   // A docked discussion lives in its own column, so it is not also offered as a tab here.
-  const tabs = resourceLayout.tabs.filter(tab => tab.projectId === projectId && tab.area === area && !(chatDock && tab.kind === 'chat'))
-  return <header className="flex h-panel-header min-w-0 items-center gap-1 border-b border-line px-2" style={{gridArea: area + 'Tabs'}}>
+  const tabs = resourceLayout.tabs.filter(tab => tab.projectId === projectId && tab.area === area && !((chatDock || chatFloat) && tab.kind === 'chat'))
+  return <header className="flex h-panel-header min-w-0 items-center gap-1 border-b border-line px-2" style={floating ? undefined : {gridArea: area + 'Tabs'}}>
+    {floating && <FloatGrip rect={floating.rect} onRect={floating.onRect} label={zh ? '拖动并排区' : 'Move side pane'}/>}
     <IconBtn icon={ArrowLeft} label={zh?'返回上个资源':'Back to previous resource'} disabled={!(resourceLayout.previous?.[projectId]?.[area]?.length)} onClick={()=>backResource(area)}/>
     <div role="tablist" aria-label={zh ? (area === 'primary' ? '主工作区' : '并排工作区') : area} className="ui-rtabs flex min-w-0 flex-1 gap-0.5 overflow-x-auto">
       {tabs.map(tab => { const Icon = icons[tab.kind]; return <div key={tab.id} className={cn('ui-rtab group', active === tab.id && 'is-active')}>
@@ -46,10 +48,12 @@ function ResourceTabs({area}: {area: WorkArea}) {
         <button type="button" aria-label={`${zh ? '关闭' : 'Close'} ${tab.title}`} className="ui-rtab-close" onClick={() => closeResource(tab.id)}><X size={10}/></button>
       </div> })}
     </div>
-    {area === 'primary' && !chatDock && <IconBtn icon={Columns3} label={zh ? '停靠讨论：讨论 | 画布 | 制品 并排' : 'Dock discussion: discussion | canvas | artifact side by side'} onClick={() => setChatDock(true)}/>}
+    {area === 'primary' && !chatDock && !chatFloat && <IconBtn icon={PictureInPicture2} label={zh ? '浮动讨论窗口' : 'Float the discussion'} onClick={() => setChatFloat(true)}/>}
+    {area === 'secondary' && <IconBtn icon={PictureInPicture2} active={sideFloat} label={sideFloat ? (zh ? '停回右侧' : 'Dock the side pane') : (zh ? '浮动并排区' : 'Float the side pane')} onClick={() => setSideFloat(!sideFloat)}/>}
+    {area === 'primary' && !chatDock && !chatFloat && <IconBtn icon={Columns3} label={zh ? '停靠讨论：讨论 | 画布 | 制品 并排' : 'Dock discussion: discussion | canvas | artifact side by side'} onClick={() => setChatDock(true)}/>}
     {active && <IconBtn icon={area === 'primary' ? ArrowRightToLine : ArrowLeftToLine} label={zh ? (area === 'primary' ? '移到并排工作区' : '移到主工作区') : 'Move to other area'} onClick={() => moveResource(active, area === 'primary' ? 'secondary' : 'primary')}/>}
     <RightMore label={zh ? '打开资源' : 'Open resource'}>
-      {!chatDock && <Button onClick={() => openResource({kind:'chat'},area)}>{zh?'讨论':'Discussion'}</Button>}
+      {!chatDock && !chatFloat && <Button onClick={() => openResource({kind:'chat'},area)}>{zh?'讨论':'Discussion'}</Button>}
       {projectId && <Button onClick={() => openResource({kind:'research',workspace:projectId,view:'table'},area)}>{zh?'研究内容':'Research content'}</Button>}
       <Button onClick={() => openResource({kind:'file',target:fileTarget(projectId,projectId||'academic')},area)}>{zh?'文件':'Files'}</Button>
       <Button onClick={() => openResource({kind:'note'},area)}>{zh?'笔记':'Notes'}</Button>
@@ -60,13 +64,27 @@ function ResourceTabs({area}: {area: WorkArea}) {
 
 /** Header of the docked discussion column: the conversation stays one keyed instance, only its grid area moves. */
 function DockHeader() {
-  const { locale, setChatDock } = useWorkbench()
+  const { locale, setChatDock, setChatFloat } = useWorkbench()
   const zh = locale === 'zh'
   return <header className="flex h-panel-header min-w-0 items-center gap-1 border-b border-line px-2" style={{gridArea: 'dockTabs'}}>
     <span className="flex min-w-0 flex-1 items-center gap-1.5 px-1 text-secondary font-medium"><MessageSquare size={12} strokeWidth={1.75}/><span className="truncate">{zh ? '讨论' : 'Discussion'}</span></span>
+    <IconBtn icon={PictureInPicture2} label={zh ? '浮动讨论窗口' : 'Float the discussion'} onClick={() => setChatFloat(true)}/>
     <IconBtn icon={Columns3} active label={zh ? '取消停靠，讨论回到标签' : 'Undock discussion back into tabs'} onClick={() => setChatDock(false)}/>
   </header>
 }
+
+/** Header of the floating discussion window: move it, dock it as a column, or put it back into the tabs. */
+function FloatChatHeader({rect, onRect, z, onRaise}: {rect: FloatRect; onRect: (rect: FloatRect) => void; z: number; onRaise: () => void}) {
+  const { locale, setChatDock, setChatFloat } = useWorkbench()
+  const zh = locale === 'zh'
+  return <header className="flex min-w-0 items-center gap-1 border-b border-line px-2" style={floatPart(rect, 'header', FLOAT_HEADER, z)} onPointerDownCapture={onRaise} data-xgc-role="float-chat-header">
+    <FloatGrip rect={rect} onRect={onRect} label={zh ? '拖动讨论窗口' : 'Move the discussion window'}/>
+    <span className="flex min-w-0 flex-1 items-center gap-1.5 text-secondary font-medium"><MessageSquare size={12} strokeWidth={1.75}/><span className="truncate">{zh ? '讨论' : 'Discussion'}</span></span>
+    <IconBtn icon={Columns3} label={zh ? '停靠为左侧一列' : 'Dock as a column'} onClick={() => setChatDock(true)}/>
+    <IconBtn icon={ArrowRightToLine} label={zh ? '放回标签' : 'Back into tabs'} onClick={() => setChatFloat(false)}/>
+  </header>
+}
+const FLOAT_HEADER = 40
 
 const DOCK = { default: 380, min: 300, max: 560 } as const
 
@@ -98,7 +116,14 @@ export function ResourceWorkbench({projects,onQuote,onOpenSession,secondaryWidth
   projects:Project[];onQuote:(text:string,project?:string)=>void;onOpenSession:(id:string)=>void
   secondaryWidth:number;onResize:(delta:number)=>void;onDraggingChange:(dragging:boolean)=>void
 }) {
-  const { resourceLayout, projectId, activeNav, secondaryOpen, openResource, locale, showConversation, chatDock } = useWorkbench()
+  const { resourceLayout, projectId, activeNav, secondaryOpen, openResource, locale, showConversation, chatDock, chatFloat, sideFloat } = useWorkbench()
+  // Chat floats on the left and the side pane on the right by default, so they never open on top of each other.
+  const [chatRect, setChatRect] = useFloatRect('research-ui-float-chat', () => ({ x: 340, y: 96, w: 420, h: Math.min(640, window.innerHeight - 136) }))
+  // Clicking a floating window raises it (window-manager grammar); both stay below the command palette (z 50).
+  const [front, setFront] = useState<'chat' | 'side'>('chat')
+  const zOf = (panel: 'chat' | 'side') => panel === front ? 44 : 40
+  const raise = (panel: 'chat' | 'side') => ({ onPointerDownCapture: () => setFront(panel) })
+  const [sideRect, setSideRect] = useFloatRect('research-ui-float-side', () => ({ x: window.innerWidth - 640, y: 104, w: 580, h: Math.min(720, window.innerHeight - 144) }))
   const [visited,setVisited] = useState<NavId[]>([])
   const [dockWidth,setDockWidth] = useState<number>(DOCK.default)
   useEffect(()=>setVisited(value=>value.includes(activeNav)?value:[...value,activeNav]),[activeNav])
@@ -120,12 +145,15 @@ export function ResourceWorkbench({projects,onQuote,onOpenSession,secondaryWidth
   },[preview,projectId,openResource])
   const active = resourceLayout.active[projectId] || {}
   const chat = resourceLayout.tabs.find(tab=>tab.projectId===projectId&&tab.kind==='chat')
-  const docked = chatDock && activeNav==='chat'
-  const isVisible = (tab:ResourceTab) => tab.projectId===projectId&&(docked&&tab.kind==='chat'?true:active[tab.area]===tab.id&&(tab.area==='secondary'?secondaryOpen:activeNav==='chat'))
+  const docked = chatDock && !chatFloat && activeNav==='chat'
+  const sideFloating = sideFloat && secondaryOpen
+  // A floating discussion stays visible on every page (talk to the agent while reading the graph); a docked one on Chat.
+  const isVisible = (tab:ResourceTab) => tab.projectId===projectId&&(tab.kind==='chat'&&(chatFloat||docked)?true:active[tab.area]===tab.id&&(tab.area==='secondary'?secondaryOpen:activeNav==='chat'))
   const secondaryEmpty = !resourceLayout.tabs.some(tab=>tab.projectId===projectId&&tab.area==='secondary')
   const primaryTab = resourceLayout.tabs.find(tab=>tab.id===active.primary)
-  const primaryEmpty = !primaryTab || (docked && primaryTab.kind==='chat')
-  const secondaryColumns = secondaryOpen?`auto ${secondaryWidth}px`:'0px 0px'
+  const primaryEmpty = !primaryTab || ((docked || chatFloat) && primaryTab.kind==='chat')
+  const secondaryColumns = secondaryOpen&&!sideFloating?`auto ${secondaryWidth}px`:'0px 0px'
+  const secondaryStyle = (part:'header'|'body') => sideFloating ? floatPart(sideRect, part, FLOAT_HEADER, zOf('side')) : {gridArea: part==='header' ? 'secondaryTabs' : 'secondaryBody'}
   const grid = docked
     ? {gridTemplateColumns:`${dockWidth}px auto minmax(0, 1fr) ${secondaryColumns}`,gridTemplateAreas:'"dockTabs dockDivider primaryTabs divider secondaryTabs" "dockBody dockDivider primaryBody divider secondaryBody"'}
     : {gridTemplateColumns:`minmax(0, 1fr) ${secondaryColumns}`}
@@ -135,18 +163,21 @@ export function ResourceWorkbench({projects,onQuote,onOpenSession,secondaryWidth
     {docked&&<DockHeader/>}
     {docked&&<div style={{gridArea:'dockDivider'}}><ResizeHandle orientation="v" onDraggingChange={onDraggingChange} onDelta={delta=>setDockWidth(w=>Math.max(DOCK.min,Math.min(DOCK.max,w+delta)))}/></div>}
     {activeNav==='chat'?<ResourceTabs area="primary"/>:<div className="flex h-panel-header items-center border-b border-line px-3" style={{gridArea:'primaryTabs'}}><h1 className="font-display text-[14px] font-semibold tracking-tight">{tr(NAV_ITEMS.find(n=>n.id===activeNav)?.label||'')}</h1></div>}
-    <div hidden={!secondaryOpen} style={{gridArea:'secondaryTabs'}}><ResourceTabs area="secondary"/></div>
-    <div hidden={!secondaryOpen} style={{gridArea:'divider'}}><ResizeHandle orientation="v" onDelta={onResize} onDraggingChange={onDraggingChange}/></div>
-    <section key="conversation" hidden={!chat||!isVisible(chat)} className="resource-body" style={{gridArea:docked?'dockBody':(chat?.area||'primary')+'Body'}}>
+    {chatFloat&&<FloatFrame rect={chatRect} onRect={setChatRect} z={zOf('chat')} label={zh?'讨论窗口':'Discussion window'}/>}
+    {chatFloat&&<FloatChatHeader rect={chatRect} onRect={setChatRect} z={zOf('chat')} onRaise={()=>setFront('chat')}/>}
+    {sideFloating&&<FloatFrame rect={sideRect} onRect={setSideRect} z={zOf('side')} label={zh?'并排区窗口':'Side pane window'}/>}
+    <div hidden={!secondaryOpen} style={secondaryStyle('header')} {...(sideFloating?raise('side'):{})}><ResourceTabs area="secondary" floating={sideFloating?{rect:sideRect,onRect:setSideRect}:undefined}/></div>
+    <div hidden={!secondaryOpen||sideFloating} style={{gridArea:'divider'}}><ResizeHandle orientation="v" onDelta={onResize} onDraggingChange={onDraggingChange}/></div>
+    <section key="conversation" hidden={!chat||!isVisible(chat)} className="resource-body" {...(chatFloat?raise('chat'):{})} style={chatFloat?floatPart(chatRect,'body',FLOAT_HEADER,zOf('chat')):{gridArea:docked?'dockBody':(chat?.area||'primary')+'Body'}}>
       <Chat projects={projects} active={Boolean(chat&&isVisible(chat))}/>
     </section>
-    {resourceLayout.tabs.filter(tab=>tab.kind!=='chat').map(tab=><section key={tab.id} id={`resource-${tab.id}`} hidden={!isVisible(tab)} className="resource-body" data-resource-id={tab.id} data-resource-kind={tab.kind} style={{gridArea:tab.area+'Body'}}>
+    {resourceLayout.tabs.filter(tab=>tab.kind!=='chat').map(tab=><section key={tab.id} id={`resource-${tab.id}`} hidden={!isVisible(tab)} className="resource-body" data-resource-id={tab.id} data-resource-kind={tab.kind} {...(tab.area==='secondary'&&sideFloating?raise('side'):{})} style={tab.area==='secondary'?secondaryStyle('body'):{gridArea:tab.area+'Body'}}>
       <ResourceBody tab={tab} active={isVisible(tab)} onQuote={onQuote}/>
     </section>)}
     {visited.filter(id=>id!=='chat').map(id=><section key={id} hidden={id!==activeNav} className="resource-body" style={{gridArea:'primaryBody'}}>
       {id==='workflow'?<Workflow projectId={projectId||null} onQuote={onQuote} onOpenSession={onOpenSession}/>:id==='settings'?<Settings/>:<Knowledge onQuote={onQuote}/>}
     </section>)}
-    {activeNav==='chat'&&primaryEmpty&&(docked?<div className="grid place-content-center p-6" style={{gridArea:'primaryBody'}} data-xgc-role="dock-primary-empty">
+    {activeNav==='chat'&&primaryEmpty&&(docked||chatFloat?<div className="grid place-content-center p-6" style={{gridArea:'primaryBody'}} data-xgc-role="dock-primary-empty">
       <div className="max-w-sm">
         <p className="font-display text-[18px] tracking-tight">{zh?'在讨论旁打开研究对象':'Open research objects beside the discussion'}</p>
         <p className="mt-2 text-secondary text-ink-3">{zh?'讨论停靠在左侧；这里放研究画布、大纲或文件，并排区放 PDF 与制品。':'The discussion stays docked on the left. Put the canvas, outline or files here, and PDFs or artifacts in the side area.'}</p>
@@ -158,7 +189,7 @@ export function ResourceWorkbench({projects,onQuote,onOpenSession,secondaryWidth
         {!projectId&&<p className="mt-3 text-caption text-ink-3">{zh?'选择一个项目后可打开它的研究画布。':'Select a project to open its research canvas.'}</p>}
       </div>
     </div>:<div className="grid place-content-center p-6" style={{gridArea:'primaryBody'}}><Button onClick={showConversation}>{zh?'打开讨论':'Open discussion'}</Button></div>)}
-    {secondaryOpen&&secondaryEmpty&&<div className="min-h-0 overflow-auto" style={{gridArea:'secondaryBody'}}>
+    {secondaryOpen&&secondaryEmpty&&<div className="min-h-0 overflow-auto" style={secondaryStyle('body')}>
       {projectId&&preview.status!=='idle'&&preview.status!=='ready'?<WritingPreview preview={preview} onRetry={preview.reload}/>:<p className="p-6 text-secondary text-ink-3">{zh?'打开文件、笔记或研究内容，在此并排工作。':'Open a file, note or research content here.'}</p>}
     </div>}
   </div>

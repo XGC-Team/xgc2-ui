@@ -1,4 +1,5 @@
 import { projectObjectCopy } from '../features/projects/project-object-copy'
+import {ArtifactShelf} from '../features/artifacts/ArtifactShelf'
 import {useStartRevisionThread} from '../features/revision/useRevisionThread'
 import { fileTarget } from '../features/projects/project-object-model'
 import {t as tr} from '../i18n'
@@ -48,7 +49,7 @@ export function Sidebar({projects,onRefresh,loading,error}:{projects:Project[];o
   <Button size="xs" icon={MessageSquarePlus} onClick={()=>{setExpanded(s=>({...s,[p.id]:true}));void startRevision(p.id)}}>{locale==='zh'?'新建修订线程':'New revision thread'}</Button>
   <Button size="xs" icon={IconCanvas} onClick={()=>{setExpanded(s=>({...s,[p.id]:true}));openCanvas(p.id)}}>{projectObjectCopy[locale].canvas}</Button>
   <Button size="xs" icon={FolderOpen} onClick={()=>{setProjectId(p.id);setExpanded(s=>({...s,[p.id]:true}));openResource({kind:'file',target:fileTarget(p.id,p.id)})}}>{tr("项目文件")}</Button>
- </RightMore></div></div>{open&&threads(p.id)}</section>})}
+ </RightMore></div></div>{open&&threads(p.id)}{open&&active&&<ArtifactShelf project={p.id}/>}</section>})}
  {loading&&!projects.length&&<p className="px-2.5 py-2 text-caption text-ink-3">{tr("正在读取项目…")}</p>}
  <button className="mt-3 px-2.5 text-caption text-ink-3 transition-colors hover:text-ink-2" onClick={()=>setArchived(!archived)}>{archived?tr("隐藏已归档线程"):tr("显示已归档线程")}</button>
  </>}

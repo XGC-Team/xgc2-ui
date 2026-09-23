@@ -80,6 +80,9 @@ export const useWorkbench = create<{
   settingsFocus:{section:SettingsSection;nonce:number}|null; openSettings:(section?:SettingsSection)=>void
   /* 讨论停靠：Chat 固定为主区左侧一列，主区与并排区同时承载画布与制品——Chat | 画布 | 制品 三栏同时可用 */
   chatDock:boolean; setChatDock:(docked:boolean)=>void
+  /* 可分离面板：讨论与并排区都可浮动为窗口并随时回停；浮动只换几何，不重挂内容 */
+  chatFloat:boolean; setChatFloat:(floating:boolean)=>void
+  sideFloat:boolean; setSideFloat:(floating:boolean)=>void
 }>((set,get)=>({
   pendingPersistenceError:restoredPending.error,
   reviewScopes:Object.fromEntries(restoredPending.intents.reviewIntents.map(item=>[item.scope.projectId,{...item.scope}])),
@@ -157,7 +160,7 @@ export const useWorkbench = create<{
   showConversation:()=>{
     // Docked discussion is always visible beside the primary area; revealing it must not blank the primary tab.
     const s=get()
-    if(s.chatDock){
+    if(s.chatDock||s.chatFloat){
       if(!s.resourceLayout.tabs.some(t=>t.projectId===s.projectId&&t.kind==='chat')){const content=s.resourceLayout.active[s.projectId]?.primary;s.openResource({kind:'chat'},'primary');if(content)get().activateResource(content)}
       set({activeNav:'chat'});return
     }
@@ -203,8 +206,21 @@ export const useWorkbench = create<{
       const fallback=s.resourceLayout.tabs.filter(t=>t.projectId===s.projectId&&t.area===chat.area&&t.id!==chat.id).at(-1)
       if(fallback)s.activateResource(fallback.id)
     }
-    set({chatDock,activeNav:'chat'})
+    set({chatDock,chatFloat:false,activeNav:'chat'});writePreference('research-ui-chat-float','docked')
   },
+  chatFloat:readPreference('research-ui-chat-float')==='floating',
+  setChatFloat:(chatFloat)=>{
+    writePreference('research-ui-chat-float',chatFloat?'floating':'docked')
+    const s=get(),chat=s.resourceLayout.tabs.find(t=>t.projectId===s.projectId&&t.kind==='chat')
+    // Floating the conversation frees its tab slot: the area falls back to its last content tab, like docking.
+    if(chatFloat&&chat&&s.resourceLayout.active[s.projectId]?.[chat.area]===chat.id){
+      const fallback=s.resourceLayout.tabs.filter(t=>t.projectId===s.projectId&&t.area===chat.area&&t.id!==chat.id).at(-1)
+      if(fallback)s.activateResource(fallback.id)
+    }
+    set({chatFloat})
+  },
+  sideFloat:readPreference('research-ui-side-float')==='floating',
+  setSideFloat:(sideFloat)=>{writePreference('research-ui-side-float',sideFloat?'floating':'docked');set({sideFloat,secondaryOpen:true})},
   projectId:readPreference('research-ui-project')||'',setProjectId:(projectId)=>{writePreference('research-ui-project',projectId);if(projectId.trim())rememberRecentProject(projectId);set({projectId,chatSurface:projectId.trim()?'writing':'home'})},
 }))
 

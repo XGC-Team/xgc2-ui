@@ -13,6 +13,11 @@ import {decodeAnnotation} from './pdf-annotations'
 import {listPDFVersions} from './manuscript'
 import {ReadingBridge} from '../projects/ReadingBridge'
 import {inspectKnowledgeResource, type KnowledgeEdge} from './academic-graph'
+import {newContextItem} from '../projects/context-model'
+import {readDesignFocus,requestDesignFocus} from '../projects/design-focus'
+import {sharedContentSession} from '../content/useContentDocument'
+import {CARD_TYPE_LABELS,cardType,type ContentObject} from '../content/content-model'
+import {addObjectSource,editFailureCopy,editResearchContent} from '../revision/revision-actions'
 const splitFrontmatter=(raw:string)=>{const m=raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);if(!m)return{meta:[],body:raw};const meta=m[1].split('\n').map(l=>l.match(/^(\w[\w-]*)\s*:\s*(.+)$/)).filter(Boolean) as RegExpMatchArray[];return{meta:meta.map(x=>({key:x[1],value:x[2].trim()})),body:raw.slice(m[0].length)}}
 const wikilink=(raw:string)=>raw.replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g,(_m,target:string,alias:string)=>`[${alias||target}](#wiki/${encodeURIComponent(target.trim())})`)
 export function MarkdownView({content}:{content:string}){
@@ -54,7 +59,8 @@ export function MarkdownView({content}:{content:string}){
  </>
 }
 export function Reader({onQuote}:{onQuote?:(text:string)=>void}){
- const {readingDocument:doc,closeDocument,activeNav}=useWorkbench()
+ const {readingDocument:doc,closeDocument,activeNav,projectId,addContextItem,locale}=useWorkbench();const zh=locale==='zh'
+ const [linkNote,setLinkNote]=useState('')
  const [content,setContent]=useState(''),[digest,setDigest]=useState(''),[error,setError]=useState(''),[loading,setLoading]=useState(false)
  useEffect(()=>{setContent('');setDigest('');setError('');if(!doc)return;const c=new AbortController();setLoading(true)
   request<{content:string;digest:string}>(`/workspaces/${encodeURIComponent(doc.workspace)}/files/${doc.path.split('/').map(encodeURIComponent).join('/')}`,{signal:c.signal}).then(d=>{if(typeof d?.content!=='string'||typeof d.digest!=='string'||!d.digest)throw Error('Invalid file response.');if(!c.signal.aborted){setContent(d.content);setDigest(d.digest)}}).catch(e=>{if(!c.signal.aborted)setError(e.message)}).finally(()=>{if(!c.signal.aborted)setLoading(false)})
@@ -71,12 +77,20 @@ export function Reader({onQuote}:{onQuote?:(text:string)=>void}){
   <article className="min-h-0 flex-1 overflow-auto"><div className="mx-auto w-full max-w-[720px] px-8 pb-20 pt-10">
    <header className="mb-8"><div className="flex items-center justify-between gap-3">
     <p className="min-w-0 truncate text-caption text-ink-3">{doc.path}</p>
+    {/* Obsidian 式链接语法：笔记 → 对话上下文（版本化引用）/ 当前选中的画布卡片 */}
+    {digest&&projectId&&<span className="flex shrink-0 gap-0.5">
+     <button type="button" data-xgc-role="note-to-context" className="flex h-6 items-center rounded-md px-2 text-caption text-ink-3 hover:bg-hover hover:text-ink-2" onClick={()=>{addContextItem(newContextItem({project:projectId,kind:'source',label:doc.title,ref:`${doc.workspace}/${doc.path}`,digest,excerpt:splitFrontmatter(content).body.slice(0,200),source:{id:doc.path,path:doc.path,workspace:doc.workspace,digest}}));setLinkNote(zh?'已加入对话上下文（未发送）。':'Added to chat context (not sent).')}}>{zh?'加入对话':'Add to chat'}</button>
+     <button type="button" data-xgc-role="note-to-card" className="flex h-6 items-center rounded-md px-2 text-caption text-ink-3 hover:bg-hover hover:text-ink-2" onClick={()=>{const focus=readDesignFocus(),card=focus?.project===projectId?focus.cardIds[0]:undefined
+      if(!card){setLinkNote(zh?'先在研究画布中选中一张卡片。':'Select a card on the research canvas first.');return}
+      void editResearchContent({projectId,workspace:projectId},d=>addObjectSource(d,card,{kind:'knowledge',workspace:doc.workspace,path:doc.path,digest,title:doc.title})).then(r=>setLinkNote(r.ok?(zh?'已链接到所选卡片。':'Linked to the selected card.'):editFailureCopy(r,locale)))}}>{zh?'链接到所选卡片':'Link to selected card'}</button>
+    </span>}
     <button type="button" onClick={closeDocument} className="flex h-6 shrink-0 items-center gap-1.5 rounded-md px-2 text-caption text-ink-3 hover:bg-hover" title={tr('返回图谱')}><IconGraph size={12} strokeWidth={1.75}/>{tr('图谱')}</button>
-   </div><h1 className="mt-2 font-display text-display-md leading-display-loose tracking-tight">{doc.title}</h1>
+   </div>{linkNote&&<p role="status" className="mt-1 text-caption text-ink-3">{linkNote}</p>}<h1 className="mt-2 font-display text-display-md leading-display-loose tracking-tight">{doc.title}</h1>
     {meta.length>0&&<dl className="mt-4 flex flex-wrap gap-x-6 gap-y-1.5">{meta.map(m=><div key={m.key} className="flex gap-2 text-caption"><dt className="text-ink-3">{m.key}</dt><dd className="text-ink-2">{m.value}</dd></div>)}</dl>}
    </header>
    {loading?<p role="status" className="text-ink-3">{tr("正在读取…")}</p>:!error&&digest&&<ReadingBridge active={activeNav==='knowledge'} source={{id:'knowledge',workspace:doc.workspace,path:doc.path,digest}}><div className="research-document break-words text-body leading-[1.75] text-ink-2"><MarkdownView content={content}/></div></ReadingBridge>}
    {digest&&<KnowledgeRelations path={doc.path}/>}
+   {digest&&projectId&&<CanvasBacklinks project={projectId} path={doc.path}/>}
   </div></article>
  </div>
 }
@@ -104,5 +118,22 @@ function KnowledgeRelations({path}:{path:string}){
   <ul className="mt-2 space-y-1 text-caption">{outgoing.length?outgoing.map(edge=>row(edge,'target')):<li className="text-ink-3">{tr('没有出链。')}</li>}</ul>
   <h2 className="mt-4 text-caption font-medium text-ink-3">{tr('回链')}</h2>
   <ul className="mt-2 space-y-1 text-caption">{incoming.length?incoming.map(edge=>row(edge,'source')):<li className="text-ink-3">{tr('没有回链。')}</li>}</ul>
+ </section>
+}
+
+/** Cards in the current project that cite this note — the canvas side of the link, like Obsidian backlinks. */
+function CanvasBacklinks({project,path}:{project:string;path:string}){
+ const {locale,openResource}=useWorkbench();const zh=locale==='zh'
+ const [cards,setCards]=useState<ContentObject[]|null>(null)
+ useEffect(()=>{let live=true
+  try{const session=sharedContentSession({projectId:project,workspace:project})
+   const read=()=>{if(live)setCards((session.snapshot().value?.objects??[]).filter(o=>o.sources.some(s=>s.kind==='knowledge'&&s.path===path)))}
+   if(session.snapshot().status==='loading')void session.load().then(read).catch(()=>setCards([]));else read()
+  }catch{setCards([])}
+  return()=>{live=false}},[project,path])
+ if(!cards?.length)return null
+ return <section className="mt-6" aria-label={zh?'画布引用':'Canvas backlinks'} data-xgc-role="canvas-backlinks">
+  <h2 className="text-caption font-medium text-ink-3">{zh?`画布引用 · ${project}`:`Canvas backlinks · ${project}`}</h2>
+  <ul className="mt-2 space-y-1 text-caption">{cards.map(card=><li key={card.id}><button type="button" className="ui-wikilink" onClick={()=>{openResource({kind:'research',workspace:project,view:'canvas'},'primary');requestDesignFocus(project,[card.id])}}>{card.title}</button><span className="ml-2 text-ink-3">{CARD_TYPE_LABELS[locale][cardType(card)]}</span></li>)}</ul>
  </section>
 }
