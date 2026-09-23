@@ -1,5 +1,6 @@
 import { CARD_TYPES, CONTENT_PATH, cardType, cardTypeFields, isCardType, type CardType, type ContentDocument, type ContentObject, type ContentRelation } from '../content/content-model'
 import { SEMANTIC_RELATIONS, type SemanticRelation } from '../projects/canvas-model'
+import type { DraftBlock, DraftSource, ResearchDraft } from '../projects/draft-model'
 
 /* Review-driven revision on the one research content document.
    Reviewer comments become `revision` objects; agents propose canvas patches that a human accepts or rejects.
@@ -228,5 +229,30 @@ export function annotationCard(input: { annotationId: string; id: string; pdf: {
     body: input.comment.trim() + (quote ? `\n\n> ${quote.replace(/\n/g, '\n> ')}` : ''),
     annotationId: input.annotationId,
     sources: [{ kind: 'file', workspace: input.pdf.workspace, path: input.pdf.path, digest: input.pdf.digest, selector: { page: input.page, ...(quote ? { quote } : {}), ...(input.pdf.buildId ? { buildId: input.pdf.buildId } : {}) } }],
+  }
+}
+
+// ---------- revision → outputs (same objects, existing draft/artifact pipeline) ----------
+
+/** A response-to-reviewers letter (paper draft) or talk slides built from the revision and decision cards.
+ * Blocks cite the cards by id at the observed content revision; the drafts editor and ArtifactStudio take it from there. */
+export function revisionOutputDraft(input: { document: ContentDocument; kind: 'paper' | 'slides'; locale: 'zh' | 'en'; digest?: string; at: Date; makeId?: () => string }): ResearchDraft {
+  const { document, kind, locale } = input, zh = locale === 'zh', makeId = input.makeId ?? (() => crypto.randomUUID())
+  const at = input.at.toISOString()
+  const decisionsFor = (id: string) => document.relations.filter(r => r.to.id === id || r.from.id === id)
+    .map(r => document.objects.find(o => o.id === (r.to.id === id ? r.from.id : r.to.id)))
+    .filter((o): o is ContentObject => Boolean(o) && cardType(o!) === 'decision')
+  const items = document.objects.filter(o => cardType(o) === 'revision')
+  const sources: DraftSource[] = items.map(o => ({ id: o.id, path: CONTENT_PATH, workspace: document.workspace, ...(input.digest ? { digest: input.digest } : {}), excerpt: o.title }))
+  const blocks: DraftBlock[] = items.map((item): DraftBlock => {
+    const answers = decisionsFor(item.id)
+    const answer = answers.map(d => `${d.title}${d.body ? `\n${d.body}` : ''}`).join('\n\n')
+    return kind === 'paper'
+      ? { id: makeId(), title: item.title, role: 'section', sourceIds: [item.id], fields: { purpose: item.body ?? item.title, argument: answer, evidence: '', constraints: item.status ?? 'open' } }
+      : { id: makeId(), title: item.title, sourceIds: [item.id], fields: { message: answers[0]?.title ?? item.title, visual: '', speakerNotes: [item.body ?? '', answer].filter(Boolean).join('\n\n') } }
+  })
+  return {
+    id: makeId(), kind, status: 'draft', createdAt: at, updatedAt: at, blocks, sources,
+    title: kind === 'paper' ? (zh ? '审稿意见回复信' : 'Response to reviewers') : (zh ? '修订答辩幻灯片' : 'Revision talk slides'),
   }
 }

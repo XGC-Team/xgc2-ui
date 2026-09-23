@@ -108,3 +108,21 @@ describe('PDF annotation → canvas card', () => {
     expect(card.sources).toEqual([{ kind: 'file', workspace: 'paper-tro', path: 'paper.pdf', digest: 'sha256:pdf', selector: { page: 3, quote: 'bounded step', buildId: 'b1' } }])
   })
 })
+
+describe('revision → outputs', () => {
+  it('builds a response letter and talk slides from the same cards that the draft book accepts', async () => {
+    const { revisionOutputDraft } = await import('../src/features/revision/revision-model')
+    const { parseDraftBook } = await import('../src/features/projects/draft-model')
+    const { projectDraftBook } = await import('../src/features/content/content-model')
+    const base: ContentDocument = { ...emptyContent(scope), objects: [{ id: 'rev', kind: 'question', role: 'revision', title: 'R1.1', body: 'Bound alpha.', sources: [], status: 'planned' }], views: { canvas: { placements: [{ objectId: 'rev', x: 48, y: 40 }] }, outlines: [] } }
+    const withDecision = applyCanvasPatch(base, { ops: [{ op: 'add-card', ref: 'd', kind: 'decision', title: 'Add projection step', body: 'Clip alpha to 0.95.' }, { op: 'add-relation', from: 'd', to: 'rev', relation: 'depends' }] }, ids())
+    const at = new Date('2026-09-24T08:00:00Z'), makeId = ids()
+    const letter = revisionOutputDraft({ document: withDecision, kind: 'paper', locale: 'en', digest: 'sha256:c', at, makeId })
+    expect(letter).toMatchObject({ kind: 'paper', title: 'Response to reviewers', sources: [{ id: 'rev', path: 'research-content.json', digest: 'sha256:c' }] })
+    expect(letter.blocks[0].fields).toEqual({ purpose: 'Bound alpha.', argument: 'Add projection step\nClip alpha to 0.95.', evidence: '', constraints: 'planned' })
+    const slides = revisionOutputDraft({ document: withDecision, kind: 'slides', locale: 'en', at, makeId })
+    expect(slides.blocks[0].fields.message).toBe('Add projection step')
+    const book = projectDraftBook({ ...withDecision, artifacts: [letter, slides] })
+    expect(parseDraftBook(JSON.stringify(book), scope).drafts).toHaveLength(2)
+  })
+})

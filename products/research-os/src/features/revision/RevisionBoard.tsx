@@ -12,7 +12,7 @@ import { LinkedKnowledge } from './FindingCapture'
 import { useProposals, type CanvasProposal, type ProposalOrigin } from './proposal-store'
 import { editFailureCopy, editResearchContent } from './revision-actions'
 import {
-  REVISION_STATUSES, addRevisionItems, applyCanvasPatch, extractCanvasPatches, sampleRevisionProposal, splitReviewComments, validateCanvasPatch,
+  REVISION_STATUSES, addRevisionItems, applyCanvasPatch, extractCanvasPatches, revisionOutputDraft, sampleRevisionProposal, splitReviewComments, validateCanvasPatch,
   type CanvasPatch, type PatchOp,
 } from './revision-model'
 import { sessionProject, useStartRevisionThread } from './useRevisionThread'
@@ -30,6 +30,7 @@ const COPY: Record<'zh' | 'en', Copy> = {
     accept: '接受并写入', reject: '拒绝', pending: '待审', applied: '已应用', rejected: '已拒绝', clear: '清除已处理',
     origin_agent: 'Agent 回复', origin_pasted: '粘贴的回复', origin_sample: '规则示例',
     appliedAt: '已写入研究内容 {rev}',
+    outputs: '输出', outputsHint: '回复信与答辩幻灯片从同一批修订项与决策卡生成，进入项目草稿；幻灯片可在草稿中定义 pptx / 视频 / Remotion 制品，渲染依赖制品工作器，不可用时会如实显示，不假装已生成。', letter: '起草审稿回复信', slides: '起草答辩幻灯片',
   },
   en: {
     start: 'New revision thread', startHint: 'Docks the discussion and drafts a message with the revision items and the proposal format (not sent).',
@@ -42,6 +43,7 @@ const COPY: Record<'zh' | 'en', Copy> = {
     accept: 'Accept and write', reject: 'Reject', pending: 'Pending', applied: 'Applied', rejected: 'Rejected', clear: 'Clear decided',
     origin_agent: 'Agent reply', origin_pasted: 'Pasted reply', origin_sample: 'Rule-based sample',
     appliedAt: 'Written to research content {rev}',
+    outputs: 'Outputs', outputsHint: 'The response letter and talk slides are built from the same revision items and decision cards as project drafts; slides can define pptx / video / Remotion artifacts in the draft, rendered by the artifact worker, which says so when unavailable rather than pretending.', letter: 'Draft response letter', slides: 'Draft talk slides',
   },
 }
 const fill = (text: string, values: Record<string, string | number>) => text.replace(/\{(\w+)\}/g, (_, key) => String(values[key] ?? ''))
@@ -66,7 +68,7 @@ function describeOp(op: PatchOp, document: ContentDocument, locale: 'zh' | 'en',
 export function RevisionBoard({ project, workspace, document, digest, dirty, editable, onView }: {
   project: string; workspace: string; document: ContentDocument; digest: string; dirty: boolean; editable: boolean; onView: (view: 'canvas') => void
 }) {
-  const { locale, addContextItem } = useWorkbench()
+  const { locale, addContextItem, selectResearchDraft } = useWorkbench()
   const c = COPY[locale], zh = locale === 'zh'
   const native = useNativeAgentSession()
   const startThread = useStartRevisionThread()
@@ -106,6 +108,13 @@ export function RevisionBoard({ project, workspace, document, digest, dirty, edi
   }
   const fromPaste = () => { record(extractCanvasPatches(pasted), 'pasted', zh ? '粘贴的回复' : 'Pasted reply', `pasted:${pasted.length}`); setPasted(''); setPasting(false) }
   const sample = () => { const patch = sampleRevisionProposal(document, locale); if (!patch) { setNote(c.noSample); return } record([{ patch }], 'sample', c.origin_sample, `sample:${digest}`) }
+  const draftOutput = async (kind: 'paper' | 'slides') => {
+    setBusy(kind)
+    const draft = revisionOutputDraft({ document, kind, locale, digest: digest || undefined, at: new Date() })
+    const result = await editResearchContent(scope, d => ({ ...d, artifacts: [...d.artifacts, draft] }), true)
+    setBusy('')
+    if (result.ok) selectResearchDraft(scope, draft.id, kind); else report(result)
+  }
   const accept = async (proposal: CanvasProposal) => {
     setBusy(proposal.id)
     let failure = ''
@@ -183,6 +192,13 @@ export function RevisionBoard({ project, workspace, document, digest, dirty, edi
           </li>
         })}
       </ul>
+
+      <Rule>{c.outputs}</Rule>
+      <p className="mb-2 text-caption text-ink-3">{c.outputsHint}</p>
+      <div className="flex flex-wrap gap-1" data-xgc-role="revision-outputs">
+        <Button size="xs" variant="outline" disabled={!editable || !items.length} loading={busy === 'paper'} onClick={() => void draftOutput('paper')}>{c.letter}</Button>
+        <Button size="xs" disabled={!editable || !items.length} loading={busy === 'slides'} onClick={() => void draftOutput('slides')}>{c.slides}</Button>
+      </div>
     </div>
   </div>
 }
