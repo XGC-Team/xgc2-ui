@@ -1,5 +1,6 @@
 import type { AgentSettings } from '@xgc2/agent-runtime/react'
 import { agentRoster, agentRosterSummary } from './agent-readiness'
+import type { RendererObservation } from '../artifacts/renderer-gate'
 
 /**
  * One calm status line for environment gates (VS Code status bar grammar).
@@ -9,7 +10,7 @@ import { agentRoster, agentRosterSummary } from './agent-readiness'
 export type Capability = { available: boolean; detail?: string }
 export type Capabilities = { latex?: Capability; workspace?: Capability }
 export type StatusSegment = {
-  id: 'backend' | 'agent' | 'latex'
+  id: 'backend' | 'agent' | 'latex' | 'renderer'
   label: string
   /** 'ok' renders quietly; 'gate' gets a hollow dot and the detail in its tooltip. */
   tone: 'ok' | 'gate'
@@ -23,6 +24,8 @@ export function environmentStatus(input: {
   settingsError?: string
   capabilities: Capabilities | null
   capabilitiesError?: string
+  /** Not advertised by the service; present only once an explicit build request showed it. */
+  renderer?: RendererObservation
 }): StatusSegment[] {
   const zh = input.locale === 'zh'
   const out: StatusSegment[] = []
@@ -40,5 +43,8 @@ export function environmentStatus(input: {
   if (latex) out.push(latex.available
     ? { id: 'latex', tone: 'ok', label: zh ? 'LaTeX 可构建' : 'LaTeX builds on', detail: latex.detail || '' }
     : { id: 'latex', tone: 'gate', label: zh ? 'LaTeX 构建关闭' : 'LaTeX builds off', detail: latex.detail || '' })
+  const renderer = input.renderer
+  if (renderer?.state === 'unavailable') out.push({ id: 'renderer', tone: 'gate', label: zh ? '制品渲染不可用' : 'Artifact renderer unavailable', detail: `${zh ? '观察于' : 'Observed at'} ${renderer.at} · ${renderer.detail}` })
+  else if (renderer?.state === 'rendered') out.push({ id: 'renderer', tone: 'ok', label: zh ? '制品渲染可用' : 'Artifact renderer answered', detail: `${zh ? '观察于' : 'Observed at'} ${renderer.at}` })
   return out
 }

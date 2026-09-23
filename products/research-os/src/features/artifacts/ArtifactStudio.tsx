@@ -4,6 +4,7 @@ import { artifactPaths, kindFromDraft, markdownFromDraft, parseArtifactDefinitio
 import { artifactView, selectArtifactBuild, verifyArtifactBytes, type ArtifactFile, type ArtifactIdentity, type ArtifactView } from './artifact-record'
 import { definitionForSavedDraft, loadArtifactView, readWorkspaceFile, requestArtifactBuild, saveArtifactSources, type ArtifactObservation } from './artifact-api'
 import type { DraftScope, ResearchDraft } from '../projects/draft-model'
+import { classifyBuildRefusal, observeRenderer, useRendererObservation } from './renderer-gate'
 
 type Props = { scope: DraftScope; draft: ResearchDraft; saved: boolean; locale: 'zh' | 'en'; onOpenPDF?: (file: ArtifactFile) => void }
 export function ArtifactStudio(props: Props) {
@@ -59,24 +60,29 @@ function ArtifactStudioInstance({ scope, draft, saved, locale, onOpenPDF }: Prop
         if (controller.signal.aborted) return
         setView(previous => artifactView([build.record, ...previous.builds.filter(item => item.buildId !== build.buildId).map(item => item.record)], identity))
         setNotice(label(`收到构建终态：${build.status}。`, `Build receipt: ${build.status}.`))
+        observeRenderer({ rendered: true })
       }
     } catch (reason) {
       if (!controller.signal.aborted) {
-        setError(`${String(reason)} ${label('未取得完整确定回执；先刷新源稿和账本核对。不会自动重复保存或提交。', 'No complete receipt. Refresh source and ledger before retrying; no automatic resubmission.')}`)
-        setUncertain(true)
+        const refusal = classifyBuildRefusal(reason)
+        // A definitive "renderer unavailable" means nothing was built: say so plainly, keep the form usable.
+        if (refusal.kind === 'renderer-unavailable') { observeRenderer({ unavailable: refusal.detail }); setError(label('渲染器不可用：后端拒绝了这次生成，没有产生任何文件。定义与源稿已保存。', 'Renderer unavailable: the service refused this generation and produced no file. The definition and source are saved.')) }
+        else {
+          setError(`${refusal.detail} ${label('未取得完整确定回执；先刷新源稿和账本核对。不会自动重复保存或提交。', 'No complete receipt. Refresh source and ledger before retrying; no automatic resubmission.')}`)
+          setUncertain(true)
+        }
       }
     } finally {
       if (!controller.signal.aborted) setBusy(false)
       if (operation.current === controller) operation.current = null
     }
   }
+  const renderer = useRendererObservation()
   const build = selectArtifactBuild(view, selected)
   const skipped = unpinnedSources(draft)
   return <section className="space-y-3" data-artifact-studio={draft.id} data-artifact-phase={view.phase} data-scientific-status={view.scientific}>
-    <h3 className="text-secondary text-ink-2">{label('非 LaTeX 制品', 'Non-LaTeX artifacts')}</h3>
-    <p className="text-caption text-ink-3">{label('只在显式生成时调用公共构建链。历史成功不代表当前表单已生成；打开页面不会编译、提交 Git 或启动实验。', 'Only explicit generation calls the common builder. Historical success does not mean the current form is generated. Opening this page does not compile, commit Git or start an experiment.')}</p>
-    <p className="break-all text-caption">{scope.workspace}/{paths.definition}</p>
-    <p role="status">{label('最近构建状态', 'Latest build status')}：{view.phase} · {label('科学验证：未声称', 'Scientific validation: not claimed')}</p>
+    <h3 className="text-secondary text-ink-2" title={label('只在显式生成时调用公共构建链。历史成功不代表当前表单已生成；打开页面不会编译、提交 Git 或启动实验。', 'Only explicit generation calls the common builder. Historical success does not mean the current form is generated. Opening this page does not compile, commit Git or start an experiment.')}>{label('渲染为 PPTX / 视频', 'Render to PPTX / video')}</h3>
+    <p role="status" className="text-caption text-ink-3" title={`${scope.workspace}/${paths.definition}`}>{label('最近构建', 'Latest build')}：{view.phase} · {renderer.state === 'unavailable' ? label('渲染器不可用（已观察）', 'renderer unavailable (observed)') : renderer.state === 'rendered' ? label('渲染器已返回回执', 'renderer returned a receipt') : label('渲染器状态待首次请求', 'renderer state known after a request')} · {label('科学验证：未声称', 'scientific validation: not claimed')}</p>
     {view.laterFailure && <p role="status">{label('后续请求失败或取消，保留上次成功产物。', 'A later request failed or was cancelled; the previous successful artifact remains available.')}</p>}
     {!saved && <p role="status">{label('先保存研究对象，再生成制品。', 'Save the research object before generating.')}</p>}
     {skipped.length > 0 && <p>{label('这些来源缺少固定字节版本，未作为证据依赖', 'These sources have no pinned byte version and are not evidence dependencies')}: {skipped.join(', ')}</p>}
@@ -91,7 +97,7 @@ function ArtifactStudioInstance({ scope, draft, saved, locale, onOpenPDF }: Prop
     </>}
     <div className="flex flex-wrap gap-1">
       <Button size="xs" disabled={!saved || busy || !observation || uncertain} onClick={() => void run(false)}>{label('保存定义与源稿', 'Save definition/source')}</Button>
-      <Button size="xs" variant="solid" disabled={!saved || busy || !observation || uncertain} onClick={() => void run(true)}>{label('生成制品', 'Generate artifact')}</Button>
+      <Button size="xs" variant="solid" disabled={!saved || busy || !observation || uncertain} title={renderer.state === 'unavailable' ? label('本次会话中渲染器曾被拒绝；可再试一次。', 'The renderer was refused earlier in this session; you may try again.') : undefined} onClick={() => void run(true)}>{renderer.state === 'unavailable' ? label('再试生成', 'Try generating again') : label('生成制品', 'Generate artifact')}</Button>
       <Button size="xs" disabled={busy} onClick={() => setRevision(value => value + 1)}>{label('重新读取源稿与账本', 'Reload source and ledger')}</Button>
     </div>
     {busy && <p role="status">{label('正在等待公共保存／构建回执；没有声称成功。', 'Waiting for the common save/build receipt; success is not claimed.')}</p>}

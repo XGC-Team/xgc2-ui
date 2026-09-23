@@ -4,6 +4,7 @@ import { useWorkbench } from '../store'
 import { useNativeAgentSession } from '../features/chat/Session'
 import { environmentStatus, type Capabilities } from '../features/chat/environment-status'
 import { cn } from '../lib/cn'
+import { useRendererObservation } from '../features/artifacts/renderer-gate'
 
 /* 窗口底部唯一一行环境状态（VS Code 状态栏语法）：Agent、LaTeX、研究服务。
    各页面不再各自铺开环境警告；详情在悬停提示里，可操作的项点开对应设置。 */
@@ -24,7 +25,8 @@ export function StatusBar() {
     window.addEventListener('focus', read)
     return () => { controller.abort(); window.removeEventListener('focus', read) }
   }, [])
-  const segments = environmentStatus({ locale, settings: native.settings, settingsError: native.settingsError, capabilities, capabilitiesError: error })
+  const renderer = useRendererObservation()
+  const segments = environmentStatus({ locale, settings: native.settings, settingsError: native.settingsError, capabilities, capabilitiesError: error, renderer })
   return <footer role="status" aria-label={locale === 'zh' ? '环境状态' : 'Environment status'} data-xgc-role="status-bar"
     className="flex h-6 shrink-0 items-center gap-0.5 border-t border-line bg-panel px-2 text-[11px] text-ink-3">
     {segments.map(segment => {

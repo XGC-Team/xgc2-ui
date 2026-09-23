@@ -1,5 +1,5 @@
 import { memo, useEffect, useRef, useState } from 'react'
-import { ArrowLeft, ArrowLeftToLine, ArrowRightToLine, BookOpen, Columns3, FileCode2, FileText, Folder, Globe, MessageSquare, Network, PictureInPicture2, X } from 'lucide-react'
+import { ArrowLeft, ArrowLeftToLine, ArrowRightToLine, BookOpen, Columns3, FileCode2, FileText, Folder, Globe, Layers, MessageSquare, Network, PictureInPicture2, X } from 'lucide-react'
 import { FloatFrame, FloatGrip, floatPart, useFloatRect, type FloatRect } from '../../components/FloatingPanel'
 import { Button, IconBtn, RightMore } from '../../components/ui'
 import { ResizeHandle } from '../../components/ResizeHandle'
@@ -14,6 +14,7 @@ import { WorkflowPage } from '../workflow/WorkflowPage'
 import { KnowledgePage } from '../resources/KnowledgePage'
 import { SourceStage } from '../resources/SourceStage'
 import { FilesPage } from '../resources/FilesPage'
+import { ArtifactsPage } from '../artifacts/ArtifactsPage'
 import { ReviewPanel } from '../review/ReviewPanel'
 import { WriteBoundary } from '../review/WriteBoundary'
 import { ReadingBridge } from '../projects/ReadingBridge'
@@ -30,7 +31,7 @@ import type { ResourceTab, WorkArea } from './resource-model'
 import './resource-workbench.css'
 
 const Chat = memo(ChatPage), Workflow = memo(WorkflowPage), Knowledge = memo(KnowledgePage), Settings = memo(SettingsPage)
-const icons = { chat: MessageSquare, research: Network, source: FileCode2, original: FileText, reviews: FileText, drafts: FileText, web: Globe, file: Folder, pdf: FileText, note: BookOpen }
+const icons = { chat: MessageSquare, research: Network, source: FileCode2, original: FileText, reviews: FileText, drafts: FileText, web: Globe, file: Folder, pdf: FileText, note: BookOpen, artifacts: Layers }
 
 function ResourceTabs({area, floating}: {area: WorkArea; floating?: {rect: FloatRect; onRect: (rect: FloatRect) => void}}) {
   const { resourceLayout, projectId, locale, openResource, activateResource, closeResource, moveResource, backResource, chatDock, setChatDock, chatFloat, setChatFloat, sideFloat, setSideFloat } = useWorkbench()
@@ -57,6 +58,7 @@ function ResourceTabs({area, floating}: {area: WorkArea; floating?: {rect: Float
       {projectId && <Button onClick={() => openResource({kind:'research',workspace:projectId,view:'table'},area)}>{zh?'研究内容':'Research content'}</Button>}
       <Button onClick={() => openResource({kind:'file',target:fileTarget(projectId,projectId||'academic')},area)}>{zh?'文件':'Files'}</Button>
       <Button onClick={() => openResource({kind:'note'},area)}>{zh?'笔记':'Notes'}</Button>
+      {projectId && <Button onClick={() => openResource({kind:'artifacts'},area)}>{zh?'制品':'Artifacts'}</Button>}
       <Button onClick={() => openResource({kind:'web'},area)}>{zh?'网页':'Web'}</Button>
     </RightMore>
   </header>
@@ -107,6 +109,7 @@ function ResourceBody({tab,active,onQuote}: {tab: ResourceTab;active:boolean;onQ
     case 'reviews': return <ReviewPanel scope={tab.scope} tabId={tab.id} onTitle={title}/>
     case 'drafts': return <WriteBoundary workspace={tab.scope.workspace} path="research-content.json"><DraftsPage scope={tab.scope} tabId={tab.id} onQuote={quote} onTitle={title}/></WriteBoundary>
     case 'note': return <DocumentPanel active={active} doc={tab.doc} onQuote={quote} onTitle={title}/>
+    case 'artifacts': return <ArtifactsPage project={tab.projectId}/>
     default: return null
   }
 }

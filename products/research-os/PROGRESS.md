@@ -29,6 +29,17 @@ This round follows the owner's ordered list and `RESEARCH_OS_DESIGN_DEEPEN.md`. 
 - **Removed:** the reader's "引用到 Chat" top-bar button, which pasted the whole note into the draft. The reader's relation lists show note titles instead of raw paths.
 - Verified live on a seeded academic repository (5 linked notes plus an unresolved link): search → inspect → add to chat → the chip appears in the project composer; read → back to graph; files → add README to chat.
 
+**3. Artifact shelf: real PDFs, slide/video stubs, honest renderer gating (done)**
+- **Artifacts pane** (`kind: 'artifacts'`, a first-class, restorable resource tab beside Chat/canvas). Open it from the sidebar "制品" heading, the resource "…" menu, or ⌘K.
+  - **PDF:** the project's real PDFs; one click opens the annotating reader in place.
+  - **Slides & video:** slots. An existing draft shows its render state from the build ledger (`loadArtifactView`). An empty slot is a dashed row with "Draft". Slides are drafted from the revision/decision cards when the canvas has any; a video storyboard starts empty. Drafting writes a draft object through the content writer and renders nothing. The sidebar shelf now follows the content session, so a new draft shows up immediately.
+- **Renderer gate from observation, not assumption.** `/capabilities` does not report the artifact renderer, so the UI starts at "unknown".
+  - A definitive refusal of an explicit build (HTTP 503, or the service's "artifact renderer unavailable") is classified by `classifyBuildRefusal`. It is recorded with its timestamp and shown in the status bar and on the artifact row.
+  - The studio then says plainly that no file was produced and the definition/source are saved, and offers "Try generating again".
+  - Any other failure stays "uncertain — reconcile the ledger", as before. "Rendered" appears only with a successful receipt.
+- **Verified live:** draft slides → fill rights/attribution → Generate. `researchd` refused ("isolated artifact worker" unavailable: no `bwrap`). The studio, the status bar ("制品渲染不可用") and the pane ("未渲染 · 渲染器不可用（已观察）") all say so, and no success is shown anywhere.
+- **Backend gap (documented, not faked):** `/capabilities` should expose `artifactRender: {available, detail}` from `buildworker.NewArtifactBuilder`, the same way it exposes `latex`. Then the gate could be known before the first request. This belongs in the backend tree (`xgc2-harness/devops/platforms/research-os/cmd/researchd/artifact_runtime.go`), which this session was asked not to touch.
+
 - **Known leftover:** the composer placeholder "Ask anything..." is hard-coded in the vendored `@xgc2/agent-runtime` and ignores locale. The fix belongs in the shared package, not a product overlay.
 
 ---

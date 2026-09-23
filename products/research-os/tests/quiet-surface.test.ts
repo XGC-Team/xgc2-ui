@@ -49,3 +49,40 @@ describe('thread brief', () => {
     expect(useWorkbench.getState().threadBriefs).toEqual({ b: { label: 'Other', text: 'y' } })
   })
 })
+
+import { APIError } from '../src/lib/api'
+import { classifyBuildRefusal, observeRenderer, rendererObservation, resetRendererObservation } from '../src/features/artifacts/renderer-gate'
+import { renderStateLabel } from '../src/features/artifacts/ArtifactsPage'
+import { resourceKey, resourceTitle, restoreResourceLayout } from '../src/features/workbench/resource-model'
+
+describe('artifact renderer gate', () => {
+  it('treats only a definitive refusal as "renderer unavailable"; everything else stays uncertain', () => {
+    expect(classifyBuildRefusal(new APIError('artifact renderer unavailable: isolated artifact worker', 500)).kind).toBe('renderer-unavailable')
+    expect(classifyBuildRefusal(new APIError('LaTeX runner is not ready', 503)).kind).toBe('renderer-unavailable')
+    expect(classifyBuildRefusal(new APIError('Build returned no durable terminal receipt', 502)).kind).toBe('uncertain')
+    expect(classifyBuildRefusal(new TypeError('Failed to fetch')).kind).toBe('uncertain')
+  })
+  it('is unknown until observed, and a status segment appears only after observation', () => {
+    resetRendererObservation()
+    expect(rendererObservation().state).toBe('unknown')
+    expect(environmentStatus({ locale: 'en', settings: null, capabilities: null, renderer: rendererObservation() })).toEqual([])
+    observeRenderer({ unavailable: 'artifact renderer unavailable' }, new Date('2026-09-24T10:00:00Z'))
+    const line = environmentStatus({ locale: 'en', settings: null, capabilities: null, renderer: rendererObservation() })
+    expect(line).toEqual([expect.objectContaining({ id: 'renderer', tone: 'gate' })])
+    expect(line[0].detail).toContain('2026-09-24T10:00:00')
+    resetRendererObservation()
+  })
+  it('never labels an artifact rendered without a successful receipt', () => {
+    const empty = { phase: 'definition' as const, builds: [], rejected: [], laterFailure: false, scientific: 'not-claimed' as const }
+    expect(renderStateLabel(empty, { state: 'unknown' }, false)).toMatchObject({ text: 'Not rendered', tone: 'quiet' })
+    expect(renderStateLabel(empty, { state: 'unavailable', detail: 'x', at: 't' }, false).tone).toBe('gate')
+    expect(renderStateLabel(empty, { state: 'rendered', at: 't' }, false).text).toBe('Not rendered')
+    expect(renderStateLabel('error', { state: 'unknown' }, false).tone).toBe('gate')
+  })
+  it('is a first-class, restorable resource tab', () => {
+    expect(resourceTitle({ kind: 'artifacts' }, 'zh')).toBe('制品')
+    expect(resourceKey({ kind: 'artifacts' }, 'p')).toBe(JSON.stringify(['p', 'artifacts']))
+    const layout = restoreResourceLayout(JSON.stringify({ version: 1, tabs: [{ kind: 'artifacts', id: 'a', title: '制品', projectId: 'p', area: 'secondary' }], active: { p: { secondary: 'a' } } }))
+    expect(layout.tabs.map(t => t.kind)).toEqual(['artifacts'])
+  })
+})

@@ -26,7 +26,13 @@ export function useProjectShelf(project: string): Shelf | null {
     read().then(value => { if (!c.signal.aborted) setShelf(value) }).catch(error => { if (!c.signal.aborted) setShelf({ pdfs: [], drafts: [], error: String(error) }) })
     const refresh = () => void read().then(value => { if (!c.signal.aborted) setShelf(value) }).catch(() => {})
     window.addEventListener('focus', refresh)
-    return () => { c.abort(); window.removeEventListener('focus', refresh) }
+    // Drafts come from the shared content session: a new slides/letter draft shows up without a refocus.
+    let off = () => {}
+    try {
+      const session = sharedContentSession({ projectId: project, workspace: project })
+      off = session.subscribe(() => { const drafts = session.snapshot().value?.artifacts; if (drafts && !c.signal.aborted) setShelf(prev => prev && { ...prev, drafts: drafts.filter(d => !d.archivedAt && ['paper', 'slides', 'storyboard'].includes(d.kind)) }) })
+    } catch { /* The workspace is bound to another project; the focus refresh still applies. */ }
+    return () => { c.abort(); off(); window.removeEventListener('focus', refresh) }
   }, [project])
   return shelf
 }
@@ -38,7 +44,7 @@ export function ArtifactShelf({ project }: { project: string }) {
   if (!shelf || (!shelf.pdfs.length && !shelf.drafts.length)) return null
   const row = 'flex w-full items-center gap-2 rounded-md px-2 h-7 text-secondary text-ink-2 transition-colors hover:bg-hover hover:text-ink'
   return <div className="ml-sidebar-indent border-l border-line pl-1.5" data-xgc-role="artifact-shelf" data-xgc-id={project}>
-    <p className="px-2 pb-0.5 pt-1.5 text-caption text-ink-3">{zh ? '制品' : 'Artifacts'}</p>
+    <button type="button" data-xgc-role="open-artifacts" title={zh ? '打开制品面板' : 'Open the artifacts pane'} onClick={() => openResource({ kind: 'artifacts' }, 'secondary')} className="w-full px-2 pb-0.5 pt-1.5 text-left text-caption text-ink-3 hover:text-ink-2">{zh ? '制品' : 'Artifacts'}</button>
     {shelf.pdfs.map(path => <button key={path} type="button" className={row} title={path} onClick={() => openResource({ kind: 'original', workspace: project, path }, 'secondary')}>
       <FileText size={13} strokeWidth={1.75} className="shrink-0 text-ink-3"/><span className="truncate">{path.split('/').pop()}</span>
     </button>)}
