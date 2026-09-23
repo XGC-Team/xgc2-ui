@@ -8,6 +8,7 @@ import { CONTENT_PATH, cardType, CARD_TYPE_LABELS, type ContentDocument } from '
 import { sharedContentSession } from '../content/useContentDocument'
 import { checkContextForSend, contextManifest, newContextItem, type ContextItem } from '../projects/context-model'
 import { ContextPanel } from '../projects/ContextPanel'
+import { useProjectShelf } from '../artifacts/ArtifactShelf'
 import { useAcademicNotes } from '../resources/useAcademicNotes'
 import { extractCanvasPatches, patchContract } from '../revision/revision-model'
 import { agentProposalKey, proposalCounts, useProposals } from '../revision/proposal-store'
@@ -21,6 +22,7 @@ type Candidate = { key: string; group: 'cards' | 'notes' | 'artifacts'; label: s
 
 function useCandidates(project: string, query: string) {
   const { locale, resourceLayout, knowledgeDocuments } = useWorkbench()
+  const shelf = useProjectShelf(project)
   const [document, setDocument] = useState<{ value: ContentDocument; digest: string } | null>(null)
   useEffect(() => {
     if (!project) return
@@ -47,11 +49,13 @@ function useCandidates(project: string, query: string) {
       const pdf = tab.kind === 'pdf' ? { workspace: tab.pdf.workspace, path: tab.pdf.path, digest: tab.pdf.digest } : { workspace: tab.workspace, path: tab.path, digest: tab.digest }
       out.push({ key: `pdf:${pdf.workspace}:${pdf.path}`, group: 'artifacts', label: pdf.path.split('/').pop() || pdf.path, hint: 'PDF', item: () => newContextItem({ project, kind: 'source', label: pdf.path.split('/').pop() || pdf.path, ref: `${pdf.workspace}/${pdf.path}`, digest: pdf.digest, source: { id: pdf.path, path: pdf.path, workspace: pdf.workspace, digest: pdf.digest } }) })
     }
+    // Project PDFs found on the shelf but not open: attached by path; the reader pins the digest once opened.
+    for (const path of shelf?.pdfs ?? []) if (!out.some(c => c.key === `pdf:${project}:${path}`)) out.push({ key: `pdf:${project}:${path}`, group: 'artifacts', label: path.split('/').pop() || path, hint: 'PDF', item: () => newContextItem({ project, kind: 'source', label: path.split('/').pop() || path, ref: `${project}/${path}`, source: { id: path, path, workspace: project } }) })
     // Notes from the list carry no observed revision here, so they are attached as unverifiable — never invented.
     for (const note of knowledgeDocuments) out.push({ key: `note:${note.path}`, group: 'notes', label: note.title, hint: note.path, item: () => newContextItem({ project, kind: 'source', label: note.title, ref: `academic/${note.path}`, source: { id: note.path, path: note.path, workspace: 'academic' } }) })
     const q = query.trim().toLowerCase()
     return q ? out.filter(c => `${c.label} ${c.hint}`.toLowerCase().includes(q)) : out
-  }, [document, resourceLayout.tabs, knowledgeDocuments, project, query, locale])
+  }, [document, resourceLayout.tabs, knowledgeDocuments, project, query, locale, shelf])
 }
 
 function AttachList({ project, onPick }: { project: string; onPick: (candidate: Candidate) => void }) {

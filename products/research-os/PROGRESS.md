@@ -13,6 +13,22 @@ This round follows the owner's ordered list and `RESEARCH_OS_DESIGN_DEEPEN.md`. 
 - **PDF pane shows real PDFs.** With builds disabled, the side pane lists the project's actual PDFs (found by signature) and opens one in place, instead of a warning.
 - **"…" menus behave like menus.** `RightMore menu` left-aligns entries and closes on choice. Applied to the project row, context tray, revision board, drafts, canvas and resource menus. The PDF zoom/version panel stays a form.
 - **Copy.** The dead "继续这篇论文" strings were deleted. "New revision thread" drops to a ghost button once the project's thread is live or drafted.
+**2. Graph + documents: browse, open, attach, link (done)**
+- **The Knowledge graph is a browser, not a demo.**
+  - One search card: typing lists the matching notes. Choosing a note (or a graph node) moves the camera to it, highlights its neighbourhood (`GraphView focus`) and opens a **node inspector**.
+  - The unresolved/orphan filters, local-graph depth and direction sit in one "筛选" popover.
+  - The old `<select size=6>` "inspect via list" and the duplicate pinned hover card are gone.
+- **One object, four exits.** The inspector offers:
+  - Read (in place);
+  - Add to chat (a versioned reference pinned to the node digest);
+  - under "…": Open beside chat (a note tab next to the conversation), Link to selected canvas card (through the content writer) and Local graph.
+  - Outgoing links, backlinks and canvas backlinks are clickable object lists. The reader and the inspector share `useNoteLinks`.
+- **Project documents join the same continuum.**
+  - Each file row in project files has a hover "Add to chat". Text files are read once to pin their digest; PDFs are attached by path and marked as unverified.
+  - The composer's attach menu also lists the project's PDFs found on the shelf, not only open tabs.
+- **Removed:** the reader's "引用到 Chat" top-bar button, which pasted the whole note into the draft. The reader's relation lists show note titles instead of raw paths.
+- Verified live on a seeded academic repository (5 linked notes plus an unresolved link): search → inspect → add to chat → the chip appears in the project composer; read → back to graph; files → add README to chat.
+
 - **Known leftover:** the composer placeholder "Ask anything..." is hard-coded in the vendored `@xgc2/agent-runtime` and ignores locale. The fix belongs in the shared package, not a product overlay.
 
 ---

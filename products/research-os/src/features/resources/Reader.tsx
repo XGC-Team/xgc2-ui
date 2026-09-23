@@ -1,23 +1,20 @@
 import {useEffect,useMemo,useState} from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import {BookOpen,Quote,FileText} from 'lucide-react'
+import {BookOpen,FileText} from 'lucide-react'
 import {t as tr} from '../../i18n'
 import {useWorkbench} from '../../store'
 import {request} from '../../lib/api'
-import {PageActions} from '../../components/PageActions'
-import {Button} from '../../components/ui'
 import {CodeBlock} from '../../components/CodeBlock'
 import {IconGraph} from '../../components/icons'
 import {decodeAnnotation} from './pdf-annotations'
 import {listPDFVersions} from './manuscript'
 import {ReadingBridge} from '../projects/ReadingBridge'
 import {inspectKnowledgeResource, type KnowledgeEdge} from './academic-graph'
-import {newContextItem} from '../projects/context-model'
-import {readDesignFocus,requestDesignFocus} from '../projects/design-focus'
+import {requestDesignFocus} from '../projects/design-focus'
+import {useNoteLinks} from './note-links'
 import {sharedContentSession} from '../content/useContentDocument'
 import {CARD_TYPE_LABELS,cardType,type ContentObject} from '../content/content-model'
-import {addObjectSource,editFailureCopy,editResearchContent} from '../revision/revision-actions'
 const splitFrontmatter=(raw:string)=>{const m=raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);if(!m)return{meta:[],body:raw};const meta=m[1].split('\n').map(l=>l.match(/^(\w[\w-]*)\s*:\s*(.+)$/)).filter(Boolean) as RegExpMatchArray[];return{meta:meta.map(x=>({key:x[1],value:x[2].trim()})),body:raw.slice(m[0].length)}}
 const wikilink=(raw:string)=>raw.replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g,(_m,target:string,alias:string)=>`[${alias||target}](#wiki/${encodeURIComponent(target.trim())})`)
 export function MarkdownView({content}:{content:string}){
@@ -58,9 +55,9 @@ export function MarkdownView({content}:{content:string}){
  }}>{body}</ReactMarkdown>
  </>
 }
-export function Reader({onQuote}:{onQuote?:(text:string)=>void}){
- const {readingDocument:doc,closeDocument,activeNav,projectId,addContextItem,locale}=useWorkbench();const zh=locale==='zh'
- const [linkNote,setLinkNote]=useState('')
+export function Reader(){
+ const {readingDocument:doc,closeDocument,activeNav,projectId,locale}=useWorkbench();const zh=locale==='zh'
+ const links=useNoteLinks()
  const [content,setContent]=useState(''),[digest,setDigest]=useState(''),[error,setError]=useState(''),[loading,setLoading]=useState(false)
  useEffect(()=>{setContent('');setDigest('');setError('');if(!doc)return;const c=new AbortController();setLoading(true)
   request<{content:string;digest:string}>(`/workspaces/${encodeURIComponent(doc.workspace)}/files/${doc.path.split('/').map(encodeURIComponent).join('/')}`,{signal:c.signal}).then(d=>{if(typeof d?.content!=='string'||typeof d.digest!=='string'||!d.digest)throw Error('Invalid file response.');if(!c.signal.aborted){setContent(d.content);setDigest(d.digest)}}).catch(e=>{if(!c.signal.aborted)setError(e.message)}).finally(()=>{if(!c.signal.aborted)setLoading(false)})
@@ -72,20 +69,18 @@ export function Reader({onQuote}:{onQuote?:(text:string)=>void}){
   <p className="mt-2 text-secondary leading-relaxed text-ink-3">{tr("从左侧文件树选一篇笔记开始阅读。")}</p>
  </div></div>
  return <div className="flex h-full min-h-0 flex-col">
-  {onQuote&&<PageActions page="knowledge"><Button icon={Quote} disabled={!digest} onClick={()=>onQuote(`文件：${doc.workspace}/${doc.path}\n版本：${digest}\n\n${content}`)}>{tr("引用到 Chat")}</Button></PageActions>}
+   {/* 「加入对话」（版本化引用）取代了整篇粘贴到聊天的旧按钮 */}
   {error&&<p role="alert" className="ui-error">{error}</p>}
   <article className="min-h-0 flex-1 overflow-auto"><div className="mx-auto w-full max-w-[720px] px-8 pb-20 pt-10">
    <header className="mb-8"><div className="flex items-center justify-between gap-3">
     <p className="min-w-0 truncate text-caption text-ink-3">{doc.path}</p>
     {/* Obsidian 式链接语法：笔记 → 对话上下文（版本化引用）/ 当前选中的画布卡片 */}
     {digest&&projectId&&<span className="flex shrink-0 gap-0.5">
-     <button type="button" data-xgc-role="note-to-context" className="flex h-6 items-center rounded-md px-2 text-caption text-ink-3 hover:bg-hover hover:text-ink-2" onClick={()=>{addContextItem(newContextItem({project:projectId,kind:'source',label:doc.title,ref:`${doc.workspace}/${doc.path}`,digest,excerpt:splitFrontmatter(content).body.slice(0,200),source:{id:doc.path,path:doc.path,workspace:doc.workspace,digest}}));setLinkNote(zh?'已加入对话上下文（未发送）。':'Added to chat context (not sent).')}}>{zh?'加入对话':'Add to chat'}</button>
-     <button type="button" data-xgc-role="note-to-card" className="flex h-6 items-center rounded-md px-2 text-caption text-ink-3 hover:bg-hover hover:text-ink-2" onClick={()=>{const focus=readDesignFocus(),card=focus?.project===projectId?focus.cardIds[0]:undefined
-      if(!card){setLinkNote(zh?'先在研究画布中选中一张卡片。':'Select a card on the research canvas first.');return}
-      void editResearchContent({projectId,workspace:projectId},d=>addObjectSource(d,card,{kind:'knowledge',workspace:doc.workspace,path:doc.path,digest,title:doc.title})).then(r=>setLinkNote(r.ok?(zh?'已链接到所选卡片。':'Linked to the selected card.'):editFailureCopy(r,locale)))}}>{zh?'链接到所选卡片':'Link to selected card'}</button>
+     <button type="button" data-xgc-role="note-to-context" className="flex h-6 items-center rounded-md px-2 text-caption text-ink-3 hover:bg-hover hover:text-ink-2" onClick={()=>links.addToChat({...doc,digest},splitFrontmatter(content).body.slice(0,200))}>{zh?'加入对话':'Add to chat'}</button>
+     <button type="button" data-xgc-role="note-to-card" className="flex h-6 items-center rounded-md px-2 text-caption text-ink-3 hover:bg-hover hover:text-ink-2" onClick={()=>void links.linkToCard({...doc,digest})}>{zh?'链接到所选卡片':'Link to selected card'}</button>
     </span>}
     <button type="button" onClick={closeDocument} className="flex h-6 shrink-0 items-center gap-1.5 rounded-md px-2 text-caption text-ink-3 hover:bg-hover" title={tr('返回图谱')}><IconGraph size={12} strokeWidth={1.75}/>{tr('图谱')}</button>
-   </div>{linkNote&&<p role="status" className="mt-1 text-caption text-ink-3">{linkNote}</p>}<h1 className="mt-2 font-display text-display-md leading-display-loose tracking-tight">{doc.title}</h1>
+   </div>{links.note&&<p role="status" className="mt-1 text-caption text-ink-3">{links.note}</p>}<h1 className="mt-2 font-display text-display-md leading-display-loose tracking-tight">{doc.title}</h1>
     {meta.length>0&&<dl className="mt-4 flex flex-wrap gap-x-6 gap-y-1.5">{meta.map(m=><div key={m.key} className="flex gap-2 text-caption"><dt className="text-ink-3">{m.key}</dt><dd className="text-ink-2">{m.value}</dd></div>)}</dl>}
    </header>
    {loading?<p role="status" className="text-ink-3">{tr("正在读取…")}</p>:!error&&digest&&<ReadingBridge active={activeNav==='knowledge'} source={{id:'knowledge',workspace:doc.workspace,path:doc.path,digest}}><div className="research-document break-words text-body leading-[1.75] text-ink-2"><MarkdownView content={content}/></div></ReadingBridge>}
@@ -110,7 +105,7 @@ function KnowledgeRelations({path}:{path:string}){
  const row=(edge:KnowledgeEdge,end:'source'|'target')=>{
   const id=end==='source'?edge.source:edge.target
   const exists=!!notes.find(n=>n.path===id)
-  return <li key={`${end}-${edge.id}`}>{exists?<button type="button" className="ui-wikilink" onClick={()=>open(id)}>{id}</button>:<span className="text-ink-3">{id.replace(/^unresolved:/,'')}{id.startsWith('unresolved:')?` · ${tr('未解析')}`:''}</span>}</li>
+  return <li key={`${end}-${edge.id}`}>{exists?<button type="button" className="ui-wikilink" title={id} onClick={()=>open(id)}>{notes.find(n=>n.path===id)?.title||id}</button>:<span className="text-ink-3">{id.replace(/^unresolved:/,'')}{id.startsWith('unresolved:')?` · ${tr('未解析')}`:''}</span>}</li>
  }
  return <section className="mt-12 border-t border-line pt-6" aria-label={tr('关系')}>
   {error&&<p role="alert" className="text-caption text-ink-3">{error}</p>}
@@ -122,7 +117,7 @@ function KnowledgeRelations({path}:{path:string}){
 }
 
 /** Cards in the current project that cite this note — the canvas side of the link, like Obsidian backlinks. */
-function CanvasBacklinks({project,path}:{project:string;path:string}){
+export function CanvasBacklinks({project,path}:{project:string;path:string}){
  const {locale,openResource}=useWorkbench();const zh=locale==='zh'
  const [cards,setCards]=useState<ContentObject[]|null>(null)
  useEffect(()=>{let live=true

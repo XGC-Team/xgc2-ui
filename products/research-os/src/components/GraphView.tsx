@@ -13,7 +13,9 @@ function groupTone(g: GroupId): number {
   return 0.25 + (i / (order.length - 1)) * 0.75 // 0.25 → 1 明度梯度
 }
 
-export function GraphView({data,onSelect,initialCamera,onCameraChange}:{data:GraphData;onSelect:(id:number)=>void;initialCamera?:GraphCamera;onCameraChange?:(camera:GraphCamera)=>void}) {
+/* focus：外部（检索结果、检查器里的关系）选中的节点 resourceId——高亮其邻域并把相机移过去。
+   card=false：由页面提供检查器，画布不再叠一张重复的悬停/钉住卡片。 */
+export function GraphView({data,onSelect,initialCamera,onCameraChange,focus,card=true}:{data:GraphData;onSelect:(id:number)=>void;initialCamera?:GraphCamera;onCameraChange?:(camera:GraphCamera)=>void;focus?:string;card?:boolean}) {
   const cameraRef=useRef(initialCamera);cameraRef.current=initialCamera
   const cameraChangedRef=useRef(onCameraChange);cameraChangedRef.current=onCameraChange
   const selectRef=useRef(onSelect);selectRef.current=onSelect
@@ -22,6 +24,8 @@ export function GraphView({data,onSelect,initialCamera,onCameraChange}:{data:Gra
   const cam = useRef<GraphCamera>({ x: 0, y: 0, k: 0.75 })
   const targetCam = useRef<GraphCamera>({ x: 0, y: 0, k: 0.75 })
   const hoverRef = useRef<number>(-1)
+  const focusRef = useRef<number>(-1)
+  const focusCamera = useRef<((id:number)=>void)|null>(null)
 
   const [hovered, setHovered] = useState<GNode | null>(null)
   const [selected, setSelected] = useState<GNode | null>(null)
@@ -223,7 +227,7 @@ export function GraphView({data,onSelect,initialCamera,onCameraChange}:{data:Gra
       const dt=Math.min(50,now-lastFrame);lastFrame=now
       if(!W||!H||document.hidden)return
       const entering=now<enterEnd
-      const signature=[hoverRef.current,document.documentElement.className,W,H].join('|')
+      const signature=[hoverRef.current,focusRef.current,document.documentElement.className,W,H].join('|')
       const settled=Math.abs(cam.current.x-targetCam.current.x)+Math.abs(cam.current.y-targetCam.current.y)+Math.abs(cam.current.k-targetCam.current.k)<.001
       if(!sim.running&&settled&&signature===lastSignature&&!dragNode&&!panning&&!entering&&!springsHot)return
       springsHot=false
@@ -243,7 +247,7 @@ export function GraphView({data,onSelect,initialCamera,onCameraChange}:{data:Gra
 
       const dark = document.documentElement.classList.contains('dark')
       const ink = dark ? 250 : 9
-      const hov = hoverRef.current
+      const hov = hoverRef.current >= 0 ? hoverRef.current : focusRef.current
       const neighbors = new Set<number>()
       if (hov >= 0) {
         neighbors.add(hov)
@@ -378,8 +382,16 @@ export function GraphView({data,onSelect,initialCamera,onCameraChange}:{data:Gra
     }
     const draw = () => { raf = requestAnimationFrame(draw); paint(performance.now()) }
     raf = requestAnimationFrame(draw)
+    focusCamera.current = (id: number) => {
+      const n = data.nodes.find(node => node.id === id)
+      if (!n) return
+      userMoved = true
+      targetCam.current = { ...targetCam.current, x: -n.x, y: -n.y, k: Math.max(targetCam.current.k, 1.2) }
+      saveCamera()
+    }
 
     return () => {
+      focusCamera.current = null
       clearTimeout(cameraTimer)
       saveCamera()
       if(dragNode){dragNode.fx=null;dragNode.fy=null}
@@ -395,6 +407,12 @@ export function GraphView({data,onSelect,initialCamera,onCameraChange}:{data:Gra
     }
   }, [data, sim, fit])
 
+  useEffect(() => {
+    const n = focus ? data.nodes.find(node => node.resourceId === focus) : undefined
+    focusRef.current = n ? n.id : -1
+    if (n) focusCamera.current?.(n.id)
+  }, [focus, data])
+
   return (
     <div className="relative h-full w-full overflow-hidden">
       <div ref={wrapRef} className="absolute inset-0">
@@ -402,7 +420,7 @@ export function GraphView({data,onSelect,initialCamera,onCameraChange}:{data:Gra
       </div>
 
       {/* 选中节点详情 */}
-      {(hovered || selected) && (
+      {card && (hovered || selected) && (
         <div className="ui-pop-in pointer-events-none absolute right-3 top-3 w-56 rounded-lg border border-line bg-panel/95 p-3.5 shadow-pop">
           {(() => {
             const n = selected ?? hovered!

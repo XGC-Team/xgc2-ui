@@ -3,10 +3,14 @@ import {t as tr} from '../../i18n'
 import {useWorkbench} from '../../store'
 import {GraphView} from '../../components/GraphView'
 import type {GraphCamera} from '../../lib/graph-camera'
-import {academicGraph,inspectKnowledgeResource,loadCompleteKnowledgeGraph,type KnowledgePage,type KnowledgeQuery} from './academic-graph'
+import {academicGraph,inspectKnowledgeResource,loadCompleteKnowledgeGraph,type KnowledgeEdge,type KnowledgePage,type KnowledgeQuery} from './academic-graph'
 import {invalidateKnowledgeAccess,knowledgeAccessLost,useAcademicNotes} from './useAcademicNotes'
 import {clearKnowledgeView,emptyKnowledgeView,readKnowledgeView,saveKnowledgeView,type KnowledgeViewState} from './knowledge-view-state'
-import {Reader} from './Reader'
+import {CanvasBacklinks,Reader} from './Reader'
+import {useNoteLinks} from './note-links'
+import {BookOpen,FileText,Link2,MessageSquarePlus,Network,PanelRight,Search,SlidersHorizontal,X} from 'lucide-react'
+import {Button,Popover,RightMore} from '../../components/ui'
+import {cn} from '../../lib/cn'
 import {trimKnowledgeQuery} from './knowledge-snapshot'
 
 type Inspection = Awaited<ReturnType<typeof inspectKnowledgeResource>>
@@ -16,8 +20,8 @@ type KnowledgePageProps = {onQuote?:(text:string)=>void;viewId?:string}
 export function KnowledgePage(props:KnowledgePageProps){
  return <KnowledgeView key={props.viewId||'academic'} {...props}/>
 }
-function KnowledgeView({onQuote,viewId='academic'}:KnowledgePageProps){
- const {readingDocument,previewDocument,closeDocument}=useWorkbench()
+function KnowledgeView({viewId='academic'}:KnowledgePageProps){
+ const {readingDocument}=useWorkbench()
  const {page,loading,error,refresh}=useAcademicNotes()
  const [view,setView]=useState(()=>readKnowledgeView(viewId))
  const [projected,setProjected]=useState<KnowledgePage|null>(null)
@@ -86,38 +90,90 @@ function KnowledgeView({onQuote,viewId='academic'}:KnowledgePageProps){
  const pending=filtered&&(appliedQuery!==queryKey||projected?.snapshot!==page?.snapshot)
  const status=searchError?`${tr('检索未应用，保留上次完整视图。')} ${searchError}`:searching||pending?tr('正在检索，保留上次完整视图…'):error?`${tr('刷新失败，保留上次完整视图。')} ${error}`:loading?tr('正在核对知识库的新版本…'):''
 
- if(readingDocument&&!blocked)return <div className="flex h-full min-h-0 flex-col"><div className="flex h-9 shrink-0 items-center border-b border-line px-3"><button className="ui-btn" data-xgc-role="knowledge-back" onClick={closeDocument}>{tr('返回图谱')}</button></div><div className="min-h-0 flex-1"><Reader onQuote={onQuote}/></div></div>
+ const results=trimKnowledgeQuery(view.query)&&active?active.nodes.filter(node=>!node.unresolved).slice(0,8):[]
+ const counts=`${active?.counts.matched??0} ${tr('节点')} · ${active?.counts.matchedEdges??0} ${tr('关系')}`
+
+ // The reader carries its own "back to graph" control; no second header bar.
+ if(readingDocument&&!blocked)return <div className="h-full min-h-0"><Reader/></div>
  if(!graph||blocked)return <div className="ui-empty" role="status"><p>{tr(error||'正在读取学术仓库的完整知识与链接…')}</p><button className="ui-btn mt-3" onClick={refresh}>{tr('重新读取')}</button></div>
  return <div className="relative h-full min-h-0" data-xgc-role="knowledge-workspace">
-  <GraphView data={graph} initialCamera={view.camera} onCameraChange={saveCamera} onSelect={id=>{const node=graph.nodes[id];if(node?.resourceId)setInspectId(node.resourceId)}}/>
-  <div className="absolute left-3 top-3 z-10 max-w-[calc(100%-1.5rem)] rounded-lg border border-line bg-panel/95 p-2">
-   <input className="ui-input h-8 w-full" value={view.query} onChange={e=>setFilter('query',e.target.value)} placeholder={tr('检索标题、路径、标签与正文…')} aria-label={tr('检索知识库')}/>
-   <div className="mt-2 flex flex-wrap items-center gap-2 text-caption">
-    <label>{tr('未解析')} <select className="ui-input" aria-label={tr('未解析目标过滤')} value={view.unresolved} onChange={e=>setFilter('unresolved',e.target.value as KnowledgeViewState['unresolved'])}><option value="include">{tr('包含')}</option><option value="only">{tr('仅未解析')}</option><option value="exclude">{tr('隐藏')}</option></select></label>
-    <label>{tr('孤立节点')} <select className="ui-input" aria-label={tr('孤立节点过滤')} value={view.orphans} onChange={e=>setFilter('orphans',e.target.value as KnowledgeViewState['orphans'])}><option value="include">{tr('包含')}</option><option value="only">{tr('仅孤立')}</option><option value="exclude">{tr('隐藏')}</option></select></label>
-    <button onClick={()=>{setView(previous=>({...emptyKnowledgeView(),camera:previous.camera}));setProjected(null)}}>{tr('清除筛选')}</button>
-    <button onClick={()=>{refresh();setRetry(n=>n+1)}}>{tr('刷新')}</button>
+  <GraphView data={graph} card={false} focus={inspectId||undefined} initialCamera={view.camera} onCameraChange={saveCamera} onSelect={id=>{const node=graph.nodes[id];if(node?.resourceId)setInspectId(node.resourceId)}}/>
+  {/* 检索即浏览（Obsidian 快速切换语法）：输入即列出命中笔记，点选=在图中定位并打开检查器；筛选收进一个弹层 */}
+  <div className="absolute left-3 top-3 z-10 w-[min(320px,calc(100%-1.5rem))] rounded-lg border border-line bg-panel shadow-soft" data-xgc-role="knowledge-search">
+   <div className="flex items-center gap-1 p-1.5">
+    <Search size={13} strokeWidth={1.75} className="ml-1 shrink-0 text-ink-3"/>
+    <input className="h-7 min-w-0 flex-1 bg-transparent px-1 text-secondary outline-none placeholder:text-ink-3" value={view.query} onChange={e=>setFilter('query',e.target.value)} placeholder={tr('检索标题、路径、标签与正文…')} aria-label={tr('检索知识库')}/>
+    <Popover label={tr('筛选')} width="w-64" trigger={({open,toggle})=><button type="button" aria-expanded={open} onClick={toggle} aria-label={tr('筛选')} title={tr('筛选')} className={cn('grid h-7 w-7 shrink-0 place-items-center rounded-md text-ink-3 hover:bg-hover hover:text-ink',(view.unresolved!=='include'||view.orphans!=='include')&&'text-ink')}><SlidersHorizontal size={13} strokeWidth={1.75}/></button>}>
+     <div className="flex flex-col gap-2 p-1 text-caption">
+      <label className="flex items-center justify-between gap-2">{tr('未解析')} <select className="ui-select-compact" aria-label={tr('未解析目标过滤')} value={view.unresolved} onChange={e=>setFilter('unresolved',e.target.value as KnowledgeViewState['unresolved'])}><option value="include">{tr('包含')}</option><option value="only">{tr('仅未解析')}</option><option value="exclude">{tr('隐藏')}</option></select></label>
+      <label className="flex items-center justify-between gap-2">{tr('孤立节点')} <select className="ui-select-compact" aria-label={tr('孤立节点过滤')} value={view.orphans} onChange={e=>setFilter('orphans',e.target.value as KnowledgeViewState['orphans'])}><option value="include">{tr('包含')}</option><option value="only">{tr('仅孤立')}</option><option value="exclude">{tr('隐藏')}</option></select></label>
+      {view.focus&&<>
+       <label className="flex items-center justify-between gap-2">{tr('深度')} <input type="number" min="1" className="ui-select-compact w-16" value={view.depth} onChange={e=>{const n=Number(e.target.value);if(Number.isSafeInteger(n)&&n>=1)setFilter('depth',n)}}/></label>
+       <label className="flex items-center justify-between gap-2">{tr('局部关系方向')} <select className="ui-select-compact" aria-label={tr('局部关系方向')} value={view.direction} onChange={e=>setFilter('direction',e.target.value as KnowledgeViewState['direction'])}><option value="both">{tr('双向')}</option><option value="outbound">{tr('出链')}</option><option value="inbound">{tr('回链')}</option></select></label>
+      </>}
+      <div className="flex gap-1 border-t border-line pt-2">
+       <Button size="xs" onClick={()=>{setView(previous=>({...emptyKnowledgeView(),camera:previous.camera}));setProjected(null)}}>{tr('清除筛选')}</Button>
+       <Button size="xs" onClick={()=>{refresh();setRetry(n=>n+1)}}>{tr('刷新')}</Button>
+      </div>
+     </div>
+    </Popover>
    </div>
-   {view.focus&&<div className="mt-2 flex flex-wrap items-center gap-2 text-caption">
-    <span>{tr('局部图')}</span><label>{tr('深度')} <input type="number" min="1" className="ui-input w-14" value={view.depth} onChange={e=>{const n=Number(e.target.value);if(Number.isSafeInteger(n)&&n>=1)setFilter('depth',n)}}/></label>
-    <select className="ui-input" aria-label={tr('局部关系方向')} value={view.direction} onChange={e=>setFilter('direction',e.target.value as KnowledgeViewState['direction'])}><option value="both">{tr('双向')}</option><option value="outbound">{tr('出链')}</option><option value="inbound">{tr('回链')}</option></select>
-    <button onClick={()=>setFilter('focus','')}>{tr('返回全局图')}</button>
+   {results.length>0&&<div className="max-h-72 overflow-y-auto border-t border-line p-1" role="listbox" aria-label={tr('检索结果')}>
+    {results.map(node=><button key={node.id} type="button" role="option" aria-selected={inspectId===node.id} onClick={()=>setInspectId(node.id)} data-xgc-role="knowledge-result"
+     className={cn('flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-secondary text-ink-2 hover:bg-hover hover:text-ink',inspectId===node.id&&'bg-active text-ink')}>
+     <FileText size={12} strokeWidth={1.75} className="shrink-0 text-ink-3"/><span className="min-w-0 flex-1 truncate">{node.title}</span><span className="max-w-24 shrink-0 truncate text-caption text-ink-3">{node.path?.replace(/^memory\//,'')}</span>
+    </button>)}
    </div>}
-   <div className="mt-2 text-caption text-ink-3" aria-live="polite">{tr('当前完整视图')} · {active!.counts.matched} {tr('节点')} / {active!.counts.matchedEdges} {tr('关系')}</div>
-   <details className="mt-2 text-caption"><summary>{tr('通过列表检查节点')}</summary>
-    <select size={6} className="ui-input mt-1 max-w-full" value={inspectId} aria-label={tr('检查知识节点')} onChange={e=>setInspectId(e.target.value)}>
-     <option value="">{tr('选择节点')}</option>{active!.nodes.map(node=><option key={node.id} value={node.id}>{node.title} · {node.kind}</option>)}
-    </select>
-   </details>
+   <p className="flex items-center gap-1 border-t border-line px-2.5 py-1 text-caption text-ink-3" aria-live="polite">
+    <span className="min-w-0 flex-1 truncate">{view.focus?`${tr('局部图')} · `:''}{counts}</span>
+    {view.focus&&<button type="button" className="shrink-0 hover:text-ink-2" onClick={()=>setFilter('focus','')}>{tr('返回全局图')}</button>}
+   </p>
   </div>
-  {inspectId&&<aside className="absolute bottom-14 right-3 z-10 max-h-[55%] w-[min(360px,calc(100%-1.5rem))] overflow-auto rounded-lg border border-line bg-panel/95 p-3 text-caption" aria-label={tr('知识关系检查')}>
-   <button className="float-right" onClick={()=>setInspectId('')}>{tr('关闭')}</button>
-   {inspectError?<p role="alert">{inspectError}</p>:!inspect?<p role="status">{tr('正在读取权威关系…')}</p>:<>
-    <h3 className="pr-10 font-semibold">{inspect.node.title}</h3><p className="mt-1 text-ink-3">{inspect.node.kind}</p>
-    <div className="mt-2 flex gap-3"><button onClick={()=>setFilter('focus',inspect.node.id)}>{tr('查看局部图')}</button>{inspect.node.exists&&inspect.node.path&&<button onClick={()=>previewDocument({workspace:'academic',path:inspect.node.path!,title:inspect.node.title})}>{tr('阅读原文')}</button>}</div>
-    {([['出链',inspect.outgoing,'target'],['回链',inspect.incoming,'source']] as const).map(([label,edges,endpoint])=><section key={label} className="mt-3"><h4 className="font-medium">{tr(label)} · {edges.length}</h4>{edges.length===0?<p>{tr('没有关系')}</p>:edges.map(edge=><div key={edge.id} className="mt-2 border-t border-line pt-2"><button className="break-all text-left underline" onClick={()=>setInspectId(edge[endpoint])}>{titles.get(edge[endpoint])||(endpoint==='target'?edge.targetHint:'')||edge[endpoint]}</button><p>{edge.kind} · {edge.resolved?tr('已解析'):tr('未解析')}</p>{edge.anchor&&<p className="break-all">{edge.anchor}</p>}<details><summary>{tr('来源版本')}</summary><code className="break-all">{edge.sourceRevision||tr('无可核验版本')}</code></details></div>)}</section>)}
-   </>}
-  </aside>}
-  {status&&<div role="status" className="absolute bottom-3 left-3 right-3 z-10 rounded-lg border border-line bg-panel/95 px-3 py-2 text-caption"><span>{status}</span>{searchError&&<button className="ml-3 underline" onClick={()=>setRetry(n=>n+1)}>{tr('重试检索')}</button>}</div>}
+  {inspectId&&<NodeInspector id={inspectId} inspect={inspect} error={inspectError} titles={titles} onInspect={setInspectId} onClose={()=>setInspectId('')} onLocal={id=>setFilter('focus',id)}/>}
+  {status&&<div role="status" className="absolute bottom-3 left-3 z-10 max-w-[min(420px,calc(100%-1.5rem))] rounded-md border border-line bg-panel px-2.5 py-1.5 text-caption text-ink-3 shadow-soft"><span>{status}</span>{searchError&&<button className="ml-3 underline" onClick={()=>setRetry(n=>n+1)}>{tr('重试检索')}</button>}</div>}
  </div>
+}
+
+/* 节点检查器：一个对象、四个出口——阅读、在对话旁打开、加入对话（版本化引用）、链接到所选画布卡片；
+   出链/回链是可点的对象列表，画布引用列出本项目中引用此笔记的卡片。 */
+function NodeInspector({id,inspect,error,titles,onInspect,onClose,onLocal}:{id:string;inspect:Inspection|null;error:string;titles:Map<string,string>;onInspect:(id:string)=>void;onClose:()=>void;onLocal:(id:string)=>void}){
+ const {previewDocument,openDocument,locale}=useWorkbench();const zh=locale==='zh'
+ const links=useNoteLinks(),{setNote}=links
+ useEffect(()=>setNote(''),[id,setNote])
+ const node=inspect?.node
+ const doc=node?.exists&&node.path&&node.digest?{workspace:'academic',path:node.path,title:node.title,digest:node.digest}:null
+ const row=(edge:KnowledgeEdge,end:'source'|'target')=>{const other=edge[end];const label=titles.get(other)||(end==='target'?edge.targetHint:'')||other
+  return <button key={`${end}:${edge.id}`} type="button" onClick={()=>onInspect(other)} className="flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-secondary text-ink-2 hover:bg-hover hover:text-ink" title={edge.sourceRevision?`${tr('来源版本')} ${edge.sourceRevision}`:tr('无可核验版本')}>
+   <span className="min-w-0 flex-1 truncate">{label}</span><span className="shrink-0 text-caption text-ink-3">{edge.resolved?edge.kind:tr('未解析')}</span></button>}
+ return <aside className="absolute right-3 top-3 z-10 flex max-h-[calc(100%-1.5rem)] w-[min(340px,calc(100%-1.5rem))] flex-col overflow-hidden rounded-lg border border-line bg-panel shadow-soft" aria-label={tr('知识关系检查')} data-xgc-role="knowledge-inspector" data-xgc-id={id}>
+  <div className="flex items-center gap-2 px-3 pt-2.5">
+   <span className="min-w-0 flex-1 truncate text-caption uppercase tracking-[0.08em] text-ink-3">{node?(node.unresolved?tr('未解析目标'):node.kind):''}</span>
+   <button type="button" aria-label={tr('关闭')} onClick={onClose} className="grid h-6 w-6 place-items-center rounded-md text-ink-3 hover:bg-hover hover:text-ink"><X size={12}/></button>
+  </div>
+  {error?<p role="alert" className="px-3 pb-3 text-caption">{error}</p>:!inspect||!node?<p role="status" className="px-3 pb-3 text-caption text-ink-3">{tr('正在读取权威关系…')}</p>:<>
+   <div className="px-3 pb-2">
+    <h3 className="font-display text-[18px] leading-snug tracking-tight">{node.title}</h3>
+    {node.path&&<p className="mt-0.5 truncate text-caption text-ink-3" title={node.path}>{node.path}</p>}
+    <div className="mt-2.5 flex flex-wrap items-center gap-1">
+     {doc&&<Button size="xs" variant="outline" icon={BookOpen} data-xgc-role="knowledge-read" onClick={()=>previewDocument(doc)}>{zh?'阅读':'Read'}</Button>}
+     {doc&&<Button size="xs" icon={MessageSquarePlus} data-xgc-role="knowledge-to-context" onClick={()=>links.addToChat(doc)}>{zh?'加入对话':'Add to chat'}</Button>}
+     <span className="flex-1"/>
+     <RightMore menu label={zh?'更多操作':'More actions'}>
+      {doc&&<Button size="xs" icon={PanelRight} onClick={()=>openDocument(doc)}>{zh?'在对话旁打开':'Open beside chat'}</Button>}
+      {doc&&<Button size="xs" icon={Link2} data-xgc-role="knowledge-to-card" onClick={()=>void links.linkToCard(doc)}>{zh?'链接到所选画布卡片':'Link to selected canvas card'}</Button>}
+      <Button size="xs" icon={Network} onClick={()=>onLocal(node.id)}>{tr('查看局部图')}</Button>
+     </RightMore>
+    </div>
+    {links.note&&<p role="status" className="mt-1.5 text-caption text-ink-3">{links.note}</p>}
+    {node.unresolved&&<p className="mt-2 text-caption text-ink-3">{zh?'有笔记链接到这里，但这篇笔记还不存在。':'Notes link here, but this note does not exist yet.'}</p>}
+   </div>
+   <div className="min-h-0 flex-1 overflow-y-auto border-t border-line px-1 py-1.5">
+    {([['出链',inspect.outgoing,'target'],['回链',inspect.incoming,'source']] as const).map(([label,edges,end])=><section key={label} className="pb-1.5">
+     <p className="px-2 pb-0.5 pt-1 text-caption text-ink-3">{tr(label)} · {edges.length}</p>
+     {edges.map(edge=>row(edge,end))}
+    </section>)}
+    {links.projectId&&node.path&&<div className="px-2"><CanvasBacklinks project={links.projectId} path={node.path}/></div>}
+   </div>
+  </>}
+ </aside>
 }
