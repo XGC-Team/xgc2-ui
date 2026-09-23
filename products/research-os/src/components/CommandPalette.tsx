@@ -4,9 +4,10 @@ import { FileText, Globe, Search } from 'lucide-react'
 import { NAV_ITEMS, useWorkbench } from '../store'
 import { looksLikeUrl, normalizeWebUrl } from '../lib/web'
 import { useAcademicNotes } from '../features/resources/useAcademicNotes'
+import { useNativeAgentSession } from '../features/chat/Session'
 type PaletteAction={label:string;run:()=>void;icon?:'globe'|'note';hint?:string}
 export function CommandPalette() {
- const {paletteOpen,setPaletteOpen,setActiveNav,toggleTheme,openResource,previewDocument}=useWorkbench();const [query,setQuery]=useState(''),[index,setIndex]=useState(0);const ref=useRef<HTMLInputElement>(null)
+ const {paletteOpen,setPaletteOpen,setActiveNav,toggleTheme,openResource,previewDocument,projectId,openCanvas,chatDock,setChatDock,openSettings,showConversation,locale}=useWorkbench();const native=useNativeAgentSession();const zh=locale==='zh';const [query,setQuery]=useState(''),[index,setIndex]=useState(0);const ref=useRef<HTMLInputElement>(null)
  const {notes}=useAcademicNotes()
  // 网址即动作：查询形如 URL/域名时，首条给出「打开网页」（局部地址栏已退场，这里是一入口）
  let webUrl='';if(looksLikeUrl(query)){try{webUrl=normalizeWebUrl(query)}catch{/* 非法地址不出动作 */}}
@@ -14,7 +15,14 @@ export function CommandPalette() {
  // 知识库笔记直达：全局搜索是唯一搜索入口，本地搜索框已退场
  const q=query.trim().toLowerCase()
  const noteActions:PaletteAction[]=q?notes.filter(n=>(n.title+' '+n.path).toLowerCase().includes(q)).slice(0,8).map(n=>({icon:'note',label:n.title,hint:n.path,run:()=>{setActiveNav('knowledge');previewDocument({workspace:'academic',path:n.path,title:n.title})}})):[]
- const pageActions:PaletteAction[]=[...NAV_ITEMS.map(n=>({label:tr(n.label),run:()=>setActiveNav(n.id)})),{label:tr("切换深浅主题"),run:toggleTheme}].filter(a=>a.label.toLowerCase().includes(q))
+ // Agent 原生命令：新线程、项目研究画布、三栏停靠、连接与模型——与页面导航同列，仍只有这一个入口
+ const workbenchActions:PaletteAction[]=[
+  {label:zh?'新线程':'New thread',hint:projectId||(zh?'通用对话':'General chat'),run:()=>{showConversation();native.newThread()}},
+  ...(projectId?[{label:zh?'打开研究画布':'Open research canvas',hint:projectId,run:()=>openCanvas(projectId)}]:[]),
+  {label:chatDock?(zh?'取消停靠讨论':'Undock discussion'):(zh?'停靠讨论（讨论 | 画布 | 制品）':'Dock discussion (discussion | canvas | artifact)'),run:()=>setChatDock(!chatDock)},
+  {label:zh?'连接与模型':'Connections & models',hint:tr('Settings'),run:()=>openSettings('connections')},
+ ]
+ const pageActions:PaletteAction[]=[...NAV_ITEMS.map((n):PaletteAction=>({label:tr(n.label),run:()=>setActiveNav(n.id)})),...workbenchActions,{label:tr("切换深浅主题"),run:toggleTheme}].filter(a=>(a.label+' '+(a.hint??'')).toLowerCase().includes(q))
  const actions:PaletteAction[]=[...webAction,...noteActions,...pageActions]
  useEffect(()=>{if(paletteOpen){setQuery('');setIndex(0);requestAnimationFrame(()=>ref.current?.focus())}},[paletteOpen])
  if(!paletteOpen)return null
