@@ -305,20 +305,15 @@ export function ThinkingCanvas({project,workspace=project,active=true,onRequestC
 }
 
 /* 研究画布空态：说清它是什么、不是什么。画布外化意图/论证/证据/约束；执行步骤、审批与回执属于工作流。 */
-function CanvasEmpty({locale,locked,onIdea,onChapter,onWorkflow}:{locale:'zh'|'en';locked:boolean;onIdea:()=>void;onChapter:()=>void;onWorkflow:()=>void}){
+function CanvasEmpty({locale,locked,onIdea}:{locale:'zh'|'en';locked:boolean;onIdea:()=>void;onChapter?:()=>void;onWorkflow?:()=>void}){
  const zh=locale==='zh'
  return <div className="pointer-events-none absolute inset-0 grid place-content-center p-6" data-xgc-role="canvas-empty">
-  <div className="pointer-events-auto max-w-md rounded-lg border border-line bg-panel p-5 shadow-soft" onDoubleClick={e=>e.stopPropagation()} onPointerDown={e=>e.stopPropagation()}>
+  <div className="pointer-events-auto max-w-sm text-center" onDoubleClick={e=>e.stopPropagation()} onPointerDown={e=>e.stopPropagation()}>
    <p className="font-display text-[18px] tracking-tight">{zh?'研究画布':'Research canvas'}</p>
-   <p className="mt-2 text-secondary text-ink-2">{zh?'先自由摆放问题、想法、主张、证据与约束，再用显式标注的关系（支持、反驳、依赖、引用…）逐步结构化；大纲是同一内容的线性视图。':'Place questions, ideas, claims, evidence and constraints freely, then structure them with explicitly labelled relations (supports, contradicts, depends, cites…). The outline is a linear view of the same content.'}</p>
-   <p className="mt-2 text-caption text-ink-3">{zh?'这里不是模型的思维链，也不是执行流程——可重复执行的步骤、审批与回执在工作流。相邻摆放不代表因果。':'This is not the model’s chain of thought and not an execution plan — repeatable steps, approvals and receipts live in Workflow. Adjacency does not imply causation.'}</p>
-   {/* 研究内容尚未建立或处于审阅锁定时画布只读：不给看似可用的新增钮，只说明下一步在哪。 */}
-   {locked?<p className="mt-4 text-caption text-ink-2" data-xgc-role="canvas-locked">{zh?'画布暂为只读：先在上方建立研究内容（或结束审阅锁定），再添加想法。':'The canvas is read-only for now: create the research content above (or finish the review lock) before adding ideas.'}</p>:<div className="mt-4 flex flex-wrap items-center gap-2">
-    <Button size="sm" variant="solid" icon={Plus} onClick={onIdea}>{zh?'想法':'Idea'}</Button>
-    <Button size="sm" icon={BookOpen} onClick={onChapter}>{zh?'章节':'Chapter'}</Button>
-    <Button size="sm" variant="ghost" onClick={onWorkflow}>{zh?'去工作流':'Go to Workflow'}</Button>
-    <span className="text-caption text-ink-3">{zh?'或双击空白处':'or double-click empty space'}</span>
-   </div>}
+   <p className="mt-2 text-secondary text-ink-3">{locked
+    ?(zh?'先在上方建立研究内容，画布才可编辑。':'Create the research content above to start editing.')
+    :(zh?'摆放问题、主张与证据，再用关系连接；执行步骤属于工作流。':'Place questions, claims and evidence, then connect them; execution steps belong in Workflow.')}</p>
+   {!locked&&<div className="mt-4" data-xgc-role="canvas-empty-action"><Button size="sm" variant="outline" icon={Plus} onClick={onIdea}>{zh?'添加想法':'Add an idea'}</Button></div>}
   </div>
  </div>
 }

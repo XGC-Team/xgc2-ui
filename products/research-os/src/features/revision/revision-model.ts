@@ -169,6 +169,16 @@ export function sampleRevisionProposal(document: ContentDocument, locale: 'zh' |
   return { summary: locale === 'zh' ? `为 ${open.length} 条未处理的审稿意见各起草一个决策卡（规则生成示例，非 Agent）` : `Draft a decision card for ${open.length} open review item(s) (rule-based sample, not an agent)`, ops }
 }
 
+/** How any native agent should propose canvas edits: fenced JSON patches that a human reviews. */
+export function patchContract(locale: 'zh' | 'en'): string {
+  const zh = locale === 'zh'
+  return [
+    zh ? `如需修改研究画布，请只以提议形式给出，用 \`\`\`${PATCH_FENCE} 代码块包裹 JSON：{"summary":"…","ops":[{"op":"add-card","ref":"d1","kind":"decision","title":"…","body":"…"},{"op":"add-relation","from":"d1","to":"<卡片 id>","relation":"depends"},{"op":"update-card","id":"<卡片 id>","status":"planned"}]}。提议由人在界面中接受或拒绝，不会自动写回。`
+      : `To change the research canvas, only propose it, as JSON inside a \`\`\`${PATCH_FENCE} block: {"summary":"…","ops":[{"op":"add-card","ref":"d1","kind":"decision","title":"…","body":"…"},{"op":"add-relation","from":"d1","to":"<card id>","relation":"depends"},{"op":"update-card","id":"<card id>","status":"planned"}]}. A human accepts or rejects proposals in the UI; nothing is written back automatically.`,
+    `kinds: ${CARD_TYPES.join(', ')} · relations: ${SEMANTIC_RELATIONS.join(', ')}`
+  ].join('\n')
+}
+
 /** Instructions appended to a revision thread so any native agent can answer with reviewable patches. */
 export function revisionThreadSeed(input: { project: string; locale: 'zh' | 'en'; items: Pick<ContentObject, 'id' | 'title' | 'status'>[] }): string {
   const zh = input.locale === 'zh'
@@ -178,9 +188,7 @@ export function revisionThreadSeed(input: { project: string; locale: 'zh' | 'en'
     zh ? '目标：逐条讨论审稿意见，确定修订方案（接受 / 部分接受 / 反驳 + 证据），再改稿。' : 'Goal: discuss each reviewer comment, decide a revision plan (accept / partly accept / rebut + evidence), then revise.',
     zh ? '修订项（画布卡片 id · 标题 [状态]）：' : 'Revision items (canvas card id · title [status]):',
     list,
-    zh ? `如需修改研究画布，请只以提议形式给出，用 \`\`\`${PATCH_FENCE} 代码块包裹 JSON：{"summary":"…","ops":[{"op":"add-card","ref":"d1","kind":"decision","title":"…","body":"…"},{"op":"add-relation","from":"d1","to":"<卡片 id>","relation":"depends"},{"op":"update-card","id":"<卡片 id>","status":"planned"}]}。提议由人在界面中接受或拒绝，不会自动写回。`
-      : `To change the research canvas, only propose it, as JSON inside a \`\`\`${PATCH_FENCE} block: {"summary":"…","ops":[{"op":"add-card","ref":"d1","kind":"decision","title":"…","body":"…"},{"op":"add-relation","from":"d1","to":"<card id>","relation":"depends"},{"op":"update-card","id":"<card id>","status":"planned"}]}. A human accepts or rejects proposals in the UI; nothing is written back automatically.`,
-    `kinds: ${CARD_TYPES.join(', ')} · relations: ${SEMANTIC_RELATIONS.join(', ')}`,
+    patchContract(input.locale),
   ].join('\n') + '\n'
 }
 

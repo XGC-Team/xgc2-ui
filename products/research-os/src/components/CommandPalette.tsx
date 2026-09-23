@@ -1,4 +1,5 @@
 import {t as tr} from '../i18n'
+import { readMarkPromptDockVisible, writeMarkPromptDockVisible } from '../devtools/mark-prompt/markPromptDockPreference'
 import { useStartRevisionThread } from '../features/revision/useRevisionThread'
 import { readDesignFocus, requestDesignFocus } from '../features/projects/design-focus'
 import { findContentSession } from '../features/content/useContentDocument'
@@ -34,6 +35,7 @@ export function CommandPalette() {
   ]:[]),
   {label:chatDock?(zh?'取消停靠讨论':'Undock discussion'):(zh?'停靠讨论（讨论 | 画布 | 制品）':'Dock discussion (discussion | canvas | artifact)'),run:()=>setChatDock(!chatDock)},
   {label:zh?'连接与模型':'Connections & models',hint:tr('Settings'),run:()=>openSettings('connections')},
+  {label:zh?'开发：显示/隐藏标注工具':'Developer: toggle mark tool',hint:'Mark · Herdr',run:()=>writeMarkPromptDockVisible(!readMarkPromptDockVisible())},
  ]
  const pageActions:PaletteAction[]=[...NAV_ITEMS.map((n):PaletteAction=>({label:tr(n.label),run:()=>setActiveNav(n.id)})),...workbenchActions,{label:tr("切换深浅主题"),run:toggleTheme}].filter(a=>(a.label+' '+(a.hint??'')).toLowerCase().includes(q))
  const actions:PaletteAction[]=[...webAction,...noteActions,...pageActions]

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowLeft, Plus, RefreshCw, Search } from 'lucide-react'
+import { ArrowLeft, Plus, Search } from 'lucide-react'
 import { Input, Select, Textarea } from '../../components/forms'
 import { DefinitionEditor } from './DefinitionEditor'
 import { SourceReferenceLink } from './SourceReferenceLink'
@@ -63,9 +63,7 @@ function LiveContentWorkbench({ project, workspace = project, view = 'table', on
     <header className="flex min-h-10 shrink-0 flex-wrap items-center gap-2 border-b border-line px-3 py-1">
       <span className="mr-auto truncate text-secondary font-medium">{zh ? '研究内容' : 'Research content'}</span>
       {(['table', 'outline', 'canvas', 'revision'] as const).map(v => <Button key={v} size="xs" variant={v === view ? 'outline' : 'ghost'} aria-pressed={v === view} onClick={() => switchView(v)}>{zh ? { table: '问题表', outline: '大纲', canvas: '画布', revision: '修订' }[v] : v}</Button>)}
-      <span className="text-caption text-ink-3" role="status">{state.dirty ? (zh ? '未保存' : 'Unsaved') : state.status === 'saving' ? (zh ? '保存中' : 'Saving') : state.digest ? (zh ? '已保存' : 'Saved') : ''}</span>
       {state.digest && <ContentHistory scope={{ projectId: project, workspace }} digest={state.digest}/>}
-      <Button size="xs" icon={RefreshCw} disabled={state.status === 'saving' || state.reviewLocked} onClick={() => state.reload()}>{zh ? '刷新' : 'Reload'}</Button>
     </header>
     {state.value && <SyncStrip project={project} digest={state.digest ?? ''} dirty={state.dirty} status={state.status}/>}
     {state.recovered && <p role="status" className="border-b border-line px-3 py-2 text-caption text-ink-2">{zh ? '已恢复本地未保存内容，并核对保存版本。' : 'Recovered local unsaved content and checked its saved revision.'}</p>}

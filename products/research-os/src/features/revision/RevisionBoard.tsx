@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
-import { Check, Crosshair, MessageSquarePlus, X } from 'lucide-react'
-import { Button } from '../../components/ui'
+import { Check, Crosshair, MessageSquarePlus, Plus, X } from 'lucide-react'
+import { Button, RightMore } from '../../components/ui'
 import { Textarea } from '../../components/forms'
 import { useWorkbench } from '../../store'
 import { cn } from '../../lib/cn'
@@ -73,7 +73,7 @@ export function RevisionBoard({ project, workspace, document, digest, dirty, edi
   const native = useNativeAgentSession()
   const startThread = useStartRevisionThread()
   const { proposals, propose, decide, clearDecided } = useProposals()
-  const [intake, setIntake] = useState(''), [pasted, setPasted] = useState(''), [pasting, setPasting] = useState(false)
+  const [intakeOpen, setIntakeOpen] = useState(false), [intake, setIntake] = useState(''), [pasted, setPasted] = useState(''), [pasting, setPasting] = useState(false)
   const [note, setNote] = useState(''), [busy, setBusy] = useState(''), [expanded, setExpanded] = useState<string | null>(null)
   const scope = { projectId: project, workspace }
   const comments = useMemo(() => splitReviewComments(intake), [intake])
@@ -85,7 +85,7 @@ export function RevisionBoard({ project, workspace, document, digest, dirty, edi
   const createItems = async () => {
     setBusy('intake')
     const result = await editResearchContent(scope, d => addRevisionItems(d, comments).document)
-    setBusy(''); if (result.ok) setIntake(''); report(result)
+    setBusy(''); if (result.ok) { setIntake(''); setIntakeOpen(false) } report(result)
   }
   const setStatus = async (item: ContentObject, status: string) => report(await editResearchContent(scope, d => ({ ...d, objects: d.objects.map(o => o.id === item.id ? { ...o, status } : o) })))
   const attach = (item: ContentObject) => {
@@ -126,22 +126,29 @@ export function RevisionBoard({ project, workspace, document, digest, dirty, edi
 
   return <div className="h-full min-h-0 overflow-y-auto" data-xgc-role="revision-board" data-xgc-id={project}>
     <div className="mx-auto w-full max-w-[46rem] px-5 pb-12 pt-5">
-      <div className="flex flex-wrap items-center gap-2">
-        <Button size="sm" variant="solid" icon={MessageSquarePlus} onClick={() => void startThread(project)} data-xgc-role="start-revision-thread">{c.start}</Button>
-        <p className="min-w-0 flex-1 text-caption text-ink-3">{c.startHint}</p>
+      {/* 一条主路径：在对话里处理修订。其余入口（粘贴意见、提议来源、输出）按需展开或收进「…」 */}
+      <div className="flex items-center gap-2">
+        <Button size="sm" variant="solid" icon={MessageSquarePlus} title={c.startHint} onClick={() => void startThread(project)} data-xgc-role="start-revision-thread">{c.start}</Button>
+        <span className="min-w-0 flex-1"/>
+        <RightMore label={c.outputs}>
+          <p className="text-caption text-ink-3">{c.outputsHint}</p>
+          <div className="flex flex-col gap-1" data-xgc-role="revision-outputs">
+            <Button size="xs" variant="outline" disabled={!editable || !items.length} loading={busy === 'paper'} onClick={() => void draftOutput('paper')}>{c.letter}</Button>
+            <Button size="xs" disabled={!editable || !items.length} loading={busy === 'slides'} onClick={() => void draftOutput('slides')}>{c.slides}</Button>
+          </div>
+        </RightMore>
       </div>
       {note && <p role="status" className="mt-3 rounded-md bg-elevated px-3 py-2 text-caption text-ink-2">{note}</p>}
 
-      <Rule>{c.intake}</Rule>
-      <p className="mb-2 text-caption text-ink-3">{c.intakeHint}</p>
-      <Textarea aria-label={c.intake} rows={5} className="ui-input w-full resize-y text-secondary" placeholder={c.intakePlaceholder} value={intake} disabled={!editable} onChange={e => setIntake(e.target.value)}/>
+      <Rule action={<Button size="xs" variant="ghost" icon={Plus} aria-expanded={intakeOpen} onClick={() => setIntakeOpen(v => !v)} data-xgc-role="paste-comments">{zh ? '粘贴审稿意见' : 'Paste comments'}</Button>}>{`${c.items} · ${items.length}`}</Rule>
+      {intakeOpen && <div className="mb-4">
+      <Textarea title={c.intakeHint} aria-label={c.intake} rows={5} className="ui-input w-full resize-y text-secondary" placeholder={c.intakePlaceholder} value={intake} disabled={!editable} onChange={e => setIntake(e.target.value)}/>
       <div className="mt-2 flex items-center gap-2">
         <Button size="xs" variant="outline" disabled={!editable || !comments.length} loading={busy === 'intake'} onClick={() => void createItems()}>{fill(c.create, { n: comments.length })}</Button>
         {comments.length > 0 && <span className="truncate text-caption text-ink-3">{comments.map(item => item.label).join(' · ')}</span>}
       </div>
-
-      <Rule>{`${c.items} · ${items.length}`}</Rule>
-      {!items.length && <p className="text-secondary text-ink-3">{c.none}</p>}
+      </div>}
+      {!items.length && !intakeOpen && <p className="text-secondary text-ink-3">{c.none}</p>}
       <ul className="space-y-1">
         {items.map(item => <li key={item.id} className={cn('rounded-lg px-2 py-1.5 transition-colors', expanded === item.id ? 'bg-elevated' : 'hover:bg-hover')} data-revision-item={item.id}>
           <div className="flex items-center gap-2">
@@ -162,13 +169,13 @@ export function RevisionBoard({ project, workspace, document, digest, dirty, edi
         </li>)}
       </ul>
 
-      <Rule action={mine.some(p => p.status !== 'pending') ? <Button size="xs" onClick={() => clearDecided(project)}>{c.clear}</Button> : undefined}>{c.proposals}</Rule>
-      <p className="mb-2 text-caption text-ink-3">{c.proposalsHint}</p>
-      <div className="flex flex-wrap gap-1">
+      <Rule action={<RightMore label={c.proposals}>
         <Button size="xs" variant="outline" onClick={fromThread}>{c.fromThread}</Button>
         <Button size="xs" onClick={() => setPasting(v => !v)}>{c.paste}</Button>
         <Button size="xs" onClick={sample} data-xgc-role="sample-proposal">{c.sample}</Button>
-      </div>
+        {mine.some(p => p.status !== 'pending') && <Button size="xs" onClick={() => clearDecided(project)}>{c.clear}</Button>}
+      </RightMore>}>{c.proposals}</Rule>
+      {!mine.length && !pasting && <p className="text-secondary text-ink-3" title={c.proposalsHint}>{zh ? 'Agent 在对话中提出的画布修改会出现在这里，由你接受或拒绝。' : 'Canvas changes the agent proposes in chat appear here for you to accept or reject.'}</p>}
       {pasting && <div className="mt-2 space-y-1">
         <Textarea aria-label={c.paste} rows={5} className="ui-input w-full resize-y font-mono text-caption" value={pasted} onChange={e => setPasted(e.target.value)} placeholder={'```research-canvas-patch\n{"ops":[…]}\n```'}/>
         <Button size="xs" variant="outline" disabled={!pasted.trim()} onClick={fromPaste}>{c.read}</Button>
@@ -193,12 +200,6 @@ export function RevisionBoard({ project, workspace, document, digest, dirty, edi
         })}
       </ul>
 
-      <Rule>{c.outputs}</Rule>
-      <p className="mb-2 text-caption text-ink-3">{c.outputsHint}</p>
-      <div className="flex flex-wrap gap-1" data-xgc-role="revision-outputs">
-        <Button size="xs" variant="outline" disabled={!editable || !items.length} loading={busy === 'paper'} onClick={() => void draftOutput('paper')}>{c.letter}</Button>
-        <Button size="xs" disabled={!editable || !items.length} loading={busy === 'slides'} onClick={() => void draftOutput('slides')}>{c.slides}</Button>
-      </div>
     </div>
   </div>
 }

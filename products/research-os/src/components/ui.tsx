@@ -220,6 +220,29 @@ export function RightMore({ label, children }: { label: string; children: ReactN
   )
 }
 
+/* ---------- Popover: 与 RightMore 同一套外壳，但触发器与方向可定（贴近输入框时向上展开） ---------- */
+export function Popover({ label, trigger, side = 'bottom', align = 'right', width = 'w-72', children }: {
+  label: string; trigger: (props: { open: boolean; toggle: () => void }) => ReactNode
+  side?: 'top' | 'bottom'; align?: 'left' | 'right'; width?: string; children: ReactNode | ((close: () => void) => ReactNode)
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const close = (e: PointerEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false) }
+    const key = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('pointerdown', close)
+    document.addEventListener('keydown', key)
+    return () => { document.removeEventListener('pointerdown', close); document.removeEventListener('keydown', key) }
+  }, [open])
+  return <div ref={ref} className="relative shrink-0">
+    {trigger({ open, toggle: () => setOpen(!open) })}
+    {open && <div role="dialog" aria-label={label} className={cn('ui-pop-in absolute z-50 flex max-h-[min(420px,60vh)] flex-col gap-1 overflow-hidden rounded-lg border border-line bg-panel p-2 shadow-pop', width, side === 'top' ? 'bottom-full mb-1' : 'top-full mt-1', align === 'right' ? 'right-0' : 'left-0')}>
+      {typeof children === 'function' ? children(() => setOpen(false)) : children}
+    </div>}
+  </div>
+}
+
 /* ---------- Badge: 计数徽标（active 时黑实底，承载语义） ---------- */
 export function Badge({
   solid,
