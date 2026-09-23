@@ -59,3 +59,14 @@
 应用导航为 Chat、Workflow、Knowledge、Settings（图谱已并入 Knowledge）。二级侧栏按页上下文化：Chat/Workflow 给线程与项目树；Knowledge 给「文件树 / 图谱」分段切换器——文件树默认折叠、选中即在主区打开阅读面，图谱模式给可检索篇目列表，点节点回阅读面。阅读面（`Reader.tsx` + `.research-document`）：720px 居中栏、衬线标题、frontmatter 元信息块、`[[wikilink]]` 可解析跳转、Shiki 双主题代码高亮（web 包 + go/rust/toml/latex 等按需注册，未知语言降级纯文本）、代码块语言标签 + 悬停复制钮。图谱画布透明透出 `--bg-app`，拖拽节点时持续 reheat 让邻点被牵引跟随；浮层不用 backdrop-blur。
 
 Chat 复用共享 AgentConversation 和真实事件流。Workflow 画布是活体：节点状态从三阶段回执推导，当前步骤按回执正文命中标题，运行中边 `edge-flow`、当前节点呼吸描边；底部 Crew 胶囊拼装研究/审查/写作与可用工作者（点芯片再点步骤/角色槽），节点可挂 `agent` / `knowledge[]` 随计划版本持久化。执行合同仍是三个原生会话，节点级独立 session 留 Open。知识芯片打开学术笔记，思维链芯片打开项目白板。Files 按目录分页；稿件 PDF 经 SyncTeX `POST /manuscripts/build-records/{id}/synctex` 与中央 SourceStage 双向跳转（PDF→源高亮行，源→PDF 闪烁框；批注锚点可从笔记回跳）。Knowledge 二级侧栏是文件树，图谱是未选文件时的首页。底栏真实 PTY；右栏内容实例标签。未实现的业务不能通过空壳菜单占位。
+
+## Agent 原生工作台（2026-09-24 轮）
+
+- **讨论停靠 = 三栏写作布局**：主区标签条的三栏钮（`Columns3`）把讨论停靠为主区左侧一列，形成「讨论 | 研究画布/大纲 | 制品/PDF」三栏同时可用；停靠列宽 300–560 可拖。讨论仍是**同一个 keyed 实例**，只换 `gridArea`，草稿与消息流不重挂；停靠时讨论不再出现在标签条，`showConversation` 不再抢占主区内容标签。偏好 `research-ui-chat-dock`，命令面板可切换。
+- **原生 Agent 名册**（`AgentRoster` / `agent-readiness.ts`）：只陈述宿主设置文档报告的事实——未安装 / 已停用 / 未核验登录 / 未登录 / 已登录；**禁止「在线」字样**，未核验不等于可用。实心点=已登录，空心=其余，虚线=未安装；状态以文字为准。顺序 Codex、Grok、Claude、OpenCode、Cursor。
+- **无可用 Agent 时**：composer 以明确原因禁发（`agentStartBlockedReason`），研究台与项目空态给出「连接与模型」入口；不再只留一个灰色发送钮。
+- **研究台扉页**取代「继续写作」：问候 + 起手式 + 原生 Agent 名册 + 项目绑定同屏；无项目即通用对话。
+- **设置页**：二级侧栏=分节目录（外观、连接与模型）+ 名册；`openSettings(section)` 深链滚动到节。供应者节改名「连接与模型」，并说明凭证只在各客户端自身登录。
+- **非 Chat 页主列 header**：衬线本地化页名（不再显示未翻译的英文导航键）。
+- **研究画布 ≠ 工作流**：画布空态说明「外化意图/论证/证据/约束，不是模型思维链、不是执行流程」，并指向工作流；工作流空态反向指回研究画布。研究内容未建立或审阅锁定时，画布空态只说明下一步，不给看似可用的新增钮。父级视图切换（问题表/大纲/画布）存在时，画布内不再重复渲染视图切换。
+- **陷阱**：`.native-chat-host` 内共享 T3 样式把 `--accent` 重定义为淡色，`variant="solid"` 钮会发白——chat host 内的产品侧按钮用 outline/ghost。

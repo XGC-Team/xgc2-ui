@@ -30,7 +30,7 @@ const RUN_LABEL: Record<Run['status'], string> = {running: '运行中', paused: 
 const KIND_LABEL: Record<InvokeKind, string> = {research: '获批节点执行', continuous: '连续研究（一页）', verification: '研究验证', archive: '文献归档', writing: '写作应用'}
 
 export function WorkflowPage({projectId, onQuote, onOpenSession}: {projectId: string | null; onQuote?: (text: string) => void; onOpenSession?: (id: string) => void}) {
-  const {openCanvas, openResource, previewDocument, knowledgeDocuments} = useWorkbench()
+  const {openCanvas, openResource, previewDocument, knowledgeDocuments, locale} = useWorkbench()
   const {notes} = useAcademicNotes()
   const [revisions, setRevisions] = useState<Revision[]>([]), [selectedVersion, setSelectedVersion] = useState(0)
   const [selectedRunId,setSelectedRunId]=useState(''), lastFocus=useRef('')
@@ -186,7 +186,10 @@ export function WorkflowPage({projectId, onQuote, onOpenSession}: {projectId: st
           onLink={editing ? (from, to) => {const node = draft.nodes.find(n => n.id === to)!; if (!node.dependsOn.includes(from)) changeNode(to, {dependsOn: [...node.dependsOn, from]})} : undefined}
           statusOf={id => nodeStatus(id, editing ? undefined : latestRun)} nowId={nowId} liveOf={id => (nowId === id ? live?.text : '') || ''}
           agentOf={id => {const n = visible?.nodes.find(x => x.id === id); return n ? nodeAgent(n, visible) : ''}} assembling={editing ? assembling : ''}
-          empty={<><h2 className="font-display text-[24px] tracking-tight">{projectId ? tr('建立研究工作流') : tr('选择研究项目')}</h2><p className="mt-2 max-w-xs text-secondary leading-relaxed text-ink-3">{tr('每个获批节点独立执行，只接收声明的依赖、证据和验收条件。')}</p></>}/>
+          empty={<><h2 className="font-display text-[24px] tracking-tight">{projectId ? tr('建立研究工作流') : tr('选择研究项目')}</h2><p className="mt-2 max-w-xs text-secondary leading-relaxed text-ink-3">{tr('每个获批节点独立执行，只接收声明的依赖、证据和验收条件。')}</p>
+            {/* 工作流回答「如何执行」；「打算表达什么、为什么」在研究画布。两者可关联，不共享节点语义。 */}
+            <p className="mx-auto mt-3 max-w-xs text-caption leading-relaxed text-ink-3" data-xgc-role="workflow-boundary">{locale === 'zh' ? '工作流是可重复执行的步骤、审批与回执；要表达的想法、论证与证据放在研究画布。' : 'Workflow holds repeatable steps, approvals and receipts; the ideas, argument and evidence you mean to express live on the research canvas.'}</p>
+            {projectId && <div className="mt-3"><Button size="sm" icon={IconCanvas} onClick={() => openCanvas(projectId)}>{locale === 'zh' ? '打开研究画布' : 'Open research canvas'}</Button></div>}</>}/>
         {visible && <div className="flex flex-wrap items-center gap-2 border-t border-line bg-panel p-3" data-xgc-role="workflow-crew">
           {editing ? <>
             {roles.map(role => <Button key={role} onClick={() => assignAgent(role)}>{ROLE_LABEL[role]} · {draft[role] || '未选择'}</Button>)}
