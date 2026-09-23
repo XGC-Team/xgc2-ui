@@ -179,6 +179,11 @@ export function patchContract(locale: 'zh' | 'en'): string {
   ].join('\n')
 }
 
+/** Prepend a thread brief to the first message; the brief is sent verbatim, never summarised. */
+export function withThreadBrief(brief: string | undefined, text: string): string {
+  return brief?.trim() ? `${brief.trim()}\n\n---\n\n${text}` : text
+}
+
 /** Instructions appended to a revision thread so any native agent can answer with reviewable patches. */
 export function revisionThreadSeed(input: { project: string; locale: 'zh' | 'en'; items: Pick<ContentObject, 'id' | 'title' | 'status'>[] }): string {
   const zh = input.locale === 'zh'

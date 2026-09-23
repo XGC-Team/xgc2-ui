@@ -7,13 +7,13 @@ import type { ResearchDraft } from '../projects/draft-model'
 
 /* 项目制品架（资源管理器语法）：同一项目下的 PDF 与草稿制品（回复信、幻灯片、分镜）并列，点开即在原位打开。
    PDF 由文件签名 %PDF- 经工作区搜索找到，不猜路径；编译产物在构建可用时由预览自动打开。 */
-type Shelf = { pdfs: string[]; drafts: ResearchDraft[]; error: string }
+export type Shelf = { pdfs: string[]; drafts: ResearchDraft[]; error: string }
 
-export function ArtifactShelf({ project }: { project: string }) {
-  const { locale, openResource, selectResearchDraft } = useWorkbench()
-  const zh = locale === 'zh'
+/** The project's PDFs (by %PDF- signature) and its letter/slides/storyboard drafts; refreshed on window focus. */
+export function useProjectShelf(project: string): Shelf | null {
   const [shelf, setShelf] = useState<Shelf | null>(null)
   useEffect(() => {
+    if (!project) return
     const c = new AbortController()
     const read = async (): Promise<Shelf> => {
       const [hits, drafts] = await Promise.all([
@@ -28,6 +28,13 @@ export function ArtifactShelf({ project }: { project: string }) {
     window.addEventListener('focus', refresh)
     return () => { c.abort(); window.removeEventListener('focus', refresh) }
   }, [project])
+  return shelf
+}
+
+export function ArtifactShelf({ project }: { project: string }) {
+  const { locale, openResource, selectResearchDraft } = useWorkbench()
+  const zh = locale === 'zh'
+  const shelf = useProjectShelf(project)
   if (!shelf || (!shelf.pdfs.length && !shelf.drafts.length)) return null
   const row = 'flex w-full items-center gap-2 rounded-md px-2 h-7 text-secondary text-ink-2 transition-colors hover:bg-hover hover:text-ink'
   return <div className="ml-sidebar-indent border-l border-line pl-1.5" data-xgc-role="artifact-shelf" data-xgc-id={project}>

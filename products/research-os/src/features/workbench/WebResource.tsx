@@ -15,7 +15,7 @@ export function WebResource({url,report}:{url?:string;report:(title:string)=>voi
    <IconBtn icon={ArrowLeft} label={tr("上一个已输入地址")} onClick={()=>move(-1)} disabled={index<=0}/>
    <IconBtn icon={ArrowRight} label={tr("下一个已输入地址")} onClick={()=>move(1)} disabled={index>=history.length-1}/>
    <IconBtn icon={RotateCw} label={tr("重新加载网页")} onClick={()=>setReload(n=>n+1)} disabled={!current}/>
-   <div className="ml-auto"><RightMore label={tr("浏览器操作")}><Button onClick={openGroundStation}>{tr("打开地面站 · 5174")}</Button>{current&&<a href={current} target="_blank" rel="noopener noreferrer" className="text-caption">{tr("在新窗口打开网页")}</a>}</RightMore></div>
+   <div className="ml-auto"><RightMore menu label={tr("浏览器操作")}><Button onClick={openGroundStation}>{tr("打开地面站 · 5174")}</Button>{current&&<a href={current} target="_blank" rel="noopener noreferrer" className="text-caption">{tr("在新窗口打开网页")}</a>}</RightMore></div>
   </div>
   <div className="browser-content min-h-0 flex-1 flex-col">
    {error&&<p role="alert" className="ui-error">{error}</p>}

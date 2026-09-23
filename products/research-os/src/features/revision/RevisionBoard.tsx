@@ -68,7 +68,7 @@ function describeOp(op: PatchOp, document: ContentDocument, locale: 'zh' | 'en',
 export function RevisionBoard({ project, workspace, document, digest, dirty, editable, onView }: {
   project: string; workspace: string; document: ContentDocument; digest: string; dirty: boolean; editable: boolean; onView: (view: 'canvas') => void
 }) {
-  const { locale, addContextItem, selectResearchDraft } = useWorkbench()
+  const { locale, addContextItem, selectResearchDraft, threadBriefs } = useWorkbench()
   const c = COPY[locale], zh = locale === 'zh'
   const native = useNativeAgentSession()
   const startThread = useStartRevisionThread()
@@ -129,15 +129,16 @@ export function RevisionBoard({ project, workspace, document, digest, dirty, edi
     if (result.ok) { safely(decide(proposal.id, 'applied', result.revision)); setNote(fill(c.appliedAt, { rev: short(result.revision) })) } else report(result)
   }
 
+  // Once this project's thread is live or drafted, starting another is secondary; the primary path is the conversation.
+  const threadLive = Boolean((native.session && sessionProject(native.session) === project) || threadBriefs[project])
   return <div className="h-full min-h-0 overflow-y-auto" data-xgc-role="revision-board" data-xgc-id={project}>
     <div className="mx-auto w-full max-w-[46rem] px-5 pb-12 pt-5">
       {/* 一条主路径：在对话里处理修订。其余入口（粘贴意见、提议来源、输出）按需展开或收进「…」 */}
       <div className="flex items-center gap-2">
-        <Button size="sm" variant="solid" icon={MessageSquarePlus} title={c.startHint} onClick={() => void startThread(project)} data-xgc-role="start-revision-thread">{c.start}</Button>
+        <Button size="sm" variant={threadLive ? 'ghost' : 'solid'} icon={MessageSquarePlus} title={c.startHint} onClick={() => void startThread(project)} data-xgc-role="start-revision-thread">{c.start}</Button>
         <span className="min-w-0 flex-1"/>
-        <RightMore label={c.outputs}>
-          <p className="text-caption text-ink-3">{c.outputsHint}</p>
-          <div className="flex flex-col gap-1" data-xgc-role="revision-outputs">
+        <RightMore menu label={c.outputs}>
+          <div className="flex flex-col gap-0.5" data-xgc-role="revision-outputs" title={c.outputsHint}>
             <Button size="xs" variant="outline" disabled={!editable || !items.length} loading={busy === 'paper'} onClick={() => void draftOutput('paper')}>{c.letter}</Button>
             <Button size="xs" disabled={!editable || !items.length} loading={busy === 'slides'} onClick={() => void draftOutput('slides')}>{c.slides}</Button>
           </div>
@@ -174,7 +175,7 @@ export function RevisionBoard({ project, workspace, document, digest, dirty, edi
         </li>)}
       </ul>
 
-      <Rule action={<RightMore label={c.proposals}>
+      <Rule action={<RightMore menu label={c.proposals}>
         <Button size="xs" variant="outline" onClick={fromThread}>{c.fromThread}</Button>
         <Button size="xs" onClick={() => setPasting(v => !v)}>{c.paste}</Button>
         <Button size="xs" onClick={sample} data-xgc-role="sample-proposal">{c.sample}</Button>

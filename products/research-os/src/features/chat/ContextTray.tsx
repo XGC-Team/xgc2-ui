@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { BookOpen, FileText, Network, Plus, Presentation, X } from 'lucide-react'
+import { BookOpen, FileText, MessageSquareText, Network, Plus, Presentation, ScrollText, X } from 'lucide-react'
 import { Button, Popover, RightMore } from '../../components/ui'
 import { useWorkbench } from '../../store'
 import { cn } from '../../lib/cn'
@@ -81,13 +81,15 @@ function AttachList({ project, onPick }: { project: string; onPick: (candidate: 
   </>
 }
 
-export function ContextTray({ blockedReason }: { blockedReason?: string }) {
-  const { locale, projectId, contextItems, addContextItem, removeContextItem, openSettings, openResource } = useWorkbench()
+export function ContextTray() {
+  const { locale, projectId, contextItems, addContextItem, removeContextItem, openResource, threadBriefs, setThreadBrief, reviewIntents, reviewDockOpen, setReviewDockOpen } = useWorkbench()
   const native = useNativeAgentSession()
   const zh = locale === 'zh'
   const [manage, setManage] = useState(false), [note, setNote] = useState('')
   const project = sessionProject(native.session) || projectId
   const items = contextItems.filter(item => item.project === project)
+  const brief = threadBriefs[project]
+  const reviewCount = reviewIntents.filter(intent => intent.scope.projectId === project).length
   const stale = (item: ContextItem) => item.state !== 'current'
   // Proposals the agent made in this thread: detected here, recorded only when the user chooses to review them.
   const { proposals, propose, load } = useProposals()
@@ -112,6 +114,15 @@ export function ContextTray({ blockedReason }: { blockedReason?: string }) {
   return <div className="flex flex-col gap-1" data-xgc-role="context-tray" data-xgc-id={project || 'global'}>
     {manage && items.length > 0 && <div className="max-h-64 overflow-y-auto"><ContextPanel open/></div>}
     <div className="flex min-h-7 flex-wrap items-center gap-1">
+      {brief && <span data-xgc-role="thread-brief" className="flex h-6 max-w-60 items-center gap-0.5 rounded-md border border-line bg-panel pl-0.5 pr-0.5 text-caption text-ink-2">
+        <Popover label={brief.label} side="top" align="left" width="w-72" trigger={({ open, toggle }) =>
+          <button type="button" aria-expanded={open} onClick={toggle} className="flex h-5 min-w-0 items-center gap-1 rounded px-1 hover:bg-hover hover:text-ink" title={zh ? '随首条消息发送；点开查看全文' : 'Sent with the first message; open to read it'}>
+            <ScrollText size={11} strokeWidth={1.75} className="shrink-0 text-ink-3"/><span className="min-w-0 truncate">{brief.label}</span></button>}>
+          <p className="px-1 text-caption text-ink-3">{zh ? '随首条消息原样发送，发送后自动卸下。' : 'Sent verbatim with the first message, then detached.'}</p>
+          <pre className="min-h-0 flex-1 overflow-auto whitespace-pre-wrap rounded-md bg-inset p-2 font-mono text-[11px] leading-5 text-ink-2">{brief.text}</pre>
+        </Popover>
+        <button type="button" aria-label={`${zh ? '移除' : 'Remove'} ${brief.label}`} className="grid h-5 w-5 shrink-0 place-items-center rounded text-ink-3 hover:bg-hover hover:text-ink" onClick={() => setThreadBrief(project, null)}><X size={10}/></button>
+      </span>}
       {items.map(item => { const Icon = ICON[item.kind]; return <span key={item.id} data-context-chip={item.id} data-context-state={item.state}
         className={cn('group flex h-6 max-w-52 items-center gap-1 rounded-md border border-line bg-panel pl-1.5 pr-0.5 text-caption text-ink-2', stale(item) && 'border-dashed')}
         title={`${item.ref}${item.digest ? ` @ ${item.digest}` : ''}${stale(item) ? ` · ${zh ? '版本需核对' : 'version needs a check'}` : ''}`}>
@@ -122,7 +133,7 @@ export function ContextTray({ blockedReason }: { blockedReason?: string }) {
         <button type="button" aria-expanded={open} onClick={toggle} data-xgc-role="attach-context" className="flex h-6 items-center gap-1 rounded-md px-1.5 text-caption text-ink-3 transition-colors hover:bg-hover hover:text-ink"><Plus size={12} strokeWidth={1.75}/>{items.length ? '' : (zh ? '附加卡片、笔记或 PDF' : 'Attach a card, note or PDF')}</button>}>
         {close => <AttachList project={project} onPick={c => { addContextItem(c.item()); close() }}/>}
       </Popover> : <span className="px-1.5 text-caption text-ink-3">{zh ? '选择项目后可附加研究对象' : 'Select a project to attach research objects'}</span>}
-      {items.length > 0 && <RightMore label={zh ? '上下文操作' : 'Context actions'}>
+      {items.length > 0 && <RightMore menu label={zh ? '上下文操作' : 'Context actions'}>
         <Button size="xs" onClick={() => insert(false)}>{zh ? '插入引用清单到草稿' : 'Insert references into draft'}</Button>
         <Button size="xs" onClick={() => insert(true)}>{zh ? '请 Agent 提议画布修改' : 'Ask agent for canvas changes'}</Button>
         <Button size="xs" onClick={() => setManage(v => !v)}>{manage ? (zh ? '收起版本管理' : 'Hide version details') : (zh ? '管理引用与版本…' : 'Manage references…')}</Button>
@@ -131,8 +142,11 @@ export function ContextTray({ blockedReason }: { blockedReason?: string }) {
         className="flex h-6 items-center gap-1 rounded-md border border-line-strong px-1.5 text-caption text-ink hover:bg-hover">
         {unseen.length ? (zh ? `Agent 提出 ${unseen.length} 项画布修改 · 审阅` : `Agent proposed ${unseen.length} canvas change(s) · Review`) : (zh ? `${pending} 项画布提议待审` : `${pending} canvas proposal(s) to review`)}
       </button>}
-      {/* 环境闸门只占一行安静状态，不再是正文里的警告卡片 */}
-      {blockedReason && <button type="button" onClick={() => openSettings('connections')} className="ml-auto truncate px-1 text-caption text-ink-3 hover:text-ink-2" title={blockedReason} data-xgc-role="no-agent-notice">{zh ? '未连接原生 Agent · 连接与模型' : 'No native agent · Connections'}</button>}
+      {/* 设计审阅不再常驻列内：有待讨论的批注时出现一枚计数，点开浮层 */}
+      {project && (reviewCount > 0 || reviewDockOpen) && <button type="button" aria-pressed={reviewDockOpen} onClick={() => setReviewDockOpen(!reviewDockOpen)} data-xgc-role="review-chip" data-pending={reviewCount}
+        className={cn('flex h-6 items-center gap-1 rounded-md px-1.5 text-caption transition-colors hover:bg-hover', reviewDockOpen ? 'bg-active text-ink' : 'text-ink-2')}>
+        <MessageSquareText size={11} strokeWidth={1.75} className="shrink-0 text-ink-3"/>{zh ? '设计审阅' : 'Design review'}{reviewCount ? ` · ${reviewCount}` : ''}
+      </button>}
     </div>
     {note && <p role="status" className="px-1 text-caption text-ink-3">{note}</p>}
   </div>

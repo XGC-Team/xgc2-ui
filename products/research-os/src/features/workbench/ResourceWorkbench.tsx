@@ -52,7 +52,7 @@ function ResourceTabs({area, floating}: {area: WorkArea; floating?: {rect: Float
     {area === 'secondary' && <IconBtn icon={PictureInPicture2} active={sideFloat} label={sideFloat ? (zh ? '停回右侧' : 'Dock the side pane') : (zh ? '浮动并排区' : 'Float the side pane')} onClick={() => setSideFloat(!sideFloat)}/>}
     {area === 'primary' && !chatDock && !chatFloat && <IconBtn icon={Columns3} label={zh ? '停靠讨论：讨论 | 画布 | 制品 并排' : 'Dock discussion: discussion | canvas | artifact side by side'} onClick={() => setChatDock(true)}/>}
     {active && <IconBtn icon={area === 'primary' ? ArrowRightToLine : ArrowLeftToLine} label={zh ? (area === 'primary' ? '移到并排工作区' : '移到主工作区') : 'Move to other area'} onClick={() => moveResource(active, area === 'primary' ? 'secondary' : 'primary')}/>}
-    <RightMore label={zh ? '打开资源' : 'Open resource'}>
+    <RightMore menu label={zh ? '打开资源' : 'Open resource'}>
       {!chatDock && !chatFloat && <Button onClick={() => openResource({kind:'chat'},area)}>{zh?'讨论':'Discussion'}</Button>}
       {projectId && <Button onClick={() => openResource({kind:'research',workspace:projectId,view:'table'},area)}>{zh?'研究内容':'Research content'}</Button>}
       <Button onClick={() => openResource({kind:'file',target:fileTarget(projectId,projectId||'academic')},area)}>{zh?'文件':'Files'}</Button>

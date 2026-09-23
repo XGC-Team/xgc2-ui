@@ -29,6 +29,9 @@ export function useStartRevisionThread() {
       if (session.snapshot().status === 'loading') await session.load()
       items = (session.snapshot().value?.objects ?? []).filter(object => cardType(object) === 'revision')
     } catch { /* The seed then says there are no items yet; the board stays the source of truth. */ }
-    native.appendDraft(revisionThreadSeed({ project, locale: state.locale, items }), project)
+    // The contract and item list ride along with the first message as a visible brief; the composer keeps one plain sentence.
+    const zh = state.locale === 'zh'
+    useWorkbench.getState().setThreadBrief(project, { label: zh ? `修订约定 · ${items.length} 项` : `Revision brief · ${items.length} item(s)`, text: revisionThreadSeed({ project, locale: state.locale, items }) })
+    native.appendDraft(zh ? '请逐条过一遍审稿意见，先给出每条的修订方案（接受 / 部分接受 / 反驳 + 证据）。' : 'Go through the reviewer comments one by one and propose a revision plan for each (accept / partly accept / rebut + evidence).', project)
   }, [native])
 }

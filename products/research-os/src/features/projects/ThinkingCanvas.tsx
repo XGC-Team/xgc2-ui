@@ -168,7 +168,7 @@ export function ThinkingCanvas({project,workspace=project,active=true,onRequestC
    {view==='canvas'&&<Button size="xs" onClick={()=>{fitted.current=false;apply(layoutDesignCanvas)}}>{copy.tidy}</Button>}
    <span role="status" className="min-w-0 flex-1 truncate text-caption text-ink-3" title={`${project}/${CANVAS_PATH}`}>{statusLabel}</span>
    <IconBtn icon={Send} label={copy.addToDraft} onClick={()=>{native.appendDraft(prompt(),project);setActiveNav('chat');onRequestConversation?.()}}/>
-   <RightMore label={copy.more}><Button size="xs" icon={Copy} onClick={()=>void copyPrompt()}>{copied?tr("已复制"):tr("复制提示词")}</Button></RightMore>
+   <RightMore menu label={copy.more}><Button size="xs" icon={Copy} onClick={()=>void copyPrompt()}>{copied?tr("已复制"):tr("复制提示词")}</Button></RightMore>
   </div>
   {blocked&&<div className="px-3 py-2">
    <p role="alert" className="text-secondary text-ink-2">{saveState==='conflict'?messages.canvasConflict:messages.canvasSaveError}</p>

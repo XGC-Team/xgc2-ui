@@ -36,6 +36,7 @@ export function CommandPalette() {
   {label:chatDock?(zh?'取消停靠讨论':'Undock discussion'):(zh?'停靠讨论（讨论 | 画布 | 制品）':'Dock discussion (discussion | canvas | artifact)'),run:()=>setChatDock(!chatDock)},
   {label:chatFloat?(zh?'停回讨论窗口':'Dock the discussion window'):(zh?'浮动讨论窗口':'Float the discussion'),run:()=>setChatFloat(!chatFloat)},
   {label:sideFloat?(zh?'停回并排区':'Dock the side pane'):(zh?'浮动并排区（PDF / 制品）':'Float the side pane (PDF / artifacts)'),run:()=>setSideFloat(!sideFloat)},
+  ...(projectId?[{label:zh?'设计审阅（浮层）':'Design review (overlay)',hint:projectId,run:()=>{showConversation();useWorkbench.getState().setReviewDockOpen(!useWorkbench.getState().reviewDockOpen)}}]:[]),
   {label:zh?'连接与模型':'Connections & models',hint:tr('Settings'),run:()=>openSettings('connections')},
   {label:zh?'开发：显示/隐藏标注工具':'Developer: toggle mark tool',hint:'Mark · Herdr',run:()=>writeMarkPromptDockVisible(!readMarkPromptDockVisible())},
  ]

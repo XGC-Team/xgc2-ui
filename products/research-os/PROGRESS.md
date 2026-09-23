@@ -2,6 +2,21 @@
 
 Branch: `feat/research-os-agent-native-workbench` · Draft PR XGC-Team/xgc2-ui#34 · Refs XGC-Team/xgc2-research-os#12
 
+## Round 4: owner priority list (`RESEARCH_OS_PRIORITY_NEXT.md`)
+
+This round follows the owner's ordered list and `RESEARCH_OS_DESIGN_DEEPEN.md`. Verified in a browser against a local `researchd` (devops copy, throwaway data root, sample project with a synthetic PDF).
+
+**1. Quieter main surface (done)**
+- **The composer is never squeezed.** The design-review dock and the intake receipts no longer sit in the Chat column's layout. They float over the top of the thread (`chat-overlays`). The dock opens from a "设计审阅 · N" chip in the context tray (or ⌘K); feedback still opens it on arrival. At every step of the revision walkthrough the composer keeps its full height.
+- **Thread brief instead of a flooded composer.** "New revision thread" used to paste about 10 lines of item list + patch contract into the composer. That text is now a visible **brief chip** ("修订约定 · N 项"): it can be removed, and opening it shows the full text. It is sent verbatim ahead of the first message, then detached. The composer holds one plain sentence.
+- **One calm status line for environment gates.** A 24px status bar at the bottom of the window shows the Agent, LaTeX and research-service state, derived only from `/capabilities` and the host settings document (`environment-status.ts`, tested). The tray's "未连接原生 Agent" line and the PDF pane's LaTeX sentence were removed. The composer still refuses to send, with its reason, when no agent can take the thread.
+- **PDF pane shows real PDFs.** With builds disabled, the side pane lists the project's actual PDFs (found by signature) and opens one in place, instead of a warning.
+- **"…" menus behave like menus.** `RightMore menu` left-aligns entries and closes on choice. Applied to the project row, context tray, revision board, drafts, canvas and resource menus. The PDF zoom/version panel stays a form.
+- **Copy.** The dead "继续这篇论文" strings were deleted. "New revision thread" drops to a ghost button once the project's thread is live or drafted.
+- **Known leftover:** the composer placeholder "Ask anything..." is hard-coded in the vendored `@xgc2/agent-runtime` and ignores locale. The fix belongs in the shared package, not a product overlay.
+
+---
+
 ## Round 3: design deepening — calm hierarchy, Chat as control plane, detachable panels
 
 This round follows `RESEARCH_OS_DESIGN_DEEPEN.md` (owner priority) and continues the closed loop from round 2. It borrows interaction grammar without copying skins:

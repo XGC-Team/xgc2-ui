@@ -1,10 +1,16 @@
+/* 设计审阅是浮在对话顶部的一张卡片（Codex/Cursor 的审批浮层语法），不参与列内布局，永远不挤压输入框 */
 .writing-review-dock {
+  pointer-events: auto;
   display: flex;
   flex-direction: column;
   min-height: 0;
-  max-height: 42%;
+  max-height: 100%;
   flex: 0 1 auto;
-  border-bottom: 1px solid var(--line);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  background: var(--bg-panel);
+  box-shadow: var(--shadow-soft);
+  overflow: hidden;
 }
 .writing-review-dock__header {
   display: flex;

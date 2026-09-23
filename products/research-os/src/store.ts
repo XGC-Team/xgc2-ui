@@ -19,6 +19,7 @@ export const NAV_ITEMS = [
 ] as const
 export type NavId = typeof NAV_ITEMS[number]['id']
 export type SettingsSection = 'appearance' | 'connections'
+export type ThreadBrief = { label: string; text: string }
 export type ReviewIntent = { id: string; scope: Scope; anchor: Anchor; body: string; at: string; designDiscussion?: true; annotationId?: string }
 const persistLayout = (resourceLayout: ResourceLayout) => {
   writePreference(LAYOUT_PREFERENCE, JSON.stringify(resourceLayout))
@@ -46,6 +47,10 @@ export const useWorkbench = create<{
   contextItems: ContextItem[]
   addContextItem: (item: ContextItem) => void
   removeContextItem: (id: string) => void
+  /* 线程约定：随「首条消息」一起发送的说明（如修订线程的修订项清单与画布提议约定）。
+     以一枚可见、可移除、可展开查看的附件呈现，不再把十几行说明灌进输入框。 */
+  threadBriefs: Record<string, ThreadBrief>
+  setThreadBrief: (project: string, brief: ThreadBrief | null) => void
   patchContextItem: (id: string, patch: Partial<ContextItem>) => void
 
   locale:'zh'|'en';setLocale:(locale:'zh'|'en')=>void
@@ -120,6 +125,8 @@ export const useWorkbench = create<{
       : [...s.contextItems, { ...item, source: item.source ? { ...item.source } : undefined }],
   })),
   removeContextItem: id => set(s => ({ contextItems: s.contextItems.filter(item => item.id !== id) })),
+  threadBriefs: {},
+  setThreadBrief: (project, brief) => set(s => { const next = { ...s.threadBriefs }; if (brief) next[project] = { ...brief }; else delete next[project]; return { threadBriefs: next } }),
   patchContextItem: (id, patch) => set(s => ({ contextItems: s.contextItems.map(item => item.id === id ? { ...item, ...patch, id: item.id } : item) })),
 
   locale:readPreference('research-ui-locale')==='en'?'en':'zh',setLocale:(locale)=>{writePreference('research-ui-locale',locale);document.documentElement.lang=locale;set({locale})},

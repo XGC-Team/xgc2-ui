@@ -12,6 +12,7 @@ import { Sidebar } from './components/Sidebar'
 import { ResizeHandle } from './components/ResizeHandle'
 import { readPreference, writePreference } from './lib/storage'
 import { CommandPalette } from './components/CommandPalette'
+import { StatusBar } from './components/StatusBar'
 import { NAV_ITEMS, useWorkbench } from './store'
 import { researchProjects } from './features/workbench/writing-session'
 import { collection, listWorkspaces, type Project } from './lib/api'
@@ -84,6 +85,7 @@ function Workbench(){
     {bottom&&<ResizeHandle orientation="h" onDraggingChange={setDragging} onDelta={delta=>queueResize('bottom',-delta)} onDoubleClick={()=>setBottom(false)}/>}<motion.div initial={false} animate={{height:bottom?sizes.bottom:0}} transition={panelMotion} className="shrink-0 overflow-hidden" style={{maxHeight:'50%'}}><BottomPanelM expanded={bottom} onExpand={openBottom} onCollapse={closeBottom}/></motion.div>
    </main>
   </div>
+  <StatusBar/>
   <CommandPalette/><MarkPromptDock page={`${activeNav}${projectId&&projectView?' / '+projectId:''}`}/>
  </div>
 }

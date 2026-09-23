@@ -199,7 +199,8 @@ export function Tabs({
 }
 
 /* ---------- RightMore: 页面工具行末尾的溢出菜单 ---------- */
-export function RightMore({ label, children }: { label: string; children: ReactNode }) {
+/* menu：动作菜单（VS Code/Cursor 语法）——条目左对齐、点选即关闭；表单类溢出面板（缩放、版本选择）不传 menu */
+export function RightMore({ label, children, menu = false }: { label: string; children: ReactNode; menu?: boolean }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -215,7 +216,10 @@ export function RightMore({ label, children }: { label: string; children: ReactN
       <button type="button" className="grid h-7 w-7 place-items-center rounded-md text-ink-3 transition-all duration-150 hover:bg-hover hover:text-ink active:scale-95" aria-label={tr(label)} title={tr(label)} aria-expanded={open} onClick={() => setOpen(!open)}>
         <MoreHorizontal size={14} strokeWidth={1.75} />
       </button>
-      {open && <div role="dialog" aria-label={tr(label)} className="ui-pop-in absolute right-0 top-full z-50 mt-1 flex w-60 flex-col gap-2 rounded-lg border border-line bg-panel p-3 shadow-pop">{children}</div>}
+      {open && (menu
+        ? <div role="menu" aria-label={tr(label)} className="ui-menu ui-pop-in absolute right-0 top-full z-50 mt-1 flex w-60 flex-col gap-0.5 rounded-lg border border-line bg-panel p-1 shadow-pop"
+            onClick={e => { if ((e.target as HTMLElement).closest('button:not([aria-expanded])')) setOpen(false) }}>{children}</div>
+        : <div role="dialog" aria-label={tr(label)} className="ui-pop-in absolute right-0 top-full z-50 mt-1 flex w-60 flex-col gap-2 rounded-lg border border-line bg-panel p-3 shadow-pop">{children}</div>)}
     </div>
   )
 }
