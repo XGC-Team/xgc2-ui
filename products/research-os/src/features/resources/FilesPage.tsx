@@ -80,6 +80,9 @@ function FilesPageContent({ target, active = true, manuscriptEntryPoint, onQuote
             {view === 'notes' && <p className="mb-3 text-caption text-ink-3">{copy.noteScope}</p>}
             {entries.map(entry => <button key={entry.path} type="button" className="ui-list-row" onClick={() => {
               if (entry.kind === 'directory') { setEntries([]); position.current = 0; setDirectory(entry.path) }
+              // A PDF in the workspace (e.g. the submitted manuscript under review) opens in the annotating reader beside the canvas,
+              // without implying a fresh TeX build.
+              else if (/\.pdf$/i.test(entry.path)) openResource({ kind: 'original', workspace, path: entry.path }, 'secondary')
               else openResource({ kind: 'file', target: fileTarget(projectId, workspace, view, entry.path) })
             }}>{entry.kind === 'directory' ? <Folder size={14} strokeWidth={1.75}/> : <FileText size={14} strokeWidth={1.75}/>}<span className="truncate">{entry.path.split('/').pop()}</span></button>)}
             {!loading && !error && !entries.length && <p className="text-secondary text-ink-3">{view === 'notes' ? copy.noNotes : copy.noFiles}</p>}

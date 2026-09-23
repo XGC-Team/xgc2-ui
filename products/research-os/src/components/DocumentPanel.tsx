@@ -1,4 +1,5 @@
 import {t as tr} from '../i18n'
+import { newContextItem } from '../features/projects/context-model'
 import {useEffect,useRef,useState} from 'react'
 import {ArrowLeft,Search} from 'lucide-react'
 import {useWorkbench} from '../store'
@@ -8,7 +9,7 @@ import {MarkdownView} from '../features/resources/Reader'
 import {ReadingBridge} from '../features/projects/ReadingBridge'
 type DocRef={workspace:string;path:string;title:string}
 export function DocumentPanel({doc,onQuote,onTitle,active=true}:{doc?:DocRef;active?:boolean;onQuote:(text:string)=>void;onTitle?:(title:string)=>void}){
- const {knowledgeDocuments:notes,openResource}=useWorkbench()
+ const {knowledgeDocuments:notes,openResource,projectId,addContextItem,locale}=useWorkbench();const [added,setAdded]=useState(false)
  const [current]=useState<DocRef|null>(doc??null)
  const [query,setQuery]=useState(''),[document,setDocument]=useState<{content:string;digest:string}|null>(null),[error,setError]=useState('')
  useEffect(()=>{setDocument(null);setError('');if(!current)return;const c=new AbortController();request<{content:string;digest:string}>(`/workspaces/${encodeURIComponent(current.workspace)}/files/${current.path.split('/').map(encodeURIComponent).join('/')}`,{signal:c.signal}).then(d=>{if(typeof d?.content!=='string'||typeof d.digest!=='string'||!d.digest)throw Error('Invalid file response.');if(!c.signal.aborted)setDocument(d)}).catch(e=>{if(!c.signal.aborted)setError(e.message)});return()=>c.abort()},[current])
@@ -19,7 +20,7 @@ export function DocumentPanel({doc,onQuote,onTitle,active=true}:{doc?:DocRef;act
   <div className="min-h-0 flex-1 overflow-auto p-2">{notes.filter(n=>(n.title+' '+n.path).toLowerCase().includes(query.toLowerCase())).map(n=><button key={n.path} className="ui-list-row" onClick={()=>openResource({kind:'note',doc:{workspace:'academic',path:n.path,title:n.title}})}>{n.title}</button>)}</div>
  </div>
  return <div className="flex min-h-0 flex-1 flex-col">
-  <div className="flex h-9 shrink-0 items-center gap-1 px-2"><IconBtn icon={ArrowLeft} label={tr("返回文档列表")} onClick={()=>openResource({kind:'note'})}/><span className="min-w-0 flex-1 truncate pl-1 text-caption text-ink-2" title={current.title}>{current.title}</span><Button disabled={!document} onClick={()=>onQuote(`文件：${current.workspace}/${current.path}\n版本：${document?.digest}\n\n${document?.content}`)}>{tr("引用到 Chat")}</Button></div>
+  <div className="flex h-9 shrink-0 items-center gap-1 px-2"><IconBtn icon={ArrowLeft} label={tr("返回文档列表")} onClick={()=>openResource({kind:'note'})}/><span className="min-w-0 flex-1 truncate pl-1 text-caption text-ink-2" title={current.title}>{current.title}</span><Button disabled={!document} onClick={()=>onQuote(`文件：${current.workspace}/${current.path}\n版本：${document?.digest}\n\n${document?.content}`)}>{tr("引用到 Chat")}</Button>{/* 版本化引用而不是粘贴全文：加入当前项目的对话上下文集合，发送前仍做作用域检查 */}<Button disabled={!document||!projectId} title={projectId?undefined:(locale==='zh'?'先选择一个项目':'Select a project first')} onClick={()=>{if(!document||!projectId)return;addContextItem(newContextItem({project:projectId,kind:'source',label:current.title,ref:`${current.workspace}/${current.path}`,digest:document.digest,excerpt:document.content.replace(/^---[\s\S]*?---\s*/,'').slice(0,200),source:{id:current.path,path:current.path,workspace:current.workspace,digest:document.digest}}));setAdded(true)}}>{added?(locale==='zh'?'已加入上下文':'In context'):(locale==='zh'?'加入对话上下文':'Add to chat context')}</Button></div>
   {error&&<p role="alert" className="ui-error">{error}</p>}
   <article className="min-h-0 flex-1 overflow-auto px-5 py-4">{document?<ReadingBridge active={active} source={{id:'knowledge-reader',workspace:current.workspace,path:current.path,digest:document.digest}}><div className="research-document break-words text-secondary leading-relaxed"><MarkdownView content={document.content}/></div></ReadingBridge>:!error&&<p className="text-ink-3">{tr("正在读取…")}</p>}</article>
  </div>

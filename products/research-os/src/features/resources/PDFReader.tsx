@@ -1,4 +1,7 @@
 import { decodeAnnotation, pdfAnnotationRequest, relativeRect, type PDFAnchor, type PDFRect } from './pdf-annotations'
+import { annotationCard } from '../revision/revision-model'
+import { editFailureCopy, editResearchContent, withObject } from '../revision/revision-actions'
+import { newContextItem } from '../projects/context-model'
 import { pdfRectCenterToSyncTeXPoint, syncTeXBoxToPDFRect } from './pdf-coordinates'
 import { isOriginalPDF, listPDFVersions, type ManuscriptPDF, type ReadablePDF } from './manuscript'
 import {
@@ -62,7 +65,7 @@ function scrollTopFor(viewport: HTMLElement, target: HTMLElement): number {
 
 function PdfPage({
   doc, digest, pageNumber, width, height, paint, mode, busy, notes, selectedNote, outline, showEditor, activeAnchor, activeNote, flashRect, comment, quote, gapBelow,
-  onComment, onText, onRegion, onSelectNote, onClose, onJump, onSubmit, onDiscuss, onError, canJump,
+  onComment, onText, onRegion, onSelectNote, onClose, onJump, onSubmit, onDiscuss, onCard, onAttach, onError, canJump,
 }: {
   doc: PDFDocumentProxy
   digest: string
@@ -91,6 +94,8 @@ function PdfPage({
   onJump: () => void
   onSubmit: () => void
   onDiscuss: () => void
+  onCard: () => void
+  onAttach: () => void
   onError: (message: string) => void
 }) {
   const paper = useRef<HTMLDivElement>(null)
@@ -198,7 +203,9 @@ function PdfPage({
       <div className="mb-2 flex items-center gap-2 text-caption"><MessageSquare size={12} /><span className="flex-1">{tr(activeAnchor?.kind === 'region' ? '区域批注' : '原文批注')}</span>{activeAnchor && canJump && <span data-xgc-role="pdf-jump-source"><IconBtn icon={FileCode2} label={tr('跳到源码')} disabled={busy} onClick={onJump} /></span>}<IconBtn icon={X} label={tr('关闭批注')} disabled={busy} onClick={onClose} /></div>
       {(activeAnchor?.quote || quote) && <blockquote className="mb-2 max-h-20 overflow-auto border-l-2 border-line pl-2 text-caption text-ink-2">{activeAnchor?.quote || quote}</blockquote>}
       {activeNote
-        ? <><p className="whitespace-pre-wrap text-secondary">{activeNote.comment}</p><Button className="mt-2" data-xgc-role="pdf-annotation-discuss" data-xgc-id={activeNote.id} onClick={onDiscuss}>{tr('加入这次讨论')}</Button></>
+        ? <><p className="whitespace-pre-wrap text-secondary">{activeNote.comment}</p><Button className="mt-2" data-xgc-role="pdf-annotation-discuss" data-xgc-id={activeNote.id} onClick={onDiscuss}>{tr('加入这次讨论')}</Button>
+          {/* 双向同步入口：批注 → 画布修订项卡片（锚定 PDF 版本/页/原文），或 → 对话上下文引用（不是粘贴） */}
+          <div className="mt-1 flex flex-wrap gap-1"><Button size="xs" data-xgc-role="pdf-annotation-card" data-xgc-id={activeNote.id} disabled={busy} onClick={onCard}>{tr('生成画布卡片')}</Button><Button size="xs" data-xgc-role="pdf-annotation-context" data-xgc-id={activeNote.id} onClick={onAttach}>{tr('加入对话上下文')}</Button></div></>
         : <><textarea autoFocus data-xgc-role="pdf-annotation-comment" data-xgc-id="pdf-annotation-comment" aria-label={tr('PDF 批注')} placeholder={tr('写下对这一处的设计意见…')} className="ui-input" rows={3} disabled={busy} value={comment} onChange={event => onComment(event.target.value)} /><div className="mt-2 flex gap-2"><Button variant="solid" data-xgc-role="pdf-annotation-submit" data-xgc-id="pdf-annotation-submit" loading={busy} disabled={!comment.trim()} onClick={onSubmit}>{tr('提交批注并讨论')}</Button></div></>}
     </div>}
   </div>
@@ -212,13 +219,13 @@ export default function PDFReader({ pdf, scope, onPDF, onTitle, onDraftChange }:
   onTitle?: (title: string) => void
   onDraftChange?: (dirty: boolean) => void
 }) {
-  const { locale, openSourceView, pdfFlash, requestReviewFeedback } = useWorkbench()
+  const { locale, openSourceView, pdfFlash, requestReviewFeedback, addContextItem } = useWorkbench()
   const [document, setDocument] = useState<PDFDocumentProxy | null>(null)
   const [pageSizes, setPageSizes] = useState<{ w: number; h: number }[]>([])
   const [page, setPage] = useState(1)
   const [painted, setPainted] = useState<number[]>([1])
   const [scale, setScale] = useState(1)
-  const [error, setError] = useState('')
+  const [error, setError] = useState(''), [notice, setNotice] = useState('')
   const [quote, setQuote] = useState('')
   const [comment, setComment] = useState('')
   const [busy, setBusy] = useState(false)
@@ -520,6 +527,23 @@ export default function PDFReader({ pdf, scope, onPDF, onTitle, onDraftChange }:
     if (!pdf) return
     requestReviewFeedback({ id: crypto.randomUUID(), annotationId, designDiscussion: true, scope, anchor: pdfFeedbackAnchor(pdf, target), body: text, at: new Date().toISOString() })
   }
+  async function cardFromNote(note: ParsedNote) {
+    if (!pdf) return
+    setBusy(true); setError(''); setNotice('')
+    const page = note.anchor?.page ?? note.page, quote = note.anchor?.quote ?? ''
+    const card = annotationCard({ annotationId: note.id, id: crypto.randomUUID(), pdf: { workspace: pdf.workspace, path: pdf.path, digest: pdf.digest, ...(!isOriginalPDF(pdf) ? { buildId: pdf.buildId } : {}) }, page, quote, comment: note.comment })
+    const result = await editResearchContent({ projectId: scope.projectId, workspace: scope.workspace }, document => document.objects.some(o => o.annotationId === note.id) ? document : withObject(document, card))
+    setBusy(false)
+    if (!result.ok) { setError(editFailureCopy(result, locale)); return }
+    setNotice(locale === 'zh' ? '已在研究画布生成修订项卡片（同一批注只生成一次）。' : 'Created a revision card on the research canvas (once per annotation).')
+  }
+  function attachNote(note: ParsedNote) {
+    if (!pdf) return
+    const page = note.anchor?.page ?? note.page, quote = note.anchor?.quote ?? ''
+    addContextItem(newContextItem({ project: scope.projectId, kind: 'source', label: `PDF p.${page} · ${note.comment.split('\n')[0].slice(0, 60)}`, ref: `${pdf.path}#page=${page}`, digest: pdf.digest, excerpt: [quote, note.comment].filter(Boolean).join(' — ').slice(0, 200),
+      source: { id: note.id, path: pdf.path, workspace: pdf.workspace, digest: pdf.digest, page, excerpt: quote || note.comment, ...(!isOriginalPDF(pdf) ? { buildId: pdf.buildId } : {}) } }))
+    setNotice(locale === 'zh' ? '已加入对话上下文（未发送）。' : 'Added to chat context (not sent).')
+  }
   async function jumpToSource() {
     if (!pdf || isOriginalPDF(pdf) || !activeAnchor || busy) return
     const dims = pageDims.current.get(activeAnchor.page)
@@ -560,6 +584,7 @@ export default function PDFReader({ pdf, scope, onPDF, onTitle, onDraftChange }:
       </RightMore>
     </div>
     {error && <p role="alert" className="ui-error">{error}</p>}
+    {notice && <p role="status" className="px-3 py-1 text-caption text-ink-2">{notice}</p>}
     <div ref={viewportRef} className="min-h-0 flex-1 overflow-auto overscroll-contain bg-inset p-3" data-xgc-role="pdf-viewport" data-xgc-flow="scroll" data-xgc-current-page={page} data-xgc-zoom={scale}>
       <div className="flex w-max min-w-full flex-col items-center">
         {document && layout.map((box, index) => {
@@ -593,6 +618,8 @@ export default function PDFReader({ pdf, scope, onPDF, onTitle, onDraftChange }:
             onClose={resetSelection}
             onJump={() => void jumpToSource()}
             onSubmit={() => void annotate()}
+            onCard={() => { if (activeNote) void cardFromNote(activeNote) }}
+            onAttach={() => { if (activeNote) attachNote(activeNote) }}
             onDiscuss={() => { if (activeNote) discuss(activeNote.anchor || { schema: 'research.pdf-anchor/v1', kind: 'page', page: activeNote.page, rects: [], quote: '', context: '' }, activeNote.comment, activeNote.id) }}
             onError={message => onError.current(message)}
           />
