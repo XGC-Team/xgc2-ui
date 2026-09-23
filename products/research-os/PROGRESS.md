@@ -2,6 +2,53 @@
 
 Branch: `feat/research-os-agent-native-workbench` · Draft PR XGC-Team/xgc2-ui#34 · Refs XGC-Team/xgc2-research-os#12
 
+## Round 3: design deepening — calm hierarchy, Chat as control plane, detachable panels
+
+This round follows `RESEARCH_OS_DESIGN_DEEPEN.md` (owner priority) and continues the closed loop from round 2. It borrows interaction grammar without copying skins:
+- Cursor / VS Code: palette, "…" menus, tab instances, split and floating panes.
+- Overleaf: PDF beside the working surface.
+- Obsidian: links, backlinks, pop-out panes.
+- T3 Code / Codex: honest sessions and composer attachments.
+
+**1. Declutter and hierarchy (done first)**
+- **Chat column:** it reads as project name + one sentence + the composer, with a single-line context tray above the composer. The context "details" box, the no-agent warning card and the writing-centric empty copy are gone. The no-agent gate is one quiet line linking to Settings.
+- **Research desk:** greeting, starters and projects only. The agent roster lives in the Settings sidebar.
+- **Gated panes:** the PDF pane gate (LaTeX unavailable), the canvas empty state and the workflow empty state are each one sentence + one action.
+- **Menus:** project actions fold into one "…" menu on the project row. In the revision board, intake appears on "Paste comments", and proposal sources and outputs sit in "…" menus.
+- **Status and review:** Research content keeps one status line (the sync line). The design-review dock is one line until expanded, and its form stays mounted.
+- **Devtool:** the developer Mark/Herdr cluster is hidden by default and toggled from ⌘K.
+
+**2. Chat is the control plane**
+- The composer tray attaches canvas cards, knowledge notes, drafts and open PDFs as versioned references. Its "…" menu inserts the reference list, asks the agent for canvas changes (with the patch contract), or opens version management.
+- `research-canvas-patch` blocks in the current thread's agent replies are detected and offered as "Agent proposed N canvas changes · Review". They are recorded on that click only and applied only on acceptance. Pending proposals stay visible as one quiet control.
+
+**3. Backend coupling (real API, no new route)**
+- Proposals moved from browser storage to `research-proposals.json` in the project workspace (schema `research.canvas-proposals/v1`). They are written through the existing workspace file API with compare-and-swap: `createOnly` first, then `expectedDigest`.
+- A conflict re-reads the file and re-applies the one change, so a concurrent writer's proposals are kept.
+- Proposals are now shared, versioned with the repository, and can be filed by any agent working in the tree. Verified live: an accepted proposal is recorded with the content revision it produced.
+
+**4. Graph and documents**
+- The knowledge reader adds **Add to chat** (with digest) and **Link to selected card** (a versioned knowledge ref on the card, through the content writer).
+- It also lists **canvas backlinks**: the project's cards that cite the note.
+
+**5. Artifact shelf**
+- The active project's sidebar tree lists its PDFs (found by the `%PDF-` signature through workspace search, no guessed paths) and its letter/slides/storyboard drafts. Each opens in place.
+
+**6. Detachable panels**
+- Chat and the side pane (PDF/artifacts) can float as windows and re-dock, from pane headers or ⌘K.
+- Floating swaps a keyed pane's grid area for a fixed rectangle. Nothing remounts, so drafts, streams and PDF scroll survive tear-off and re-dock.
+- Windows persist their geometry, stay inside the viewport, resize from the corner, and raise on click (below the palette). Default positions don't overlap.
+- A floating discussion stays usable over Workflow and Knowledge, e.g. talking to the agent while reading the graph.
+
+**Tests:** `npm test` passes 256 tests, including `tests/proposal-store.test.ts` (CAS, conflict retry, dedup, no-op writes) and the float cases in `tests/chat-dock.test.ts`. `npm run build` and `npm run lint:review` pass. The closed-loop browser walkthrough passed after the declutter commit and the proposal-persistence commit. A final re-run after the floating commit could not start Chrome: the shared machine was out of memory, with other sessions active.
+
+**Still open after round 3**
+- **Shared backend change:** the proposal file uses the generic workspace file API. A dedicated `/research/projects/{id}/proposals` route with server-side validation belongs in the backend, but the sibling `xgc2-research-os` tree doesn't build against the local agent runtime. The runnable tree is the `xgc2-devops` copy, a separate repository I did not modify.
+- **Floating scope:** only Chat and the side pane float. The canvas, graph and terminal don't yet. Floating is in-page; there are no pop-out browser windows.
+- **Manuscript source:** there are still no manuscript-source proposals from PDF/canvas (the TeX builder is disabled here), no promotion of findings into global knowledge, and no live agent round-trip (no signed-in client here).
+
+---
+
 ## Round 2: review-driven revision closed loop (TRO-shaped)
 
 The goal of this round is that a researcher can run review-driven revision in the GUI instead of CLI and handmade files. Everything below lives on the existing shell and on the one `research-content.json` model. There is no new page family, no vault KM, and no new agent loop.
