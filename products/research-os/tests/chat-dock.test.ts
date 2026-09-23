@@ -78,6 +78,19 @@ describe('detachable panels', () => {
 
   it('keeps floating windows inside the viewport at a usable size', async () => {
     const { clampRect } = await import('../src/components/FloatingPanel')
-    expect(clampRect({ x: 5000, y: -40, w: 100, h: 5000 }, { w: 1200, h: 800 })).toEqual({ x: 872, y: 8, w: 320, h: 784 })
+    expect(clampRect({ x: 5000, y: -40, w: 100, h: 5000 }, { w: 1200, h: 800 })).toEqual({ x: 872, y: 48, w: 320, h: 720 })
+    // A window dragged left or down never covers the navigation rail or the status bar.
+    expect(clampRect({ x: -900, y: 2000, w: 420, h: 640 }, { w: 1440, h: 900 })).toEqual({ x: 56, y: 228, w: 420, h: 640 })
+    // On a viewport smaller than the minimum, the window shrinks to the room instead of spilling out.
+    const tiny = clampRect({ x: 0, y: 0, w: 900, h: 900 }, { w: 300, h: 200 })
+    expect(tiny.x + tiny.w).toBeLessThanOrEqual(292); expect(tiny.y + tiny.h).toBeLessThanOrEqual(168)
+    const { tearOffPoint, tornRect } = await import('../src/components/FloatingPanel')
+    const strip = { top: 40, bottom: 76 }
+    // A short or in-strip drag is a click / reorder, never a tear-off.
+    expect(tearOffPoint({ x: 500, y: 58 }, { x: 520, y: 62 }, strip)).toBe(false)
+    expect(tearOffPoint({ x: 500, y: 58 }, { x: 800, y: 60 }, strip)).toBe(false)
+    expect(tearOffPoint({ x: 500, y: 58 }, { x: 520, y: 260 }, strip)).toBe(true)
+    // The torn window lands with its header under the pointer, inside the workspace.
+    expect(tornRect({ x: 30, y: 10 }, { w: 420, h: 640 }).x).toBe(56)
   })
 })

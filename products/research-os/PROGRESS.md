@@ -40,6 +40,27 @@ This round follows the owner's ordered list and `RESEARCH_OS_DESIGN_DEEPEN.md`. 
 - **Verified live:** draft slides → fill rights/attribution → Generate. `researchd` refused ("isolated artifact worker" unavailable: no `bwrap`). The studio, the status bar ("制品渲染不可用") and the pane ("未渲染 · 渲染器不可用（已观察）") all say so, and no success is shown anywhere.
 - **Backend gap (documented, not faked):** `/capabilities` should expose `artifactRender: {available, detail}` from `buildworker.NewArtifactBuilder`, the same way it exposes `latex`. Then the gate could be known before the first request. This belongs in the backend tree (`xgc2-harness/devops/platforms/research-os/cmd/researchd/artifact_runtime.go`), which this session was asked not to touch.
 
+**4. Detachable / floating panels: stabilized (done)**
+- **Bug fixed: windows could cover the navigation rail and the status bar.** A float dragged to the left edge sat on top of the rail, so the page navigation stopped responding (caught by the browser stress run). Windows are now clamped into the workspace (`FLOAT_INSETS`): below the top bar, right of the rail, above the status bar. On tiny viewports they shrink to the room instead of spilling out.
+- **Tear-off.** Dragging a tab out of its strip floats it at the drop point, with a dashed landing preview; a short drag is still a click.
+  - The discussion tab becomes the floating discussion window.
+  - Any other tab (research canvas, PDF, artifacts…) becomes the floating side pane's active tab.
+  - So Chat plus any content pane can be torn off, floated and re-docked.
+  - Drag tracking uses window listeners, because the pointer leaves a 28px tab almost immediately.
+- **Re-dock tells the truth.** Double-clicking a window's grip re-docks it. If the discussion came from the docked column, the float header offers "停回讨论列" (back into the column), and "放回标签" really returns it to the tabs. Before, it silently went back to the column.
+- **Narrow windows.** Below 1100px the three-column dock falls back to tabs: the discussion tab reappears in the strip, and the dock control is hidden. Widening restores the dock. The saved preference is untouched.
+- **Guard.** No empty floating frame is drawn when the current project has no discussion tab.
+- **Verified in a browser:**
+  - float → drag to a corner → the rail still works;
+  - double-click re-docks;
+  - dock → float → back to the column;
+  - narrow ↔ wide;
+  - tear off the chat tab and the canvas tab;
+  - the draft survives float and re-dock;
+  - geometry persists across reload.
+- **Tests:** `clampRect` insets and tiny viewports, the `tearOffPoint` threshold and `tornRect` landing.
+- **Still open:** the canvas can float only through the side pane. There is no independent third window, and there are no OS-level pop-out windows: everything stays in-page.
+
 - **Known leftover:** the composer placeholder "Ask anything..." is hard-coded in the vendored `@xgc2/agent-runtime` and ignores locale. The fix belongs in the shared package, not a product overlay.
 
 ---
