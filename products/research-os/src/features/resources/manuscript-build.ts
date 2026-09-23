@@ -1,4 +1,4 @@
-import { compareBuildRequests, type BuildRecord } from '../review/build-provenance.ts'
+import { compareBuildRequests, sourceInsideBuildRoot, type BuildRecord } from '../review/build-provenance.ts'
 import { buildSavedManuscript, listBuildRecords, manuscriptCapability, normalizeSavedInputs, pdfFromRecord, type BuildCapability, type ManuscriptPDF, type ManuscriptScope, type SavedInput } from './manuscript.ts'
 
 export type ManuscriptSourcesSaved = { workspace: string; changes: readonly SavedInput[]; batchId?: string }
@@ -52,7 +52,7 @@ const errorPhase = (error: unknown): BuildPhase => {
  * It does not choose a viewer, mutate source, or change a historical PDF selection.
  */
 export function createManuscriptBuild(scopeValue: ManuscriptScope, io: BuildPorts = ports, debounceMs = 350) {
-  const scope = { ...scopeValue }
+  const scope = { ...scopeValue, sourceRoot: scopeValue.sourceRoot ?? '.' }
   let state: ManuscriptBuildState = { phase: 'idle', pdf: null, record: null, capability: null, freshness: 'unknown', error: '' }
   const listeners = new Set<() => void>(), pending = new Map<string, string>(), seen = new Map<string, string>()
   let sequence = 0, running: AbortController | undefined, hydration: AbortController | undefined
@@ -93,6 +93,7 @@ export function createManuscriptBuild(scopeValue: ManuscriptScope, io: BuildPort
     if (event.workspace !== scope.workspace) return
     let changed = false
     for (const input of normalizeSavedInputs(event.changes)) {
+      if (!sourceInsideBuildRoot(input.path, scope.sourceRoot)) continue
       if (seen.get(input.path) === input.digest) continue
       seen.set(input.path, input.digest); pending.set(input.path, input.digest); changed = true
     }
@@ -110,7 +111,7 @@ export function createManuscriptBuild(scopeValue: ManuscriptScope, io: BuildPort
     publish({ phase: 'loading', error: '' })
     const [history, capability] = await Promise.allSettled([io.history(scope.workspace, controller.signal), io.capability(controller.signal)])
     if (generation !== sequence || controller.signal.aborted) return
-    const records = history.status === 'fulfilled' ? history.value.filter(record => record.task.workspaceRef === scope.workspace && record.task.entryPoint === scope.entryPoint).sort(compareBuildRequests) : []
+    const records = history.status === 'fulfilled' ? history.value.filter(record => record.task.workspaceRef === scope.workspace && record.task.entryPoint === scope.entryPoint && (record.task.sourceRoot ?? '.') === scope.sourceRoot).sort(compareBuildRequests) : []
     const record = records[0] || state.record
     const pdf = records.map(pdfFromRecord).find(Boolean) || state.pdf
     const available = capability.status === 'fulfilled' ? capability.value : null
@@ -144,7 +145,7 @@ export function createManuscriptBuild(scopeValue: ManuscriptScope, io: BuildPort
 export type ManuscriptBuildController = ReturnType<typeof createManuscriptBuild>
 const coordinators = new Map<string, ManuscriptBuildController>()
 export function manuscriptBuildController(scope: ManuscriptScope): ManuscriptBuildController {
-  const key = JSON.stringify([scope.workspace, scope.entryPoint])
+  const key = JSON.stringify([scope.workspace, scope.entryPoint, scope.sourceRoot ?? '.'])
   let controller = coordinators.get(key)
   if (!controller) {
     controller = createManuscriptBuild(scope); coordinators.set(key, controller)

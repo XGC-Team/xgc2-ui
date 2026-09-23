@@ -4,13 +4,14 @@ import { Button } from '../../components/ui'
 import { saveDownload } from '../../lib/api'
 import { useWorkbench } from '../../store'
 import { DRAFTS_PATH } from '../projects/draft-model'
+import { CONTENT_PATH } from '../content/content-model'
 import { useReview } from './useReview'
 import { readReviewFile, captureTarget } from './review-api'
 import { assertEditorClean } from './write-coordinator'
 import { openFeedbackAnchor } from './review-navigation'
 import { impactedDrafts, patchTarget, targetChoices, targetValue } from './review-targets'
 import { writingCopy } from '../workbench/writing-copy'
-import { check, dependencyClosure, now, operationState, REVIEW_PATH, scopeKey, selectedGroups, uid, validPath, type FileRecord, type Operation, type Proposal, type Scope, type Target } from './review-model'
+import { check, dependencyClosure, now, operationState, requiresContentReview, REVIEW_PATH, scopeKey, selectedGroups, uid, validPath, type FileRecord, type Operation, type Proposal, type Scope, type Target } from './review-model'
 
 type ReviewPanelProps = {scope: Scope; tabId: string; onTitle: (title: string) => void; surface?: 'panel' | 'writing'}
 /** Standalone panels own one journal; the writing dock passes its existing instance. */
@@ -56,7 +57,7 @@ export function ReviewPanelContents({scope, tabId, onTitle, surface = 'panel', a
   const proposal = api.book?.proposals.find(p => p.id === selected)
   const busy = api.busy || reading
   const call = async (fn: () => Promise<unknown>) => { setLocalError(''); try { await fn() } catch (e) { setLocalError(e instanceof Error ? e.message : String(e)) } }
-  const sourcePath = kind === 'canvas' ? 'thinking.canvas.json' : kind === 'block' ? DRAFTS_PATH : path
+  const sourcePath = kind === 'canvas' ? CONTENT_PATH : kind === 'block' ? DRAFTS_PATH : path
   let choices: ReturnType<typeof targetChoices> = []
   try { if (source && kind !== 'text') choices = targetChoices(source.content, kind, scope) } catch { /* Load reports validation errors. */ }
   const target: Target | undefined = !source ? undefined : kind === 'text' ? {kind, workspace: scope.workspace, path: sourcePath, ...range} : choices[Number(choice)]?.target
@@ -66,7 +67,7 @@ export function ReviewPanelContents({scope, tabId, onTitle, surface = 'panel', a
     check(validPath(sourcePath), 'Choose a relative research file path.')
     assertEditorClean(scope.workspace, sourcePath); setReading(true)
     try {
-      const r = await readReviewFile(scope.workspace, sourcePath)
+      const r = await readReviewFile(scope.workspace, sourcePath, scope.projectId)
       if (kind !== 'text') targetChoices(r.content, kind, scope)
       setSource(r); setChoice('0'); setAfter(''); setRange({start: 0, end: 0})
       if(kind!=='text'&&seed?.anchor.target){
@@ -86,7 +87,7 @@ export function ReviewPanelContents({scope, tabId, onTitle, surface = 'panel', a
     const targetAnchor = await captureTarget(scope, target, before)
     check(targetAnchor.digest === source.digest, 'Target changed while composing. Reload the baseline.')
     let related: string[] = []
-    try { related = impactedDrafts((await readReviewFile(scope.workspace, DRAFTS_PATH)).content, scope, target) } catch { /* No inference from missing relationships. */ }
+    try { related = impactedDrafts((await readReviewFile(scope.workspace, DRAFTS_PATH, scope.projectId)).content, scope, target) } catch { /* No inference from missing relationships. */ }
     const o: Operation = {id: uid(), target: structuredClone(target), baseDigest: source.digest, before, after, reason: reason.trim(),
       evidence: [structuredClone(seed.anchor), targetAnchor], dependsOn: [...depends], impacts: [...new Set([...related, ...impact.split('\n').map(s => s.trim()).filter(Boolean)])]}
     const samePath = operations.filter(x => x.target.path === target.path)
@@ -110,13 +111,13 @@ export function ReviewPanelContents({scope, tabId, onTitle, surface = 'panel', a
     check(groups.size, 'Select operations.')
     const lines: string[] = []
     for (const [path, ops] of groups) {
-      assertEditorClean(scope.workspace, path); const r = await readReviewFile(scope.workspace, path)
+      assertEditorClean(scope.workspace, path); const r = await readReviewFile(scope.workspace, path, scope.projectId)
       check(ops.every(o => o.baseDigest === r.digest), `Baseline changed: ${path}`)
       patchTarget(r.content, ops, scope); lines.push(`${path} · ${r.digest}`)
     }
     setPreview(`${t('仅预览通过，未写入任何目标文件', 'Preview only; no target file was written')}\n${lines.join('\n')}`)
   }
-  const stateLabel = (value: string) => ({review: t('待审阅', 'Review'), applied: t('已写入', 'Applied'), reverted: t('已受保护撤回', 'Reverted'), uncertain: t('结果待核对，禁止盲目重试', 'Uncertain; inspect before retry'), conflict: t('版本冲突', 'Conflict'), rejected: t('已拒绝', 'Rejected'), 'not-written': t('未写入', 'Not written'), pending: t('写入意图已登记／结果待核对', 'Intent recorded / outcome unresolved'), 'observed-applied': t('人工确认当前匹配修改后内容', 'Confirmed matching after content'), 'observed-not-written': t('人工确认当前匹配基线', 'Confirmed matching baseline') }[value] || value)
+  const stateLabel = (value: string) => ({review: t('待审阅', 'Review'), 'migration-review-required': t('内容已迁移，需重新提案审阅', 'Content migrated; a new proposal is required'), applied: t('已写入', 'Applied'), reverted: t('已受保护撤回', 'Reverted'), uncertain: t('结果待核对，禁止盲目重试', 'Uncertain; inspect before retry'), conflict: t('版本冲突', 'Conflict'), rejected: t('已拒绝', 'Rejected'), 'not-written': t('未写入', 'Not written'), pending: t('写入意图已登记／结果待核对', 'Intent recorded / outcome unresolved'), 'observed-applied': t('人工确认当前匹配修改后内容', 'Confirmed matching after content'), 'observed-not-written': t('人工确认当前匹配基线', 'Confirmed matching baseline') }[value] || value)
 
   return <section className="flex h-full min-h-0 flex-col" aria-label={t('反馈与修改审阅', 'Feedback and change review')} data-review-project={scope.projectId}>
     <div className="flex h-9 shrink-0 items-center gap-1 px-2">
@@ -186,9 +187,10 @@ export function ReviewPanelContents({scope, tabId, onTitle, surface = 'panel', a
         <h2 className="font-display text-lg">{proposal.title}</h2>
         <p className="break-all text-caption">{proposal.id} · {proposal.author} · {proposal.at}</p>
         <blockquote className="whitespace-pre-wrap">{proposal.feedback.body}</blockquote>
+        {requiresContentReview(proposal) && <p role="status">{t('此记录属于迁移前版本，仅保留历史。请基于当前研究内容重新建立提案和确认。', 'This record belongs to the pre-migration version and remains historical. Create a new proposal and confirmation against the current research content.')}</p>}
         <Button size="xs" onClick={() => void call(() => openFeedbackAnchor(proposal.feedback.anchor, scope))}>{t('返回被批注版本', 'Return to annotated version')}</Button>
         {proposal.operations.map(o => <article key={o.id} className="space-y-2 rounded-lg border border-line p-3" data-review-operation={o.id}>
-          <label className="flex items-start gap-2"><input type="checkbox" checked={checked.includes(o.id)} onChange={e => { const group = dependencyClosure(proposal, [o.id]); setChecked(v => e.target.checked ? [...new Set([...v, ...group])] : v.filter(i => !group.includes(i))); setPreview('') }}/><span className="min-w-0 break-all">{o.target.kind} · {o.target.path} · {'field' in o.target ? o.target.field : `${o.target.start}–${o.target.end}`}</span></label>
+          <label className="flex items-start gap-2"><input type="checkbox" disabled={requiresContentReview(proposal)} checked={checked.includes(o.id)} onChange={e => { const group = dependencyClosure(proposal, [o.id]); setChecked(v => e.target.checked ? [...new Set([...v, ...group])] : v.filter(i => !group.includes(i))); setPreview('') }}/><span className="min-w-0 break-all">{o.target.kind} · {o.target.path} · {'field' in o.target ? o.target.field : `${o.target.start}–${o.target.end}`}</span></label>
           <p role="status">{stateLabel(operationState(api.book!, proposal.id, o.id))}</p>
           {'objectId' in o.target && <p className="break-all text-caption">{t('对象标识', 'Object identity')} · {o.target.objectId}{o.target.kind === 'block' ? ` / ${o.target.blockId} / ${o.target.artifact}` : ''}</p>}
           <p className="break-all text-caption">{t('基于版本', 'Base revision')} · {o.baseDigest}</p>

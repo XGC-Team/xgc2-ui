@@ -14,7 +14,7 @@ type EditorState = { base: SavedSource | null; draft: string; status: 'loading' 
 export function SavedSourceEditor({ target, active, onQuote }: { target: ProjectFileTarget; active: boolean; onQuote: (text: string, project?: string) => void }) {
   const { workspace, path, projectId } = target
   const zh = useWorkbench(state => state.locale === 'zh')
-  const tabId = useWorkbench(state => state.rightTabs.find(tab => tab.kind === 'file' && sameFileTarget(tab.target, target))?.id)
+  const tabId = useWorkbench(state => state.resourceLayout.tabs.find(tab => tab.kind === 'file' && tab.target && tab.projectId === state.projectId && sameFileTarget(tab.target, target))?.id)
   const [state, setState] = useState<EditorState>({ base: null, draft: '', status: 'loading', error: '', remote: null })
   const [editing, setEditing] = useState(false)
   const live = useRef(state), mounted = useRef(false), attempt = useRef<SaveAttempt | null>(null), reading = useRef<AbortController | null>(null)

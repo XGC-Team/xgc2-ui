@@ -1,4 +1,5 @@
 import {describe,expect,it} from 'vitest'
+import { CONTENT_PATH } from '../src/features/content/content-model'
 import { addNodeBinding, emptyCanvasV2, type SourceBinding, type ThinkingCanvasV2 } from '../src/features/projects/canvas-model'
 import {
   assertCurrentContext, bindSourceSelection, captureSelectedContext, confirmCandidate, locateRelatedCards,
@@ -62,8 +63,39 @@ describe('design-context', () => {
     expect(captured.context.context).toContain('详略（不得写入正文）')
     expect(captured.context.context).toContain('limit the claim')
     const projected = writingSelectionFromContext(captured.context)
-    expect(projected.design).toEqual({ path: 'thinking.canvas.json', digest: 'canvas-1', cardIds: ['card'] })
+    expect(projected.design).toEqual({ path: CONTENT_PATH, digest: 'canvas-1', cardIds: ['card'] })
     expect(projected.sources[0]?.anchor.quote).toBe(quote)
+  })
+  it('deduplicates the same manuscript selection shared by several design cards without dropping their bindings', () => {
+    const value = canvas()
+    value.nodes.push({ ...value.nodes[0], id: 'other-card', bindings: [{ ...binding, id: 'second-binding' }] })
+    const captured = captureSelectedContext(savedGate({ value }), ['card', 'other-card'])
+    expect(captured.ok).toBe(true)
+    if (!captured.ok) return
+    expect(captured.context.cards).toHaveLength(2)
+    expect(captured.context.cards[1].bindings[0].id).toBe('second-binding')
+    expect(captured.context.sources).toHaveLength(1)
+  })
+  it('maps exact patch ranges without moving another identical quote and rejects a stale binding', () => {
+    const value = canvas(), repeated = `${quote} / ${quote}`, nextQuote = 'qualified claim'
+    value.nodes.push({ ...value.nodes[0], id: 'second', bindings: [{ ...binding, id: 'bind-2', start: quote.length + 3, end: repeated.length }] })
+    const receipt = {
+      attempt: { id: 'save', proposalId: 'p', operationIds: ['op'], mode: 'apply' as const, at: '2026-09-23T00:00:00Z', actor: 'author', workspace: 'paper', path: 'main.tex', beforeDigest: 'rev-1', beforeHash: 'before', afterHash: 'after', outcome: 'applied' as const, afterDigest: 'rev-2' },
+      operations: [{ id: 'op', target: { kind: 'text' as const, workspace: 'paper', path: 'main.tex', start: 0, end: quote.length }, baseDigest: 'rev-1', before: quote, after: nextQuote, reason: 'qualify', evidence: [], dependsOn: [], impacts: [] }],
+    }
+    const files = new Map([[JSON.stringify(['paper', 'main.tex']), source({ digest: 'rev-2', content: `${nextQuote} / ${quote}` })]])
+    const updated = updateBindingsFromReceipts(value, [receipt], files)
+    expect(updated.status).toBe('updated')
+    expect(updated.canvas.nodes[0].bindings![0]).toMatchObject({ start: 0, quote: nextQuote, digest: 'rev-2' })
+    expect(updated.canvas.nodes[1].bindings![0]).toMatchObject({ start: nextQuote.length + 3, quote, digest: 'rev-2' })
+    const reverted = updateBindingsFromReceipts(updated.canvas, [{ ...receipt, attempt: { ...receipt.attempt, id: 'undo', mode: 'revert', outcome: 'reverted', beforeDigest: 'rev-2', afterDigest: 'rev-3' } }], new Map([[JSON.stringify(['paper', 'main.tex']), source({ digest: 'rev-3', content: repeated })]]))
+    expect(reverted.status).toBe('updated')
+    expect(reverted.canvas.nodes[0].bindings![0]).toMatchObject({ start: 0, end: quote.length, quote, digest: 'rev-3' })
+    expect(reverted.canvas.nodes[1].bindings![0]).toMatchObject({ start: quote.length + 3, end: repeated.length, quote, digest: 'rev-3' })
+    value.nodes[1].bindings![0].digest = 'stale-original'
+    const stale = updateBindingsFromReceipts(value, [receipt], files)
+    expect(stale.status).toBe('failed')
+    expect(stale.unresolved[0].bindingId).toBe('bind-2')
   })
   it('mapping updates only after a genuine applied save; duplicates stay unresolved', () => {
     const updated = updateBindingsFromReceipts(canvas(), [{

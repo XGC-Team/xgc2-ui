@@ -1,7 +1,8 @@
 import { APIError, request } from '../../lib/api.ts'
 import { rawDigest, digestOK, definitionFromDraft, serializeArtifactDefinition, uniquePinnedInputs, type ArtifactDefinition } from './artifact-model.ts'
 import { artifactView, inspectArtifactBuild, validateArtifactIdentity, type ArtifactIdentity } from './artifact-record.ts'
-import { DRAFTS_PATH, parseDraftBook, type ResearchDraft } from '../projects/draft-model.ts'
+import type { ResearchDraft } from '../projects/draft-model.ts'
+import { CONTENT_PATH, parseContentDocument, type ContentSnapshot } from '../content/content-model.ts'
 
 export type WorkspaceFile = { content: string; digest: string; path?: string }
 export type ArtifactObservation = { definition: WorkspaceFile | null; source: WorkspaceFile | null }
@@ -92,11 +93,12 @@ function sameValue(a: unknown, b: unknown): boolean {
 export async function definitionForSavedDraft(scope: ArtifactIdentity, draft: ResearchDraft, options: Parameters<typeof definitionFromDraft>[1], signal?: AbortSignal): Promise<ArtifactDefinition> {
   validateArtifactIdentity(scope)
   if (draft.id !== scope.artifactId) throw new Error('Editor belongs to another artifact.')
-  const origin = await readWorkspaceFile(scope.workspace, DRAFTS_PATH, signal)
-  if (!origin) throw new Error('Authoritative saved draft book is missing.')
-  const original = parseDraftBook(origin.content, scope).drafts.find(item => item.id === draft.id)
+  const origin = await request<ContentSnapshot & { content?: string }>(`/workspaces/${encodeURIComponent(scope.workspace)}/research-content?projectId=${encodeURIComponent(scope.projectId)}`, { signal })
+  if (!origin.digest || typeof origin.content !== 'string') throw new Error('Initialize or migrate the saved research content before generating an artifact.')
+  if (!digestOK(origin.digest) || await contentDigest(origin.content) !== rawDigest(origin.digest)) throw new Error('Research content does not match its saved byte receipt.')
+  const original = parseContentDocument(origin.content, scope).artifacts.find(item => item.id === draft.id)
   if (!sameValue(original, draft)) throw new Error('The saved design differs from this editor. Reload it before deriving artifact source.')
   const definition = definitionFromDraft(draft, { ...options, workspace: scope.workspace })
-  definition.dependencies.push({ kind: 'design', objectId: draft.id, path: DRAFTS_PATH, digest: rawDigest(origin.digest) })
+  definition.dependencies.push({ kind: 'design', objectId: draft.id, path: CONTENT_PATH, digest: rawDigest(origin.digest) })
   return definition
 }

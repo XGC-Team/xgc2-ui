@@ -16,7 +16,7 @@ import {inspectKnowledgeResource, type KnowledgeEdge} from './academic-graph'
 const splitFrontmatter=(raw:string)=>{const m=raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);if(!m)return{meta:[],body:raw};const meta=m[1].split('\n').map(l=>l.match(/^(\w[\w-]*)\s*:\s*(.+)$/)).filter(Boolean) as RegExpMatchArray[];return{meta:meta.map(x=>({key:x[1],value:x[2].trim()})),body:raw.slice(m[0].length)}}
 const wikilink=(raw:string)=>raw.replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g,(_m,target:string,alias:string)=>`[${alias||target}](#wiki/${encodeURIComponent(target.trim())})`)
 export function MarkdownView({content}:{content:string}){
- const {knowledgeDocuments:notes,openDocument,openPDF,flashPDF,locale}=useWorkbench()
+ const {knowledgeDocuments:notes,openDocument,openPDF,openResource,flashPDF,locale}=useWorkbench()
  const body=useMemo(()=>wikilink(splitFrontmatter(content).body),[content])
  const pdfAnchor=useMemo(()=>{const {anchor}=decodeAnnotation(content);return anchor?.pdf?anchor:null},[content])
  const [anchorError,setAnchorError]=useState('')
@@ -25,6 +25,10 @@ export function MarkdownView({content}:{content:string}){
   if(!pdfAnchor?.pdf)return
   setAnchorError('')
   try{
+   if(pdfAnchor.pdf.origin==='original'){
+    openResource({kind:'original',workspace:pdfAnchor.pdf.workspace,path:pdfAnchor.pdf.path,digest:pdfAnchor.pdf.digest,page:pdfAnchor.page,quote:pdfAnchor.quote})
+    return
+   }
    const versions=await listPDFVersions(pdfAnchor.pdf.workspace,pdfAnchor.pdf.path)
    const match=versions.find(v=>v.digest===pdfAnchor.pdf!.digest)
    if(!match)throw Error(locale==='zh'?'批注记录的 PDF 版本不可用；没有跳转到其他版本。':'The annotated PDF revision is unavailable; no other revision was substituted.')

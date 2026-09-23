@@ -1,4 +1,4 @@
-import {RUN_SCHEMA, SNAPSHOT_SCHEMA, unresolved, type Draft, type InvokeKind, type PlanNode, type Receipt, type Revision, type Run, type WorkflowSnapshot} from './workflow-model'
+import {RUN_SCHEMA, SNAPSHOT_SCHEMA, unresolved, type Draft, type InvokeKind, type PlanNode, type Receipt, type Revision, type Run, type WorkflowSnapshot, type ResourceRef} from './workflow-model'
 
 export type {InvokeKind}
 export const INVOKE_KINDS: InvokeKind[] = ['research', 'continuous', 'verification', 'archive', 'writing']
@@ -14,6 +14,17 @@ export function executeBody(kind: InvokeKind, digest: string, options?: {subscri
 
 export function workflowBase(project: string): string {
   return `/api/v1/research/projects/${encodeURIComponent(project)}/plans`
+}
+export type FromAssetRequest = {baseVersion: number; workflow: ResourceRef; workspace: {id: string; revision: string}; bindings?: unknown; researcher?: string; reviewer?: string; writer?: string}
+export type HumanStepResponse = {digest: string; expectedReceiptDigest: string; actorRef: string; result: unknown; references?: ResourceRef[]}
+export function createPlanFromAsset(project: string, request: FromAssetRequest): Promise<Revision> {
+  return workflowRequest<Revision>(`${workflowBase(project)}/from-asset`, request)
+}
+export function respondToStep(project: string, version: number, run: string, node: string, response: HumanStepResponse): Promise<Run> {
+  return workflowRequest<Run>(`${workflowBase(project)}/${version}/runs/${encodeURIComponent(run)}/steps/${encodeURIComponent(node)}/respond`, response)
+}
+export function stepArtifactUrl(project: string, version: number, run: string, node: string, digest: string): string {
+  return `${workflowBase(project)}/${version}/runs/${encodeURIComponent(run)}/steps/${encodeURIComponent(node)}/artifacts/${encodeURIComponent(digest)}`
 }
 export async function workflowRequest<T>(url: string, body?: unknown, key?: string): Promise<T> {
   const response = await fetch(url, body === undefined ? undefined : {
@@ -50,6 +61,10 @@ export function parseWorkflowSnapshot(raw: string, project: string): WorkflowSna
     const nodes = list(draft.nodes).map(value => {
       const node = record(value)
       if (typeof node.id !== 'string' || identities.has(node.id) || typeof node.kind !== 'string' || typeof node.title !== 'string' || typeof node.objective !== 'string') throw new Error('工作流节点身份无效。')
+      if (node.execution != null) {
+        const execution = record(node.execution)
+        if (!['agent', 'human', 'tool', 'build', 'xgc2-result'].includes(String(execution.type))) throw new Error('工作流步骤执行方式无效。')
+      }
       identities.add(node.id)
       return {...node, acceptance: textList(node.acceptance), inputs: textList(node.inputs), dependsOn: textList(node.dependsOn), knowledge: textList(node.knowledge)} as PlanNode
     })

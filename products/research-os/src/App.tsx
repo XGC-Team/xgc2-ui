@@ -5,22 +5,17 @@ import { IconMark, IconPanelBottom, IconPanelLeft, IconPanelRight } from './comp
 import { Search } from 'lucide-react'
 import { MarkPromptDock } from './devtools/mark-prompt/MarkPromptDock'
 import { BottomPanel } from './components/BottomPanel'
-import { BrowserPanel } from './components/BrowserPanel'
+import { ResourceWorkbench } from './features/workbench/ResourceWorkbench'
 import { IconBtn } from './components/ui'
 import { Rail } from './components/Rail'
 import { Sidebar } from './components/Sidebar'
 import { ResizeHandle } from './components/ResizeHandle'
 import { readPreference, writePreference } from './lib/storage'
 import { CommandPalette } from './components/CommandPalette'
-import { NAV_ITEMS, useWorkbench, type NavId } from './store'
+import { NAV_ITEMS, useWorkbench } from './store'
 import { researchProjects } from './features/workbench/writing-session'
 import { collection, listWorkspaces, type Project } from './lib/api'
 import { AgentSessionProvider, useNativeAgentSession } from './features/chat/Session'
-import { ChatPage } from './features/chat/ChatPage'
-import { WorkflowPage } from './features/workflow/WorkflowPage'
-import { KnowledgePage } from './features/resources/KnowledgePage'
-import { SourceStage } from './features/resources/SourceStage'
-import { SettingsPage } from './features/chat/SettingsPage'
 export default function App(){
  const {projectId}=useWorkbench()
  return <AgentSessionProvider researchProjectId={projectId}><Workbench/></AgentSessionProvider>
@@ -29,15 +24,13 @@ export default function App(){
 const PANEL={left:{default:264,min:208,max:360},right:{default:396,min:300,max:560},bottom:{default:252,min:180,max:440}} as const
 const layoutEase=[0.32,0.72,0,1] as const
 /* 拖拽期间 memo 住各页面/面板：只有外壳尺寸在变，内容树不参与重渲染 */
-const ChatPageM=memo(ChatPage),WorkflowPageM=memo(WorkflowPage),KnowledgePageM=memo(KnowledgePage),SettingsPageM=memo(SettingsPage),SidebarM=memo(Sidebar),BrowserPanelM=memo(BrowserPanel),BottomPanelM=memo(BottomPanel)
+const SidebarM=memo(Sidebar),BottomPanelM=memo(BottomPanel),ResourceWorkbenchM=memo(ResourceWorkbench)
 function Workbench(){
- const {theme,locale,activeNav,setActiveNav,setPaletteOpen,projectId,enterWritingProject,sourceView}=useWorkbench();const native=useNativeAgentSession()
- const {rightOpen:materials,setRightOpen:setMaterials}=useWorkbench()
+ const {theme,locale,activeNav,setActiveNav,setPaletteOpen,projectId,enterWritingProject,showConversation}=useWorkbench();const native=useNativeAgentSession()
+ const {secondaryOpen:materials,setSecondaryOpen:setMaterials}=useWorkbench()
  const [bottom,setBottom]=useState(readPreference('research-ui-bottom')==='open'),[sizes,setSizes]=useState<{left:number;right:number;bottom:number}>({left:PANEL.left.default,right:PANEL.right.default,bottom:PANEL.bottom.default})
  const [dragging,setDragging]=useState(false)
  const [sidebar,setSidebar]=useState(true),[projects,setProjects]=useState<Project[]>([]),[error,setError]=useState(''),[reload,setReload]=useState(0),[loading,setLoading]=useState(false)
- const [visited,setVisited]=useState<NavId[]>(['chat'])
- useEffect(()=>{setVisited(current=>current.includes(activeNav)?current:[...current,activeNav])},[activeNav])
  useEffect(()=>{document.documentElement.classList.toggle('dark',theme==='dark');document.documentElement.lang=locale},[theme,locale])
  useEffect(()=>{const c=new AbortController();setLoading(true);setError('')
    void (async()=>{
@@ -46,11 +39,11 @@ function Workbench(){
    })().catch(e=>{if(!c.signal.aborted)setError(e.message)}).finally(()=>{if(!c.signal.aborted)setLoading(false)});return()=>c.abort()
  },[reload])
  useEffect(()=>{const refresh=()=>setReload(n=>n+1);window.addEventListener('focus',refresh);const timer=setInterval(refresh,30000);return()=>{clearInterval(timer);window.removeEventListener('focus',refresh)}},[])
- useEffect(()=>{const onKey=(e:KeyboardEvent)=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();setPaletteOpen(true)}if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='j'){e.preventDefault();setBottom(s=>!s)}if((e.metaKey||e.ctrlKey)&&e.key==='.'){e.preventDefault();setMaterials(!useWorkbench.getState().rightOpen)}if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='b'){e.preventDefault();setSidebar(s=>!s)}};window.addEventListener('keydown',onKey);return()=>window.removeEventListener('keydown',onKey)},[setPaletteOpen])
+ useEffect(()=>{const onKey=(e:KeyboardEvent)=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();setPaletteOpen(true)}if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='j'){e.preventDefault();setBottom(s=>!s)}if((e.metaKey||e.ctrlKey)&&e.key==='.'){e.preventDefault();setMaterials(!useWorkbench.getState().secondaryOpen)}if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='b'){e.preventDefault();setSidebar(s=>!s)}};window.addEventListener('keydown',onKey);return()=>window.removeEventListener('keydown',onKey)},[setPaletteOpen])
  useEffect(()=>{writePreference('research-ui-bottom',bottom?'open':'collapsed')},[bottom])
  const projectView=activeNav==='chat'||activeNav==='workflow'
- const quote=useCallback((text:string,targetProject?:string)=>{native.appendDraft(text,targetProject);if(targetProject!==undefined&&targetProject!==projectId)enterWritingProject(targetProject);setActiveNav('chat')},[native,projectId,enterWritingProject,setActiveNav])
- const openSession=useCallback((id:string)=>void native.operation(async()=>{await native.openSession(id);setActiveNav('chat')}),[native,setActiveNav])
+ const quote=useCallback((text:string,targetProject?:string)=>{native.appendDraft(text,targetProject);if(targetProject!==undefined&&targetProject!==projectId)enterWritingProject(targetProject);showConversation()},[native,projectId,enterWritingProject,showConversation])
+ const openSession=useCallback((id:string)=>void native.operation(async()=>{await native.openSession(id);showConversation()}),[native,showConversation])
  const refreshProjects=useCallback(()=>setReload(n=>n+1),[])
  const openBottom=useCallback(()=>setBottom(true),[]),closeBottom=useCallback(()=>setBottom(false),[])
  /* 拖拽尺寸按帧合流：pointermove 增量累积，每帧最多一次 setSizes */
@@ -78,7 +71,7 @@ function Workbench(){
     <kbd className="shrink-0 rounded border border-line px-1 text-[10px] leading-4 text-ink-3">⌘K</kbd>
    </button>
    <div id="workbench-page-actions" className="ml-auto flex min-w-0 items-center gap-1 overflow-x-auto"/>
-   <div className="ml-1 flex shrink-0 items-center gap-1"><IconBtn icon={IconPanelLeft} label={tr("侧栏")} active={sidebar} onClick={()=>setSidebar(!sidebar)}/><IconBtn icon={IconPanelBottom} label={tr("下栏")} active={bottom} onClick={()=>setBottom(!bottom)}/><IconBtn icon={IconPanelRight} label={tr("右栏")} active={materials} onClick={()=>setMaterials(!materials)}/></div>
+   <div className="ml-1 flex shrink-0 items-center gap-1"><IconBtn icon={IconPanelLeft} label={tr("侧栏")} active={sidebar} onClick={()=>setSidebar(!sidebar)}/><IconBtn icon={IconPanelBottom} label={tr("下栏")} active={bottom} onClick={()=>setBottom(!bottom)}/><IconBtn icon={IconPanelRight} label={locale==='zh'?'并排工作区':'Side by side workspace'} active={materials} onClick={()=>setMaterials(!materials)}/></div>
   </header>
   <div className="flex min-h-0 min-w-0 flex-1">
    <Rail/>
@@ -87,16 +80,9 @@ function Workbench(){
    </motion.aside>
    {sidebar&&<ResizeHandle orientation="v" onDraggingChange={setDragging} onDelta={delta=>queueResize('left',delta)}/>}
    <main className="relative flex min-w-0 flex-1 flex-col">
-    {visited.map(id=><section key={id} hidden={activeNav!==id} className={`workbench-surface min-h-0 flex-1 overflow-auto `} aria-label={tr(NAV_ITEMS.find(n=>n.id===id)?.label||'')}>
-      {id==='settings'?<SettingsPageM/>:id==='chat'?<ChatPageM projects={projects}/>:id==='workflow'?<WorkflowPageM projectId={projectId||null} onQuote={quote} onOpenSession={openSession}/>:<KnowledgePageM onQuote={quote}/>}
-    </section>)}
-    {sourceView&&<div className="absolute inset-0 z-30"><SourceStage/></div>}
+    <ResourceWorkbenchM projects={projects} onQuote={quote} onOpenSession={openSession} secondaryWidth={sizes.right} onResize={delta=>queueResize('right',-delta)} onDraggingChange={setDragging}/>
     {bottom&&<ResizeHandle orientation="h" onDraggingChange={setDragging} onDelta={delta=>queueResize('bottom',-delta)} onDoubleClick={()=>setBottom(false)}/>}<motion.div initial={false} animate={{height:bottom?sizes.bottom:0}} transition={panelMotion} className="shrink-0 overflow-hidden" style={{maxHeight:'50%'}}><BottomPanelM expanded={bottom} onExpand={openBottom} onCollapse={closeBottom}/></motion.div>
    </main>
-   {materials&&<ResizeHandle orientation="v" onDraggingChange={setDragging} onDelta={delta=>queueResize('right',-delta)}/>}
-   <motion.aside initial={false} animate={{width:materials?sizes.right:0}} transition={panelMotion} className="shrink-0 overflow-hidden">
-    <div className="flex h-full flex-col bg-panel" style={{width:sizes.right}}><BrowserPanelM onQuote={quote}/></div>
-   </motion.aside>
   </div>
   <CommandPalette/><MarkPromptDock page={`${activeNav}${projectId&&projectView?' / '+projectId:''}`}/>
  </div>

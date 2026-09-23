@@ -5,28 +5,30 @@ import { assertEditorClean } from '../review/write-coordinator'
 import { check, fileKey, operationState, type Feedback, type FileRecord, type Scope } from '../review/review-model'
 import type { createReviewEngine } from '../review/review-engine'
 import type { DesignProposalRequest, ReviewBatchReceipt, WritingSelection } from '../review/writing-contract'
+import { CONTENT_PATH, parseContentDocument } from '../content/content-model'
 
-type CapturePort = { inspect: (project: string) => LiveCanvasGate | null; read: (workspace: string, path: string) => Promise<FileRecord>; clean: (workspace: string, path: string) => void }
+type CapturePort = { inspect: (workspace: string) => LiveCanvasGate | null; read: (workspace: string, path: string, projectId?: string) => Promise<FileRecord>; clean: (workspace: string, path: string) => void }
 const capturePort: CapturePort = { inspect: inspectLiveCanvas, read: readReviewFile, clean: assertEditorClean }
 
 /** Capture the mounted C owner and verify saved files without mounting another writer. */
 export async function captureWritingContext(scope: Scope, cardIds: string[], port: CapturePort = capturePort): Promise<SelectedContext> {
-  check(scope.projectId === scope.workspace, 'The selected design belongs to a different manuscript workspace.')
-  const gate = port.inspect(scope.projectId)
+  const gate = port.inspect(scope.workspace)
   check(gate, 'Open the design and select its relevant cards in the discussion context first.')
+  check(gate.project === scope.projectId && (!gate.workspace || gate.workspace === scope.workspace), 'The selected design belongs to a different project or manuscript workspace.')
   const first = captureSelectedContext(gate, cardIds)
   check(first.ok, first.ok ? '' : first.detail)
   port.clean(scope.workspace, first.context.canvas.path)
-  const canvas = await port.read(scope.workspace, first.context.canvas.path)
+  const canvas = await port.read(scope.workspace, first.context.canvas.path, scope.projectId)
   check(canvas.digest === first.context.canvas.digest, 'The saved design changed; reload it before discussing or confirming.')
+  parseContentDocument(canvas.content, scope)
   const files = new Map<string, ObservedSource>()
   for (const { anchor } of first.context.sources) {
     if (files.has(fileKey(anchor))) continue
     port.clean(anchor.workspace, anchor.path)
-    files.set(fileKey(anchor), { workspace: anchor.workspace, path: anchor.path, ...await port.read(anchor.workspace, anchor.path) })
+    files.set(fileKey(anchor), { workspace: anchor.workspace, path: anchor.path, ...await port.read(anchor.workspace, anchor.path, scope.projectId) })
   }
-  const current = port.inspect(scope.projectId)
-  check(current && current.digest === first.context.canvas.digest, 'The design changed while its source context was being captured.')
+  const current = port.inspect(scope.workspace)
+  check(current && current.project === scope.projectId && (!current.workspace || current.workspace === scope.workspace) && current.digest === first.context.canvas.digest, 'The design changed while its source context was being captured.')
   const captured = captureSelectedContext(current, cardIds, files)
   check(captured.ok, captured.ok ? '' : captured.detail)
   return captured.context
@@ -69,15 +71,15 @@ export async function prepareWritingFromDesign(engine: ReturnType<typeof createR
 type MappingPort = { read: typeof readReviewFile; apply: typeof applyLiveMapping; save: typeof awaitSaveLiveCanvas }
 const mappingPort: MappingPort = { read: readReviewFile, apply: applyLiveMapping, save: awaitSaveLiveCanvas }
 export async function mapSavedWriting(scope: Scope, receipt: ReviewBatchReceipt, selection: WritingSelection, port: MappingPort = mappingPort): Promise<void> {
-  check(receipt.scope.projectId === scope.projectId && receipt.scope.workspace === scope.workspace && selection.design.path === 'thinking.canvas.json', 'Writing receipts belong to another design.')
+  check(receipt.scope.projectId === scope.projectId && receipt.scope.workspace === scope.workspace && selection.design.path === CONTENT_PATH, 'Writing receipts belong to another design.')
   check(receipt.saved.length > 0 && receipt.saved.every(item => item.attempt.workspace === scope.workspace && item.attempt.outcome === 'applied' && item.attempt.afterDigest), 'Mapping requires acknowledged manuscript saves.')
   const files = new Map<string, ObservedSource>()
   for (const { attempt } of receipt.saved) {
-    const record = await port.read(attempt.workspace, attempt.path)
+    const record = await port.read(attempt.workspace, attempt.path, scope.projectId)
     check(record.digest === attempt.afterDigest, 'The manuscript changed after writing; its design mapping needs inspection.')
     files.set(fileKey(attempt), { workspace: attempt.workspace, path: attempt.path, ...record })
   }
-  const update = port.apply(scope.projectId, receipt.saved, files)
+  const update = port.apply(scope.workspace, receipt.saved, files)
   check(update.status === 'updated', update.detail || 'The design mapping needs explicit correction.')
-  await port.save(scope.projectId, update.canvas)
+  await port.save(scope.workspace, update.canvas)
 }

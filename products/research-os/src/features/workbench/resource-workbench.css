@@ -1,0 +1,17 @@
+.resource-workbench {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+  grid-template-rows: var(--size-header) minmax(0, 1fr);
+  grid-template-areas: "primaryTabs divider secondaryTabs" "primaryBody divider secondaryBody";
+}
+.resource-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+}
+.resource-workbench [hidden] { display: none !important; }

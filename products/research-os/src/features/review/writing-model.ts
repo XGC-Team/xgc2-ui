@@ -1,5 +1,6 @@
 import { check, date, fileKey, fingerprint, record, validateAnchor, type Operation, type Proposal, type Scope } from './review-model.ts'
 import type { DesignProposalRequest, DesignProposalResult, AgentWritingCompletion, WritingRecord, WritingResult, WritingSelection } from './writing-contract.ts'
+import { CONTENT_PATH } from '../content/content-model.ts'
 
 const nonempty = (v: unknown): v is string => typeof v === 'string' && !!v.trim()
 const identity = (v: unknown): v is string => typeof v === 'string' && /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/.test(v)
@@ -7,16 +8,16 @@ const digest = (v: unknown): v is string => typeof v === 'string' && /^sha256:[a
 const exactKeys = (v: Record<string, unknown>, names: string[]) => check(Object.keys(v).every(k => names.includes(k)), 'Unexpected writing protocol field.')
 const MAX_TEXT = 262144
 
-export function validateWritingSelection(value: unknown, scope: Scope): asserts value is WritingSelection {
+export function validateWritingSelection(value: unknown, scope: Scope, historical = false): asserts value is WritingSelection {
   check(record(value) && record(value.design), 'Writing requires a saved design selection.')
   const d = value.design
-  check(d.path === 'thinking.canvas.json' && nonempty(d.digest) && Array.isArray(d.cardIds) && d.cardIds.length > 0 && d.cardIds.length <= 100 && d.cardIds.every(identity) && new Set(d.cardIds).size === d.cardIds.length, 'Invalid design revision/card selection.')
+  check((d.path === CONTENT_PATH || historical && d.path === 'thinking.canvas.json') && nonempty(d.digest) && Array.isArray(d.cardIds) && d.cardIds.length > 0 && d.cardIds.length <= 100 && d.cardIds.every(id => nonempty(id) && id.length <= 512) && new Set(d.cardIds).size === d.cardIds.length, 'Invalid design revision/card selection. Historical confirmations require a new review.')
   check(typeof value.context === 'string' && value.context.trim() && value.context.length <= MAX_TEXT, 'Capture the selected design intent and necessary context first.')
   check(Array.isArray(value.sources) && value.sources.length > 0 && value.sources.length <= 100, 'Select explicit manuscript ranges; whole-document inference is forbidden.')
   const ids = new Set<string>(), files = new Map<string, { digest: string; ranges: [number, number][] }>()
   for (const source of value.sources) {
     check(record(source) && identity(source.id) && !ids.has(source.id), 'Duplicate/invalid source selection.'); ids.add(source.id)
-    validateAnchor(source.anchor)
+    validateAnchor(source.anchor, historical)
     const a = source.anchor, t = a.target
     check(a.kind === 'text' && t?.kind === 'text' && a.workspace === scope.workspace && a.quote.length === t.end - t.start && a.quote.length > 0, 'A source selection needs its exact saved text range.')
     const key = fileKey(a), file = files.get(key) || { digest: a.digest, ranges: [] }
@@ -25,7 +26,7 @@ export function validateWritingSelection(value: unknown, scope: Scope): asserts 
     file.ranges.push([t.start, t.end]); files.set(key, file)
   }
   check(Array.isArray(value.evidence) && value.evidence.length <= 100, 'Invalid selected evidence.')
-  value.evidence.forEach(validateAnchor)
+  value.evidence.forEach(anchor => validateAnchor(anchor, historical))
 }
 
 export function validateWritingResult(value: unknown, proposalId: string, writing: WritingRecord): asserts value is WritingResult {
@@ -55,9 +56,9 @@ export function writingOperations(writing: WritingRecord): Operation[] {
   })
 }
 
-export function validateWritingRecord(value: unknown, scope: Scope, proposalId: string, operations: Operation[]): asserts value is WritingRecord {
+export function validateWritingRecord(value: unknown, scope: Scope, proposalId: string, operations: Operation[], historical = false): asserts value is WritingRecord {
   check(record(value) && value.version === 1 && ['proposed', 'confirmed', 'running', 'ready', 'applying', 'settled', 'cancelled', 'failed', 'uncertain'].includes(String(value.status)), 'Unsupported writing journal record.')
-  validateWritingSelection(value.selection, scope)
+  validateWritingSelection(value.selection, scope, historical)
   if (value.confirmation !== undefined) {
     const c = value.confirmation
     check(record(c) && identity(c.id) && nonempty(c.actor) && date(c.at) && digest(c.fingerprint), 'Invalid writing confirmation.')

@@ -1,3 +1,8 @@
+import { Input, Select, Textarea } from '../../components/forms'
+import { SourceReferenceLink } from '../content/SourceReferenceLink'
+import type { ResourceReference } from '../content/content-model'
+import { openContentResource } from '../content/resource-navigation'
+import { draftIdFromAnchor } from './draft-model'
 import {t as tr} from '../../i18n'
 import {useCallback,useEffect,useMemo,useRef,useState} from 'react'
 import {BookOpen, Copy, Crosshair, Expand, FileText, Link2, ListTree, Plus, Redo2, Send, Trash2, Undo2} from 'lucide-react'
@@ -21,18 +26,20 @@ import {
 } from './canvas-model'
 import {readDesignFocus,requestDesignFocus,subscribeDesignFocus} from './design-focus'
 /* 思维白板：Origami 式节点画布。节点卡是 DOM（排版精度），连线是 SVG，点阵底随相机走。
-   数据落项目仓库 thinking.canvas.json（git 版本化）；拓扑可导出为写作系统提示词。
+   数据来自项目研究内容的画布投影（git 版本化）；拓扑可导出为写作系统提示词。
    v2：x/y 只表达视觉位置；层级与写作顺序在大纲视图；连线语义需要显式标注。 */
 type Cam={x:number;y:number;k:number}
 type Sel={kind:'node'|'edge';id:string}|null
 const EMPTY_CANVAS=emptyCanvasV2()
-const RELATION_COPY:Record<SemanticRelation,'relationSupports'|'relationContradicts'|'relationDepends'|'relationExemplifies'|'relationContinues'|'relationCites'>={
-  supports:'relationSupports',contradicts:'relationContradicts',depends:'relationDepends',exemplifies:'relationExemplifies',continues:'relationContinues',cites:'relationCites',
+const RELATION_COPY:Record<SemanticRelation,'relationSupports'|'relationContradicts'|'relationDepends'|'relationExemplifies'|'relationContinues'|'relationCites'|'relationQuestions'|'relationVerifies'|'relationAffects'>={
+  supports:'relationSupports',contradicts:'relationContradicts',depends:'relationDepends',exemplifies:'relationExemplifies',continues:'relationContinues',cites:'relationCites',questions:'relationQuestions',verifies:'relationVerifies',affects:'relationAffects',
 }
-export function ThinkingCanvas({project,active=true,onRequestConversation}:{project:string;active?:boolean;onRequestConversation?:()=>void}) {
- const {openDocument,openRightTab,setActiveNav,locale,addContextItem}=useWorkbench();const copy=workspaceCopy[locale];const native=useNativeAgentSession();const {notes}=useAcademicNotes()
- const documentState=useCanvasDocument(project);const {mutate}=documentState;const canvas=documentState.value??EMPTY_CANVAS;const messages=projectObjectCopy[locale]
- const [view,setView]=useState<'canvas'|'outline'>('canvas')
+export function ThinkingCanvas({project,workspace=project,active=true,onRequestConversation,view:controlledView,onViewChange}:{project:string;workspace?:string;active?:boolean;onRequestConversation?:()=>void;view?:'canvas'|'outline';onViewChange?:(view:'canvas'|'outline')=>void}) {
+ const {openDocument,openResource,setActiveNav,locale,addContextItem}=useWorkbench();const copy=workspaceCopy[locale];const native=useNativeAgentSession();const {notes}=useAcademicNotes()
+ const documentState=useCanvasDocument(project,workspace);const {mutate}=documentState;const canvas=documentState.value??EMPTY_CANVAS;const messages=projectObjectCopy[locale]
+ const [localView,setLocalView]=useState<'canvas'|'outline'>('canvas')
+ const view=controlledView??localView
+ const setView=(next:'canvas'|'outline')=>{setLocalView(next);onViewChange?.(next)}
  const [artifact,setArtifact]=useState(PRIMARY_OUTLINE)
  const [cam,setCam]=useState<Cam>({x:0,y:0,k:1})
  const [sel,setSel]=useState<Sel>(null),[picker,setPicker]=useState<{kind:'ref'|'anchor';node:string}|null>(null)
@@ -107,34 +114,23 @@ export function ThinkingCanvas({project,active=true,onRequestConversation}:{proj
  const nodeById=useMemo(()=>new Map(canvas.nodes.map(n=>[n.id,n])),[canvas.nodes])
  const prompt=()=>canvasToPrompt(canvas,project)
  const copyPrompt=async()=>{setCopyError('');setCopied(false);try{await navigator.clipboard.writeText(prompt());setCopied(true);clearTimeout(copyTimer.current);copyTimer.current=setTimeout(()=>setCopied(false),1500)}catch{setCopyError(copy.copyFailed)}}
- const arranged=useRef('')
- useEffect(()=>{
-  const current=documentState.value
-  if(!current){arranged.current='';return}
-  if(arranged.current===project)return
-  arranged.current=project
-  const laid=layoutDesignCanvas(current)
-  const moved=laid.nodes.some((node,index)=>node.x!==current.nodes[index].x||node.y!==current.nodes[index].y)
-  if(!moved)return
-  fitted.current=false
-  mutate(()=>laid)
- },[documentState.value,project,mutate])
  const fitCanvas=()=>{setCam(frameOf(canvas.nodes))}
  const locateOnCanvas=useCallback((id:string)=>{const n=nodeById.get(id);if(!n)return;setView('canvas');setSel({kind:'node',id})
   const r=box.current?.getBoundingClientRect();if(!r)return
   const size=designCardBox(n)
   setCam(c=>({k:c.k,x:r.width/2-(n.x+size.width/2)*c.k,y:r.height/2-(n.y+size.height/2)*c.k}))},[nodeById])
+ const lastFocus=useRef<number|null>(null)
  useEffect(()=>{
-  const applyFocus=(focus:{project:string;cardIds:readonly string[]})=>{
-   if(focus.project!==project)return
-   if(!focus.cardIds.length){setView('canvas');return}
+  const applyFocus=(focus:{project:string;cardIds:readonly string[];nonce:number})=>{
+   if(focus.project!==project||lastFocus.current===focus.nonce)return
+   if(!focus.cardIds.length){lastFocus.current=focus.nonce;setView('canvas');return}
    const id=focus.cardIds[0]
-   if(documentState.value?.nodes.some(node=>node.id===id))locateOnCanvas(id)
+   if(documentState.value?.nodes.some(node=>node.id===id)){lastFocus.current=focus.nonce;if(controlledView==='outline')setSel({kind:'node',id});else locateOnCanvas(id)}
   }
   const current=readDesignFocus()
   if(current)applyFocus(current)
   return subscribeDesignFocus(applyFocus)
- },[project,documentState.value,locateOnCanvas])
+ },[project,documentState.value,locateOnCanvas,controlledView])
  const saveState=documentState.status
  const statusLabel=saveState==='saving'?messages.canvasSaving:saveState==='unsaved'?messages.canvasUnsaved:saveState==='new'?messages.canvasNew:''
  const blocked=saveState==='save-error'||saveState==='conflict'
@@ -142,12 +138,13 @@ export function ThinkingCanvas({project,active=true,onRequestConversation}:{proj
  const selectedEdge=sel?.kind==='edge'?canvas.edges[Number(sel.id)]:undefined
  const addEvidence=()=>{if(!selectedNode)return;setEvidenceError('')
   try{
-   const evidence=newCanvasEvidence({path:evidenceForm.path.trim()||undefined,digest:evidenceForm.digest.trim()||undefined,excerpt:evidenceForm.excerpt.trim()||undefined,note:evidenceForm.note.trim()||undefined,workspace:evidenceForm.path.trim()?project:undefined})
+   const evidence=newCanvasEvidence({path:evidenceForm.path.trim()||undefined,digest:evidenceForm.digest.trim()||undefined,excerpt:evidenceForm.excerpt.trim()||undefined,note:evidenceForm.note.trim()||undefined,workspace:evidenceForm.path.trim()?workspace:undefined})
    apply(c=>addNodeEvidence(c,selectedNode.id,evidence));setEvidenceForm({path:'',digest:'',excerpt:'',note:''})
   }catch{setEvidenceError(copy.invalidEvidence)}}
  const addNodeToContext=(n:CanvasNodeV2)=>{const digest=documentState.observedDigest()
-  addContextItem(newContextItem({project,kind:'canvas-node',label:n.title||n.id,ref:`${CANVAS_PATH}#${n.id}`,
-   source:{id:`ctx-${n.id}`,workspace:project,path:CANVAS_PATH,...(digest?{digest}:{})},...(digest?{digest}:{}) ,...(n.body?.trim()?{excerpt:n.body.trim().slice(0,200)}:{})}))}
+  addContextItem(newContextItem({project,kind:'canvas-node',label:n.title||n.id,ref:`${CANVAS_PATH}#object/${n.id}`,
+   source:{id:`ctx-${n.id}`,workspace,path:CANVAS_PATH,...(digest?{digest}:{})},...(digest?{digest}:{}) ,...(n.body?.trim()?{excerpt:n.body.trim().slice(0,200)}:{})}))}
+ const openAnchor=async(anchor:string)=>{try{const id=draftIdFromAnchor(anchor);if(id)await openContentResource({kind:'artifact',workspace,projectId:project,id},{projectId:project,workspace});else openResource({kind:'file',target:fileTarget(project,workspace,'files',anchor)})}catch(error){setCopyError(error instanceof Error?error.message:String(error))}}
  if(!documentState.value)return <div className="flex h-full min-h-0 flex-col p-4">
   <p role={saveState==='loading'?'status':'alert'} className="text-secondary text-ink-2">{saveState==='loading'?messages.canvasLoading:saveState==='invalid'?messages.canvasInvalid:messages.canvasLoadError}</p>
   <p className="mt-2 break-all text-caption text-ink-3">{project}/{CANVAS_PATH}</p>
@@ -157,7 +154,7 @@ export function ThinkingCanvas({project,active=true,onRequestConversation}:{proj
  return <div className="relative flex h-full min-h-0 flex-col" data-canvas-save-state={saveState}>
 
   {/* 与右栏相同的 36px 工具行；窄列不把操作与保存状态叠在一起。 */}
-  <div className="flex h-9 shrink-0 items-center gap-1 px-2" onKeyDown={onKey}>
+  <div className="flex min-h-9 shrink-0 items-center gap-1 overflow-x-auto px-2" onKeyDown={onKey}>
    <Button size="xs" icon={BookOpen} onClick={()=>addNode('chapter')}>{tr("章节")}</Button>
    <Button size="xs" icon={Plus} onClick={()=>addNode('idea')}>{tr("想法")}</Button>
    <Button size="xs" aria-pressed={view==='canvas'} variant={view==='canvas'?'outline':'ghost'} onClick={()=>setView('canvas')}>{copy.canvas}</Button>
@@ -165,7 +162,7 @@ export function ThinkingCanvas({project,active=true,onRequestConversation}:{proj
    <IconBtn icon={Undo2} label={copy.undo} disabled={!past.current.length&&!historyVersion} onClick={undo}/>
    <IconBtn icon={Redo2} label={copy.redo} disabled={!future.current.length} onClick={redo}/>
    {view==='canvas'&&<IconBtn icon={Expand} label={copy.fit} onClick={fitCanvas}/>}
-   {view==='canvas'&&<Button size="xs" onClick={()=>{fitted.current=false;arranged.current=project;apply(layoutDesignCanvas)}}>{copy.tidy}</Button>}
+   {view==='canvas'&&<Button size="xs" onClick={()=>{fitted.current=false;apply(layoutDesignCanvas)}}>{copy.tidy}</Button>}
    <span role="status" className="min-w-0 flex-1 truncate text-caption text-ink-3" title={`${project}/${CANVAS_PATH}`}>{statusLabel}</span>
    <IconBtn icon={Send} label={copy.addToDraft} onClick={()=>{native.appendDraft(prompt(),project);setActiveNav('chat');onRequestConversation?.()}}/>
    <RightMore label={copy.more}><Button size="xs" icon={Copy} onClick={()=>void copyPrompt()}>{copied?tr("已复制"):tr("复制提示词")}</Button></RightMore>
@@ -202,15 +199,15 @@ export function ThinkingCanvas({project,active=true,onRequestConversation}:{proj
      return <div key={n.id} data-node={n.id} className={cn('absolute select-none rounded-xl border bg-panel shadow-pop transition-shadow',selected?'border-ink':'border-line')} style={{left:n.x,top:n.y,width:size.width,minHeight:size.height}} onPointerDown={e=>nodeDown(e,n)}>
       <div className="flex items-center gap-1.5 px-3 pt-2.5">
        {n.kind==='chapter'?<BookOpen size={13} strokeWidth={1.75} className="shrink-0 text-ink-3"/>:<span aria-hidden className="grid h-3.5 w-3.5 shrink-0 place-items-center text-ink-3"><span className="h-1.5 w-1.5 rounded-full bg-current"/></span>}
-       <input aria-label={tr("节点标题")} className={cn('min-w-0 flex-1 bg-transparent outline-none',n.kind==='chapter'?'font-display text-[15px] tracking-tight':'text-body')} value={n.title} onChange={e=>apply(c=>({...c,nodes:c.nodes.map(x=>x.id===n.id?{...x,title:e.target.value}:x)}),`title:${n.id}`)}/>
+       <Input aria-label={tr("节点标题")} className={cn('min-w-0 flex-1 bg-transparent outline-none',n.kind==='chapter'?'font-display text-[15px] tracking-tight':'text-body')} value={n.title} onChange={e=>apply(c=>({...c,nodes:c.nodes.map(x=>x.id===n.id?{...x,title:e.target.value}:x)}),`title:${n.id}`)}/>
        <span data-handle="1" title={tr("拖到另一节点建立关联")} className="grid h-4 w-4 shrink-0 cursor-crosshair place-items-center text-ink-3 hover:text-ink" onPointerDown={e=>handleDown(e,n)}><span className="h-2 w-2 rounded-full border border-current"/></span>
       </div>
-      {selected?<textarea aria-label={tr("节点正文")} placeholder={tr("补一句思路…")} rows={Math.max(3,(n.body??'').split('\n').length)} className="mt-1 w-full resize-none bg-transparent px-3 pb-1 text-secondary text-ink-2 outline-none placeholder:text-ink-3" value={n.body??''} onChange={e=>apply(c=>({...c,nodes:c.nodes.map(x=>x.id===n.id?{...x,body:e.target.value}:x)}),`body:${n.id}`)}/>
+      {selected?<Textarea aria-label={tr("节点正文")} placeholder={tr("补一句思路…")} rows={Math.max(3,(n.body??'').split('\n').length)} className="mt-1 w-full resize-none bg-transparent px-3 pb-1 text-secondary text-ink-2 outline-none placeholder:text-ink-3" value={n.body??''} onChange={e=>apply(c=>({...c,nodes:c.nodes.map(x=>x.id===n.id?{...x,body:e.target.value}:x)}),`body:${n.id}`)}/>
        :n.body?.trim()&&<p className="mt-1 whitespace-pre-wrap px-3 pb-1 text-secondary text-ink-2">{n.body}</p>}
       {notes.length>0&&<div className="space-y-1 px-3 pb-1">{notes.map(note=><p key={note.key} className="whitespace-pre-wrap text-caption text-ink-2"><span className="text-ink-3">{copy[note.key]} · </span>{note.text}</p>)}</div>}
       <div className="flex items-center gap-1 px-2 pb-2 pt-1">
        {n.ref&&<button className="flex min-w-0 items-center gap-1 rounded-md bg-elevated px-1.5 py-0.5 text-caption text-ink-2 hover:text-ink" title={n.ref.path} onClick={()=>openDocument({workspace:'academic',path:n.ref!.path,title:n.ref!.title})}><Link2 size={11} strokeWidth={1.75} className="shrink-0"/><span className="truncate">{n.ref.title}</span></button>}
-       {n.anchor&&<button className="flex min-w-0 items-center gap-1 rounded-md bg-elevated px-1.5 py-0.5 text-caption text-ink-2 hover:text-ink" title={n.anchor} onClick={()=>{try{openRightTab({kind:'file',target:fileTarget(project,project,'files',n.anchor!)})}catch(error){setCopyError(error instanceof Error?error.message:String(error))}}}><FileText size={11} strokeWidth={1.75} className="shrink-0"/><span className="truncate">{n.anchor.split('/').pop()}</span></button>}
+       {n.anchor&&<button className="flex min-w-0 items-center gap-1 rounded-md bg-elevated px-1.5 py-0.5 text-caption text-ink-2 hover:text-ink" title={n.anchor} onClick={()=>void openAnchor(n.anchor!)}><FileText size={11} strokeWidth={1.75} className="shrink-0"/><span className="truncate">{n.anchor.split('/').pop()}</span></button>}
        {Boolean(n.evidence?.length)&&<span className="rounded-md bg-elevated px-1.5 py-0.5 text-caption text-ink-3">{copy.evidence} {n.evidence!.length}</span>}
        {Boolean(n.bindings?.length)&&<span className="rounded-md bg-elevated px-1.5 py-0.5 text-caption text-ink-3">{copy.sourceBindings} {n.bindings!.length}</span>}
        {selected&&<span className="ml-auto flex shrink-0 gap-0.5">
@@ -227,10 +224,10 @@ export function ThinkingCanvas({project,active=true,onRequestConversation}:{proj
      <p className="text-caption font-medium uppercase tracking-[0.06em] text-ink-3">{copy.relation}</p>
      <p className="text-caption text-ink-3">{copy.relationHint}</p>
      <label className="block text-secondary text-ink-2">{copy.relation}
-      <select className="ui-input mt-1 w-full" value={selectedEdge.relation??''} onChange={e=>apply(c=>setEdgeRelation(c,Number(sel.id),(e.target.value||undefined) as SemanticRelation|undefined))}>
+      <Select className="ui-input mt-1 w-full" value={selectedEdge.relation??''} onChange={e=>apply(c=>setEdgeRelation(c,Number(sel.id),(e.target.value||undefined) as SemanticRelation|undefined))}>
        <option value="">{copy.plainRelation}</option>
        {SEMANTIC_RELATIONS.map(relation=><option key={relation} value={relation}>{copy[RELATION_COPY[relation]]}</option>)}
-      </select>
+      </Select>
      </label>
      <Button size="xs" onClick={()=>{apply(c=>({...c,edges:c.edges.filter((_,i)=>String(i)!==sel.id)}));setSel(null)}}>{copy.deleteEdge}</Button>
     </>}
@@ -248,16 +245,15 @@ export function ThinkingCanvas({project,active=true,onRequestConversation}:{proj
      <section className="space-y-2">
       <p className="text-caption font-medium uppercase tracking-[0.06em] text-ink-3">{copy.evidence}</p>
       {(selectedNode.evidence??[]).map(item=><div key={item.id} className="space-y-1 rounded-md bg-elevated p-2 text-caption">
-       <button type="button" className="block w-full truncate text-left text-ink-2 hover:underline" title={item.path??item.url} onClick={()=>item.path&&openResearchSource({id:item.id,path:item.path,workspace:item.workspace,digest:item.digest,excerpt:item.excerpt},{projectId:project,workspace:project})}>{item.path??item.url}</button>
+       <SourceReferenceLink source={(item as typeof item & {contentSource?:ResourceReference}).contentSource??{kind:item.url?'literature':'file',id:item.url||item.id,path:item.path,workspace:item.workspace,digest:item.digest,selector:{quote:item.excerpt}}} scope={{projectId:project,workspace}}/>
        <p className="break-all text-ink-3">{item.digest??copy.unverifiable}{item.note?` · ${item.note}`:''}</p>
-       {item.excerpt&&<blockquote className="whitespace-pre-wrap text-ink-2">{item.excerpt}</blockquote>}
        <IconBtn icon={Trash2} label={copy.removeFromOutline} onClick={()=>apply(c=>removeNodeEvidence(c,selectedNode.id,item.id))}/>
       </div>)}
       <div className="space-y-1">
-       <input aria-label={copy.evidencePath} placeholder={copy.evidencePath} className="ui-input w-full" value={evidenceForm.path} onChange={e=>setEvidenceForm(f=>({...f,path:e.target.value}))}/>
-       <input aria-label={copy.evidenceDigest} placeholder={copy.evidenceDigest} className="ui-input w-full" value={evidenceForm.digest} onChange={e=>setEvidenceForm(f=>({...f,digest:e.target.value}))}/>
-       <input aria-label={copy.evidenceExcerpt} placeholder={copy.evidenceExcerpt} className="ui-input w-full" value={evidenceForm.excerpt} onChange={e=>setEvidenceForm(f=>({...f,excerpt:e.target.value}))}/>
-       <input aria-label={copy.evidenceNote} placeholder={copy.evidenceNote} className="ui-input w-full" value={evidenceForm.note} onChange={e=>setEvidenceForm(f=>({...f,note:e.target.value}))}/>
+       <Input aria-label={copy.evidencePath} placeholder={copy.evidencePath} className="ui-input w-full" value={evidenceForm.path} onChange={e=>setEvidenceForm(f=>({...f,path:e.target.value}))}/>
+       <Input aria-label={copy.evidenceDigest} placeholder={copy.evidenceDigest} className="ui-input w-full" value={evidenceForm.digest} onChange={e=>setEvidenceForm(f=>({...f,digest:e.target.value}))}/>
+       <Input aria-label={copy.evidenceExcerpt} placeholder={copy.evidenceExcerpt} className="ui-input w-full" value={evidenceForm.excerpt} onChange={e=>setEvidenceForm(f=>({...f,excerpt:e.target.value}))}/>
+       <Input aria-label={copy.evidenceNote} placeholder={copy.evidenceNote} className="ui-input w-full" value={evidenceForm.note} onChange={e=>setEvidenceForm(f=>({...f,note:e.target.value}))}/>
        <Button size="xs" disabled={!evidenceForm.path.trim()} onClick={addEvidence}>{copy.addEvidence}</Button>
        {evidenceError&&<p role="alert" className="text-caption text-ink-3">{evidenceError}</p>}
       </div>
@@ -266,7 +262,7 @@ export function ThinkingCanvas({project,active=true,onRequestConversation}:{proj
       <p className="text-caption font-medium uppercase tracking-[0.06em] text-ink-3">{copy.sourceBindings}</p>
       <p className="text-caption text-ink-3">{copy.bindFromSource}</p>
       {(selectedNode.bindings??[]).map(item=><div key={item.id} className="space-y-1 rounded-md bg-elevated p-2 text-caption" data-source-binding={item.id}>
-       <button type="button" className="block w-full truncate text-left text-ink-2 hover:underline" title={`${item.path}@${item.digest}`} onClick={()=>{try{openRightTab({kind:'file',target:fileTarget(project,item.workspace,'files',item.path)})}catch(error){setCopyError(error instanceof Error?error.message:String(error))}}}>{item.path}</button>
+       <button type="button" className="block w-full truncate text-left text-ink-2 hover:underline" title={`${item.path}@${item.digest}`} onClick={()=>{try{openResearchSource({id:item.id,path:item.path,workspace:item.workspace,digest:item.digest,excerpt:item.quote},{projectId:project,workspace})}catch(error){setCopyError(error instanceof Error?error.message:String(error))}}}>{item.path}</button>
        <p className="break-all text-ink-3">{item.digest} · [{item.start},{item.end}]</p>
        <blockquote className="whitespace-pre-wrap text-ink-2">{item.quote}</blockquote>
        <IconBtn icon={Trash2} label={copy.removeBinding} onClick={()=>apply(c=>removeNodeBinding(c,selectedNode.id,item.id))}/>
@@ -276,7 +272,7 @@ export function ThinkingCanvas({project,active=true,onRequestConversation}:{proj
      <section className="space-y-2">
       <p className="text-caption font-medium uppercase tracking-[0.06em] text-ink-3">{copy.writingConstraints}</p>
       {(WRITING_FIELDS as readonly WritingField[]).map(key=><label key={key} className="block text-secondary text-ink-2">{copy[key]}
-       <textarea rows={2} className="ui-input mt-1 w-full resize-y" value={selectedNode.writing?.[key]??''} onChange={e=>apply(c=>setNodeWriting(c,selectedNode.id,key,e.target.value),`writing:${selectedNode.id}:${key}`)}/>
+       <Textarea rows={2} className="ui-input mt-1 w-full resize-y" value={selectedNode.writing?.[key]??''} onChange={e=>apply(c=>setNodeWriting(c,selectedNode.id,key,e.target.value),`writing:${selectedNode.id}:${key}`)}/>
       </label>)}
      </section>
     </>}
@@ -288,7 +284,7 @@ export function ThinkingCanvas({project,active=true,onRequestConversation}:{proj
     <p className="border-b border-line px-3 py-2 text-caption font-medium uppercase tracking-[0.06em] text-ink-3">{picker.kind==='ref'?tr("链接知识库笔记"):tr("选择源稿文件")}</p>
     <div className="max-h-64 overflow-y-auto p-1">
      {picker.kind==='ref'?notes.map(note=><button key={note.path} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-secondary text-ink-2 hover:bg-hover hover:text-ink" onClick={()=>{apply(c=>({...c,nodes:c.nodes.map(x=>x.id===picker.node?{...x,ref:{path:note.path,title:note.title}}:x)}));setPicker(null)}}><Link2 size={12} strokeWidth={1.75} className="shrink-0 text-ink-3"/><span className="truncate">{note.title}</span></button>)
-     :files.map(f=><button key={f} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-secondary text-ink-2 hover:bg-hover hover:text-ink" onClick={()=>{try{openRightTab({kind:'file',target:fileTarget(project,project,'files',f)})}catch(error){setCopyError(error instanceof Error?error.message:String(error))}setPicker(null)}}><FileText size={12} strokeWidth={1.75} className="shrink-0 text-ink-3"/><span className="truncate">{f}</span></button>)}
+     :files.map(f=><button key={f} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-secondary text-ink-2 hover:bg-hover hover:text-ink" onClick={()=>{try{openResource({kind:'file',target:fileTarget(project,workspace,'files',f)})}catch(error){setCopyError(error instanceof Error?error.message:String(error))}setPicker(null)}}><FileText size={12} strokeWidth={1.75} className="shrink-0 text-ink-3"/><span className="truncate">{f}</span></button>)}
      {picker.kind==='ref'&&!notes.length&&<p className="px-2 py-3 text-caption text-ink-3">{tr("知识库还没有笔记。")}</p>}
     </div>
    </div>

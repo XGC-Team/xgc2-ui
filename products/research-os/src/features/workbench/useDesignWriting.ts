@@ -17,7 +17,10 @@ export function useDesignWriting(scope: Scope, review: ReturnType<typeof useRevi
   const pending = useRef(false), alive = useRef(true)
   useEffect(() => { alive.current = true; return () => { alive.current = false } }, [])
   const cards = () => {
-    const context = useWorkbench.getState().contextItems.filter(item => item.project === scope.projectId && item.kind === 'canvas-node').map(item => item.ref.split('#')[1]).filter(Boolean)
+    const context = useWorkbench.getState().contextItems.filter(item => item.project === scope.projectId && item.kind === 'canvas-node' && (!item.source?.workspace || item.source.workspace === scope.workspace)).flatMap(item => {
+      const match = /^research-content\.json#object\/([^/]+)$/.exec(item.ref)
+      return match ? [match[1]] : []
+    })
     const focus = readDesignFocus()
     return [...new Set(context.length ? context : focus?.project === scope.projectId ? focus.cardIds : [])]
   }

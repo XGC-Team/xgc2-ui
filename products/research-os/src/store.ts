@@ -1,15 +1,16 @@
 import type { Anchor, Scope } from './features/review/review-model'
 import { canCloseTab } from './features/projects/tab-close-guards'
-import { draftIdFromAnchor, draftScopeKey, type DraftScope, type DraftIntent, type DraftSource, type DraftKind } from './features/projects/draft-model'
-import { draftCopy } from './features/projects/draft-copy'
-import type { ContextItem } from './features/projects/context-model'
-import { fileTarget, sameFileTarget, type ProjectFileTarget } from './features/projects/project-object-model'
+import { draftIdFromAnchor, type DraftScope, type DraftIntent, type DraftSource, type DraftKind } from './features/projects/draft-model'
+import { CONTEXT_PREFERENCE, restoreContextItems, type ContextItem } from './features/projects/context-model'
 import type { ManuscriptPDF } from './features/resources/manuscript'
 import type { AcademicNote } from './features/resources/academic-graph'
 import type { PDFRect } from './features/resources/pdf-annotations'
-import { isIdleWebTab, rememberRecentProject } from './features/workbench/writing-session'
+import { rememberRecentProject } from './features/workbench/writing-session'
+import { backResourceInLayout, activateResourceInLayout, closeResourceInLayout, LAYOUT_PREFERENCE, moveResourceInLayout, openResourceInLayout, restoreResourceLayout, type ContentView, type ResourceInput, type ResourceLayout, type ResourceTab, type SourceLocation, type WorkArea } from './features/workbench/resource-model'
 import { readPreference, writePreference } from './lib/storage'
 import { create } from 'zustand'
+import {restorePendingIntents,persistPendingChanges,type PendingIntents} from './features/workbench/pending-intents'
+const restoredPending=(()=>{try{return restorePendingIntents(localStorage)}catch{return {intents:{reviewIntents:[],draftIntents:[],canvasReferences:[]} as PendingIntents,error:''}}})()
 export const NAV_ITEMS = [
   {id:'chat',label:'Chat',description:'与研究助手对话'},
   {id:'workflow',label:'Workflow',description:'计划、验证与执行'},
@@ -17,33 +18,15 @@ export const NAV_ITEMS = [
   {id:'settings',label:'Settings',description:'供应者与模型配置'},
 ] as const
 export type NavId = typeof NAV_ITEMS[number]['id']
-/* 右栏标签页：每个标签是一个内容实例（网页/文件/PDF/笔记），统一显示语义，不是大类切换 */
 export type ReviewIntent = { id: string; scope: Scope; anchor: Anchor; body: string; at: string; designDiscussion?: true; annotationId?: string }
-export type RightTab =
-  | {id:string;kind:'reviews';title:string;scope:Scope}
-  | {id:string;kind:'drafts';title:string;scope:DraftScope}
-  | {id:string;kind:'web';title:string;url?:string}
-  | {id:string;kind:'file';title:string;target:ProjectFileTarget}
-  | {id:string;kind:'pdf';title:string;pdf:ManuscriptPDF}
-  | {id:string;kind:'note';title:string;doc?:{workspace:string;path:string;title:string}}
-export type RightTabInput =
-  | {kind:'reviews';scope:Scope}
-  | {kind:'drafts';scope:DraftScope}
-  | {kind:'web';url?:string} | {kind:'file';target?:ProjectFileTarget}
-  | {kind:'pdf';pdf:ManuscriptPDF}
-  | {kind:'note';doc?:{workspace:string;path:string;title:string}}
-const tabId=()=>`rt-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`
-const tabTitle=(input:RightTabInput,locale:'zh'|'en')=>{
- if(input.kind==='reviews')return locale==='zh'?'反馈与修改审阅':'Feedback and change review'
- if(input.kind==='drafts')return draftCopy[locale].title
- if(input.kind==='pdf')return input.pdf.path.split('/').pop()||'PDF'
- if(input.kind==='note')return input.doc?.title??'阅读'
- if(input.kind==='file')return input.target?.path.split('/').pop()||({notes:'项目内笔记',builds:'已构建 PDF',files:'项目材料'}[input.target?.view??'files'])
- if(input.url){try{return new URL(input.url).host}catch{/* 回落新网页 */}}
- return '新网页'
+const persistLayout = (resourceLayout: ResourceLayout) => {
+  writePreference(LAYOUT_PREFERENCE, JSON.stringify(resourceLayout))
+  return { resourceLayout }
 }
 export const useWorkbench = create<{
+  pendingPersistenceError:string
   reviewFocus: {scope:Scope;anchor:Anchor;nonce:string}|null
+  reviewScopes:Record<string,Scope>
   setReviewFocus: (scope:Scope,anchor:Anchor)=>void
   reviewIntents: ReviewIntent[]
   requestReviewFeedback: (intent: ReviewIntent) => void
@@ -66,18 +49,18 @@ export const useWorkbench = create<{
 
   locale:'zh'|'en';setLocale:(locale:'zh'|'en')=>void
   openPDF:(pdf:ManuscriptPDF)=>void
-  rightOpen:boolean;setRightOpen:(open:boolean)=>void
-  rightTabs:RightTab[];activeRightTab:string
-  openRightTab:(input:RightTabInput)=>string
-  closeRightTab:(id:string)=>void
-  activateRightTab:(id:string)=>void
-  updateRightTab:(id:string,patch:{title?:string;pdf?:ManuscriptPDF})=>void
+  secondaryOpen:boolean;setSecondaryOpen:(open:boolean)=>void
+  resourceLayout:ResourceLayout
+  openResource:(input:ResourceInput,area?:WorkArea)=>string
+  closeResource:(id:string)=>void
+  activateResource:(id:string)=>void
+  moveResource:(id:string,area:WorkArea)=>void
+  backResource:(area:WorkArea)=>void
+  updateResource:(id:string,patch:{title?:string;pdf?:ManuscriptPDF;view?:ContentView;followCurrent?:boolean;digest?:string})=>void
+  showConversation:()=>void
   readingDocument:{workspace:string;path:string;title:string}|null
   openDocument:(document:{workspace:string;path:string;title:string})=>void
-  /* 源码舞台：PDF 批注跳到 LaTeX 源码时占据中央区，保留下方页面状态 */
-  sourceView:{workspace:string;path:string;line:number;buildId:string;pdf:ManuscriptPDF}|null
-  openSourceView:(view:{workspace:string;path:string;line:number;buildId:string;pdf:ManuscriptPDF})=>void
-  closeSourceView:()=>void
+  openSourceView:(view:SourceLocation)=>void
   /* PDF 定位闪烁：源码行/批注回跳时在右栏 PDF 上闪一个框 */
   pdfFlash:{buildId:string;page:number;rects?:PDFRect[];box?:{x:number;y:number;width:number;height:number};nonce:number}|null
   flashPDF:(flash:{buildId:string;page:number;rects?:PDFRect[];box?:{x:number;y:number;width:number;height:number}},pdf?:ManuscriptPDF)=>void
@@ -89,39 +72,40 @@ export const useWorkbench = create<{
   chatSurface:'home'|'generic'|'writing'
   reviewDockOpen:boolean; setReviewDockOpen:(open:boolean)=>void
   enterWritingProject:(id:string)=>void
-  /* 思维白板：项目作用域，打开时占据 chat 页主区 */
-  canvasProject: string | null; openCanvas:(project:string)=>void; closeCanvas:()=>void
+  openCanvas:(project:string)=>void
   paletteOpen:boolean; setPaletteOpen:(open:boolean)=>void
   projectId:string; setProjectId:(id:string)=>void
 }>((set,get)=>({
-  reviewFocus:null, setReviewFocus:(scope,anchor)=>set({reviewFocus:{scope:{...scope},anchor:structuredClone(anchor),nonce:crypto.randomUUID()}}),
-  reviewIntents: [],
+  pendingPersistenceError:restoredPending.error,
+  reviewScopes:Object.fromEntries(restoredPending.intents.reviewIntents.map(item=>[item.scope.projectId,{...item.scope}])),
+  reviewFocus:null, setReviewFocus:(scope,anchor)=>set(s=>({reviewScopes:{...s.reviewScopes,[scope.projectId]:{...scope}},reviewFocus:{scope:{...scope},anchor:structuredClone(anchor),nonce:crypto.randomUUID()}})),
+  reviewIntents: restoredPending.intents.reviewIntents,
   requestReviewFeedback: intent => {
     const copy = structuredClone(intent)
-    set(s => ({reviewIntents:s.reviewIntents.some(i=>i.id===copy.id)?s.reviewIntents:[...s.reviewIntents,copy],reviewDockOpen:true,activeNav:'chat'}))
+    set(s => ({reviewScopes:{...s.reviewScopes,[copy.scope.projectId]:{...copy.scope}},reviewIntents:s.reviewIntents.some(i=>i.id===copy.id)?s.reviewIntents:[...s.reviewIntents,copy],reviewDockOpen:true,activeNav:'chat'}))
   },
   consumeReviewFeedback: id => set(s=>({reviewIntents:s.reviewIntents.filter(i=>i.id!==id)})),
-  draftIntents: [],
+  draftIntents: restoredPending.intents.draftIntents,
   requestDraftCapture: (intent) => {
     intent = { ...intent, scope: { ...intent.scope }, source: { ...intent.source } }
     set(s => ({ draftIntents: s.draftIntents.some(item => item.id === intent.id) ? s.draftIntents : [...s.draftIntents, intent] }))
-    get().openRightTab({ kind: 'drafts', scope: intent.scope })
+    get().openResource({ kind: 'drafts', scope: intent.scope })
   },
   consumeDraftIntent: (id) => set(s => ({ draftIntents: s.draftIntents.filter(item => item.id !== id) })),
   draftSelection: null,
   selectResearchDraft: (scope, id, kind) => {
-    get().openRightTab({ kind: 'drafts', scope })
+    get().openResource({ kind: 'drafts', scope })
     set({ draftSelection: { scope: { ...scope }, id, kind, nonce: Date.now() } })
   },
   readingAnchor: null, setReadingAnchor: source => set({ readingAnchor: { ...source, nonce: Date.now() } }),
-  canvasReferences: [],
+  canvasReferences: restoredPending.intents.canvasReferences,
   requestCanvasReference: (project, draftId, title) => {
     const id = `${project}:${draftId}`
     set(s => ({ canvasReferences: s.canvasReferences.some(item => item.id === id) ? s.canvasReferences : [...s.canvasReferences, { id, project, draftId, title }] }))
     get().openCanvas(project)
   },
   consumeCanvasReference: id => set(s => ({ canvasReferences: s.canvasReferences.filter(item => item.id !== id) })),
-  contextItems: [],
+  contextItems: restoreContextItems(readPreference(CONTEXT_PREFERENCE)),
   addContextItem: item => set(s => ({
     contextItems: s.contextItems.some(existing => existing.project === item.project && existing.kind === item.kind && existing.ref === item.ref)
       ? s.contextItems.map(existing => existing.project === item.project && existing.kind === item.kind && existing.ref === item.ref ? { ...item, id: existing.id } : existing)
@@ -131,55 +115,49 @@ export const useWorkbench = create<{
   patchContextItem: (id, patch) => set(s => ({ contextItems: s.contextItems.map(item => item.id === id ? { ...item, ...patch, id: item.id } : item) })),
 
   locale:readPreference('research-ui-locale')==='en'?'en':'zh',setLocale:(locale)=>{writePreference('research-ui-locale',locale);document.documentElement.lang=locale;set({locale})},
-  openPDF:(pdf)=>{get().openRightTab({kind:'pdf',pdf})},
-  rightOpen:true,setRightOpen:(rightOpen)=>set({rightOpen}),
-  rightTabs:[],activeRightTab:'',
-  openRightTab:(input)=>{
+  openPDF:(pdf)=>{get().openResource({kind:'pdf',pdf,followCurrent:false})},
+  secondaryOpen:readPreference('research-ui-secondary')!=='collapsed',
+  setSecondaryOpen:(secondaryOpen)=>{writePreference('research-ui-secondary',secondaryOpen?'open':'collapsed');set({secondaryOpen})},
+  resourceLayout:restoreResourceLayout(readPreference(LAYOUT_PREFERENCE)),
+  openResource:(input,area)=>{
     const s=get()
-    // Internal canvas anchors identify an object inside the draft file, not a second copy of it.
-    if (input.kind === 'file' && input.target?.path.startsWith('research-drafts.json#')) {
-      const id = draftIdFromAnchor(input.target.path)
-      if (id) {
-        const scope = { projectId: input.target.projectId, workspace: input.target.workspace }
-        const tab = get().openRightTab({ kind: 'drafts', scope })
-        set({ draftSelection: { scope, id, nonce: Date.now() } })
+    if(input.kind==='file'&&input.target){
+      const id=draftIdFromAnchor(input.target.path)
+      if(id){
+        const scope={projectId:input.target.projectId,workspace:input.target.workspace}
+        const tab=s.openResource({kind:'drafts',scope},area)
+        set({draftSelection:{scope,id,nonce:Date.now()}})
         return tab
       }
     }
-    // Legacy callers bind once on open; a tab never follows subsequent project selection.
-    if(input.kind==='file')input={...input,target:input.target??fileTarget(s.projectId,s.projectId)}
-    if(input.kind==='drafts'||input.kind==='reviews')input={...input,scope:{...input.scope}}
-    const existing=s.rightTabs.find(t=>
-      (input.kind==='reviews'&&t.kind==='reviews'&&draftScopeKey(t.scope)===draftScopeKey(input.scope))||
-      (input.kind==='drafts'&&t.kind==='drafts'&&draftScopeKey(t.scope)===draftScopeKey(input.scope))||
-      (input.kind==='pdf'&&t.kind==='pdf'&&t.pdf.buildId===input.pdf.buildId)||
-      (input.kind==='note'&&t.kind==='note'&&(input.doc? t.doc?.workspace===input.doc.workspace&&t.doc?.path===input.doc.path : !t.doc))||
-      (input.kind==='web'&&input.url&&t.kind==='web'&&t.url===input.url)||
-      (input.kind==='file'&&t.kind==='file'&&input.target&&sameFileTarget(t.target,input.target)))
-    if(existing){set({activeRightTab:existing.id,rightOpen:true});return existing.id}
-    const tab={...input,id:tabId(),title:tabTitle(input,s.locale)} as RightTab
-    set({rightTabs:[...s.rightTabs,tab],activeRightTab:tab.id,rightOpen:true})
-    return tab.id
+    const destination=area??(['chat','research','source'].includes(input.kind)?'primary':'secondary')
+    const {layout,id}=openResourceInLayout(s.resourceLayout,input,s.projectId,destination,s.locale)
+    set({...persistLayout(layout),activeNav:'chat',secondaryOpen:layout.tabs.find(t=>t.id===id)?.area==='secondary'||s.secondaryOpen})
+    return id
   },
-  closeRightTab:(id)=>{
-    if(!get().rightTabs.some(t=>t.id===id))return
-    if(!canCloseTab(id)){set({activeRightTab:id,rightOpen:true});return}
-    set(s=>{
-    const i=s.rightTabs.findIndex(t=>t.id===id);if(i<0)return s
-    const rightTabs=s.rightTabs.filter(t=>t.id!==id)
-    return{rightTabs,activeRightTab:s.activeRightTab===id?(rightTabs[Math.min(i,rightTabs.length-1)]?.id??''):s.activeRightTab}
-    })
+  closeResource:(id)=>{
+    if(!get().resourceLayout.tabs.some(tab=>tab.id===id))return
+    if(!canCloseTab(id)){get().activateResource(id);return}
+    set(s=>persistLayout(closeResourceInLayout(s.resourceLayout,id)))
   },
-  activateRightTab:(id)=>set({activeRightTab:id,rightOpen:true}),
-  updateRightTab:(id,patch)=>set(s=>({rightTabs:s.rightTabs.map(t=>t.id===id?{...t,...patch} as RightTab:t)})),
-  readingDocument:null,openDocument:(doc)=>{get().openRightTab({kind:'note',doc})},
-  sourceView:null,openSourceView:(sourceView)=>set({sourceView}),closeSourceView:()=>set({sourceView:null}),
+  activateResource:(id)=>{
+    const tab=get().resourceLayout.tabs.find(t=>t.id===id)
+    if(!tab)return
+    get().setProjectId(tab.projectId)
+    set(s=>({...persistLayout(activateResourceInLayout(s.resourceLayout,id)),activeNav:'chat',secondaryOpen:tab.area==='secondary'||s.secondaryOpen}))
+  },
+  backResource:(area)=>set(s=>persistLayout(backResourceInLayout(s.resourceLayout,s.projectId,area))),
+  moveResource:(id,area)=>set(s=>({...persistLayout(moveResourceInLayout(s.resourceLayout,id,area)),secondaryOpen:area==='secondary'||s.secondaryOpen})),
+  updateResource:(id,patch)=>set(s=>persistLayout({...s.resourceLayout,tabs:s.resourceLayout.tabs.map(t=>t.id===id?{...t,...patch} as ResourceTab:t)})),
+  showConversation:()=>{get().openResource({kind:'chat'},'primary')},
+  readingDocument:null,openDocument:(doc)=>{get().openResource({kind:'note',doc})},
+  openSourceView:(source)=>{get().openResource({kind:'source',source},'primary')},
   pdfFlash:null,
   flashPDF:(flash,pdf)=>{
     const s=get()
-    const tab=s.rightTabs.find(t=>t.kind==='pdf'&&t.pdf.buildId===flash.buildId)
-    if(tab)set({activeRightTab:tab.id,rightOpen:true})
-    else if(pdf)s.openRightTab({kind:'pdf',pdf})
+    const tab=s.resourceLayout.tabs.find(t=>t.projectId===s.projectId&&t.kind==='pdf'&&t.pdf.buildId===flash.buildId)
+    if(tab)s.activateResource(tab.id)
+    else if(pdf)s.openResource({kind:'pdf',pdf})
     set({pdfFlash:{...flash,nonce:Date.now()}})
   },
   knowledgeDocuments:[],setKnowledgeDocuments:(knowledgeDocuments)=>set({knowledgeDocuments}),
@@ -187,8 +165,8 @@ export const useWorkbench = create<{
   closeDocument:()=>set({readingDocument:null}),
   theme: readPreference('research-ui-theme') === 'dark' ? 'dark' : 'light',
   toggleTheme:()=>set(s=>{const theme=s.theme==='light'?'dark':'light';writePreference('research-ui-theme',theme);return {theme}}),
-  activeNav:'chat',setActiveNav:(activeNav)=>set({activeNav}),
-  openChat:()=>{writePreference('research-ui-project','');set({activeNav:'chat',projectId:'',canvasProject:null,chatSurface:'generic',reviewDockOpen:false})},
+  activeNav:(NAV_ITEMS.some(item=>item.id===readPreference('research-ui-nav'))?readPreference('research-ui-nav'):'chat') as NavId,setActiveNav:(activeNav)=>set({activeNav}),
+  openChat:()=>{writePreference('research-ui-project','');set({activeNav:'chat',projectId:'',chatSurface:'generic',reviewDockOpen:false});get().showConversation()},
   chatSurface:readPreference('research-ui-project')?'writing':'home',
   reviewDockOpen:false,setReviewDockOpen:(reviewDockOpen)=>set({reviewDockOpen}),
   enterWritingProject:(id)=>{
@@ -196,11 +174,22 @@ export const useWorkbench = create<{
     rememberRecentProject(id)
     writePreference('research-ui-project',id)
     const s=get()
-    const rightTabs=s.rightTabs.filter(tab=>!isIdleWebTab(tab))
-    const active=rightTabs.some(tab=>tab.id===s.activeRightTab)?s.activeRightTab:(rightTabs.find(tab=>tab.kind==='pdf'&&tab.pdf.workspace===id)?.id??rightTabs[0]?.id??'')
-    set({projectId:id,activeNav:'chat',chatSurface:'writing',canvasProject:s.canvasProject===id?id:null,sourceView:null,rightTabs,activeRightTab:active,reviewDockOpen:s.projectId===id?s.reviewDockOpen:false,rightOpen:true})
+    const hasPrimary=s.resourceLayout.tabs.some(tab=>tab.projectId===id&&tab.area==='primary')
+    set({projectId:id,activeNav:'chat',chatSurface:'writing',reviewDockOpen:s.projectId===id?s.reviewDockOpen:false})
+    if(!hasPrimary)get().showConversation()
   },
-  canvasProject:null,openCanvas:(project)=>{get().setProjectId(project);set({canvasProject:project,activeNav:'chat',chatSurface:'writing',sourceView:null})},closeCanvas:()=>set({canvasProject:null}),
+  openCanvas:(project)=>{get().enterWritingProject(project);get().openResource({kind:'research',workspace:project,view:'canvas'},'primary')},
   paletteOpen:false,setPaletteOpen:(paletteOpen)=>set({paletteOpen}),
   projectId:readPreference('research-ui-project')||'',setProjectId:(projectId)=>{writePreference('research-ui-project',projectId);if(projectId.trim())rememberRecentProject(projectId);set({projectId,chatSurface:projectId.trim()?'writing':'home'})},
 }))
+
+useWorkbench.subscribe((state, previous) => {
+  if(state.reviewIntents!==previous.reviewIntents||state.draftIntents!==previous.draftIntents||state.canvasReferences!==previous.canvasReferences){
+    let error=''
+    try{error=persistPendingChanges(localStorage,previous,state)}catch{error='Pending work could not be saved in browser storage.'}
+    if(error!==state.pendingPersistenceError)useWorkbench.setState({pendingPersistenceError:error})
+  }
+  if(state.activeNav!==previous.activeNav)writePreference('research-ui-nav',state.activeNav)
+  if(state.secondaryOpen!==previous.secondaryOpen)writePreference('research-ui-secondary',state.secondaryOpen?'open':'collapsed')
+  if(state.contextItems!==previous.contextItems)writePreference(CONTEXT_PREFERENCE,JSON.stringify(state.contextItems))
+})

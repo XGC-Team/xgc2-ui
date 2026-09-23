@@ -1,4 +1,10 @@
 /** Approved nodes and their actual native receipts. No inferred execution phases. */
+import type {ResourceReference} from '../content/content-model'
+export type ResourceRef = ResourceReference
+export type StepExecution = {type: 'agent' | 'human' | 'tool' | 'build' | 'xgc2-result'; toolRef?: ResourceRef; input?: unknown; buildTask?: unknown; runtime?: {executable: string; digest: string; environment: string[]}}
+export type FrozenAsset = {ref: ResourceRef; definition?: unknown; content?: string; object?: Record<string, unknown>}
+export type WorkflowDefinition = {goal: string; nodes: PlanNode[]; methodRefs?: ResourceRef[]}
+export type ToolDefinition = {executor: 'script' | 'build' | 'xgc2-result'; implementation?: ResourceRef; files?: ResourceRef[]; interpreter?: 'python3' | 'node' | 'bash'; argv?: string[]; outputs?: string[]; timeoutSeconds?: number; input?: unknown}
 export const RUN_SCHEMA = 'xgc.research.workflow-run/v1' as const
 export const SNAPSHOT_SCHEMA = 'xgc.research.workflow-snapshot/v1' as const
 export type InvokeKind = 'research' | 'continuous' | 'verification' | 'archive' | 'writing'
@@ -6,10 +12,12 @@ export type PlanNode = {
   id: string; kind: string; title: string; objective: string
   acceptance: string[]; inputs: string[]; dependsOn: string[]
   agent?: string; knowledge?: string[]; hypothesis?: string; position?: '' | 'support' | 'challenge'
+  execution?: StepExecution
 }
 export type Draft = {
   title: string; goal: string; nodes: PlanNode[]; workspace: {id: string; revision: string}
   researcher: string; reviewer: string; writer: string
+  source?: ResourceRef; frozenAssets?: FrozenAsset[]; bindings?: unknown
 }
 export type ReceiptEvent = {seq?: number; kind?: string; text?: string; status?: string; role?: string}
 export type Receipt = {
@@ -17,13 +25,15 @@ export type Receipt = {
   status: string; output: string; outputDigest?: string; promptDigest?: string
   dispatchIntent: boolean; lastSeq: number; toolResultEvents: number[] | null
   events: ReceiptEvent[]; stopError?: string; cleanup?: string
+  executor?: StepExecution['type']; inputDigest?: string; receiptDigest?: string; operationId?: string
+  artifacts?: ResourceRef[]; sourceRefs?: ResourceRef[]
 }
 export type Hypothesis = {claim: string; grounds: string[]}
 export type Branch = {stance: string; status: string; nodeId?: string; tool?: string; output?: string; outputDigest?: string; error?: string}
 export type Adjudication = {outcome: string; rationale: string; actorRef: string; branchDigests: string[]; judgedAt?: string}
 export type Run = {
   schemaVersion: typeof RUN_SCHEMA; id: string; requestKey: string; version: number; digest: string
-  status: 'running' | 'paused' | 'interrupted' | 'completed' | 'failed' | 'cancelled' | 'needs_changes' | 'awaiting-adjudication'
+  status: 'running' | 'paused' | 'interrupted' | 'completed' | 'failed' | 'cancelled' | 'needs_changes' | 'awaiting-adjudication' | 'awaiting-input'
   kind?: InvokeKind; subscriptionId?: string; hypothesis?: Hypothesis; branches?: Branch[]; adjudication?: Adjudication
   control?: 'pause' | 'cancel'; failure?: string; startedAt: string; finishedAt?: string
   researchAcceptance: string; receipts: Receipt[]
@@ -40,7 +50,7 @@ export function defaultRole(kind: string): DefaultRole {
   return kind === 'Review' ? 'reviewer' : kind === 'Synthesis' ? 'writer' : 'researcher'
 }
 export function unresolved(run: Run): boolean {
-  return run.status === 'running' || run.status === 'paused' || run.status === 'interrupted' || run.status === 'awaiting-adjudication'
+  return run.status === 'running' || run.status === 'paused' || run.status === 'interrupted' || run.status === 'awaiting-adjudication' || run.status === 'awaiting-input'
 }
 export function recoverable(run: Run): boolean {
   return run.status === 'paused' || run.status === 'interrupted'
@@ -75,5 +85,6 @@ export function liveLine(run?: Run): {stage: string; text: string; sessionId: st
   return {stage: receipt.stage, text: line.replace(/\s+/g, ' ').slice(0, 140), sessionId: receipt.sessionId}
 }
 export function nodeAgent(node: PlanNode, draft?: Draft): string {
+  if (node.execution && node.execution.type !== 'agent') return ''
   return node.agent || (draft ? draft[defaultRole(node.kind)] : '')
 }

@@ -12,21 +12,28 @@ import {getNativeProfiles} from '../chat/client'
 import {listWorkspaces, request as apiRequest, type WorkspaceSummary} from '../../lib/api'
 import type {AgentProfile} from '@xgc2/agent-runtime/state'
 import {useAcademicNotes} from '../resources/useAcademicNotes'
-import {parseCanvas, type CanvasNode} from '../projects/canvas-model'
+import {type CanvasNode} from '../projects/canvas-model'
 import {useWorkbench} from '../../store'
+import {contentPort} from '../content/content-client'
+import {projectCanvas} from '../content/content-model'
+import {MethodLibrary} from './MethodLibrary'
+import {ReceiptActions} from './ReceiptActions'
+import {readWorkflowFocus, subscribeWorkflowFocus, type WorkflowFocus} from './workflow-focus'
+import {readWorkflowDraft,saveWorkflowDraft,clearWorkflowDraft} from './workflow-draft'
 
 export type {PlanNode}
 const roles = ['researcher', 'reviewer', 'writer'] as const
 const ROLE_LABEL = {researcher: '默认研究者', reviewer: '默认审查者', writer: '默认写作者'}
 const blank = (): Draft => ({title: '', goal: '', workspace: {id: '', revision: ''}, researcher: '', reviewer: '', writer: '', nodes: [{id: 'evidence', kind: 'EvidenceRead', title: tr('证据研究'), objective: '', acceptance: [tr('每个结论关联可核对来源；明确未验证假设')], inputs: [], dependsOn: [], knowledge: []}]})
 const message = (error: unknown) => error instanceof Error ? error.message : String(error)
-const RUN_LABEL: Record<Run['status'], string> = {running: '运行中', paused: '已在节点边界暂停', interrupted: '中断，需核对原回执', completed: '执行完成', failed: '执行失败', cancelled: '已确认取消', needs_changes: '证据需补充', 'awaiting-adjudication': '待证据裁定'}
+const RUN_LABEL: Record<Run['status'], string> = {running: '运行中', paused: '已在节点边界暂停', interrupted: '中断，需核对原回执', completed: '执行完成', failed: '执行失败', cancelled: '已确认取消', needs_changes: '证据需补充', 'awaiting-adjudication': '待证据裁定', 'awaiting-input':'等待人工结果'}
 const KIND_LABEL: Record<InvokeKind, string> = {research: '获批节点执行', continuous: '连续研究（一页）', verification: '研究验证', archive: '文献归档', writing: '写作应用'}
 
 export function WorkflowPage({projectId, onQuote, onOpenSession}: {projectId: string | null; onQuote?: (text: string) => void; onOpenSession?: (id: string) => void}) {
-  const {openCanvas, previewDocument, knowledgeDocuments} = useWorkbench()
+  const {openCanvas, openResource, previewDocument, knowledgeDocuments} = useWorkbench()
   const {notes} = useAcademicNotes()
   const [revisions, setRevisions] = useState<Revision[]>([]), [selectedVersion, setSelectedVersion] = useState(0)
+  const [selectedRunId,setSelectedRunId]=useState(''), lastFocus=useRef('')
   const [draft, setDraft] = useState<Draft>(blank), [selectedNode, setSelectedNode] = useState('')
   const [editing, setEditing] = useState(false), [editingBaseVersion, setEditingBaseVersion] = useState(0)
   const [consent, setConsent] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState('')
@@ -39,15 +46,21 @@ export function WorkflowPage({projectId, onQuote, onOpenSession}: {projectId: st
   const [hypothesisGrounds, setHypothesisGrounds] = useState('')
   const generation = useRef(0), inFlight = useRef(false), draftProject = useRef(projectId)
   const savedDrafts = useRef<Record<string, {draft: Draft; baseVersion: number}>>({})
-  useEffect(() => {if (projectId && editing && draftProject.current === projectId) savedDrafts.current[projectId] = {draft, baseVersion: editingBaseVersion}}, [draft, projectId, editing, editingBaseVersion])
+  useEffect(() => {if (projectId && editing && draftProject.current === projectId) {
+    const value={draft,baseVersion:editingBaseVersion};savedDrafts.current[projectId]=value
+    try{saveWorkflowDraft(localStorage,projectId,value)}catch{setError('流程草稿尚在当前页面，但无法保存到浏览器。请保留此页面直至保存计划。')}
+  }}, [draft, projectId, editing, editingBaseVersion])
   const base = workflowBase(projectId || '')
   const head = revisions[0], revision = revisions.find(r => r.version === selectedVersion) || head
   useEffect(() => {setConsent(false)}, [revision?.digest])
   useEffect(() => {
     const current = ++generation.current
     draftProject.current = projectId; inFlight.current = false
+    setSelectedRunId('');lastFocus.current=''
     setBusy(false); setRevisions([]); setSelectedVersion(0); setSelectedNode(''); setProfiles([]); setWorkspaces([])
-    setDraft(savedDrafts.current[projectId || '']?.draft || blank()); setEditing(false); setConsent(false); setError(''); setAssembling(''); setThoughts([])
+    let restored=projectId?savedDrafts.current[projectId]:undefined,recoveryError=''
+    if(projectId&&!restored)try{restored=readWorkflowDraft(localStorage,projectId);if(restored)savedDrafts.current[projectId]=restored}catch(reason){recoveryError=message(reason)}
+    setDraft(restored?.draft || blank());setEditingBaseVersion(restored?.baseVersion??0); setEditing(Boolean(restored)); setConsent(false); setError(recoveryError); setAssembling(''); setThoughts([])
     setStream('connecting')
     if (!projectId) return
     const stop = subscribeWorkflow(projectId, {
@@ -66,17 +79,26 @@ export function WorkflowPage({projectId, onQuote, onOpenSession}: {projectId: st
       if (w.status === 'fulfilled') setWorkspaces(w.value)
       if (p.status === 'rejected' || w.status === 'rejected') setError('无法加载工作者或工作区；不能据此判断现有运行已停止。')
     })
-    void apiRequest<{content: string}>(`/workspaces/${encodeURIComponent(projectId)}/files/thinking.canvas.json`, {signal: controller.signal})
-      .then(d => {if (!controller.signal.aborted) setThoughts(parseCanvas(d.content).nodes)})
+    void contentPort({projectId,workspace:projectId}).read(controller.signal)
+      .then(d => {if (!controller.signal.aborted) setThoughts(projectCanvas(d.document).nodes)})
       .catch(() => {if (!controller.signal.aborted) setThoughts([])})
     return () => {++generation.current; stop(); controller.abort()} // Unmount only detaches observers.
   }, [projectId])
+  useEffect(()=>{
+    const focus=(value:WorkflowFocus)=>{
+      if(value.project!==projectId||lastFocus.current===value.nonce)return
+      if(!revisions.some(r=>r.version===value.version&&r.runs.some(run=>run.id===value.runId)))return
+      lastFocus.current=value.nonce;setSelectedVersion(value.version);setSelectedRunId(value.runId);setSelectedNode(value.nodeId??'');setEditing(false)
+    }
+    const current=readWorkflowFocus();if(current)focus(current)
+    return subscribeWorkflowFocus(focus)
+  },[projectId,revisions])
   async function action(work: () => Promise<unknown>, savedDraft = false) {
     if (inFlight.current) return
     const current = generation.current; inFlight.current = true; setBusy(true); setError('')
     try {
       await work()
-      if (current === generation.current && savedDraft && projectId) {delete savedDrafts.current[projectId]; setEditing(false); setSelectedNode(''); setSelectedVersion(0)}
+      if (current === generation.current && savedDraft && projectId) {delete savedDrafts.current[projectId];setEditing(false);setSelectedNode('');setSelectedVersion(0);clearWorkflowDraft(localStorage,projectId)}
       // No follow-up list request: a late GET must not overwrite a newer SSE receipt.
     } catch (reason) {if (current === generation.current) setError(message(reason))}
     finally {if (current === generation.current) {inFlight.current = false; setBusy(false)}}
@@ -103,12 +125,13 @@ export function WorkflowPage({projectId, onQuote, onOpenSession}: {projectId: st
   }
   function beginEdit() {
     if (!projectId) return
+    if(revision?.draft.source?.workspace){openResource({kind:'research',workspace:revision.draft.source.workspace,ownerProjectId:revision.draft.source.workspace,view:'table',objectId:revision.draft.source.id});return}
     const saved = savedDrafts.current[projectId]
     setDraft(saved?.draft || (revision ? structuredClone(revision.draft) : blank()))
     setEditingBaseVersion(saved?.baseVersion ?? head?.version ?? 0)
     setSelectedNode(''); setEditing(true); setAssembling('')
   }
-  const visible = editing ? draft : revision?.draft, latestRun = revision?.runs[0]
+  const visible = editing ? draft : revision?.draft, latestRun = revision?.runs.find(run=>run.id===selectedRunId)??revision?.runs[0]
   const chosen = visible?.nodes.find(n => n.id === selectedNode)
   const nowId = editing ? '' : currentNodeId(visible?.nodes || [], latestRun), live = editing ? null : liveLine(latestRun)
   const available = profiles.filter(p => p.available)
@@ -152,9 +175,10 @@ export function WorkflowPage({projectId, onQuote, onOpenSession}: {projectId: st
       </>}
     </PageActions>
     {projectId && (revisions.length > 0 || activeRun) && <div className="flex flex-wrap items-center gap-3 border-b border-line px-4 py-2 text-caption text-ink-2">
-      {revisions.length > 0 && <Select aria-label="查看计划版本" value={String(revision?.version || 0)} onValueChange={value => {setSelectedVersion(Number(value)); setSelectedNode('')}}>{revisions.map(r => <option key={r.version} value={String(r.version)}>v{r.version} · {r.draft.title}</option>)}</Select>}
+      {revisions.length > 0 && <Select aria-label="查看计划版本" value={String(revision?.version || 0)} onValueChange={value => {setSelectedVersion(Number(value));setSelectedRunId(''); setSelectedNode('')}}>{revisions.map(r => <option key={r.version} value={String(r.version)}>v{r.version} · {r.draft.title}</option>)}</Select>}
       {activeRun && <button type="button" className="underline" onClick={() => {setSelectedVersion(activeRevision!.version); setEditing(false); setSelectedNode('')}}>v{activeRevision!.version} · {RUN_LABEL[activeRun.status]}{activeRun.control ? ` · ${activeRun.control === 'pause' ? '暂停待生效' : '取消待确认'}` : ''}</button>}
     </div>}
+    {projectId&&<MethodLibrary key={projectId} projectId={projectId} workspaces={workspaces} profiles={profiles} baseVersion={head?.version??0} revision={revision} disabled={busy||!ready||Boolean(activeRun)} onCreated={created=>{if(created.projectId===draftProject.current){setEditing(false);setSelectedVersion(created.version)}}}/>}
     {error && <p role="alert" className="ui-error">{error}</p>}
     <div className="workflow-layout flex min-h-0 flex-1">
       <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
@@ -177,6 +201,7 @@ export function WorkflowPage({projectId, onQuote, onOpenSession}: {projectId: st
           {editing ? chosen ? <>
             <FormField htmlFor="step-title" label={tr('步骤名称')}><Input id="step-title" required value={chosen.title} onChange={e => changeNode(chosen.id, {title: e.target.value})}/></FormField>
             <FormField htmlFor="step-kind" label={tr('步骤类型')}><Select id="step-kind" value={chosen.kind} onValueChange={kind => changeNode(chosen.id, {kind})}>{Object.entries(NODE_KINDS).map(([value, label]) => <option key={value} value={value}>{tr(label)}</option>)}</Select></FormField>
+            <FormField htmlFor="step-execution" label="执行方式"><Select id="step-execution" value={chosen.execution?.type||'agent'} onValueChange={type=>changeNode(chosen.id,{execution:{type:type as 'human'|'agent'}})}><option value="agent">Agent</option><option value="human">人工判断</option></Select></FormField>
             <FormField htmlFor="step-agent" label={tr('执行者')}><Select id="step-agent" value={chosen.agent || ''} onValueChange={agent => changeNode(chosen.id, {agent})}><option value="">{ROLE_LABEL[defaultRole(chosen.kind)]}</option>{available.map(p => <option key={p.id} value={p.id}>{p.provider} · {p.id}</option>)}</Select></FormField>
             <FormField htmlFor="step-objective" label={tr('任务')}><Textarea id="step-objective" value={chosen.objective} onChange={e => changeNode(chosen.id, {objective: e.target.value})}/></FormField>
             <FormField htmlFor="step-hypothesis" label="待检验假设"><Textarea id="step-hypothesis" value={chosen.hypothesis || ''} onChange={e => changeNode(chosen.id, {hypothesis: e.target.value})}/></FormField>
@@ -199,13 +224,13 @@ export function WorkflowPage({projectId, onQuote, onOpenSession}: {projectId: st
             <h4 className="text-caption">{tr('验收条件')}</h4>{chosen.acceptance.map((value, i) => <p key={i} className="text-secondary">{value}</p>)}
             <h4 className="text-caption">{tr('证据输入')}</h4><pre className="whitespace-pre-wrap break-all text-caption">{chosen.inputs.join('\n')}</pre>
             {(chosen.knowledge || []).map(path => <button key={path} type="button" className="block text-secondary underline" onClick={() => openNote(path)}>{knowledgeIndex.get(path)?.title || path}</button>)}
-            {latestRun?.receipts.filter(r => r.stage === chosen.id).map(r => <ReceiptRow key={r.stage} receipt={r} onQuote={onQuote} onOpenSession={onOpenSession}/>)}
+            {latestRun?.receipts.filter(r => r.stage === chosen.id).map(r => <ReceiptRow key={r.stage} receipt={r} revision={revision} run={latestRun} onQuote={onQuote} onOpenSession={onOpenSession}/>)}
             <Button onClick={() => {beginEdit(); setSelectedNode(chosen.id)}}>{tr('编辑步骤')}</Button>
           </> : revision && <>
             <h3 className="text-title font-semibold">{revision.draft.title}</h3><p className="whitespace-pre-wrap text-secondary">{revision.draft.goal}</p>
             <p className="break-all text-caption">v{revision.version} · {revision.approved ? '已批准' : '待批准'}<br/>{revision.draft.workspace.id}</p>
             {!revision.approved && <><label className="flex items-start gap-2 text-secondary"><input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)}/>批准此固定版本，并允许各节点指定的供应者 访问工作区副本。正文应用仍需单独确认。</label><Button variant="solid" disabled={!consent || busy || !ready} onClick={() => void action(() => request(`${base}/${revision.version}/approve`, {digest: revision.digest, accessConfirmed: true}))}>{tr('批准版本')} {revision.version}</Button></>}
-            {revision.runs.map(run => <details key={run.id} open={run === latestRun} className="border-t border-line pt-2"><summary className="text-secondary">{KIND_LABEL[run.kind || 'research']} · {RUN_LABEL[run.status]} · {run.startedAt}</summary><p className="break-all text-caption">{run.id}{run.subscriptionId ? ` · ${run.subscriptionId}` : ''}</p>{run.failure && <p role="alert" className="ui-error">{run.failure}</p>}{run.hypothesis && <p className="whitespace-pre-wrap text-secondary">命题：{run.hypothesis.claim}</p>}{(run.branches || []).map(branch => <p key={branch.stance} className="text-caption">{branch.stance === 'opposing' ? '反对分支' : '支持分支'} · {branch.status}{branch.error ? ` · ${branch.error}` : ''}</p>)}{run.status === 'awaiting-adjudication' && <AdjudicationPanel run={run} busy={busy} onSubmit={command => void action(() => request(`${base}/${revision.version}/runs/${encodeURIComponent(run.id)}/adjudicate`, command))}/>}<p className="text-caption">研究验收：{run.researchAcceptance === 'awaiting-human-acceptance' ? '执行审查通过；结论仍待人工验收' : run.researchAcceptance === 'needs-review' ? '证据或检查需补充' : '尚未独立审查'}。执行完成不等于科学结论成立。裁定不能把已记录的反例投成支持。</p>{run.receipts.map(r => <ReceiptRow key={r.stage} receipt={r} onQuote={onQuote} onOpenSession={onOpenSession}/>)}</details>)}
+            {revision.runs.map(run => <details key={run.id} open={run === latestRun} className="border-t border-line pt-2"><summary className="text-secondary">{KIND_LABEL[run.kind || 'research']} · {RUN_LABEL[run.status]} · {run.startedAt}</summary><p className="break-all text-caption">{run.id}{run.subscriptionId ? ` · ${run.subscriptionId}` : ''}</p>{run.failure && <p role="alert" className="ui-error">{run.failure}</p>}{run.hypothesis && <p className="whitespace-pre-wrap text-secondary">命题：{run.hypothesis.claim}</p>}{(run.branches || []).map(branch => <p key={branch.stance} className="text-caption">{branch.stance === 'opposing' ? '反对分支' : '支持分支'} · {branch.status}{branch.error ? ` · ${branch.error}` : ''}</p>)}{run.status === 'awaiting-adjudication' && <AdjudicationPanel run={run} busy={busy} onSubmit={command => void action(() => request(`${base}/${revision.version}/runs/${encodeURIComponent(run.id)}/adjudicate`, command))}/>}<p className="text-caption">研究验收：{run.researchAcceptance === 'awaiting-human-acceptance' ? '执行审查通过；结论仍待人工验收' : run.researchAcceptance === 'needs-review' ? '证据或检查需补充' : '尚未独立审查'}。执行完成不等于科学结论成立。裁定不能把已记录的反例投成支持。</p>{run.receipts.map(r => <ReceiptRow key={r.stage} receipt={r} revision={revision} run={run} onQuote={onQuote} onOpenSession={onOpenSession}/>)}</details>)}
             {revision.approved && !activeRun && <InvocationPanel kind={invokeKind} onKind={setInvokeKind} subscriptionId={subscriptionId} onSubscriptionId={setSubscriptionId} claim={hypothesisClaim} onClaim={setHypothesisClaim} grounds={hypothesisGrounds} onGrounds={setHypothesisGrounds} request={request}/>}
             <Button onClick={() => void download('archify')}>{tr('导出 Archify 图源')}</Button><a className="block text-secondary underline" href={`${base}/${revision.version}/export/html`} download>{tr('导出交互图')}</a>
           </>}
@@ -215,11 +240,12 @@ export function WorkflowPage({projectId, onQuote, onOpenSession}: {projectId: st
     </div>
   </div>
 }
-function ReceiptRow({receipt, onQuote, onOpenSession}: {receipt: Receipt; onQuote?: (text: string) => void; onOpenSession?: (id: string) => void}) {
+function ReceiptRow({receipt, revision, run, onQuote, onOpenSession}: {receipt: Receipt;revision?:Revision;run?:Run; onQuote?: (text: string) => void; onOpenSession?: (id: string) => void}) {
   return <div className="space-y-2 border-t border-line py-2">
     <div className="flex flex-wrap items-center gap-2"><span className="text-secondary font-medium">{receipt.stage} · {receipt.profileId}</span><span className="text-caption">{receipt.status}</span>{receipt.sessionId && onOpenSession && <Button variant={receipt.status === 'awaiting-input' ? 'solid' : 'ghost'} pulse={receipt.status === 'awaiting-input'} onClick={() => onOpenSession(receipt.sessionId)}>{receipt.status === 'awaiting-input' ? tr('处理审批') : tr('打开会话')}</Button>}</div>
+    {revision&&run&&<ReceiptActions receipt={receipt} revision={revision} run={run}/>}
     {receipt.stopError && <p role="alert" className="ui-error">停止请求错误：{receipt.stopError}</p>}
-    <details><summary className="text-caption">实际执行来源与回执</summary><pre className="whitespace-pre-wrap break-all text-caption">{JSON.stringify({nodeId: receipt.stage, kind: receipt.kind, profileId: receipt.profileId, sessionId: receipt.sessionId, turnId: receipt.turnId, promptDigest: receipt.promptDigest, outputDigest: receipt.outputDigest, nativeToolEventSeq: receipt.toolResultEvents, lastSeq: receipt.lastSeq, cleanup: receipt.cleanup}, null, 2)}</pre></details>
+    <details><summary className="text-caption">实际执行来源与回执</summary><pre className="whitespace-pre-wrap break-all text-caption">{JSON.stringify({nodeId: receipt.stage, kind: receipt.kind, profileId: receipt.profileId, sessionId: receipt.sessionId, turnId: receipt.turnId, promptDigest: receipt.promptDigest, outputDigest: receipt.outputDigest, executor:receipt.executor,inputDigest:receipt.inputDigest,receiptDigest:receipt.receiptDigest,sourceRefs:receipt.sourceRefs, nativeToolEventSeq: receipt.toolResultEvents, lastSeq: receipt.lastSeq, cleanup: receipt.cleanup}, null, 2)}</pre></details>
     {receipt.output && <details><summary className="text-secondary">{tr('查看输出')}</summary><pre className="whitespace-pre-wrap break-words text-caption">{receipt.output}</pre>{onQuote && <Button onClick={() => onQuote(receipt.output)}>{tr('引用到讨论')}</Button>}</details>}
   </div>
 }

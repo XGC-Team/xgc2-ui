@@ -1,8 +1,12 @@
 import { request } from '../../lib/api.ts'
-import { compareBuildRequests, digestKey, isBuildRecord, validDigest, validSourcePath, type BuildRecord } from '../review/build-provenance.ts'
+import { compareBuildRequests, digestKey, isBuildRecord, sourceInsideBuildRoot, validDigest, validSourcePath, type BuildRecord } from '../review/build-provenance.ts'
+import { validateManuscriptSourceRoot } from './manuscript-build-config.ts'
 export type { BuildRecord } from '../review/build-provenance.ts'
 export type ManuscriptPDF = { workspace: string; path: string; buildId: string; digest: string; url: string }
-export type ManuscriptScope = { workspace: string; entryPoint: string }
+export type OriginalPDF = { origin: 'original'; workspace: string; path: string; digest: string; url: string; page?: number }
+export type ReadablePDF = ManuscriptPDF | OriginalPDF
+export function isOriginalPDF(pdf: ReadablePDF): pdf is OriginalPDF { return 'origin' in pdf && pdf.origin === 'original' }
+export type ManuscriptScope = { workspace: string; entryPoint: string; sourceRoot?: string }
 export type SavedInput = { path: string; digest: string }
 export type BuildCapability = { available: boolean; detail: string }
 export function buildArtifactURL(buildId: string, value: string): string {
@@ -42,12 +46,15 @@ export function normalizeSavedInputs(inputs: readonly SavedInput[]): SavedInput[
 }
 export async function buildSavedManuscript(scope: ManuscriptScope, inputs: readonly SavedInput[] = [], signal?: AbortSignal): Promise<BuildRecord> {
   if (!scope.workspace || !validSourcePath(scope.entryPoint)) throw new Error('Select a workspace and an explicit manuscript entry point.')
+  const sourceRoot = scope.sourceRoot ?? '.'
+  validateManuscriptSourceRoot(scope.entryPoint, sourceRoot)
   const expectedInputs = normalizeSavedInputs(inputs)
+  if (expectedInputs.some(input => !sourceInsideBuildRoot(input.path, sourceRoot))) throw new Error('A saved input is outside the selected build source directory.')
   const record = await request<unknown>('/manuscripts/builds', {
     method: 'POST', signal, headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ workspaceRef: scope.workspace, entryPoint: scope.entryPoint, ...(expectedInputs.length ? { expectedInputs } : {}) }),
+    body: JSON.stringify({ workspaceRef: scope.workspace, entryPoint: scope.entryPoint, sourceRoot, ...(expectedInputs.length ? { expectedInputs } : {}) }),
   })
-  if (!isBuildRecord(record) || record.task.workspaceRef !== scope.workspace || record.task.entryPoint !== scope.entryPoint ||
+  if (!isBuildRecord(record) || record.task.workspaceRef !== scope.workspace || record.task.entryPoint !== scope.entryPoint || (record.task.sourceRoot ?? '.') !== sourceRoot ||
     expectedInputs.some(input => !record.task.inputs.some(captured => captured.path === input.path && captured.digest === input.digest))) {
     throw new Error('Build receipt does not match the requested saved sources. No preview was published.')
   }

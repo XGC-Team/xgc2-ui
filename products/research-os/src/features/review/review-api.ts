@@ -7,18 +7,26 @@ import { check, REVIEW_PATH, validateAnchor, type Anchor, type FileRecord, type 
 import { targetValue } from './review-targets.ts'
 import type { BuildRecord } from './build-provenance.ts'
 import { buildSourceMatch, previewProvenance } from './build-provenance.ts'
+import { CONTENT_PATH, type ContentSnapshot } from '../content/content-model.ts'
+import { verifyOriginalPDF } from '../resources/original-source.ts'
 const fileURL = (workspace: string, path: string) => `/workspaces/${encodeURIComponent(workspace)}/files/${path.split('/').map(encodeURIComponent).join('/')}`
-export const readReviewFile = (workspace: string, path: string) => request<FileRecord>(fileURL(workspace, path))
+const contentURL = (workspace: string) => `/workspaces/${encodeURIComponent(workspace)}/research-content`
+export async function readReviewFile(workspace: string, path: string, projectId = workspace): Promise<FileRecord> {
+  if (path !== CONTENT_PATH) return request<FileRecord>(fileURL(workspace, path))
+  const snapshot = await request<ContentSnapshot & { content?: string }>(`${contentURL(workspace)}?projectId=${encodeURIComponent(projectId)}`)
+  check(snapshot.digest && typeof snapshot.content === 'string', 'Initialize or migrate the research content before capturing a review.')
+  return { content: snapshot.content, digest: snapshot.digest }
+}
 export function connectReview(scope: Scope, changed: (s: ReviewState) => void, isCurrent?: () => boolean) {
   return createReviewEngine(scope, {
-    read: readReviewFile,
+    read: (workspace, path) => readReviewFile(workspace, path, scope.projectId),
     isCurrent,
     batchComplete: receipt => {
       const failures = publishReviewBatch(receipt)
       if (failures.length) throw new Error(failures.join("\n"))
     },
     write: async (workspace, path, content, guard) => {
-      const result=await request<{digest:string}>(fileURL(workspace,path),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({content,...guard})})
+      const result=await request<{digest:string}>(path === CONTENT_PATH ? contentURL(workspace) : fileURL(workspace,path),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(path === CONTENT_PATH ? {projectId: scope.projectId,content,expectedDigest:guard.expectedDigest} : {content,...guard})})
       check(typeof result?.digest === 'string' && result.digest, 'Target acknowledgement lacks a saved revision.')
       // Observers are follow-ups, not part of the server CAS acknowledgement.
       if(path!==REVIEW_PATH)try { observeSavedFile(scope,path,null,{content,digest:result.digest},'review') }
@@ -37,7 +45,7 @@ export async function requireBuildSource(workspace: string, path: string, buildI
 }
 export async function captureTarget(scope: Scope, target: Target, displayed?: string): Promise<Anchor> {
   assertEditorClean(target.workspace, target.path)
-  const r = await readReviewFile(target.workspace, target.path)
+  const r = await readReviewFile(target.workspace, target.path, scope.projectId)
   const quote = targetValue(r.content, target, scope)
   check(displayed === undefined || displayed === quote, 'Displayed content has not been saved or changed remotely. Refresh before capturing a version.')
   return {kind: target.kind, workspace: target.workspace, path: target.path, digest: r.digest, quote, target}
@@ -45,13 +53,14 @@ export async function captureTarget(scope: Scope, target: Target, displayed?: st
 export async function verifyAnchor(anchor: Anchor, scope: Scope) {
   validateAnchor(anchor)
   if (anchor.kind === 'pdf') {
+    if (anchor.origin === 'external') { await verifyOriginalPDF(anchor); return }
     check(anchor.origin === 'project-build' && anchor.buildId, 'External PDF remains evidence. Its original locator must be confirmed; no source mapping is inferred.')
     const records = await readBuildRecords(anchor.workspace)
     const pdf = { workspace: anchor.workspace, path: anchor.path, buildId: anchor.buildId, digest: anchor.digest }
     check(previewProvenance(records, pdf).valid, 'The recorded PDF build is unavailable or mismatched. It was not replaced with the latest PDF.')
     return
   }
-  const r = await readReviewFile(anchor.workspace, anchor.path)
+  const r = await readReviewFile(anchor.workspace, anchor.path, scope.projectId)
   check(r.digest === anchor.digest, 'Recorded source revision is stale. Current content has not been silently re-anchored.')
   if (anchor.target) check(targetValue(r.content, anchor.target, scope) === anchor.quote, 'Recorded object/selection is not found.')
 }

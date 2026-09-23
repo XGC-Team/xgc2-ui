@@ -6,14 +6,14 @@ import type { DraftScope, DraftSource } from './draft-model'
 export function openResearchSource(source: DraftSource, scope: DraftScope): void {
   const store = useWorkbench.getState()
   const workspace = source.workspace || scope.workspace
-  if (source.url) store.openRightTab({ kind: 'web', url: source.url })
+  if (source.url) store.openResource({ kind: 'web', url: source.url })
   else if (source.buildId && source.digest) {
     const pdf = { workspace, path: source.path, buildId: source.buildId, digest: source.digest,
       url: `/api/v1/manuscripts/build-records/${encodeURIComponent(source.buildId)}/artifacts/${encodeURIComponent(source.digest)}` }
     store.openPDF(pdf)
     if (source.page) store.flashPDF({ buildId: source.buildId, page: source.page }, pdf)
   } else {
-    store.openRightTab({ kind: 'file', target: { ...fileTarget(scope.projectId, workspace, 'files', source.path), projectWorkspace: scope.workspace } })
+    store.openResource({ kind: 'file', target: { ...fileTarget(scope.projectId, workspace, 'files', source.path), projectWorkspace: scope.workspace } })
     store.setReadingAnchor({ ...source, workspace })
   }
 }

@@ -1,5 +1,6 @@
 import { validateWritingRecord } from './writing-model.ts'
 import type { WritingRecord } from './writing-contract.ts'
+import { CONTENT_PATH, parseContentDocument } from '../content/content-model.ts'
 /** Review records are product data, not Agent execution claims. Never infer semantic links from layout. */
 export const REVIEW_PATH = 'research-reviews.json'
 export type Scope = { projectId: string; workspace: string }
@@ -39,43 +40,44 @@ export const record = (v: unknown): v is Record<string, unknown> => !!v && typeo
 const text = (v: unknown): v is string => typeof v === 'string'
 const nonempty = (v: unknown): v is string => text(v) && !!v.trim()
 const id = (v: unknown): v is string => text(v) && /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/.test(v)
+const objectId = (v: unknown): v is string => nonempty(v) && v.length <= 512 && !/[\u0000-\u001f\u007f]/.test(v)
 export const validPath = (v: unknown): v is string => nonempty(v) && !/[\\\u0000-\u001f\u007f]/.test(v) && v.split('/').every(p => p && p !== '.' && p !== '..')
 export const date = (v: unknown): boolean => text(v) && /^\d{4}-\d{2}-\d{2}T/.test(v) && Number.isFinite(Date.parse(v))
 export const now = () => new Date().toISOString()
 export const uid = () => crypto.randomUUID()
-export function validateTarget(t: unknown): asserts t is Target {
+export function validateTarget(t: unknown, historical = false): asserts t is Target {
   check(record(t) && nonempty(t.workspace) && validPath(t.path), 'Invalid target location.')
   if (t.kind === 'text') {
     check(/\.(tex|md|txt|bib)$/i.test(t.path) && !t.path.split('/').some(p => p.startsWith('.')), 'Only explicit research text files are editable.')
     check(Number.isSafeInteger(t.start) && Number.isSafeInteger(t.end) && Number(t.start) >= 0 && Number(t.end) > Number(t.start), 'Select a nonempty source range.')
   } else if (t.kind === 'canvas') {
-    check(t.path === 'thinking.canvas.json' && id(t.objectId) && ['title', 'body'].includes(String(t.field)), 'Invalid canvas field.')
+    check((t.path === CONTENT_PATH || historical && t.path === 'thinking.canvas.json') && objectId(t.objectId) && ['title', 'body'].includes(String(t.field)), 'Invalid research object field. Historical design proposals require a new review.')
   } else {
-    check(t.kind === 'block' && t.path === 'research-drafts.json' && id(t.objectId) && id(t.blockId) && nonempty(t.field) && nonempty(t.artifact), 'Invalid artifact block.')
+    check(t.kind === 'block' && (t.path === CONTENT_PATH || historical && t.path === 'research-drafts.json') && objectId(t.objectId) && id(t.blockId) && nonempty(t.field) && nonempty(t.artifact), 'Invalid artifact block. Historical proposals require a new review.')
   }
 }
-export function validateAnchor(a: unknown): asserts a is Anchor {
+export function validateAnchor(a: unknown, historical = false): asserts a is Anchor {
   check(record(a) && ['pdf', 'text', 'canvas', 'block'].includes(String(a.kind)) && nonempty(a.workspace) && validPath(a.path) && nonempty(a.digest) && text(a.quote), 'A feedback anchor needs its observed version.')
-  if (a.target !== undefined) { validateTarget(a.target); check(a.target.kind === a.kind && a.target.workspace === a.workspace && a.target.path === a.path, 'Anchor/target mismatch.') }
+  if (a.target !== undefined) { validateTarget(a.target, historical); check(a.target.kind === a.kind && a.target.workspace === a.workspace && a.target.path === a.path, 'Anchor/target mismatch.') }
   if (a.kind === 'pdf') {
     check(a.origin === 'external' || a.origin === 'project-build', 'PDF origin must be explicit.')
     check(Number.isSafeInteger(a.page) && Number(a.page) > 0 && (a.origin !== 'project-build' || nonempty(a.buildId)), 'Invalid PDF build/page.')
     check(a.rects === undefined || (Array.isArray(a.rects) && a.rects.every(r => record(r) && ['x', 'y', 'width', 'height'].every(k => typeof r[k] === 'number' && Number.isFinite(r[k]) && r[k] >= 0 && r[k] <= 1) && Number(r.x) + Number(r.width) <= 1.001 && Number(r.y) + Number(r.height) <= 1.001)), 'Invalid PDF rectangles.')
   }
 }
-export function validateProposal(p: unknown, scope: Scope): asserts p is Proposal {
+export function validateProposal(p: unknown, scope: Scope, historical = false): asserts p is Proposal {
   check(record(p) && id(p.id) && nonempty(p.author) && date(p.at) && nonempty(p.title) && record(p.feedback), 'Invalid proposal metadata.')
   const f = p.feedback
   check(id(f.id) && nonempty(f.author) && date(f.at) && nonempty(f.body), 'Invalid feedback.')
-  validateAnchor(f.anchor)
+  validateAnchor(f.anchor, historical)
   check(Array.isArray(p.operations) && p.operations.length <= 100, 'Invalid operation list.')
   const ids = new Set<string>()
   for (const o of p.operations) {
     check(record(o) && id(o.id) && !ids.has(o.id), 'Duplicate operation identity.'); ids.add(o.id)
-    validateTarget(o.target)
+    validateTarget(o.target, historical)
     check(o.target.workspace === scope.workspace, 'Cross-workspace writes are not supported; create a scoped proposal.')
     check(nonempty(o.baseDigest) && text(o.before) && text(o.after) && o.before !== o.after && nonempty(o.reason), 'A change needs a baseline, difference and reason.')
-    check(Array.isArray(o.evidence) && o.evidence.length > 0, 'Evidence/source is required.'); o.evidence.forEach(validateAnchor)
+    check(Array.isArray(o.evidence) && o.evidence.length > 0, 'Evidence/source is required.'); o.evidence.forEach(a => validateAnchor(a, historical))
     check(Array.isArray(o.dependsOn) && new Set(o.dependsOn).size === o.dependsOn.length && Array.isArray(o.impacts) && o.impacts.every(text), 'Invalid dependencies/impact scope.')
   }
   const visiting = new Set<string>(), done = new Set<string>()
@@ -92,7 +94,7 @@ export function validateProposal(p: unknown, scope: Scope): asserts p is Proposa
   }
   if (p.writing !== undefined) {
     check(p.promotion === undefined, 'Writing and knowledge promotion are separate review scopes.')
-    validateWritingRecord(p.writing, scope, p.id, p.operations as Operation[])
+    validateWritingRecord(p.writing, scope, p.id, p.operations as Operation[], historical)
   }
   check(p.operations.length > 0 || p.promotion !== undefined || p.writing !== undefined, 'Add an operation or an explicit review scope.')
 }
@@ -104,7 +106,7 @@ export function parseReviewBook(content: string, scope: Scope): ReviewBook {
   const b: unknown = JSON.parse(content)
   check(record(b) && b.version === 1 && b.projectId === scope.projectId && b.workspace === scope.workspace && Array.isArray(b.proposals) && Array.isArray(b.attempts) && Array.isArray(b.decisions), 'Unsupported, damaged or foreign review journal.')
   const ids = new Set<string>()
-  for (const p of b.proposals) { validateProposal(p, scope); check(!ids.has(p.id), 'Duplicate proposal.'); ids.add(p.id) }
+  for (const p of b.proposals) { validateProposal(p, scope, true); check(!ids.has(p.id), 'Duplicate proposal.'); ids.add(p.id) }
   const attemptIds = new Set<string>()
   for (const a of b.attempts) {
     check(record(a) && id(a.id) && !attemptIds.has(a.id) && ids.has(String(a.proposalId)) && ['apply', 'revert'].includes(String(a.mode)) && date(a.at) && nonempty(a.actor), 'Invalid attempt.')
@@ -125,6 +127,8 @@ export function parseReviewBook(content: string, scope: Scope): ReviewBook {
 }
 export function serializeReviewBook(b: ReviewBook) { const s = JSON.stringify(b, null, 2) + '\n'; parseReviewBook(s, b); return s }
 export function operationState(book: ReviewBook, proposalId: string, operationId: string): string {
+  const proposal = book.proposals.find(p => p.id === proposalId)
+  if (proposal && requiresContentReview(proposal)) return 'migration-review-required'
   if (book.decisions.some(d => d.proposalId === proposalId && d.operationIds.includes(operationId))) return 'rejected'
   let state = 'review'
   for (const a of book.attempts.filter(a => a.proposalId === proposalId && a.operationIds.includes(operationId))) {
@@ -134,6 +138,11 @@ export function operationState(book: ReviewBook, proposalId: string, operationId
     if (a.mode === 'apply' && ['conflict', 'not-written', 'observed-not-written'].includes(a.outcome)) state = a.outcome
   }
   return state
+}
+/** Historical bytes/approvals remain readable; they never authorize the new content schema. */
+export function requiresContentReview(proposal: Proposal): boolean {
+  return proposal.operations.some(o => o.target.kind !== 'text' && o.target.path !== CONTENT_PATH) ||
+    Boolean(proposal.writing && proposal.writing.selection.design.path !== CONTENT_PATH)
 }
 /** Dependencies are review groups: do not allow a selection to split either side of a dependency. */
 export function dependencyClosure(p: Proposal, selected: readonly string[]): string[] {
@@ -156,6 +165,6 @@ export async function fingerprint(content: string): Promise<string> {
   return 'sha256:' + [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(content)))].map(b => b.toString(16).padStart(2, '0')).join('')
 }
 export function semanticCanvas(content: string): string {
-  const value = JSON.parse(content)
-  return JSON.stringify({ nodes: value.nodes.map((n: Record<string, unknown>) => ({ id: n.id, kind: n.kind, title: n.title, body: n.body, ref: n.ref, anchor: n.anchor })).sort((a: {id: string}, b: {id: string}) => a.id.localeCompare(b.id)), edges: value.edges })
+  const value = parseContentDocument(content)
+  return JSON.stringify({ objects: [...value.objects].sort((a, b) => a.id.localeCompare(b.id)), relations: value.relations, artifacts: value.artifacts, outlines: value.views.outlines })
 }

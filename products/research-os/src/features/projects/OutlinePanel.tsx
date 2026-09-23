@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Crosshair, EyeOff, Plus } from 'lucide-react'
 import { Button, IconBtn } from '../../components/ui'
+import { Input, Select } from '../../components/forms'
 import { cn } from '../../lib/cn'
 import { workspaceCopy } from './workspace-copy'
 import { draftIdFromAnchor } from './draft-model'
@@ -47,18 +48,18 @@ export function OutlinePanel({ canvas, artifact, selected, onArtifact, onSelect,
     const draftId = draftIdFromAnchor(node.anchor)
     if (draftId) anchorTitles.set(draftId, node.title.replace(/^↗\s*/, ''))
   }
-  const artifactLabel = (id: string) => id === PRIMARY_OUTLINE ? copy.primaryOutline : (anchorTitles.get(id) ?? id)
+  const artifactLabel = (id: string) => canvas.outlines.find(outline => outline.artifact === id)?.title || (id === PRIMARY_OUTLINE ? copy.primaryOutline : (anchorTitles.get(id) ?? id))
   const creatable = [...anchorTitles.keys()].filter(id => !canvas.outlines.some(outline => outline.artifact === id))
   const listRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (selected) listRef.current?.querySelector(`[data-outline-node="${CSS.escape(selected)}"]`)?.scrollIntoView({ block: 'nearest' })
   }, [selected, artifact])
   return <div className="flex h-full min-h-0 flex-col" data-outline-view={artifact}>
-    <div className="flex h-9 shrink-0 flex-wrap items-center gap-1 border-b border-line px-2">
-      <label className="text-caption text-ink-3">{copy.arrangement}
-        <select className="ui-input ml-1 h-6" value={artifact} onChange={event => onArtifact(event.target.value)}>
+    <div className="flex min-h-9 shrink-0 flex-wrap items-center gap-1 border-b border-line px-2 py-1">
+      <label className="flex min-w-0 items-center gap-2 text-caption text-ink-3"><span className="shrink-0">{copy.arrangement}</span>
+        <span className="w-56 max-w-full"><Select aria-label={copy.arrangement} className="h-6" value={artifact} onChange={event => onArtifact(event.target.value)}>
           {[PRIMARY_OUTLINE, ...canvas.outlines.map(outline => outline.artifact).filter(id => id !== PRIMARY_OUTLINE)].map(id => <option key={id} value={id}>{artifactLabel(id)}</option>)}
-        </select>
+        </Select></span>
       </label>
       {creatable.map(id => <Button key={id} size="xs" icon={Plus} onClick={() => { apply(c => ensureArrangement(c, id)); onArtifact(id) }}>{copy.newArrangement} · {artifactLabel(id)}</Button>)}
       {artifact !== PRIMARY_OUTLINE && <span className="text-caption text-ink-3">{copy.arrangementHint}</span>}
@@ -74,7 +75,7 @@ export function OutlinePanel({ canvas, artifact, selected, onArtifact, onSelect,
           <button type="button" className="grid h-6 w-4 shrink-0 place-items-center text-ink-3" onClick={() => onSelect(node)} aria-label={item.title}>
             {item.kind === 'chapter' ? <span className="h-2 w-2 rounded-sm border border-current"/> : <span className="h-1.5 w-1.5 rounded-full bg-current"/>}
           </button>
-          <input aria-label={copy.outline} className={cn('min-w-0 flex-1 bg-transparent outline-none', item.kind === 'chapter' ? 'font-display text-[14px] tracking-tight' : 'text-secondary text-ink-2')} value={item.title}
+          <Input aria-label={copy.outline} className={cn('min-w-0 flex-1 bg-transparent outline-none', item.kind === 'chapter' ? 'font-display text-[14px] tracking-tight' : 'text-secondary text-ink-2')} value={item.title}
             onFocus={() => onSelect(node)} onChange={event => apply(c => ({ ...c, nodes: c.nodes.map(n => n.id === node ? { ...n, title: event.target.value } : n) }), `outline-title:${node}`)}/>
           <IconBtn icon={Crosshair} label={copy.locateCanvas} onClick={() => onLocate(node)}/>
           <IconBtn icon={ArrowUp} label={copy.moveUp} disabled={index <= 0 || flat[index - 1].depth !== depth} onClick={() => apply(c => moveOutlineItem(c, artifact, node, -1))}/>

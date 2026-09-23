@@ -5,7 +5,7 @@ vi.stubGlobal('localStorage', { getItem: vi.fn(() => null), setItem: vi.fn() })
 const { useWorkbench } = await import('../src/store')
 
 const item = (over: Partial<Parameters<typeof newContextItem>[0]> = {}) => newContextItem({
-  project: 'paper-a', kind: 'canvas-node', label: 'Card', ref: 'thinking.canvas.json#n1', digest: 'rev-1', ...over,
+  project: 'paper-a', kind: 'canvas-node', label: 'Card', ref: 'research-content.json#object/n1', digest: 'rev-1', ...over,
 })
 
 beforeEach(() => {
@@ -18,7 +18,8 @@ describe('chat context set in the real Zustand store', () => {
     useWorkbench.getState().addContextItem(item())
     expect(useWorkbench.getState().contextItems).toHaveLength(1)
     expect(useWorkbench.getState().projectId).toBe('')
-    expect(localStorage.setItem).not.toHaveBeenCalled()
+    expect(localStorage.setItem).toHaveBeenCalledWith('research-ui-pinned-context-v1',expect.any(String))
+    expect(localStorage.setItem).not.toHaveBeenCalledWith('research-ui-project',expect.anything())
   })
   it('deduplicates by project, kind and reference, keeping the stable item id', () => {
     const first = item()
@@ -42,7 +43,7 @@ describe('chat context set in the real Zustand store', () => {
     expect(items[0].project).toBe('paper-a')
   })
   it('patch cannot rewrite the item identity; remove only drops that item', () => {
-    const a = item(), b = item({ ref: 'research-drafts.json#d1', kind: 'draft' })
+    const a = item(), b = item({ ref: 'research-content.json#artifact/d1', kind: 'draft' })
     useWorkbench.getState().addContextItem(a)
     useWorkbench.getState().addContextItem(b)
     useWorkbench.getState().patchContextItem(a.id, { id: b.id, state: 'stale-snapshot' })

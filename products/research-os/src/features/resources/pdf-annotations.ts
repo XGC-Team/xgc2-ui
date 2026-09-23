@@ -1,15 +1,28 @@
+import { isOriginalPDF, type ReadablePDF } from './manuscript'
+import type { Scope } from '../review/review-model'
 export type PDFRect={x:number;y:number;width:number;height:number}
 /* pdf 字段让嵌进笔记的批注能找回是哪一份构建的哪一页（知识库 → PDF 回跳） */
-export type PDFAnchor={schema:'research.pdf-anchor/v1';kind:'text'|'region'|'page';page:number;rects:PDFRect[];quote:string;context:string;pdf?:{workspace:string;path:string;digest:string}}
+export type PDFAnchor={schema:'research.pdf-anchor/v1';kind:'text'|'region'|'page';page:number;rects:PDFRect[];quote:string;context:string;pdf?:{workspace:string;path:string;digest:string;origin?:'original'|'project-build';buildId?:string}}
 const prefix='<!-- research-pdf-anchor:'
 export function encodeAnnotation(anchor:PDFAnchor,comment:string){return `${prefix}${encodeURIComponent(JSON.stringify(anchor))} -->\n\n${comment}`}
 export function decodeAnnotation(body:string):{anchor:PDFAnchor|null;comment:string}{
  const match=body.match(/<!-- research-pdf-anchor:([^\s]+) -->/)
  if(!match)return {anchor:null,comment:body}
- try{const a=JSON.parse(decodeURIComponent(match[1]));if(a.schema!=='research.pdf-anchor/v1'||!['text','region','page'].includes(a.kind)||!Number.isInteger(a.page)||a.page<1||!Array.isArray(a.rects)||typeof a.quote!=='string'||typeof a.context!=='string'||!a.rects.every((r:PDFRect)=>[r.x,r.y,r.width,r.height].every(Number.isFinite)&&r.x>=0&&r.y>=0&&r.width>0&&r.height>0&&r.x+r.width<=1.001&&r.y+r.height<=1.001))throw Error('Invalid anchor');return {anchor:a,comment:body.replace(match[0],'').trim()}}catch{return {anchor:null,comment:body}}
+ try{const a=JSON.parse(decodeURIComponent(match[1]));if(a.schema!=='research.pdf-anchor/v1'||!['text','region','page'].includes(a.kind)||!Number.isInteger(a.page)||a.page<1||!Array.isArray(a.rects)||typeof a.quote!=='string'||typeof a.context!=='string'||!a.rects.every((r:PDFRect)=>[r.x,r.y,r.width,r.height].every(Number.isFinite)&&r.x>=0&&r.y>=0&&r.width>0&&r.height>0&&r.x+r.width<=1.001&&r.y+r.height<=1.001))throw Error('Invalid anchor');if(a.pdf&&(typeof a.pdf.workspace!=='string'||!a.pdf.workspace||typeof a.pdf.path!=='string'||!a.pdf.path||typeof a.pdf.digest!=='string'||!a.pdf.digest||a.pdf.origin!==undefined&&!['original','project-build'].includes(a.pdf.origin)||a.pdf.origin==='original'&&a.pdf.buildId!==undefined||a.pdf.buildId!==undefined&&(typeof a.pdf.buildId!=='string'||!a.pdf.buildId)))throw Error('Invalid PDF identity');return {anchor:a,comment:body.replace(match[0],'').trim()}}catch{return {anchor:null,comment:body}}
 }
 export function relativeRect(rect:{left:number;top:number;right:number;bottom:number},page:DOMRect):PDFRect{
  const x=Math.max(0,Math.min(1,(rect.left-page.left)/page.width)),y=Math.max(0,Math.min(1,(rect.top-page.top)/page.height))
  return {x,y,width:Math.max(0,Math.min(1,(rect.right-page.left)/page.width)-x),height:Math.max(0,Math.min(1,(rect.bottom-page.top)/page.height)-y)}
 }
 export function anchorPrompt(anchor:PDFAnchor,comment:string){return `第 ${anchor.page} 页\n定位方式：${anchor.kind}\n原文：${anchor.quote||'此区域没有可提取文字，请查看对应 PDF 区域。'}\n周边文本：${anchor.context}\nPDF 区域（左上角为原点，坐标为页面宽高的 0–1 比例）：${JSON.stringify(anchor.rects)}\n批注：${comment}\n请打开上述版本的 PDF 查看标记区域，再结合原文定位稿件源码；区域坐标不是 LaTeX 行号，公式和图表布局不能只凭提取文字推断。`}
+
+/** The project owns the reading note; the source can belong to another workspace. */
+export function pdfAnnotationRequest(pdf: ReadablePDF, scope: Scope, anchor: PDFAnchor, comment: string) {
+ if (!scope.projectId.trim() || !scope.workspace.trim()) throw new Error('Select a research project before saving an annotation.')
+ const provenance = { workspace: pdf.workspace, path: pdf.path, digest: pdf.digest,
+  ...(isOriginalPDF(pdf) ? { origin: 'original' as const } : { origin: 'project-build' as const, buildId: pdf.buildId }) }
+ return { path: `/research/threads/${encodeURIComponent(scope.projectId)}/knowledge-items`, input: {
+  kind: 'reading-note', title: `PDF 批注 · ${pdf.path} · ${anchor.page}`, body: encodeAnnotation({ ...anchor, pdf: provenance }, comment),
+  authorKind: 'human', authorRef: `pdf:${pdf.workspace}:${pdf.digest}:${anchor.page}`,
+ } }
+}

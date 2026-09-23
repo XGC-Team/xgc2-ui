@@ -11,10 +11,11 @@ import {editLiveCanvas,inspectLiveCanvas} from '../projects/useCanvasDocument'
 import {bindSourceSelection,confirmCandidate,locateRelatedCards,type BindingCandidate} from '../projects/design-context'
 import {readDesignFocus,requestDesignFocus} from '../projects/design-focus'
 import {workspaceCopy} from '../projects/workspace-copy'
+import type {SourceLocation} from '../workbench/resource-model'
 
 /** Current source is not the build snapshot. Positional mapping is enabled only with matching input evidence. */
-export function SourceStage(){
- const {sourceView:view,closeSourceView,flashPDF,locale,openCanvas}=useWorkbench();const zh=locale==='zh'
+export function SourceStage({view,onClose,active}:{view:SourceLocation;onClose:()=>void;active:boolean}){
+ const {flashPDF,locale,openCanvas}=useWorkbench();const zh=locale==='zh'
  const copy=workspaceCopy[locale]
  const [content,setContent]=useState(''),[digest,setDigest]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false),[loading,setLoading]=useState(false)
  const [mapping,setMapping]=useState<'match'|'changed'|'unknown'>('unknown'),[cursor,setCursor]=useState(0)
@@ -56,7 +57,7 @@ export function SourceStage(){
   setRelated([...cards].map(([id,title])=>({id,title})))
   setCandidates(found.candidates)
  },[view,digest,content])
- useEffect(()=>{const close=(e:KeyboardEvent)=>{if(e.key==='Escape')closeSourceView()};window.addEventListener('keydown',close);return()=>window.removeEventListener('keydown',close)},[closeSourceView])
+ useEffect(()=>{const close=(e:KeyboardEvent)=>{if(active&&e.key==='Escape')onClose()};window.addEventListener('keydown',close);return()=>window.removeEventListener('keydown',close)},[onClose,active])
  if(!view)return null
  async function locateInPDF(){
   if(!view||busy||mapping!=='match'||!cursor)return
@@ -93,7 +94,7 @@ export function SourceStage(){
    <span className="shrink-0 text-caption tabular-nums text-ink-3">{tr('行')} {cursor||'—'} / {lines.length}</span>
    {cursor>0&&lines[cursor-1]&&digest&&<FeedbackButton scope={{projectId:view.workspace,workspace:view.workspace}} displayed={lines[cursor-1]} target={{kind:'text',workspace:view.workspace,path:view.path,start,end:start+lines[cursor-1].length}}/>}
    <Button variant="solid" icon={LocateFixed} loading={busy} disabled={mapping!=='match'||!cursor} onClick={()=>void locateInPDF()} data-xgc-role="source-locate-pdf">{tr('在 PDF 中定位')}</Button>
-   <IconBtn icon={X} label={tr('关闭源码')} onClick={closeSourceView}/>
+   <IconBtn icon={X} label={tr('关闭源码')} onClick={onClose}/>
   </header>
   <p className="break-all px-4 pt-2 text-caption">{zh?'当前源码版本':'Current source revision'} · {digest||'—'}</p>
   {mapping!=='match'&&<p role="status" className="px-4 py-2 text-caption">{zh?'待确认：当前源码与被批注构建尚未证明一致；未自动高亮旧行号。可手动选择当前源码行提出反馈。':'Needs confirmation: current source is not verified against the annotated build. Old line numbers were not highlighted. Select a current source line for feedback.'}</p>}

@@ -8,13 +8,13 @@ import { projectObjectCopy } from './project-object-copy'
 
 /** Reuse existing work surfaces; these actions neither create threads nor execute workflows. */
 export function ProjectObjects({ project }: { project: Project }) {
-  const { locale, setActiveNav, enterWritingProject, setReviewDockOpen, openCanvas, openRightTab, selectResearchDraft } = useWorkbench()
+  const { locale, setActiveNav, enterWritingProject, setReviewDockOpen, openCanvas, openResource, selectResearchDraft } = useWorkbench()
   const copy = projectObjectCopy[locale]
   // App's existing project loader maps each paper repository to a project record.
   // Keep that compatibility mapping here, not in an already-open tab's render path.
   const workspace = project.id
   const select = () => { enterWritingProject(project.id) }
-  const openFiles = (view: ProjectFileView) => { select(); openRightTab({ kind: 'file', target: fileTarget(project.id, workspace, view) }) }
+  const openFiles = (view: ProjectFileView) => { select(); openResource({ kind: 'file', target: fileTarget(project.id, workspace, view) }) }
   const actions = [
     { id: 'reviews', label: locale === 'zh' ? '设计审阅' : 'Design review', icon: FileText, open: () => { select(); setReviewDockOpen(true) } },
     { id: 'files', label: copy.files, icon: Folder, open: () => openFiles('files') },

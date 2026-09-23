@@ -8,6 +8,7 @@ import {artifactView, inspectArtifactBuild, selectArtifactBuild, verifyArtifactB
 import {listArtifactRecords, requestArtifactBuild, writeWorkspaceFile, saveArtifactSources, definitionForSavedDraft} from '../src/features/artifacts/artifact-api.ts'
 import {definitionFromDraft, uniquePinnedInputs} from '../src/features/artifacts/artifact-model.ts'
 import {newDraft} from '../src/features/projects/draft-model.ts'
+import {emptyContent} from '../src/features/content/content-model.ts'
 
 const h = 'a'.repeat(64), other = 'b'.repeat(64), schema = 'xgc.research.manuscript/v2'
 const scope = {projectId:'project',workspace:'workspace',artifactId:'deck',entryPoint:'artifacts/deck.artifact.json'}
@@ -117,11 +118,11 @@ test('successful save returns receipts for actual source and definition bytes; e
   await assert.rejects(writeWorkspaceFile('workspace',sourcePath,'actual',undefined),/matching byte receipt/)
 })
 test('derived definition is bound to the exact saved original design, not a boolean saved label', async () => {
-  const original=draft(),book={version:1,projectId:'project',workspace:'workspace',drafts:[original]}
+  const original=draft(),book={...emptyContent(scope),artifacts:[original]}
   const content=JSON.stringify(book), bookDigest=digest(content),calls=[]
   globalThis.fetch=async(url,init)=>{calls.push({url:String(url),...init});return reply({content,digest:`sha256:${bookDigest}`})}
   const definition=await definitionForSavedDraft(scope,original,options)
-  assert.ok(definition.dependencies.some(item=>item.kind==='design'&&item.objectId==='deck'&&item.path==='research-drafts.json'&&item.digest===bookDigest))
+  assert.ok(definition.dependencies.some(item=>item.kind==='design'&&item.objectId==='deck'&&item.path==='research-content.json'&&item.digest===bookDigest))
   await assert.rejects(definitionForSavedDraft(scope,{...original,title:'unsaved change'},options),/saved design differs/)
   assert.ok(calls.every(call=>!call.method||call.method==='GET'))
 })
@@ -131,7 +132,7 @@ test('foreign project/source and malformed save receipts cannot become local evi
   assert.throws(()=>uniquePinnedInputs([{path:'../unsafe',digest:h}]))
   assert.throws(()=>uniquePinnedInputs([{path:'safe.md',digest:'bad'}]))
   assert.throws(()=>uniquePinnedInputs([{path:'safe.md',digest:h},{path:'safe.md',digest:other}]))
-  globalThis.fetch=async()=>{const content=JSON.stringify({version:1,projectId:'foreign',workspace:'workspace',drafts:[draft()]});return reply({content,digest:digest(content)})}
+  globalThis.fetch=async()=>{const content=JSON.stringify({...emptyContent({...scope,projectId:'foreign'}),artifacts:[draft()]});return reply({content,digest:digest(content)})}
   await assert.rejects(definitionForSavedDraft(scope,draft(),options),/another project/)
 })
 test('UI composes verified files and single-reader port instead of an iframe or bare manifest preview', async () => {

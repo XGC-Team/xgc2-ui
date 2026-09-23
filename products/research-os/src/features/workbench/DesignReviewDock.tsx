@@ -5,18 +5,20 @@ import { useDesignWriting } from './useDesignWriting'
 import { useReview } from '../review/useReview'
 import { Button } from '../../components/ui'
 import { useWorkbench } from '../../store'
-import { scopeKey } from '../review/review-model'
+import { scopeKey, type Scope } from '../review/review-model'
 import './writing-workbench.css'
 
 export function DesignReviewDock() {
   const projectId = useWorkbench(s => s.projectId)
-  return projectId ? <ProjectDesignReviewDock key={projectId} projectId={projectId}/> : null
+  const selectedScope=useWorkbench(s=>s.reviewScopes[projectId])
+  const scope=selectedScope??{projectId,workspace:projectId}
+  return projectId ? <ProjectDesignReviewDock key={scopeKey(scope)} scope={scope}/> : null
 }
 
-function ProjectDesignReviewDock({ projectId }: { projectId: string }) {
-  const { locale, reviewDockOpen, setReviewDockOpen, reviewIntents, openCanvas } = useWorkbench()
+function ProjectDesignReviewDock({ scope }: { scope: Scope }) {
+  const {projectId}=scope
+  const { locale, reviewDockOpen, setReviewDockOpen, reviewIntents, openResource } = useWorkbench()
   const copy = writingCopy[locale]
-  const scope = { projectId, workspace: projectId }
   const [formDirty, setFormDirty] = useState(false), [error, setError] = useState('')
   const review = useReview(scope, `writing-review:${projectId}`, formDirty)
   const writing = useDesignWriting(scope, review)
@@ -26,7 +28,7 @@ function ProjectDesignReviewDock({ projectId }: { projectId: string }) {
   return <section hidden={!reviewDockOpen} style={reviewDockOpen ? undefined : { display: 'none' }} className="writing-review-dock" data-xgc-role="writing-review-dock" data-xgc-id={projectId} aria-label={copy.review}>
     <div className="writing-review-dock__header">
       <span className="min-w-0 flex-1 truncate font-display text-[13px]">{copy.review}{incoming ? ` · ${incoming}` : ''}</span>
-      <Button size="xs" data-xgc-role="open-design" data-xgc-id={projectId} onClick={() => openCanvas(projectId)}>{copy.openDesign}</Button>
+      <Button size="xs" data-xgc-role="open-design" data-xgc-id={projectId} onClick={() => openResource({kind:'research',workspace:scope.workspace,ownerProjectId:projectId,view:'canvas'},'primary')}>{copy.openDesign}</Button>
       <Button size="xs" data-xgc-role="collapse-review" data-xgc-id={projectId} onClick={() => setReviewDockOpen(false)}>{copy.collapseReview}</Button>
     </div>
     <p className="px-3 pb-2 text-caption text-ink-2">{copy.reviewHint}</p>
@@ -45,6 +47,10 @@ function ProjectDesignReviewDock({ projectId }: { projectId: string }) {
         {proposal.writing!.selection.sources.map(source => <div key={source.id} className="mt-2"><p>{source.anchor.path}</p><blockquote className="max-h-32 overflow-auto whitespace-pre-wrap border-l border-line pl-2">{source.anchor.quote}</blockquote></div>)}
       </details>
       {proposal.writing!.detail && <p role="status">{proposal.writing!.detail}</p>}
+      {['running','ready'].includes(proposal.writing!.status)&&proposal.writing!.execution?.turnId&&<div className="flex gap-1">
+        <Button size="xs" disabled={review.busy||writing.busy} onClick={()=>void call(()=>writing.openWritingSession(proposal.id))}>{locale==='zh'?'打开原会话':'Open original conversation'}</Button>
+        <Button size="xs" data-xgc-role="resume-writing" data-xgc-id={proposal.id} disabled={review.busy||writing.busy||review.auditUncertain} onClick={()=>void call(()=>writing.resumeWriting(proposal.id))}>{locale==='zh'?'继续读取原结果':'Continue from original result'}</Button>
+      </div>}
       {['proposed', 'confirmed'].includes(proposal.writing!.status) && <Button size="xs" data-xgc-role="confirm-writing" data-xgc-id={proposal.id} disabled={review.busy || writing.busy || review.auditUncertain} onClick={() => void call(() => writing.confirmAndWrite(proposal.id, proposal.author))}>{copy.confirmWrite}</Button>}
       {!['settled', 'cancelled', 'failed'].includes(proposal.writing!.status) && <Button size="xs" onClick={() => void call(() => writing.cancel(proposal.id, proposal.author, 'The author stopped this writing request.'))}>{locale === 'zh' ? '停止本次改稿' : 'Stop this writing request'}</Button>}
       {proposal.writing!.mapping && <p role="status">{locale === 'zh' ? '设计映射' : 'Design mapping'} · {proposal.writing!.mapping.status} {proposal.writing!.mapping.detail}</p>}

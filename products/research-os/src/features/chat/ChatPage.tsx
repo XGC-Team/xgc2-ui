@@ -9,7 +9,6 @@ import { useNativeAgentSession } from './Session'
 import { useWorkbench } from '../../store'
 import { type Project } from '../../lib/api'
 import { looksLikeUrl, normalizeWebUrl } from '../../lib/web'
-import { ResearchWorkspace } from '../projects/ResearchWorkspace'
 import { submitIntake } from '../projects/intake-queue'
 import { IntakePanel } from '../projects/IntakePanel'
 import { ContextPanel } from '../projects/ContextPanel'
@@ -19,8 +18,8 @@ import { writingCopy } from '../workbench/writing-copy'
 import { nativeConnectFailureCopy, nativeInventoryWorker, nativeUnsignedHint } from './nativeSendGate'
 const rise={hidden:{opacity:0,y:10},show:{opacity:1,y:0,transition:{duration:0.45,ease:[0.2,0.8,0.2,1]}}}
 const SUGGESTIONS=["总结一篇论文的贡献与证据","对比两条技术路线","起草手稿的相关工作段落","审查我的数学推导"]
-export function ChatPage({projects}:{projects:Project[]}) {
-  const s=useNativeAgentSession();const {activeNav,locale,projectId,chatSurface,enterWritingProject}=useWorkbench()
+export function ChatPage({projects,active=true}:{projects:Project[];active?:boolean}) {
+  const s=useNativeAgentSession();const {activeNav,locale,projectId,chatSurface,enterWritingProject,pendingPersistenceError}=useWorkbench()
   const copy=writingCopy[locale]
   const empty=useMemo(()=>emptyStream('',s.selectedProfile?.provider||'codex'),[s.selectedProfile?.provider])
   const connected=Boolean(s.session)
@@ -43,11 +42,12 @@ export function ChatPage({projects}:{projects:Project[]}) {
       }).catch(reason=>setIntakeNote(reason instanceof Error?reason.message:String(reason)))
     }
   }
-  return <ResearchWorkspace projects={projects}>{conversationVisible=><div className="relative flex h-full min-h-0 flex-col"
+  return <div className="relative flex h-full min-h-0 flex-col"
     onDragOver={e=>{e.preventDefault();if(!dragging)setDragging(true)}}
     onDragLeave={e=>{if(!e.currentTarget.contains(e.relatedTarget as Node))setDragging(false)}}
     onDrop={onDrop}>
     <ConnectionStatus/>
+    {pendingPersistenceError&&<p role="alert" className="ui-error">{pendingPersistenceError}</p>}
     {intakeNote&&<p role="status" className="mx-auto mt-2 w-full max-w-[48rem] px-5 text-caption text-ink-3">{intakeNote}</p>}
     <div className="max-h-40 shrink-0 overflow-y-auto px-3"><IntakePanel compact scope={{projectId,workspace:projectId||'academic'}}/></div>
     <div className="max-h-52 shrink-0 overflow-y-auto"><ContextPanel/></div>
@@ -57,7 +57,7 @@ export function ChatPage({projects}:{projects:Project[]}) {
       <p className="mt-1 text-center text-secondary text-ink-3">{locale==='zh'?'PDF 归档；文本保存到所选项目；链接进入草稿':'PDF archive; text to selected project; links to draft'}</p>
     </div>}
     <div className="native-chat-host min-h-0 flex-1">
-      {!connected||s.streamMatchesSelection?<AgentConversation active={activeNav==='chat'&&conversationVisible} state={connected?s.state:empty} locale={locale} onAnswer={s.respond} draft={s.draft} onDraftChange={s.setDraft}
+      {!connected||s.streamMatchesSelection?<AgentConversation active={activeNav==='chat'&&active} state={connected?s.state:empty} locale={locale} onAnswer={s.respond} draft={s.draft} onDraftChange={s.setDraft}
         disabled={s.busy} clearDraftOnSend={false}
         sendDisabled={s.busy||(connected?!['ready','closed','disconnected'].includes(worker||'')||Boolean(s.session?.archived)||Boolean(s.streamError):!s.profileId)}
         sendDisabledReason={nativeUnsignedHint(locale,provider?.login,provider?.provider)||undefined}
@@ -88,5 +88,5 @@ export function ChatPage({projects}:{projects:Project[]}) {
         composerControls={<AgentComposerControls identityId={s.selectedId||'new-thread'} locale={locale} providers={providers.map(p=>({...p,models:p.models.map(m=>({...m,efforts:m.efforts.map(e=>({...e,label:locale==='zh'?({low:'低',medium:'中',high:'高',xhigh:'极高',minimal:'最低',none:'关闭'}[e.id]||e.label):e.label}))}))}))} value={connected?s.turnSelection:{profileId:s.profileId,...s.createOptions}} disabled={s.busy||(connected&&!['ready','closed','disconnected'].includes(s.state.worker))}
           onChange={value=>{if(connected)s.setSelections(current=>({...current,[s.selectedId]:value}));else{s.setProfileId(value.profileId);s.setCreateOptions({model:value.model,effort:value.effort,permission:value.permission})}}}/>}/>:<p className="p-6 text-ink-3">{tr("正在读取对话…")}</p>}
     </div>
-  </div>}</ResearchWorkspace>
+  </div>
 }

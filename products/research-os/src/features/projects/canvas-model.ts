@@ -1,8 +1,8 @@
-/* 思维白板数据模型：存进项目 git 仓库的 thinking.canvas.json。
+/* 思维白板数据模型：research-content.json 的内存画布视图。
    现行只有 v2。v1 自动迁移与宽松读取已删除：不支持的版本 fail-closed，不改写原文件。
    x/y 只是视觉位置；outlines 是各制品的层级与写作顺序；边上 relation 是显式语义。
    writing 记录写作意图与正文外细节；bindings 是设计卡与源码选区的多对多对应。
-   node.anchor 只保留研究对象引用（research-drafts.json#id），不是源码行号绑定。 */
+   node.anchor 只保留研究对象引用（research-content.json#id），不是源码行号绑定。 */
 export type CanvasNodeKind = 'chapter' | 'idea'
 export type CanvasNode = {
   id: string
@@ -12,20 +12,20 @@ export type CanvasNode = {
   x: number
   y: number
   ref?: { path: string; title: string }
-  /** Draft-object locator only (`research-drafts.json#<id>`). Not a manuscript line binding. */
+  /** Draft-object locator only (`research-content.json#<id>`). Not a manuscript line binding. */
   anchor?: string
 }
 export type CanvasEdge = { from: string; to: string }
 
-export const CANVAS_PATH = 'thinking.canvas.json'
+export const CANVAS_PATH = 'research-content.json'
 /** The canvas's own writing outline; other arrangements belong to artifact draft IDs. */
 export const PRIMARY_OUTLINE = 'canvas'
 
-export const SEMANTIC_RELATIONS = ['supports', 'contradicts', 'depends', 'exemplifies', 'continues', 'cites'] as const
+export const SEMANTIC_RELATIONS = ['supports', 'contradicts', 'depends', 'exemplifies', 'continues', 'cites', 'questions', 'verifies', 'affects'] as const
 export type SemanticRelation = typeof SEMANTIC_RELATIONS[number]
 /** Prompt-facing labels; UI copy lives in workspace-copy. */
 export const RELATION_PROMPT: Record<SemanticRelation, string> = {
-  supports: '支持', contradicts: '反驳', depends: '依赖', exemplifies: '举例', continues: '承接', cites: '引用',
+  supports: '支持', contradicts: '反驳', depends: '依赖', exemplifies: '举例', continues: '承接', cites: '引用', questions: '质疑', verifies: '验证', affects: '影响',
 }
 
 /** A pinned evidence reference. Without a digest the version cannot be auto-verified; never fabricate one. */
@@ -60,7 +60,7 @@ export type CanvasNodeV2 = CanvasNode & {
 }
 export type CanvasEdgeV2 = { from: string; to: string; relation?: SemanticRelation }
 export type OutlineItem = { node: string; children?: OutlineItem[] }
-export type OutlineArrangement = { artifact: string; items: OutlineItem[] }
+export type OutlineArrangement = { artifact: string; title?: string; items: OutlineItem[]; [key: string]: unknown }
 export type ThinkingCanvasV2 = { version: 2; nodes: CanvasNodeV2[]; edges: CanvasEdgeV2[]; outlines: OutlineArrangement[] }
 
 export function emptyCanvasV2(): ThinkingCanvasV2 {

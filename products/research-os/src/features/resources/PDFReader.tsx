@@ -1,5 +1,6 @@
-import { decodeAnnotation, encodeAnnotation, relativeRect, type PDFAnchor, type PDFRect } from './pdf-annotations'
-import { listPDFVersions, type ManuscriptPDF } from './manuscript'
+import { decodeAnnotation, pdfAnnotationRequest, relativeRect, type PDFAnchor, type PDFRect } from './pdf-annotations'
+import { pdfRectCenterToSyncTeXPoint, syncTeXBoxToPDFRect } from './pdf-coordinates'
+import { isOriginalPDF, listPDFVersions, type ManuscriptPDF, type ReadablePDF } from './manuscript'
 import {
   clampPdfZoom,
   dominantPdfPage,
@@ -20,10 +21,12 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEven
 import { getDocument, GlobalWorkerOptions, TextLayer, type PDFDocumentProxy } from 'pdfjs-dist'
 import worker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { useWorkbench } from '../../store'
-import { collection, post, request } from '../../lib/api'
+import {attachedPDFRevision,type ReadingRevision} from './pdf-note-revisions'
+import { post, request } from '../../lib/api'
 import { Button, IconBtn, RightMore } from '../../components/ui'
 import { ChevronLeft, ChevronRight, FileCode2, Minus, Plus, Scan, MousePointer2, X, MessageSquare } from 'lucide-react'
 import { pdfFeedbackAnchor } from '../workbench/annotation-discussion'
+import type { Scope } from '../review/review-model'
 import { readReadingPlace, writeReadingPlace } from '../workbench/writing-session'
 
 GlobalWorkerOptions.workerSrc = worker
@@ -59,7 +62,7 @@ function scrollTopFor(viewport: HTMLElement, target: HTMLElement): number {
 
 function PdfPage({
   doc, digest, pageNumber, width, height, paint, mode, busy, notes, selectedNote, outline, showEditor, activeAnchor, activeNote, flashRect, comment, quote, gapBelow,
-  onComment, onText, onRegion, onSelectNote, onClose, onJump, onSubmit, onDiscuss, onError,
+  onComment, onText, onRegion, onSelectNote, onClose, onJump, onSubmit, onDiscuss, onError, canJump,
 }: {
   doc: PDFDocumentProxy
   digest: string
@@ -69,6 +72,7 @@ function PdfPage({
   paint: boolean
   mode: 'text' | 'region'
   busy: boolean
+  canJump: boolean
   notes: ParsedNote[]
   selectedNote: string | null
   outline: PDFRect[]
@@ -191,7 +195,7 @@ function PdfPage({
     {marks.map((rect, index) => <div key={index} className="pointer-events-none absolute z-20 border border-dashed border-ink/70 bg-ink/5" style={rectangleStyle(rect)} />)}
     {flashRect && <div data-xgc-role="pdf-flash" className="pdf-flash pointer-events-none absolute z-30" style={rectangleStyle(flashRect)} />}
     {showEditor && <div data-xgc-role="pdf-annotation-editor" data-xgc-id="pdf-annotation-editor" className="absolute z-30 w-72 max-w-full rounded-lg border border-line bg-panel p-3 text-ink shadow-pop" style={{ left: `${Math.min(lastRect?.x || 0, Math.max(0, 1 - 288 / (width || 380))) * 100}%`, ...(lastRect && lastRect.y > .55 ? { bottom: `${(1 - lastRect.y) * 100}%` } : { top: `${Math.min(.75, (lastRect?.y || 0) + (lastRect?.height || 0)) * 100}%` }) }} onMouseUp={event => event.stopPropagation()}>
-      <div className="mb-2 flex items-center gap-2 text-caption"><MessageSquare size={12} /><span className="flex-1">{tr(activeAnchor?.kind === 'region' ? '区域批注' : '原文批注')}</span>{activeAnchor && <span data-xgc-role="pdf-jump-source"><IconBtn icon={FileCode2} label={tr('跳到源码')} disabled={busy} onClick={onJump} /></span>}<IconBtn icon={X} label={tr('关闭批注')} disabled={busy} onClick={onClose} /></div>
+      <div className="mb-2 flex items-center gap-2 text-caption"><MessageSquare size={12} /><span className="flex-1">{tr(activeAnchor?.kind === 'region' ? '区域批注' : '原文批注')}</span>{activeAnchor && canJump && <span data-xgc-role="pdf-jump-source"><IconBtn icon={FileCode2} label={tr('跳到源码')} disabled={busy} onClick={onJump} /></span>}<IconBtn icon={X} label={tr('关闭批注')} disabled={busy} onClick={onClose} /></div>
       {(activeAnchor?.quote || quote) && <blockquote className="mb-2 max-h-20 overflow-auto border-l-2 border-line pl-2 text-caption text-ink-2">{activeAnchor?.quote || quote}</blockquote>}
       {activeNote
         ? <><p className="whitespace-pre-wrap text-secondary">{activeNote.comment}</p><Button className="mt-2" data-xgc-role="pdf-annotation-discuss" data-xgc-id={activeNote.id} onClick={onDiscuss}>{tr('加入这次讨论')}</Button></>
@@ -200,9 +204,10 @@ function PdfPage({
   </div>
 }
 
-export default function PDFReader({ pdf, onPDF, onTitle, onDraftChange }: {
-  pdf: ManuscriptPDF
-  onPDF: (pdf: ManuscriptPDF) => void
+export default function PDFReader({ pdf, scope, onPDF, onTitle, onDraftChange }: {
+  pdf: ReadablePDF
+  scope: Scope
+  onPDF?: (pdf: ManuscriptPDF) => void
   onQuote: (text: string, targetProject?: string) => void
   onTitle?: (title: string) => void
   onDraftChange?: (dirty: boolean) => void
@@ -242,7 +247,7 @@ export default function PDFReader({ pdf, onPDF, onTitle, onDraftChange }: {
   useEffect(() => () => { draftChangeRef.current?.(false) }, [])
   useEffect(() => { titleRef.current?.(pdf.path.split('/').pop() || 'PDF') }, [pdf])
   useEffect(() => {
-    if (!pdf) return
+    if (!pdf || isOriginalPDF(pdf)) { setVersions([]); return }
     const controller = new AbortController()
     listPDFVersions(pdf.workspace, pdf.path, controller.signal).then(data => { if (!controller.signal.aborted) setVersions(data) }).catch(reason => { if (!controller.signal.aborted) setError(reason.message) })
     return () => controller.abort()
@@ -259,8 +264,8 @@ export default function PDFReader({ pdf, onPDF, onTitle, onDraftChange }: {
     attempt.current = null
     setNotes([])
     pageDims.current.clear()
-    const place = readReadingPlace(pdf.workspace)
-    const initial = place && place.buildId === pdf.buildId && place.digest === pdf.digest && place.path === pdf.path ? place.page : 1
+    const place = isOriginalPDF(pdf) ? null : readReadingPlace(scope.projectId)
+    const initial = isOriginalPDF(pdf) ? pdf.page || 1 : place && place.buildId === pdf.buildId && place.digest === pdf.digest && place.path === pdf.path ? place.page : 1
     setPage(initial)
     setPainted([initial])
     restorePage.current = initial
@@ -270,7 +275,7 @@ export default function PDFReader({ pdf, onPDF, onTitle, onDraftChange }: {
     let alive = true
     task.promise.then(doc => { if (alive) setDocument(doc) }).catch(reason => { if (alive) setError(reason.message) })
     return () => { alive = false; void task.destroy() }
-  }, [pdf])
+  }, [pdf, scope.projectId])
   useEffect(() => {
     if (!document) return
     let alive = true
@@ -286,13 +291,20 @@ export default function PDFReader({ pdf, onPDF, onTitle, onDraftChange }: {
   }, [document])
   useEffect(() => {
     setNotes([])
-    if (!pdf) return
+    if (!pdf || !scope.projectId) return
     const controller = new AbortController()
-    void collection<{ id: string; title: string }>('/knowledge/items', controller.signal).then(async items => {
+    void request<{ knowledge: { sourceItem: { id: string; title: string }; sourceRevision: { id: string } }[] }>(`/research/threads/${encodeURIComponent(scope.projectId)}`, { signal: controller.signal }).then(async thread => {
       const found: StoredNote[] = []
-      for (const item of items.filter(entry => entry.title.startsWith('PDF 批注 · '))) {
-        const record = await request<{ revisions: { body: string; authorRef: string }[] }>(`/knowledge/items/${item.id}`, { signal: controller.signal })
-        for (const revision of record.revisions) {
+      const entries=thread.knowledge.filter(entry => entry.sourceItem.title.startsWith('PDF 批注 · '))
+      const visited=new Set<string>()
+      for (const entry of entries) {
+        const item = entry.sourceItem
+        if(visited.has(item.id))continue
+        visited.add(item.id)
+        const record = await request<{ revisions: ReadingRevision[] }>(`/knowledge/items/${item.id}`, { signal: controller.signal })
+        const attached=new Set(entries.filter(value=>value.sourceItem.id===item.id).map(value=>value.sourceRevision.id))
+        const revision=attachedPDFRevision(record.revisions,attached,pdf)
+        if(revision){
           const prefix = `pdf:${pdf.workspace}:${pdf.digest}:`
           if (revision.authorRef?.startsWith(prefix)) found.push({ id: item.id, page: Number(revision.authorRef.slice(prefix.length)), body: revision.body })
         }
@@ -300,7 +312,7 @@ export default function PDFReader({ pdf, onPDF, onTitle, onDraftChange }: {
       if (!controller.signal.aborted) setNotes(found)
     }).catch(reason => { if (!controller.signal.aborted) setError(reason.message) })
     return () => controller.abort()
-  }, [pdf, reload])
+  }, [pdf, reload, scope.projectId])
   const layout = useMemo(() => layoutPdfPages(pageSizes, availableWidth, scale), [pageSizes, availableWidth, scale])
   const parsed = useMemo(() => notes.map(note => ({ ...note, ...decodeAnnotation(note.body) })), [notes])
   const activeNote = parsed.find(note => note.id === selectedNote) || null
@@ -401,14 +413,14 @@ export default function PDFReader({ pdf, onPDF, onTitle, onDraftChange }: {
     return () => { observer.disconnect(); window.clearTimeout(timer) }
   }, [pdf.digest, availableWidth, count])
   useEffect(() => {
-    if (!pdf?.workspace || !Number.isInteger(page) || page < 1 || restorePage.current) return
-    writeReadingPlace(pdf.workspace, { path: pdf.path, buildId: pdf.buildId, digest: pdf.digest, page })
-  }, [pdf, page, scrollSettled])
+    if (!pdf?.workspace || isOriginalPDF(pdf) || !Number.isInteger(page) || page < 1 || restorePage.current) return
+    writeReadingPlace(scope.projectId, { path: pdf.path, buildId: pdf.buildId, digest: pdf.digest, page })
+  }, [pdf, page, scrollSettled, scope.projectId])
   useEffect(() => {
-    if (!pdfFlash || !pdf || pdfFlash.buildId !== pdf.buildId || count < 1) return
+    if (!pdfFlash || !pdf || isOriginalPDF(pdf) || pdfFlash.buildId !== pdf.buildId || count < 1) return
     const dims = pageDims.current.get(pdfFlash.page)
     const box = pdfFlash.box
-    const rect = pdfFlash.rects?.[0] || (box && dims ? { x: box.x / dims.w, y: box.y / dims.h, width: box.width / dims.w, height: box.height / dims.h } : null)
+    const rect = pdfFlash.rects?.[0] || (box && dims ? syncTeXBoxToPDFRect(box, dims) : null)
     const viewport = viewportRef.current
     const el = viewport ? pageNode(viewport, pdf.digest, pdfFlash.page) : null
     if (viewport && el) viewport.scrollTop = scrollTopFor(viewport, el)
@@ -481,22 +493,23 @@ export default function PDFReader({ pdf, onPDF, onTitle, onDraftChange }: {
   }
   async function annotate() {
     if (!pdf || !anchor || !comment.trim()) return
-    const notePage = anchor.page
+    if (!scope.projectId.trim() || !scope.workspace.trim()) { setError(tr('请先选择研究项目，再保存批注。')); return }
     setBusy(true)
     setError('')
     const submitted = comment.trim()
     const submittedAnchor = anchor
-    const body = encodeAnnotation({ ...submittedAnchor, pdf: { workspace: pdf.workspace, path: pdf.path, digest: pdf.digest } }, submitted)
+    const command = pdfAnnotationRequest(pdf, scope, submittedAnchor, submitted)
+    const body = command.input.body
     if (attempt.current?.body !== body) attempt.current = { body, key: crypto.randomUUID() }
     try {
-      const saved = await post<{ knowledge: { item: { id: string } } }>(`/research/threads/${pdf.workspace}/knowledge-items`, { kind: 'reading-note', title: `PDF 批注 · ${pdf.path} · ${notePage}`, body, authorKind: 'human', authorRef: `pdf:${pdf.workspace}:${pdf.digest}:${notePage}` }, attempt.current.key)
+      const saved = await post<{ knowledge: { item: { id: string } } }>(command.path, command.input, attempt.current.key)
       if (!saved?.knowledge?.item?.id) throw Error(tr('批注保存回执缺少标识，请用同一次请求核对保存结果。'))
       setComment('')
       setAnchor(null)
       setQuote('')
       setReload(value => value + 1)
       attempt.current = null
-      requestReviewFeedback({ id: crypto.randomUUID(), annotationId: saved.knowledge.item.id, designDiscussion: true, scope: { projectId: pdf.workspace, workspace: pdf.workspace }, anchor: pdfFeedbackAnchor(pdf, submittedAnchor), body: submitted, at: new Date().toISOString() })
+      requestReviewFeedback({ id: crypto.randomUUID(), annotationId: saved.knowledge.item.id, designDiscussion: true, scope, anchor: pdfFeedbackAnchor(pdf, submittedAnchor), body: submitted, at: new Date().toISOString() })
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason))
     } finally {
@@ -505,17 +518,17 @@ export default function PDFReader({ pdf, onPDF, onTitle, onDraftChange }: {
   }
   function discuss(target: PDFAnchor, text: string, annotationId: string) {
     if (!pdf) return
-    requestReviewFeedback({ id: crypto.randomUUID(), annotationId, designDiscussion: true, scope: { projectId: pdf.workspace, workspace: pdf.workspace }, anchor: pdfFeedbackAnchor(pdf, target), body: text, at: new Date().toISOString() })
+    requestReviewFeedback({ id: crypto.randomUUID(), annotationId, designDiscussion: true, scope, anchor: pdfFeedbackAnchor(pdf, target), body: text, at: new Date().toISOString() })
   }
   async function jumpToSource() {
-    if (!pdf || !activeAnchor || busy) return
+    if (!pdf || isOriginalPDF(pdf) || !activeAnchor || busy) return
     const dims = pageDims.current.get(activeAnchor.page)
     if (!dims) return
     setBusy(true)
     setError('')
     try {
       const rect = activeAnchor.rects[0] || { x: .5, y: .5, width: 0, height: 0 }
-      const result = await post<{ file: string; line: number; external: boolean }>(`/manuscripts/build-records/${encodeURIComponent(pdf.buildId)}/synctex`, { mode: 'edit', page: activeAnchor.page, x: +(((rect.x + rect.width / 2) * dims.w).toFixed(2)), y: +(((rect.y + rect.height / 2) * dims.h).toFixed(2)) })
+      const result = await post<{ file: string; line: number; external: boolean }>(`/manuscripts/build-records/${encodeURIComponent(pdf.buildId)}/synctex`, { mode: 'edit', page: activeAnchor.page, ...pdfRectCenterToSyncTeXPoint(rect, dims) })
       if (result.external || !result.file) throw Error(tr('这个位置不在稿件源码内（可能是宏包或构建中间文件）。'))
       openSourceView({ workspace: pdf.workspace, path: result.file, line: Math.max(1, result.line || 1), buildId: pdf.buildId, pdf })
     } catch (reason) {
@@ -540,7 +553,7 @@ export default function PDFReader({ pdf, onPDF, onTitle, onDraftChange }: {
       <IconBtn icon={ChevronRight} label={tr('下一页')} disabled={busy || !count || page >= count} onClick={() => scrollToPage(page + 1)} />
       <IconBtn icon={mode === 'region' ? MousePointer2 : Scan} label={tr(mode === 'region' ? '文字批注' : '框选批注')} onClick={() => { resetSelection(); setMode(current => current === 'text' ? 'region' : 'text') }} />
       <RightMore label={tr('PDF 操作')}>
-        <label className="text-caption">{tr('PDF 版本')}<select aria-label={tr('PDF 版本')} className="ui-input mt-1" disabled={busy || !!comment.trim()} value={pdf.buildId} onChange={event => { const version = versions.find(item => item.buildId === event.target.value); if (version) onPDF(version) }}>{versions.length ? versions.map(item => <option key={item.buildId} value={item.buildId}>{new Date(item.completedAt).toLocaleString(locale === 'zh' ? 'zh-CN' : 'en-US')}</option>) : <option value={pdf.buildId}>{tr('当前版本')}</option>}</select></label>
+        {!isOriginalPDF(pdf) && <label className="text-caption">{tr('PDF 版本')}<select aria-label={tr('PDF 版本')} className="ui-input mt-1" disabled={busy || !!comment.trim()} value={pdf.buildId} onChange={event => { const version = versions.find(item => item.buildId === event.target.value); if (version) onPDF?.(version) }}>{versions.length ? versions.map(item => <option key={item.buildId} value={item.buildId}>{new Date(item.completedAt).toLocaleString(locale === 'zh' ? 'zh-CN' : 'en-US')}</option>) : <option value={pdf.buildId}>{tr('当前版本')}</option>}</select></label>}
         <div className="flex items-center gap-2"><IconBtn icon={Minus} label={tr('缩小 PDF')} onClick={() => zoom(-.2)} /><span className="text-caption">{Math.round(scale * 100)}%</span><IconBtn icon={Plus} label={tr('放大 PDF')} onClick={() => zoom(.2)} /></div>
         <a href={pdf.url} target="_blank" rel="noreferrer" className="text-caption">{tr('打开原件')}</a>
         {legacy.map(note => <button key={note.id} className="ui-list-row" onClick={() => { setSelectedNote(note.id); setAnchor({ schema: 'research.pdf-anchor/v1', kind: 'page', page: note.page, rects: [], quote: '', context: '' }); scrollToPage(note.page) }}>{tr('页面批注')} · {note.comment.slice(0, 40)}</button>)}
@@ -562,6 +575,7 @@ export default function PDFReader({ pdf, onPDF, onTitle, onDraftChange }: {
             paint={painted.includes(box.page) || flash?.page === box.page || activeAnchor?.page === box.page}
             mode={mode}
             busy={busy}
+            canJump={!isOriginalPDF(pdf)}
             notes={pageNotes}
             selectedNote={selectedNote}
             outline={activeAnchor?.page === box.page ? activeAnchor.rects : []}

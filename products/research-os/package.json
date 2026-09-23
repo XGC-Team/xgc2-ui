@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "lint:review": "eslint src/features/resources/PDFReader.tsx src/features/resources/pdf-annotations.ts src/features/resources/FilesPage.tsx src/features/chat/ConnectionStatus.tsx src/features/chat/ChatPage.tsx src/features/chat/Session.tsx src/components/BrowserPanel.tsx src/components/DocumentPanel.tsx src/components/PDFReader.tsx src/components/ui.tsx src/features/review/ReviewPanel.tsx src/features/workbench/*.ts src/features/workbench/*.tsx tests/pdf-annotations.test.ts tests/writing-workbench.test.ts",
+    "lint:review": "eslint src/features/resources/PDFReader.tsx src/features/resources/pdf-annotations.ts src/features/resources/FilesPage.tsx src/features/chat/ConnectionStatus.tsx src/features/chat/ChatPage.tsx src/features/chat/Session.tsx src/components/DocumentPanel.tsx src/components/PDFReader.tsx src/components/ui.tsx src/features/review/ReviewPanel.tsx src/features/workbench/*.ts src/features/workbench/*.tsx src/features/content/*.ts src/features/content/*.tsx src/features/workflow/MethodLibrary.tsx src/features/workflow/ReceiptActions.tsx tests/pdf-annotations.test.ts tests/writing-workbench.test.ts",
     "typecheck": "tsc -b"
   },
   "dependencies": {

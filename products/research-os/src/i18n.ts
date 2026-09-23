@@ -71,7 +71,6 @@ export const messages:Record<string,[string,string]>={
 "研究目标":["研究目标","Research goal"],
 "工作区":["工作区","Workspace"],
 "选择工作区":["选择工作区","Select workspace"],
-"工作区":["工作区","Reviewed Git commit"],
 "研究员":["研究员","Researcher"],
 "独立审查":["独立审查","Independent review"],
 "写作":["写作","Writing"],

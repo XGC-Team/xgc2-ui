@@ -26,7 +26,7 @@ export function DraftsPage({ scope, tabId, onQuote, onTitle }: {
   onQuote: (text: string, targetProject?: string) => void
   onTitle: (title: string) => void
 }) {
-  const { locale, setProjectId, setActiveNav, closeSourceView, draftIntents, consumeDraftIntent, draftSelection, requestCanvasReference, openCanvas, addContextItem } = useWorkbench()
+  const { locale, setProjectId, setActiveNav, showConversation, draftIntents, consumeDraftIntent, draftSelection, requestCanvasReference, openCanvas, addContextItem } = useWorkbench()
   const reviewFocus=useWorkbench(s=>s.reviewFocus)
   const root=useRef<HTMLElement>(null)
   const copy = draftCopy[locale]
@@ -69,13 +69,19 @@ export function DraftsPage({ scope, tabId, onQuote, onTitle }: {
   const update = (change: (draft: ResearchDraft) => ResearchDraft) => {
     if (current) state.mutate(book => changeDraft(book, current.id, change))
   }
-  const returnToProject = () => { setProjectId(scope.projectId); setActiveNav('chat'); closeSourceView() }
+  const returnToProject = () => { setProjectId(scope.projectId); setActiveNav('chat'); showConversation() }
   const failed = state.status === 'save-error' || state.status === 'conflict'
   const statusText = state.status === 'saved' ? copy.saved : state.status === 'saving' ? copy.saving : state.status === 'new' ? copy.fresh : copy.unsaved
   const exportLocal = () => { if (state.value) saveDownload(`research-drafts-${scope.projectId}.local.json`, state.value) }
   const reload = () => {
     if (!state.dirty || window.confirm(copy.discardConfirm)) state.reload(state.dirty)
   }
+
+  if (state.value && !state.digest) return <section className="flex h-full flex-col gap-3 p-4" data-draft-migration={scope.workspace}>
+    <p className="text-secondary">{zh ? '项目内容尚未迁入统一研究内容。迁入会保留现有草稿、画布、来源与对象身份。' : 'Migrate this project to research content, preserving drafts, canvas, sources and object identities.'}</p>
+    <Button disabled={state.status === 'saving'} onClick={state.migrate}>{zh ? '建立或迁入研究内容' : 'Create or migrate research content'}</Button>
+    {state.error && <p role="alert">{state.error}</p>}
+  </section>
 
   return <section ref={root} className="flex h-full min-h-0 flex-col" aria-label={copy.title} data-draft-project={scope.projectId} data-draft-state={state.status}>
     <div className="flex h-9 shrink-0 items-center gap-1 px-2">
@@ -117,7 +123,7 @@ export function DraftsPage({ scope, tabId, onQuote, onTitle }: {
           </div>
           <label className="my-2 block text-secondary">{zh ? '对象类型' : 'Object type'}<select className="ui-input ml-2" value={filter} onChange={event => setFilter(event.target.value as DraftKind | '')}><option value="">{zh ? '全部' : 'All'}</option>{DRAFT_KINDS.map(value => <option key={value} value={value}>{copy.kinds[value]}</option>)}</select></label>
           {(state.value.links || []).filter(link => Boolean(link.archivedAt) === archived).map(link => <div key={link.id} className="flex items-center gap-1">
-            <Button onClick={() => { setProjectId(scope.projectId); closeSourceView(); if (link.kind === 'canvas') openCanvas(scope.projectId); else setActiveNav('workflow') }}>{link.kind === 'canvas' ? zh ? '研究画布' : 'Research canvas' : zh ? '既有项目工作流' : 'Existing project workflow'}</Button>
+            <Button onClick={() => { setProjectId(scope.projectId); showConversation(); if (link.kind === 'canvas') openCanvas(scope.projectId); else setActiveNav('workflow') }}>{link.kind === 'canvas' ? zh ? '研究画布' : 'Research canvas' : zh ? '既有项目工作流' : 'Existing project workflow'}</Button>
             <Button size="xs" onClick={() => state.mutate(book => archiveProjectObject(book, link.id, !archived))}>{archived ? zh ? '恢复引用' : 'Restore reference' : zh ? '归档引用' : 'Archive reference'}</Button>
           </div>)}
           {archived && <p className="my-2 text-caption text-ink-3">{zh ? '归档只整理项目引用或草稿，不删除原始文件，也不停止既有工作流。' : 'Archiving organizes references and drafts. It neither deletes original files nor stops existing workflows.'}</p>}
@@ -149,7 +155,7 @@ export function DraftsPage({ scope, tabId, onQuote, onTitle }: {
             <Button aria-pressed={view === 'list'} onClick={() => setView('list')}>{zh ? '线性结构' : 'Linear structure'}</Button>
             <Button aria-pressed={view === 'cards'} onClick={() => setView('cards')}>{zh ? '研究卡片' : 'Research cards'}</Button>
             <Button onClick={() => addContextItem(newContextItem({ project: scope.projectId, kind: 'draft', label: current.title || copy.untitled,
-              ref: `${DRAFTS_PATH}#${current.id}`, source: { id: `ctx-${current.id}`, workspace: scope.workspace, path: DRAFTS_PATH } }))}>{copy.addToContext}</Button>
+              ref: `${DRAFTS_PATH}#artifact/${current.id}`, source: { id: `ctx-${current.id}`, workspace: scope.workspace, path: DRAFTS_PATH } }))}>{copy.addToContext}</Button>
           </div>
           {current.archivedAt && <p role="status">{zh ? '已归档；恢复后继续编辑。来源原件未删除。' : 'Archived. Restore to edit. Original sources are unchanged.'}</p>}
           <fieldset disabled={Boolean(current.archivedAt)} className="min-w-0 space-y-5">

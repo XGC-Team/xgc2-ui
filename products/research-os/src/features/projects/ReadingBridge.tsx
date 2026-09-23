@@ -92,7 +92,10 @@ export function ReadingBridge({ source, projectId, projectWorkspace, fill = fals
   } : undefined
   const acting = Boolean(excerpt || reviewRegion)
   return <div className={fill ? 'flex h-full min-h-0 flex-col' : 'min-h-0'}>
-    {acting && <div className="mb-3 flex flex-wrap gap-1">
+    {/* A filled PDF reader keeps its action row in the layout while selecting.
+        Inserting it during pointer/selection events would move the page under
+        the cursor before its normalized annotation geometry is captured. */}
+    {(fill || acting) && <div className={fill ? 'flex h-9 shrink-0 items-center gap-1 overflow-x-auto whitespace-nowrap [&>button]:shrink-0' : 'mb-3 flex flex-wrap gap-1'}>
       <Button size="xs" title={excerpt} disabled={!target || !excerpt || !source.digest} onPointerDown={event => event.preventDefault()} onClick={() => record('note')}>{zh ? '选区形成来源笔记' : 'Create note from selection'}</Button>
       <Button size="xs" disabled={!target} onClick={() => record('material')}>{zh ? '收入项目材料引用' : 'Add project material reference'}</Button>
       {feedbackAnchor && <FeedbackButton scope={{projectId:target,workspace:projectWorkspace||target}} anchor={feedbackAnchor} body={annotationText} disabled={!active}/> }
@@ -103,7 +106,7 @@ export function ReadingBridge({ source, projectId, projectWorkspace, fill = fals
       onInputCapture={event=>{const el=event.target;if(el instanceof HTMLTextAreaElement&&el.closest('[data-xgc-role="pdf-annotation-editor"]'))setAnnotationText(el.value)}}
       onPointerDownCapture={event=>{if(!active||!source.buildId)return;const el=event.target;if(el instanceof Element&&el.closest('[data-xgc-role="pdf-region-selector"]'))regionStart.current={x:event.clientX,y:event.clientY}}}
       onPointerCancelCapture={()=>{regionStart.current=null}}
-      onPointerUpCapture={event=>{
+      onPointerUp={event=>{
         const start=regionStart.current;regionStart.current=null;if(!start||!active)return
         const pageEl = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-xgc-role="pdf-page"]') : null
         if (!pageEl || !root.current?.contains(pageEl)) return

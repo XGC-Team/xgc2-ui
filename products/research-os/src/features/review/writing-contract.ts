@@ -5,7 +5,7 @@ import type { Anchor, Attempt, Feedback, Operation, Scope } from './review-model
  * source offsets and opaque file digests retain the existing Anchor semantics.
  */
 export type WritingSelection = {
-  design: { path: 'thinking.canvas.json'; digest: string; cardIds: string[] }
+  design: { path: 'research-content.json'; digest: string; cardIds: string[] }
   sources: { id: string; anchor: Anchor }[]
   evidence: Anchor[]
   context: string

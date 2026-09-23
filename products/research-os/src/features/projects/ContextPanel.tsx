@@ -9,6 +9,7 @@ import { fileTarget } from './project-object-model'
 import { openResearchSource } from './research-navigation'
 import { inspectLiveCanvas } from './useCanvasDocument'
 import { captureSelectedContext } from './design-context'
+import { CONTENT_PATH, parseContentDocument } from '../content/content-model'
 import { requestDesignFocus } from './design-focus'
 import {
   adoptContextVersion, assessContextItem, checkContextForSend, contextManifest, keepStaleSnapshot,
@@ -18,7 +19,7 @@ import {
 /** The visible context set for Chat. Adding, refreshing and checking never sends a message;
  * the only way content reaches the draft is the explicit insert action. */
 export function ContextPanel() {
-  const { locale, projectId, contextItems, removeContextItem, patchContextItem, openRightTab, openCanvas } = useWorkbench()
+  const { locale, projectId, contextItems, removeContextItem, patchContextItem, openResource, openCanvas } = useWorkbench()
   const copy = contextCopy[locale]
   const workspace = workspaceCopy[locale]
   const native = useNativeAgentSession()
@@ -39,8 +40,8 @@ export function ContextPanel() {
     'update-available': copy.issueUpdate, unverifiable: copy.issueUnverifiable,
   } as const)[reason]
   const locate = (item: ContextItem) => {
-    if (item.kind === 'draft') openRightTab({ kind: 'file', target: fileTarget(item.project, item.source?.workspace || item.project, 'files', item.ref) })
-    else if (item.kind === 'canvas-node') { openCanvas(item.project); requestDesignFocus(item.project, [item.ref.split('#')[1]].filter(Boolean)) }
+    if (item.kind === 'draft') openResource({ kind: 'file', target: fileTarget(item.project, item.source?.workspace || item.project, 'files', item.ref) })
+    else if (item.kind === 'canvas-node') { openCanvas(item.project); requestDesignFocus(item.project, [item.ref.split('#object/')[1]].filter(Boolean)) }
     else if (item.source) openResearchSource(item.source, { projectId: item.project, workspace: item.source.workspace || item.project })
   }
   const refresh = async (item: ContextItem) => {
@@ -49,7 +50,20 @@ export function ContextPanel() {
     try {
       const workspace = item.source.workspace || item.project
       const record = await request<{ content: string; digest: string }>(`/workspaces/${encodeURIComponent(workspace)}/files/${item.source.path.split('/').map(encodeURIComponent).join('/')}`)
-      patchContextItem(item.id, assessContextItem(item, { digest: typeof record?.digest === 'string' && record.digest ? record.digest : undefined }))
+      let excerpt: string | undefined
+      if(item.source.path===CONTENT_PATH){
+        const content=parseContentDocument(record.content)
+        if(item.kind==='canvas-node'){
+          const object=content.objects.find(o=>o.id===item.ref.split('#object/')[1])
+          if(!object){patchContextItem(item.id,assessContextItem(item,null));return}
+          excerpt=object.body?.slice(0,200)??''
+        }else if(item.kind==='draft'){
+          const artifact=content.artifacts.find(o=>o.id===item.ref.split('#artifact/')[1])
+          if(!artifact){patchContextItem(item.id,assessContextItem(item,null));return}
+          excerpt=artifact.title
+        }
+      }
+      patchContextItem(item.id, assessContextItem(item, { digest: typeof record?.digest === 'string' && record.digest ? record.digest : undefined, excerpt }))
     } catch (error) {
       if (typeof error === 'object' && error !== null && 'status' in error && error.status === 404) patchContextItem(item.id, assessContextItem(item, null))
       else setNote(`${copy.refreshFailed} ${error instanceof Error ? error.message : String(error)}`)
@@ -65,7 +79,7 @@ export function ContextPanel() {
   }
   const insertWriting = () => {
     const cards = contextItems.filter(item => item.kind === 'canvas-node' && item.project === effectiveProject)
-      .map(item => item.ref.split('#')[1]).filter(Boolean)
+      .map(item => item.ref.split('#object/')[1]).filter(Boolean)
     const gate = inspectLiveCanvas(effectiveProject)
     if (!gate || !cards.length) { setNote(workspace.captureBlocked); return }
     const captured = captureSelectedContext(gate, cards)

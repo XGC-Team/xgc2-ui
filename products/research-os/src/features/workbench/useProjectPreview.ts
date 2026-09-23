@@ -43,6 +43,11 @@ export async function loadProjectPreview(projectId: string, signal?: AbortSignal
 export function useProjectPreview(projectId: string): PreviewState & { reload: () => void } {
   const [state, setState] = useState<PreviewState>(projectId ? { status: 'loading', projectId } : { status: 'idle' })
   const [nonce, setNonce] = useState(0)
+  useEffect(()=>{
+    const completed=(event:Event)=>{if((event as CustomEvent<{workspace:string}>).detail?.workspace===projectId)setNonce(n=>n+1)}
+    window.addEventListener('research-manuscript-built',completed)
+    return()=>window.removeEventListener('research-manuscript-built',completed)
+  },[projectId])
   useEffect(() => {
     if (!projectId) { setState({ status: 'idle' }); return }
     const controller = new AbortController()

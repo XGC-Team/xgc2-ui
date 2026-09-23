@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { emptyCanvasV2, parseEditableCanvas, serializeCanvas } from '../src/features/projects/canvas-model'
+import { emptyCanvasV2 } from '../src/features/projects/canvas-model'
+import { CONTENT_PATH, applyCanvasProjection, emptyContent, parseContentDocument, projectCanvas, serializeContent } from '../src/features/content/content-model'
 import { writingSelectionFromContext, type LiveCanvasGate } from '../src/features/projects/design-context'
 import { captureWritingContext, designRequestFromContext, mapSavedWriting, prepareWritingFromDesign } from '../src/features/workbench/writing-integration'
 import { decodeDesignProposal } from '../src/features/review/writing-model'
@@ -7,17 +8,35 @@ import { createReviewEngine } from '../src/features/review/review-engine'
 import type { ReviewBatchReceipt } from '../src/features/review/writing-contract'
 
 const scope = { projectId: 'paper', workspace: 'paper' }
-function fixture() {
+function fixture(projectScope = scope) {
   const canvas = { ...emptyCanvasV2(), nodes: [{ id: 'claim', kind: 'idea' as const, title: 'Claim', body: 'Qualify the argument', x: 0, y: 0,
-    bindings: [{ id: 'source', workspace: 'paper', path: 'main.tex', digest: 'source-1', start: 0, end: 3, quote: 'old' }] }] }
-  const gate: LiveCanvasGate = { project: 'paper', digest: 'design-1', dirty: false, status: 'saved', reviewLocked: false, value: canvas }
-  const files = new Map([['thinking.canvas.json', { content: serializeCanvas(canvas), digest: 'design-1' }], ['main.tex', { content: 'old remainder', digest: 'source-1' }]])
+    bindings: [{ id: 'source', workspace: projectScope.workspace, path: 'main.tex', digest: 'source-1', start: 0, end: 3, quote: 'old' }] }] }
+  const gate: LiveCanvasGate = { project: projectScope.projectId, workspace: projectScope.workspace, digest: 'design-1', dirty: false, status: 'saved', reviewLocked: false, value: canvas }
+  const document = applyCanvasProjection(emptyContent(projectScope), canvas)
+  document.artifacts = [{ id: 'retained-artifact', kind: 'note', status: 'draft', title: 'Keep me', createdAt: '2026-09-23T00:00:00Z', updatedAt: '2026-09-23T00:00:00Z', blocks: [], sources: [] }]
+  document.extension = { retained: true }
+  const files = new Map([[CONTENT_PATH, { content: serializeContent(document), digest: 'design-1' }], ['main.tex', { content: 'old remainder', digest: 'source-1' }]])
   const port = { inspect: () => gate, read: async (_workspace: string, path: string) => ({ ...files.get(path)! }), clean: () => {} }
   return { canvas, gate, files, port }
 }
 const deferred = () => { let resolve!: () => void; const promise = new Promise<void>(r => { resolve = r }); return { promise, resolve } }
 
 describe('writing integration across the existing owners', () => {
+  it('captures a project whose workspace has a different identity through the same canonical writer', async () => {
+    const identity = { projectId: 'research-question', workspace: 'paper-files' }, f = fixture(identity)
+    const reads: { workspace: string; path: string; projectId?: string }[] = [], inspected: string[] = []
+    const selected = await captureWritingContext(identity, ['claim'], {
+      ...f.port,
+      inspect: workspace => { inspected.push(workspace); return f.gate },
+      read: async (workspace, path, projectId) => { reads.push({ workspace, path, projectId }); return f.port.read(workspace, path) },
+    })
+    expect(selected.project).toBe(identity.projectId)
+    expect(selected.sources[0].anchor.workspace).toBe(identity.workspace)
+    expect(inspected).toEqual([identity.workspace, identity.workspace])
+    expect(reads[0]).toEqual({ workspace: identity.workspace, path: CONTENT_PATH, projectId: identity.projectId })
+    f.gate.workspace = 'another-workspace'
+    await expect(captureWritingContext(identity, ['claim'], f.port)).rejects.toThrow('different project or manuscript workspace')
+  })
   it('captures only selected saved cards and preserves their exact source range', async () => {
     const f = fixture(), selected = await captureWritingContext(scope, ['claim'], f.port)
     expect(writingSelectionFromContext(selected).sources[0].anchor).toMatchObject({ digest: 'source-1', quote: 'old', target: { start: 0, end: 3 } })
@@ -32,7 +51,7 @@ describe('writing integration across the existing owners', () => {
   })
 
   it('rejects a saved canvas changed remotely before capture', async () => {
-    const f = fixture(); f.files.get('thinking.canvas.json')!.digest = 'design-2'
+    const f = fixture(); f.files.get(CONTENT_PATH)!.digest = 'design-2'
     await expect(captureWritingContext(scope, ['claim'], f.port)).rejects.toThrow('saved design changed')
   })
 
@@ -56,10 +75,10 @@ describe('writing integration across the existing owners', () => {
       read: async (_workspace, path) => { const file = f.files.get(path); if (!file) throw Object.assign(new Error('missing'), { status: 404 }); return { ...file } },
       write: async (_workspace, path, content, guard) => {
         writes.push(path)
-        if ((refuseSave && path === 'thinking.canvas.json') || (guard.createOnly ? f.files.has(path) : f.files.get(path)?.digest !== guard.expectedDigest)) throw Object.assign(new Error('CAS conflict'), { status: 409 })
+        if ((refuseSave && path === CONTENT_PATH) || (guard.createOnly ? f.files.has(path) : f.files.get(path)?.digest !== guard.expectedDigest)) throw Object.assign(new Error('CAS conflict'), { status: 409 })
         const record = { content, digest: `saved-${++revision}` }; f.files.set(path, record); return { digest: record.digest }
       },
-      lease: () => async () => { const saved = f.files.get('thinking.canvas.json')!; f.gate.value = parseEditableCanvas(saved.content); f.gate.digest = saved.digest },
+      lease: () => async () => { const saved = f.files.get(CONTENT_PATH)!; f.gate.value = projectCanvas(parseContentDocument(saved.content, scope)); f.gate.digest = saved.digest },
     }, () => {})
     await engine.load()
     const context = await captureWritingContext(scope, ['claim'], f.port)
@@ -75,11 +94,14 @@ describe('writing integration across the existing owners', () => {
     expect(f.files.get('main.tex')!.content).toBe('old remainder')
     const offer = await prepareWritingFromDesign(f.engine, scope, f.proposal.id, ['design-0'], 'author', () => true, f.port)
     expect(offer.writing?.status).toBe('proposed')
-    expect(offer.writing?.selection.design.digest).toBe(f.files.get('thinking.canvas.json')!.digest)
+    expect(offer.writing?.selection.design.digest).toBe(f.files.get(CONTENT_PATH)!.digest)
     expect(offer.writing?.selection.context).toContain('Explain the observed boundary')
-    expect(f.writes.filter(path => path !== 'research-reviews.json')).toEqual(['thinking.canvas.json'])
+    expect(f.writes.filter(path => path !== 'research-reviews.json')).toEqual([CONTENT_PATH])
     await expect(f.engine.applyWriting(offer.id)).rejects.toThrow('not ready')
     expect(f.files.get('main.tex')!.content).toBe('old remainder')
+    const saved = parseContentDocument(f.files.get(CONTENT_PATH)!.content, scope)
+    expect(saved.artifacts[0].id).toBe('retained-artifact')
+    expect(saved.extension).toEqual({ retained: true })
   })
 
   it('a refused design CAS produces no manuscript authorization', async () => {
@@ -91,7 +113,7 @@ describe('writing integration across the existing owners', () => {
 
   it('changing projects after design save cannot queue a writing offer in the old journal', async () => {
     const f = await designFixture()
-    await expect(prepareWritingFromDesign(f.engine, scope, f.proposal.id, ['design-0'], 'author', () => !f.writes.includes('thinking.canvas.json'), f.port)).rejects.toThrow('project changed')
+    await expect(prepareWritingFromDesign(f.engine, scope, f.proposal.id, ['design-0'], 'author', () => !f.writes.includes(CONTENT_PATH), f.port)).rejects.toThrow('project changed')
     expect(f.engine.snapshot().book!.proposals.some(p => p.writing)).toBe(false)
     expect(f.writes).not.toContain('main.tex')
   })

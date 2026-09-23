@@ -23,7 +23,7 @@ export function FilesPage(props: Props) {
   return <FilesPageContent key={JSON.stringify([projectId, workspace, path, view])} {...props}/>
 }
 function FilesPageContent({ target, active = true, manuscriptEntryPoint, onQuote, onTitle }: Props) {
-  const { locale, openPDF, openRightTab, setProjectId, setActiveNav, closeSourceView } = useWorkbench()
+  const { locale, openPDF, openResource, setProjectId, setActiveNav, showConversation } = useWorkbench()
   const copy = projectObjectCopy[locale]
   const { projectId, workspace, path, view } = target
   const [directory, setDirectory] = useState(''), [entries, setEntries] = useState<ProjectEntry[]>([])
@@ -50,7 +50,7 @@ function FilesPageContent({ target, active = true, manuscriptEntryPoint, onQuote
   }, [workspace, path, view, directory, revision, active])
   useEffect(() => { if (active && scroll.current) scroll.current.scrollTop = position.current }, [active])
   const back = () => {
-    if (path) openRightTab({ kind: 'file', target: fileTarget(projectId, workspace, view) })
+    if (path) openResource({ kind: 'file', target: fileTarget(projectId, workspace, view) })
     else { setEntries([]); position.current = 0; setDirectory(directory.split('/').slice(0, -1).join('/')) }
   }
   return <div className="flex h-full min-h-0 flex-col" data-object-workspace={workspace} data-object-path={path}>
@@ -61,7 +61,7 @@ function FilesPageContent({ target, active = true, manuscriptEntryPoint, onQuote
     </div>
     {!workspace ? <p className="p-4 text-secondary text-ink-3">{copy.selectProject}</p> : <>
       <div className="px-3 pb-2 text-caption text-ink-3">
-        <button type="button" aria-label={`${copy.back} · ${projectId}`} className="text-ink-2 hover:underline" onClick={() => { setProjectId(projectId); setActiveNav('chat'); closeSourceView() }}>{copy.scope} · {projectId}</button>
+        <button type="button" aria-label={`${copy.back} · ${projectId}`} className="text-ink-2 hover:underline" onClick={() => { setProjectId(projectId); setActiveNav('chat'); showConversation() }}>{copy.scope} · {projectId}</button>
         <p className="truncate" title={`${workspace}/${path || directory}`}>{copy.storage} · {workspace}/{path || directory}</p>
       </div>
       {path && /\.(tex|bib|sty|cls|bst|cfg|def)$/i.test(path) && <ManuscriptBuildStatus workspace={workspace} path={path} entryPoint={manuscriptEntryPoint} active={active} onOpenPDF={openPDF}/>}
@@ -73,14 +73,14 @@ function FilesPageContent({ target, active = true, manuscriptEntryPoint, onQuote
             {builds.map(pdf => <div key={`${pdf.buildId}:${pdf.digest}`} className="mb-3 rounded-lg bg-elevated p-3">
               <button type="button" className="ui-list-row" onClick={() => openPDF(pdf)}><FileText size={14} strokeWidth={1.75}/>{pdf.path} · PDF</button>
               <p className="break-all text-caption">{copy.build} · {pdf.buildId}</p><p className="text-caption">{pdf.completedAt}</p>
-              <Button size="xs" onClick={() => openRightTab({ kind: 'file', target: fileTarget(projectId, workspace, 'files', pdf.path) })}>{copy.source}</Button>
+              <Button size="xs" onClick={() => openResource({ kind: 'file', target: fileTarget(projectId, workspace, 'files', pdf.path) })}>{copy.source}</Button>
             </div>)}
             {!loading && !error && !builds.length && <p className="text-secondary text-ink-3">{copy.noBuilds}</p>}
           </> : <>
             {view === 'notes' && <p className="mb-3 text-caption text-ink-3">{copy.noteScope}</p>}
             {entries.map(entry => <button key={entry.path} type="button" className="ui-list-row" onClick={() => {
               if (entry.kind === 'directory') { setEntries([]); position.current = 0; setDirectory(entry.path) }
-              else openRightTab({ kind: 'file', target: fileTarget(projectId, workspace, view, entry.path) })
+              else openResource({ kind: 'file', target: fileTarget(projectId, workspace, view, entry.path) })
             }}>{entry.kind === 'directory' ? <Folder size={14} strokeWidth={1.75}/> : <FileText size={14} strokeWidth={1.75}/>}<span className="truncate">{entry.path.split('/').pop()}</span></button>)}
             {!loading && !error && !entries.length && <p className="text-secondary text-ink-3">{view === 'notes' ? copy.noNotes : copy.noFiles}</p>}
           </>}

@@ -1,6 +1,6 @@
 import type { ThinkingCanvasV2 } from './canvas-model'
 /** Project-owned editable definitions. No draft in this schema represents an executed task. */
-export const DRAFTS_PATH = 'research-drafts.json'
+export const DRAFTS_PATH = 'research-content.json'
 export const DRAFT_KINDS = ['paper', 'slides', 'storyboard', 'workflow', 'rule', 'experiment', 'note', 'material'] as const
 export type DraftKind = typeof DRAFT_KINDS[number]
 export type DraftScope = { projectId: string; workspace: string }
@@ -189,7 +189,7 @@ export function archiveProjectObject(book: DraftBook, id: string, archived: bool
 export const researchStructure = (draft: ResearchDraft): readonly DraftBlock[] => draft.blocks
 
 export function draftIdFromAnchor(path: string): string | null {
-  const prefix = `${DRAFTS_PATH}#`
+  const prefix = `${DRAFTS_PATH}#artifact/`
   const id = path.startsWith(prefix) ? path.slice(prefix.length) : ''
   return idOK(id) ? id : null
 }
@@ -197,7 +197,7 @@ export function draftIdFromAnchor(path: string): string | null {
  * Works on any canvas version and preserves its format, outlines and extension fields. */
 export function attachDraftReference(canvas: ThinkingCanvasV2, draftId: string, title: string): ThinkingCanvasV2 {
   requireThat(idOK(draftId), 'Invalid draft identity.')
-  const anchor = `${DRAFTS_PATH}#${draftId}`
+  const anchor = `${DRAFTS_PATH}#artifact/${draftId}`
   if (canvas.nodes.some(node => node.anchor === anchor)) return canvas
   let id = `draft-${draftId}`
   while (canvas.nodes.some(node => node.id === id)) id += '-ref'

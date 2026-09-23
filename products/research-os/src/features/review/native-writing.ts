@@ -1,6 +1,12 @@
 import type { StreamState } from '@xgc2/agent-runtime/state'
 import { check } from './review-model.ts'
-import type { AgentWritingCompletion } from './writing-contract.ts'
+import type { AgentWritingCompletion, WritingRecord } from './writing-contract.ts'
+
+/** Reattach only to a dispatch already acknowledged in the durable review. */
+export function resumeWritingIdentity(writing:WritingRecord,sessionId:string):{sessionId:string;turnId:string} {
+  check(writing.status==='running'&&writing.execution?.sessionId===sessionId&&/^t_[a-f0-9]{32}$/.test(writing.execution.turnId??''),'Open the original writing conversation and inspect its acknowledged turn before continuing. An uncertain dispatch is never sent again.')
+  return {sessionId,turnId:writing.execution.turnId!}
+}
 
 /** Consume the existing native reducer's per-turn end facts. Do not use the
  * latest chat message, activeTurnId or global lastTurnStatus as proof of a result.

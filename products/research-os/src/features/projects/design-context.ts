@@ -53,6 +53,7 @@ export type CaptureResult = CapturedContext | ContextRefusal
 
 export type LiveCanvasGate = {
   project: string
+  workspace?: string
   digest?: string
   dirty: boolean
   status: string
@@ -213,7 +214,20 @@ function evidenceToAnchor(project: string, item: DesignCardSnapshot['evidence'][
 
 export function buildSelectedContext(project: string, canvasDigest: string, canvas: ThinkingCanvasV2, cardIds: readonly string[]): SelectedContext {
   const cards = snapshotCards(canvas, cardIds)
-  const sources = cards.flatMap(card => card.bindings.map(binding => ({ id: binding.id, anchor: bindingToAnchor(binding) })))
+  // Several claims may intentionally cite the same source selection. It is
+  // one writing target, while every card retains its own binding identity.
+  const sources: SelectedContext['sources'] = [], captures = new Set<string>(), sourceIds = new Set<string>()
+  for (const card of cards) for (const binding of card.bindings) {
+    const anchor = bindingToAnchor(binding), key = JSON.stringify(anchor)
+    if (captures.has(key)) continue
+    captures.add(key)
+    let id = binding.id
+    if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/.test(id) || sourceIds.has(id)) {
+      id = `selected-source-${sources.length}`
+      while (sourceIds.has(id)) id += '-ref'
+    }
+    sourceIds.add(id); sources.push({ id, anchor })
+  }
   const evidence = cards.flatMap(card => card.evidence.map(item => evidenceToAnchor(project, item)).filter((item): item is Anchor => Boolean(item)))
   const context = writingContextFromCards(project, canvasDigest, cards)
   const selected: Omit<SelectedContext, 'fingerprint'> = {
@@ -267,13 +281,6 @@ export function writingSelectionFromContext(selected: SelectedContext): {
   }
 }
 
-function confirmBinding(binding: SourceBinding, file: ObservedSource, quote: string): SourceBinding | null {
-  const starts = quoteOccurrences(file.content, quote)
-  if (starts.length !== 1) return null
-  const start = starts[0]
-  return { ...binding, digest: file.digest, quote, start, end: start + quote.length }
-}
-
 export function updateBindingsFromReceipts(
   canvas: ThinkingCanvasV2,
   saved: MappingSavedReceipt[],
@@ -293,13 +300,49 @@ export function updateBindingsFromReceipts(
     if (!file || file.digest !== item.attempt.afterDigest) {
       return { status: 'failed', canvas, unresolved, detail: `Observed file does not match save ${item.attempt.path}@${item.attempt.afterDigest}.` }
     }
-    const replacements = item.operations.filter(operation => operation.target.kind === 'text' && operation.target.path === item.attempt.path)
+    const replacements = item.operations.filter(operation => item.attempt.operationIds.includes(operation.id) && operation.target.kind === 'text' && operation.target.workspace === item.attempt.workspace && operation.target.path === item.attempt.path)
+      .sort((a, b) => (a.target as Extract<Operation['target'], { kind: 'text' }>).start - (b.target as Extract<Operation['target'], { kind: 'text' }>).start)
+    if (!replacements.length || replacements.length !== item.attempt.operationIds.length || new Set(replacements.map(o => o.id)).size !== replacements.length) {
+      return { status: 'failed', canvas: next, unresolved, detail: 'Mapping requires the complete saved patch group.' }
+    }
+    let originalOffset = 0, previousEnd = -1
+    const patches: { start: number; end: number; before: string; after: string }[] = []
+    for (const operation of replacements) {
+      const target = operation.target as Extract<Operation['target'], { kind: 'text' }>
+      if (!Number.isSafeInteger(target.start) || !Number.isSafeInteger(target.end) || target.start < 0 || target.end <= target.start || target.start < previousEnd || target.end - target.start !== operation.before.length || (item.attempt.mode === 'apply' && operation.baseDigest !== item.attempt.beforeDigest)) {
+        return { status: 'failed', canvas: next, unresolved, detail: 'Mapping patch ranges or versions are inconsistent with the saved receipt.' }
+      }
+      previousEnd = target.end
+      const undo = item.attempt.mode === 'revert', start = target.start + (undo ? originalOffset : 0)
+      const before = undo ? operation.after : operation.before, after = undo ? operation.before : operation.after
+      patches.push({ start, end: start + before.length, before, after })
+      originalOffset += operation.after.length - operation.before.length
+    }
     for (const node of next.nodes) {
       for (const binding of node.bindings ?? []) {
         if (binding.workspace !== item.attempt.workspace || binding.path !== item.attempt.path) continue
-        const replaced = replacements.find(operation => operation.before === binding.quote)
-        const quote = replaced ? replaced.after : binding.quote
-        const confirmed = confirmBinding(binding, file, quote)
+        // The content save may have succeeded before its journal acknowledgement.
+        // Retrying that receipt confirms the current exact range without shifting
+        // it a second time. A digest alone is never enough to confirm a binding.
+        if (binding.digest === item.attempt.afterDigest) {
+          if (binding.quote.length > 0 && Number.isSafeInteger(binding.start) && Number.isSafeInteger(binding.end) && binding.end - binding.start === binding.quote.length && binding.start >= 0 && file.content.slice(binding.start, binding.end) === binding.quote) continue
+          unresolved.push({ bindingId: binding.id, cardId: node.id,
+            identity: { workspace: binding.workspace, path: binding.path, digest: binding.digest },
+            quote: binding.quote, reason: 'changed', observedDigest: file.digest })
+          continue
+        }
+        const overlapping = patches.filter(patch => patch.start < binding.end && patch.end > binding.start)
+        // A paragraph binding can contain several reviewed sentence edits. All
+        // patches must stay inside it and match its original quote exactly.
+        // Apply from the end so every offset remains in the receipt's baseline.
+        const contained = overlapping.every(patch => patch.start >= binding.start && patch.end <= binding.end
+          && binding.quote.slice(patch.start - binding.start, patch.end - binding.start) === patch.before)
+        const quote = contained ? overlapping.reduceRight((text, patch) => text.slice(0, patch.start - binding.start) + patch.after + text.slice(patch.end - binding.start), binding.quote) : binding.quote
+        const offset = patches.filter(patch => patch.end <= binding.start).reduce((sum, patch) => sum + patch.after.length - patch.before.length, 0)
+        const start = binding.start + offset, end = start + quote.length
+        const confirmed = binding.digest === item.attempt.beforeDigest && Number.isSafeInteger(binding.start) && Number.isSafeInteger(binding.end) && binding.start >= 0 && binding.end - binding.start === binding.quote.length
+          && contained && quote.length > 0 && file.content.slice(start, end) === quote
+          ? { ...binding, digest: file.digest, quote, start, end } : null
         if (confirmed) next = replaceNodeBinding(next, node.id, confirmed)
         else {
           unresolved.push({

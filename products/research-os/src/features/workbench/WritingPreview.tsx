@@ -6,7 +6,7 @@ import type { PreviewState } from './useProjectPreview'
 import './writing-workbench.css'
 
 export function WritingPreview({ preview, onRetry }: { preview: PreviewState; onRetry: () => void }) {
-  const { locale, setActiveNav, openRightTab, projectId } = useWorkbench()
+  const { locale, setActiveNav, openResource, projectId } = useWorkbench()
   const copy = writingCopy[locale]
   if (preview.status === 'idle' || preview.status === 'ready') return null
   const detail = preview.status === 'loading' ? copy.previewLoading
@@ -18,7 +18,7 @@ export function WritingPreview({ preview, onRetry }: { preview: PreviewState; on
       <h2 className="font-display text-[18px] tracking-tight">{copy.writingEmpty}</h2>
       <p className="mt-2 text-secondary text-ink-2">{detail}</p>
       <div className="mt-4 flex flex-wrap gap-2">
-        {projectId && <Button data-xgc-role="open-project-files" data-xgc-id={projectId} onClick={() => openRightTab({ kind: 'file', target: fileTarget(projectId, projectId) })}>{copy.openSource}</Button>}
+        {projectId && <Button data-xgc-role="open-project-files" data-xgc-id={projectId} onClick={() => openResource({ kind: 'file', target: fileTarget(projectId, projectId) })}>{copy.openSource}</Button>}
         {preview.status === 'unavailable' && <Button data-xgc-role="open-compiler-settings" data-xgc-id="settings" onClick={() => setActiveNav('settings')}>{copy.openSettings}</Button>}
         {(preview.status === 'failed' || preview.status === 'empty' || preview.status === 'unavailable') && <Button data-xgc-role="retry-preview" data-xgc-id={preview.projectId} onClick={onRetry}>{copy.retryPreview}</Button>}
       </div>

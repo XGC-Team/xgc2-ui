@@ -1,4 +1,4 @@
-import type { ManuscriptPDF } from '../resources/manuscript'
+import { isOriginalPDF, type ReadablePDF } from '../resources/manuscript'
 import type { PDFAnchor } from '../resources/pdf-annotations'
 import type { Anchor } from '../review/review-model'
 
@@ -26,17 +26,17 @@ export function annotationDiscussion(input: {
   ].join('\n')
 }
 
-export function pdfFeedbackAnchor(pdf: ManuscriptPDF, anchor: PDFAnchor): Anchor {
+export function pdfFeedbackAnchor(pdf: ReadablePDF, anchor: PDFAnchor): Anchor {
   return {
     kind: 'pdf',
     workspace: pdf.workspace,
     path: pdf.path,
     digest: pdf.digest,
     quote: anchor.quote,
-    buildId: pdf.buildId,
+    ...(!isOriginalPDF(pdf) ? { buildId: pdf.buildId } : {}),
     page: anchor.page,
     rects: anchor.rects,
-    origin: 'project-build',
+    origin: isOriginalPDF(pdf) ? 'external' : 'project-build',
   }
 }
 

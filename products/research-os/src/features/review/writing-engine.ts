@@ -1,4 +1,4 @@
-import { check, now, scopeKey, uid, validateProposal, type Proposal, type ReviewBook, type Scope } from './review-model.ts'
+import { check, now, scopeKey, uid, validateProposal, requiresContentReview, type Proposal, type ReviewBook, type Scope } from './review-model.ts'
 import { decodeDesignProposal, decodeWritingCompletion, validateWritingSelection, writingFingerprint, writingOperations, writingPrompt } from './writing-model.ts'
 import type { DesignProposalRequest, AgentWritingCompletion, ReviewBatchReceipt, WritingNativePort, WritingOffer, WritingRecord } from './writing-contract.ts'
 import type { ReviewPort } from './review-engine.ts'
@@ -25,6 +25,7 @@ export function bindWritingReview(journal: Journal) {
   const active = (id: string) => check(!stopped(id), 'Writing was cancelled or its project session was closed.')
   const writing = (id: string) => {
     const p = journal.proposal(id)
+    check(!requiresContentReview(p), 'This historical design confirmation cannot authorize the migrated content. Capture the current design and create a new proposal.')
     check(p.writing, 'This proposal is not a confirmed-design writing request.')
     return p.writing
   }

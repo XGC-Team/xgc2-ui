@@ -15,7 +15,7 @@ const deferred = () => { let resolve; const promise = new Promise(r => { resolve
  * native provider run, HTTP integration or evidence of successful compilation. */
 async function fixture(paths = ['main.tex'], options = {}) {
   let revision = 0, sends = 0
-  const files = new Map([['thinking.canvas.json', { content: '{"version":2}', digest: 'design-1' }], ...paths.map((path, i) => [path, { content: 'KEEP old END', digest: `source-${i}` }])])
+  const files = new Map([['research-content.json', { content: '{"version":2}', digest: 'design-1' }], ...paths.map((path, i) => [path, { content: 'KEEP old END', digest: `source-${i}` }])])
   const writes = [], batches = [], locked = new Set(), blocked = new Set()
   const port = {
     read: async (workspace, path) => {
@@ -47,7 +47,7 @@ async function fixture(paths = ['main.tex'], options = {}) {
   const anchor = (path, index) => ({ kind: 'text', workspace: scope.workspace, path, digest: `source-${index}`, quote: 'old', target: { kind: 'text', workspace: scope.workspace, path, start: 5, end: 8 } })
   const offer = { id: 'writing-a', author: 'author-a', title: 'Revise selected argument',
     feedback: { id: 'feedback-a', author: 'author-a', at: '2026-09-20T00:00:00.000Z', body: 'Clarify the local argument', anchor: anchor(paths[0], 0) },
-    selection: { design: { path: 'thinking.canvas.json', digest: 'design-1', cardIds: ['card-a'] }, sources: paths.map((path, i) => ({ id: `source-${i}`, anchor: anchor(path, i) })), evidence: [], context: 'Explain motivation here; keep full derivation in the following section.' } }
+    selection: { design: { path: 'research-content.json', digest: 'design-1', cardIds: ['card-a'] }, sources: paths.map((path, i) => ({ id: `source-${i}`, anchor: anchor(path, i) })), evidence: [], context: 'Explain motivation here; keep full derivation in the following section.' } }
   const native = { sessionId: 'session-a', send: async (text, key) => {
     ++sends
     const stored = parseReviewBook(files.get(REVIEW_PATH).content, scope).proposals[0].writing
@@ -92,8 +92,8 @@ test('confirmation binds project, complete design context, evidence and exact so
 test('dirty editors and changed design/source prevent confirmation without source writes', async () => {
   for (const kind of ['dirty', 'design', 'source']) {
     const f = await fixture(); await f.engine.offerWriting(f.offer)
-    if (kind === 'dirty') f.blocked.add('thinking.canvas.json')
-    else f.files.get(kind === 'design' ? 'thinking.canvas.json' : 'main.tex').digest = 'changed'
+    if (kind === 'dirty') f.blocked.add('research-content.json')
+    else f.files.get(kind === 'design' ? 'research-content.json' : 'main.tex').digest = 'changed'
     await assert.rejects(f.engine.confirmWriting(f.offer.id, 'author-a'), /changed|dirty/)
     assert.equal(f.sourceWrites().length, 0)
   }
@@ -125,7 +125,7 @@ test('changed saved design during native work or after result cannot reuse confi
   for (const afterResult of [false, true]) {
     const f = await fixture(); await f.engine.offerWriting(f.offer); await f.engine.confirmWriting(f.offer.id, 'a'); await f.engine.dispatchWriting(f.offer.id, f.native)
     if (afterResult) await f.engine.acceptWritingResult(f.offer.id, f.completed())
-    f.files.get('thinking.canvas.json').digest = 'design-2'
+    f.files.get('research-content.json').digest = 'design-2'
     await assert.rejects(afterResult ? f.engine.applyWriting(f.offer.id) : f.engine.acceptWritingResult(f.offer.id, f.completed()), /design changed/)
     assert.equal(f.sourceWrites().length, 0)
   }
@@ -263,7 +263,7 @@ test('exact source patch and conservative undo share one implementation, includi
 
 test('structured unconfirmed design results enter review as canvas-only proposals, never as writing permission', async () => {
   const f = await fixture()
-  const request = { id: 'design-a', scope, feedback: f.offer.feedback, context: 'The selected design', targets: [{ id: 'title-a', anchor: { kind: 'canvas', workspace: scope.workspace, path: 'thinking.canvas.json', digest: 'design-1', quote: 'Old title', target: { kind: 'canvas', workspace: scope.workspace, path: 'thinking.canvas.json', objectId: 'card-a', field: 'title' } } }] }
+  const request = { id: 'design-a', scope, feedback: f.offer.feedback, context: 'The selected design', targets: [{ id: 'title-a', anchor: { kind: 'canvas', workspace: scope.workspace, path: 'research-content.json', digest: 'design-1', quote: 'Old title', target: { kind: 'canvas', workspace: scope.workspace, path: 'research-content.json', objectId: 'card-a', field: 'title' } } }] }
   const expected = { sessionId: 'session-a', turnId }
   const result = { ...expected, status: 'completed', truncated: false, text: JSON.stringify({ schema: 'research-writing/design-v1', requestId: request.id, title: 'Clarify motivation', changes: [{ targetId: 'title-a', after: 'New title', reason: 'Respond to feedback' }] }) }
   assert.equal(await f.engine.addDesignProposal(request, result, expected), true)

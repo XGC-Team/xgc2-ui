@@ -3,7 +3,7 @@ import { sendNativePrompt } from '../chat/client'
 import { belongsToResearchScope, useNativeAgentSession } from '../chat/Session'
 import { check, scopeKey, type Scope } from './review-model.ts'
 import type { useReview } from './useReview'
-import { completedWritingTurn } from './native-writing.ts'
+import { completedWritingTurn, resumeWritingIdentity } from './native-writing.ts'
 import { designProposalPrompt } from './writing-model.ts'
 import { writingHistoryReceipt } from './review-batches.ts'
 import type { DesignProposalRequest, ReviewBatchReceipt, WritingOffer, WritingSelection } from './writing-contract.ts'
@@ -112,6 +112,26 @@ export function useWritingReview(scope: Scope, review: Review, mapping: WritingM
   return {
     busy, error,
     offerWriting: (offer: WritingOffer) => review.action(engine => engine.offerWriting(offer)),
+    openWritingSession: async (proposalId:string) => {
+      const execution=review.book?.proposals.find(p=>p.id===proposalId)?.writing?.execution
+      check(execution?.sessionId,'This writing request has no acknowledged conversation.')
+      await native.openSession(execution.sessionId)
+    },
+    resumeWriting: async (proposalId:string) => {
+      check(!active.current&&!consuming.current&&!launching.current&&!busy,'A writing result is already being observed.')
+      const current=latest.current.native.requireCurrentSession()
+      check(alive.current&&latest.current.scope===key&&belongsToResearchScope(current.session.scope,scope.projectId,scope.workspace,true),'The writing conversation belongs to another project.')
+      const writing=await review.action(async engine=>engine.snapshot().book?.proposals.find(p=>p.id===proposalId)?.writing)
+      check(writing,'Reload the saved writing request first.')
+      if(writing.status==='ready'){
+        check(writing.execution?.sessionId===current.session.id,'Open the original writing conversation.')
+        setBusy(true);setError('')
+        try{const receipt=await review.action(engine=>engine.applyWriting(proposalId));if(receipt)await mapReceipt(proposalId,receipt,writing.selection,review.action,mapping)}finally{setBusy(false)}
+        return
+      }
+      const identity=resumeWritingIdentity(writing,current.session.id)
+      active.current={scope:key,...identity,proposalId};setError('');setBusy(true);setPulse(n=>n+1)
+    },
     /** Called once by A's explicit confirm action. No separate save/build approval. */
     confirmAndWrite: async (proposalId: string, actor: string) => {
       check(!active.current && !consuming.current && !launching.current && !busy, 'A review turn is already pending.')

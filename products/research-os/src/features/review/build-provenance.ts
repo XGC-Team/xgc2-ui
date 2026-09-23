@@ -4,6 +4,7 @@ export type BuildRecord = {
     schemaVersion: 'xgc.research.manuscript/v2'
     workspaceRef: string
     entryPoint: string
+    sourceRoot?: string
     sourceDigest: string
     requestedAt: string
     inputs: { path: string; digest: string }[]
@@ -24,15 +25,18 @@ export function validSourcePath(value: unknown): value is string {
   return typeof value === 'string' && !!value && value.trim() === value && !/[\\\x00\r\n]/.test(value) &&
     !value.split('/').some(part => !part || ['.', '..', '.git', '.research-build'].includes(part))
 }
+export const validBuildSourceRoot = (value: unknown): value is string => value === '.' || validSourcePath(value)
+export const sourceInsideBuildRoot = (path: string, root = '.'): boolean => root === '.' || path.startsWith(`${root}/`)
 const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value)
 export function isBuildRecord(value: unknown): value is BuildRecord {
   if (!object(value) || !object(value.task) || !object(value.manifest)) return false
   const { task, manifest } = value
   return task.schemaVersion === 'xgc.research.manuscript/v2' && manifest.schemaVersion === task.schemaVersion &&
     typeof task.workspaceRef === 'string' && !!task.workspaceRef && validSourcePath(task.entryPoint) && validDigest(task.sourceDigest) &&
+    (task.sourceRoot === undefined || validBuildSourceRoot(task.sourceRoot)) && sourceInsideBuildRoot(task.entryPoint, task.sourceRoot as string | undefined) &&
     typeof task.requestedAt === 'string' && Number.isFinite(Date.parse(task.requestedAt)) &&
     Array.isArray(task.inputs) && task.inputs.length > 0 &&
-    task.inputs.every(input => object(input) && validSourcePath(input.path) && validDigest(input.digest)) &&
+    task.inputs.every(input => object(input) && validSourcePath(input.path) && validDigest(input.digest) && sourceInsideBuildRoot(input.path, task.sourceRoot as string | undefined)) &&
     new Set(task.inputs.map(input => input.path)).size === task.inputs.length && task.inputs.some(input => input.path === task.entryPoint) &&
     typeof manifest.buildId === 'string' && !!manifest.buildId && typeof manifest.completedAt === 'string' && Number.isFinite(Date.parse(manifest.completedAt)) &&
     ['succeeded', 'failed', 'cancelled'].includes(String(manifest.status)) && typeof manifest.logArtifactRef === 'string' && /^cas:\/\/sha256\/[a-f0-9]{64}$/.test(manifest.logArtifactRef) &&

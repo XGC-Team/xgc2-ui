@@ -4,6 +4,7 @@ import { buildSourceMatch, compareBuildRequests, isBuildRecord, previewProvenanc
 import { buildArtifactURL, buildSavedManuscript, normalizeSavedInputs, pdfFromRecord } from '../src/features/resources/manuscript'
 import { createManuscriptBuild, notifyManuscriptSourcesSaved, subscribeManuscriptSaves, type BuildPorts } from '../src/features/resources/manuscript-build'
 import { reconcileSave, saveFailure, saveSource } from '../src/features/resources/saved-source'
+import { defaultManuscriptSourceRoot, manuscriptSourceRoot, setManuscriptSourceRoot, validateManuscriptSourceRoot } from '../src/features/resources/manuscript-build-config'
 const a = 'a'.repeat(64), b = 'b'.repeat(64), c = 'c'.repeat(64)
 const scope = { workspace: 'paper-a', entryPoint: 'main.tex' }
 function receipt(id = 'one', status: BuildRecord['manifest']['status'] = 'succeeded', requestedAt = '2026-09-20T00:00:00Z'): BuildRecord {
@@ -51,6 +52,24 @@ describe('current saved-source provenance', () => {
 })
 
 describe('saved-batch coordinator', () => {
+  it('builds only saves inside the selected root and excludes history from a different root', async () => {
+    vi.useFakeTimers()
+    const ports = io(), nested = { workspace: scope.workspace, entryPoint: 'paper/main.tex', sourceRoot: 'paper' }
+    const scoped = receipt('scoped')
+    scoped.task = { ...scoped.task, entryPoint: nested.entryPoint, sourceRoot: nested.sourceRoot, inputs: [{ path: nested.entryPoint, digest: a }] }
+    vi.mocked(ports.build).mockResolvedValue(scoped)
+    vi.mocked(ports.history).mockResolvedValue([{ ...scoped, task: { ...scoped.task, sourceRoot: '.' } }])
+    const controller = createManuscriptBuild(nested, ports, 20)
+    await controller.refresh()
+    expect(controller.getSnapshot().record).toBeNull()
+    controller.saved({ workspace: scope.workspace, changes: [{ path: 'source/unrelated.py', digest: b }, { path: 'papers/other.tex', digest: c }] })
+    await vi.advanceTimersByTimeAsync(20)
+    expect(ports.build).not.toHaveBeenCalled()
+    controller.saved({ workspace: scope.workspace, changes: [{ path: 'paper/main.tex', digest: a }, { path: 'source/unrelated.py', digest: b }] })
+    await vi.advanceTimersByTimeAsync(20)
+    expect(vi.mocked(ports.build).mock.calls[0].slice(0, 2)).toEqual([nested, [{ path: 'paper/main.tex', digest: a }]])
+    expect(controller.getSnapshot().pdf?.buildId).toBe('scoped')
+  })
   it('coalesces main, include and newly saved dependency into one build', async () => {
     vi.useFakeTimers(); const ports = io(), controller = createManuscriptBuild(scope, ports, 20)
     controller.saved({ workspace: scope.workspace, changes: [{ path: 'main.tex', digest: a }] })
@@ -135,6 +154,20 @@ describe('saved-batch coordinator', () => {
 })
 
 describe('real HTTP adapter contract (transport fixtures, not a compiler substitute)', () => {
+  it('requires the returned capture scope to equal the requested root', async () => {
+    const record = receipt()
+    record.task = { ...record.task, entryPoint: 'paper/main.tex', sourceRoot: '.', inputs: [{ path: 'paper/main.tex', digest: a }] }
+    const fetch = vi.fn(async () => new Response(JSON.stringify({ data: record }), { status: 201 }))
+    vi.stubGlobal('fetch', fetch)
+    await expect(buildSavedManuscript({ ...scope, entryPoint: 'paper/main.tex', sourceRoot: 'paper' }, [])).rejects.toThrow('does not match')
+    const [, init] = fetch.mock.calls[0] as unknown as [string, RequestInit]
+    expect(JSON.parse(String(init.body)).sourceRoot).toBe('paper')
+    await expect(buildSavedManuscript({ ...scope, entryPoint: 'paper/main.tex', sourceRoot: 'paper' }, [{ path: 'elsewhere.tex', digest: b }])).rejects.toThrow()
+    expect(fetch).toHaveBeenCalledTimes(1)
+    record.task.sourceRoot = 'paper'
+    record.task.inputs.push({ path: 'outside.tex', digest: b })
+    expect(isBuildRecord(record)).toBe(false)
+  })
   it('posts only saved intent, carries cancellation, and never requests Git or client toolchain data', async () => {
     const fetch = vi.fn(async () => new Response(JSON.stringify({ data: receipt() }), { status: 201 }))
     vi.stubGlobal('fetch', fetch); const controller = new AbortController()
@@ -142,7 +175,7 @@ describe('real HTTP adapter contract (transport fixtures, not a compiler substit
     expect(fetch).toHaveBeenCalledTimes(1)
     const [url, init] = vi.mocked(fetch).mock.calls[0] as unknown as [string, RequestInit]
     expect(url).toBe('/api/v1/manuscripts/builds'); expect(init.signal).toBe(controller.signal)
-    expect(JSON.parse(String(init.body))).toEqual({ workspaceRef: scope.workspace, entryPoint: scope.entryPoint, expectedInputs: [{ path: 'main.tex', digest: a }] })
+    expect(JSON.parse(String(init.body))).toEqual({ workspaceRef: scope.workspace, entryPoint: scope.entryPoint, sourceRoot: '.', expectedInputs: [{ path: 'main.tex', digest: a }] })
   })
   it('rejects a returned snapshot that does not contain the saved file receipt', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ data: receipt() }), { status: 201 })))
@@ -166,5 +199,19 @@ describe('real HTTP adapter contract (transport fixtures, not a compiler substit
     expect(reconcileSave(attempt, { content: 'new', digest: b })).toBe('saved')
     expect(reconcileSave(attempt, attempt.before)).toBe('not-saved')
     expect(reconcileSave(attempt, { content: 'external edit', digest: c })).toBe('conflict')
+  })
+})
+
+describe('explicit manuscript source settings', () => {
+  it('starts from the entry parent and retains a deliberately wider valid root', () => {
+    const values = new Map<string, string>()
+    vi.stubGlobal('localStorage', { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => values.set(key, value) })
+    expect(defaultManuscriptSourceRoot('main.tex')).toBe('.')
+    expect(manuscriptSourceRoot('scope-setting-fixture', 'paper/main.tex')).toBe('paper')
+    setManuscriptSourceRoot('scope-setting-fixture', 'paper/main.tex', '.')
+    expect(manuscriptSourceRoot('scope-setting-fixture', 'paper/main.tex')).toBe('.')
+    expect(() => validateManuscriptSourceRoot('paper/main.tex', '../')).toThrow()
+    expect(() => validateManuscriptSourceRoot('paper/main.tex', 'papers')).toThrow()
+    expect(() => validateManuscriptSourceRoot('paper/main.tex', 'paper/main.tex')).toThrow()
   })
 })

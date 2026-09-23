@@ -8,7 +8,7 @@ export type ContextItem = {
   project: string
   kind: ContextItemKind
   label: string
-  /** research-drafts.json#<draftId> · thinking.canvas.json#<nodeId> · source path */
+  /** Canonical content anchor (#artifact/id or #object/id), or a source path. */
   ref: string
   source?: DraftSource
   digest?: string
@@ -16,6 +16,7 @@ export type ContextItem = {
   capturedAt: string
   state: ContextState
   latestDigest?: string
+  latestExcerpt?: string
 }
 function requireContext(ok: unknown, message: string): asserts ok { if (!ok) throw new Error(message) }
 
@@ -35,15 +36,16 @@ export function newContextItem(input: {
 }
 
 /** Compare against a freshly observed revision. `null` means the source file no longer exists. */
-export function assessContextItem(item: ContextItem, observed: { digest?: string } | null): ContextItem {
+export function assessContextItem(item: ContextItem, observed: { digest?: string; excerpt?: string } | null): ContextItem {
   if (observed === null) return { ...item, state: 'missing' }
   if (item.digest && observed.digest) {
     if (item.digest === observed.digest) {
       const next = { ...item, state: 'current' as const }
       delete next.latestDigest
+      delete next.latestExcerpt
       return next
     }
-    return { ...item, state: 'update-available', latestDigest: observed.digest }
+    return { ...item, state: 'update-available', latestDigest: observed.digest, latestExcerpt: observed.excerpt }
   }
   return { ...item, state: 'unverifiable', ...(observed.digest ? { latestDigest: observed.digest } : {}) }
 }
@@ -51,8 +53,9 @@ export function assessContextItem(item: ContextItem, observed: { digest?: string
 /** User choice after a change: pin the newly observed version… */
 export function adoptContextVersion(item: ContextItem): ContextItem {
   requireContext(item.latestDigest, 'No observed revision to adopt.')
-  const next = { ...item, digest: item.latestDigest, state: 'current' as const }
+  const next = { ...item, digest: item.latestDigest, excerpt: item.latestExcerpt, source: item.source ? { ...item.source, digest: item.latestDigest, excerpt: item.latestExcerpt } : undefined, state: 'current' as const }
   delete next.latestDigest
+  delete next.latestExcerpt
   return next
 }
 /** …or keep the old snapshot, explicitly labeled as old. History is never silently repinned. */
@@ -89,4 +92,15 @@ export function contextManifest(items: ContextItem[], sessionProject: string): s
   }
   lines.push('历史消息使用的仍是当时的内容；此处只是本次可见的引用清单。')
   return lines.join('\n') + '\n'
+}
+
+export const CONTEXT_PREFERENCE = 'research-ui-pinned-context-v1'
+export function restoreContextItems(raw: string | null): ContextItem[] {
+  if(!raw)return []
+  try {
+    const value: unknown=JSON.parse(raw)
+    if(!Array.isArray(value))return []
+    return value.filter((v):v is ContextItem=>Boolean(v)&&typeof v==='object'&&typeof v.id==='string'&&typeof v.project==='string'&&['canvas-node','draft','source'].includes(v.kind)&&typeof v.ref==='string'&&typeof v.label==='string'&&typeof v.capturedAt==='string')
+      .map(item=>({...item,state:item.state==='stale-snapshot'?'stale-snapshot':'unverifiable'}))
+  }catch{return []}
 }

@@ -9,7 +9,7 @@ vi.stubGlobal('document', { documentElement: { lang: 'zh' } })
 
 const { listPDFVersions } = vi.hoisted(() => ({ listPDFVersions: vi.fn() }))
 const { request } = vi.hoisted(() => ({ request: vi.fn() }))
-vi.mock('../src/features/resources/manuscript', () => ({ listPDFVersions }))
+vi.mock('../src/features/resources/manuscript', async importOriginal => ({ ...await importOriginal<typeof import('../src/features/resources/manuscript')>(), listPDFVersions }))
 vi.mock('../src/lib/api', async () => {
   const actual = await vi.importActual<typeof import('../src/lib/api')>('../src/lib/api')
   return { ...actual, request }
@@ -23,7 +23,7 @@ beforeEach(() => {
   listPDFVersions.mockReset()
   request.mockReset()
   useWorkbench.setState({
-    projectId: '', rightTabs: [], activeRightTab: '', sourceView: null, canvasProject: null,
+    projectId: '', resourceLayout: { version:1,tabs:[],active:{} },
     activeNav: 'chat', reviewIntents: [], reviewDockOpen: false, chatSurface: 'home', reviewFocus: null,
   })
 })
@@ -67,15 +67,17 @@ describe('PDF annotation discussion', () => {
 
 describe('writing workbench store', () => {
   it('starts without an idle web tab occupying the preview', () => {
-    expect(useWorkbench.getState().rightTabs).toEqual([])
+    expect(useWorkbench.getState().resourceLayout.tabs).toEqual([])
   })
-  it('enters a writing project, remembers it, and drops the idle browser tab', () => {
-    useWorkbench.setState({ rightTabs: [{ id: 'rt-idle', kind: 'web', title: '新网页' }], activeRightTab: 'rt-idle', canvasProject: 'other' })
+  it('restores project tabs without changing their selected resource or placement', () => {
     useWorkbench.getState().enterWritingProject('paper-lab')
-    const state = useWorkbench.getState()
-    expect(state).toMatchObject({ projectId: 'paper-lab', activeNav: 'chat', chatSurface: 'writing', canvasProject: null, sourceView: null, rightTabs: [], reviewDockOpen: false })
-    expect(localStorage.setItem).toHaveBeenCalledWith('research-ui-project', 'paper-lab')
-    expect(localStorage.setItem).toHaveBeenCalledWith('research-ui-recent-projects', JSON.stringify(['paper-lab']))
+    const id=useWorkbench.getState().openResource({kind:'research',workspace:'paper-lab',view:'outline'})
+    useWorkbench.getState().enterWritingProject('other')
+    useWorkbench.getState().enterWritingProject('paper-lab')
+    const state=useWorkbench.getState()
+    expect(state).toMatchObject({projectId:'paper-lab',activeNav:'chat',chatSurface:'writing'})
+    expect(state.resourceLayout.active['paper-lab'].primary).toBe(id)
+    expect(localStorage.setItem).toHaveBeenCalledWith('research-ui-project','paper-lab')
   })
   it('generic chat leaves a writing project; Chat navigation does not', () => {
     useWorkbench.getState().enterWritingProject('paper-lab')
@@ -83,7 +85,7 @@ describe('writing workbench store', () => {
     useWorkbench.getState().setActiveNav('chat')
     expect(useWorkbench.getState().projectId).toBe('paper-lab')
     useWorkbench.getState().openChat()
-    expect(useWorkbench.getState()).toMatchObject({ projectId: '', chatSurface: 'generic', canvasProject: null, reviewDockOpen: false })
+    expect(useWorkbench.getState()).toMatchObject({ projectId: '', chatSurface: 'generic', reviewDockOpen: false })
   })
   it('routes review feedback into the writing dock instead of a competing right tab', () => {
     const intent = {
@@ -95,7 +97,7 @@ describe('writing workbench store', () => {
     const state = useWorkbench.getState()
     expect(state.reviewDockOpen).toBe(true)
     expect(state.activeNav).toBe('chat')
-    expect(state.rightTabs).toHaveLength(0)
+    expect(state.resourceLayout.tabs).toHaveLength(0)
     expect(state.reviewIntents[0].anchor.quote).toBe('claim')
   })
   it('treats a web tab with no URL as idle', () => {
