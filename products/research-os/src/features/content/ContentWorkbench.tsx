@@ -9,12 +9,14 @@ import { Button } from '../../components/ui'
 import { useWorkbench } from '../../store'
 import { ThinkingCanvas } from '../projects/ThinkingCanvas'
 import { useContentDocument } from './useContentDocument'
-import { CONTENT_KINDS, type ContentKind, type ContentObject } from './content-model'
+import { CARD_TYPE_LABELS, CONTENT_KINDS, type ContentKind, type ContentObject } from './content-model'
 import { hasDefinitionDrafts } from './definition-recovery'
 import { ArchivedContentWorkbench, ContentHistory } from './ContentHistory'
+import { RevisionBoard } from '../revision/RevisionBoard'
+import { SyncStrip } from '../revision/SyncStrip'
 
-export type ContentView = 'table' | 'outline' | 'canvas'
-const kindLabels: Record<ContentKind, string> = { question: '问题', claim: '主张', assumption: '假设', evidence: '证据', design: '设计', note: '笔记', method: '方法', workflow: '流程', tool: '工具' }
+export type ContentView = 'table' | 'outline' | 'canvas' | 'revision'
+const kindLabels = CARD_TYPE_LABELS.zh
 type ContentWorkbenchProps = { project: string; workspace?: string; view?: ContentView; objectId?: string; artifactId?: string; digest?: string; tabId?: string; onViewChange?: (view: ContentView) => void; active?: boolean; onRequestConversation?: () => void }
 export function ContentWorkbench(props: ContentWorkbenchProps) {
   return props.digest ? <ArchivedContentWorkbench project={props.project} workspace={props.workspace ?? props.project} digest={props.digest} objectId={props.objectId} artifactId={props.artifactId}/> : <LiveContentWorkbench {...props}/>
@@ -60,11 +62,12 @@ function LiveContentWorkbench({ project, workspace = project, view = 'table', on
   return <section ref={pane} className="flex h-full min-h-0 min-w-0 flex-col" data-content-workbench={workspace}>
     <header className="flex min-h-10 shrink-0 flex-wrap items-center gap-2 border-b border-line px-3 py-1">
       <span className="mr-auto truncate text-secondary font-medium">{zh ? '研究内容' : 'Research content'}</span>
-      {(['table', 'outline', 'canvas'] as const).map(v => <Button key={v} size="xs" variant={v === view ? 'outline' : 'ghost'} aria-pressed={v === view} onClick={() => switchView(v)}>{zh ? { table: '问题表', outline: '大纲', canvas: '画布' }[v] : v}</Button>)}
+      {(['table', 'outline', 'canvas', 'revision'] as const).map(v => <Button key={v} size="xs" variant={v === view ? 'outline' : 'ghost'} aria-pressed={v === view} onClick={() => switchView(v)}>{zh ? { table: '问题表', outline: '大纲', canvas: '画布', revision: '修订' }[v] : v}</Button>)}
       <span className="text-caption text-ink-3" role="status">{state.dirty ? (zh ? '未保存' : 'Unsaved') : state.status === 'saving' ? (zh ? '保存中' : 'Saving') : state.digest ? (zh ? '已保存' : 'Saved') : ''}</span>
       {state.digest && <ContentHistory scope={{ projectId: project, workspace }} digest={state.digest}/>}
       <Button size="xs" icon={RefreshCw} disabled={state.status === 'saving' || state.reviewLocked} onClick={() => state.reload()}>{zh ? '刷新' : 'Reload'}</Button>
     </header>
+    {state.value && <SyncStrip project={project} digest={state.digest ?? ''} dirty={state.dirty} status={state.status}/>}
     {state.recovered && <p role="status" className="border-b border-line px-3 py-2 text-caption text-ink-2">{zh ? '已恢复本地未保存内容，并核对保存版本。' : 'Recovered local unsaved content and checked its saved revision.'}</p>}
     {state.recoveryError && <p role="alert" className="border-b border-line px-3 py-2 text-caption">{state.recoveryError}</p>}
     {state.error && <div role="alert" className="border-b border-line p-3 text-secondary">{state.error}<div className="mt-2 flex gap-2"><Button size="xs" onClick={state.retry}>{zh ? '重试保存' : 'Retry save'}</Button>{state.dirty && <Button size="xs" onClick={() => { if (window.confirm(zh ? '放弃当前研究内容的未保存修改并重新读取？' : 'Discard unsaved research content and reload?')) state.reload(true) }}>{zh ? '放弃修改并重读' : 'Discard and reload'}</Button>}</div></div>}
@@ -73,7 +76,7 @@ function LiveContentWorkbench({ project, workspace = project, view = 'table', on
       <Button className="mt-3" size="sm" disabled={state.status === 'saving'} onClick={state.migrate}>{state.migrationState === 'legacy' ? (zh ? '迁入现有内容' : 'Migrate existing content') : (zh ? '建立研究内容' : 'Create research content')}</Button>
     </div>}
     {state.migrationState === 'legacy-changed' && <p role="status" className="border-b border-line px-3 py-2 text-caption text-ink-2">{zh ? '历史画布或草稿在迁移后发生变化，当前显示研究内容的已保存版本；请核对历史改动。' : 'A historical source changed after migration. This is the saved research content; inspect the historical changes.'}</p>}
-    {!state.value ? <p className="p-5 text-secondary text-ink-3">{zh ? '正在读取研究内容…' : 'Loading research content…'}</p> : view !== 'table' ? <div className="min-h-0 flex-1" inert={!editable || undefined}><ThinkingCanvas project={project} workspace={workspace} active={active} onRequestConversation={onRequestConversation} view={view} onViewChange={onViewChange} locked={!editable}/></div> : <div className="flex min-h-0 flex-1">
+    {!state.value ? <p className="p-5 text-secondary text-ink-3">{zh ? '正在读取研究内容…' : 'Loading research content…'}</p> : view === 'revision' ? <div className="min-h-0 flex-1"><RevisionBoard project={project} workspace={workspace} document={state.value} digest={state.digest ?? ''} dirty={state.dirty} editable={editable} onView={switchView}/></div> : view !== 'table' ? <div className="min-h-0 flex-1" inert={!editable || undefined}><ThinkingCanvas project={project} workspace={workspace} active={active} onRequestConversation={onRequestConversation} view={view} onViewChange={onViewChange} locked={!editable}/></div> : <div className="flex min-h-0 flex-1">
       {(!narrow || !current || !showDetails) && <div className="flex min-w-0 flex-1 flex-col" data-content-list>
         <div className="flex items-center gap-2 border-b border-line p-2"><Search className="h-4 w-4 shrink-0 text-ink-3"/><div className="min-w-0 flex-1"><Input aria-label={zh ? '查找研究内容' : 'Find research content'} value={query} onChange={e => setQuery(e.target.value)} placeholder={zh ? '标题、内容或标签' : 'Title, content or tag'}/></div><div className="w-40 max-w-[40%] shrink-0"><Select aria-label={zh ? '内容类型' : 'Content kind'} value={kind} onChange={e => setKind(e.target.value)}><option value="">{zh ? '全部类型' : 'All kinds'}</option>{CONTENT_KINDS.map(k => <option key={k} value={k}>{zh ? kindLabels[k] : k}</option>)}</Select></div><Button size="xs" icon={Plus} disabled={!editable} onClick={add}>{zh ? '新增' : 'Add'}</Button></div>
         <div className="min-h-0 flex-1 overflow-auto"><table className="w-full min-w-[560px] text-left text-secondary"><thead className="sticky top-0 bg-surface-1 text-caption text-ink-3"><tr>{(zh ? ['研究内容', '类型', '标签', '状态', '关联'] : ['Content', 'Kind', 'Tags', 'Status', 'Links']).map(t => <th key={t} className="whitespace-nowrap border-b border-line p-2 font-medium">{t}</th>)}</tr></thead><tbody>{visible.map(o => <tr key={o.id} className={selected === o.id ? 'bg-hover' : ''} data-content-object={o.id}><td className="border-b border-line p-2"><button className="text-left hover:underline" onClick={() => choose(o.id)}>{o.title || o.id}</button></td><td className="whitespace-nowrap border-b border-line p-2">{zh ? kindLabels[o.kind] : o.kind}</td><td className="max-w-40 truncate border-b border-line p-2 text-caption text-ink-3" title={o.tags?.join(' · ')}>{o.tags?.join(' · ')}</td><td className="whitespace-nowrap border-b border-line p-2 text-caption">{o.status || '—'}</td><td className="border-b border-line p-2">{state.value!.relations.filter(r => r.from.id === o.id || r.to.id === o.id).length}</td></tr>)}</tbody></table>{visible.length === 0 && <p className="p-4 text-secondary text-ink-3">{zh ? '没有匹配的内容。' : 'No matching content.'}</p>}</div>

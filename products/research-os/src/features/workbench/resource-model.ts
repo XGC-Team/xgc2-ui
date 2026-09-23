@@ -4,7 +4,7 @@ import type { Scope } from '../review/review-model'
 import type { ManuscriptPDF } from '../resources/manuscript'
 
 export type WorkArea = 'primary' | 'secondary'
-export type ContentView = 'table' | 'outline' | 'canvas'
+export type ContentView = 'table' | 'outline' | 'canvas' | 'revision'
 export type SourceLocation = { workspace: string; path: string; line: number; buildId: string; pdf: ManuscriptPDF }
 export type ResourceInput =
   | { kind: 'chat' }
@@ -118,7 +118,7 @@ const scopeOK = (v: unknown) => object(v) && string(v.projectId) && string(v.wor
 function resourceOK(t: Record<string, unknown>): boolean {
   switch (t.kind) {
     case 'chat': return true
-    case 'research': return string(t.workspace) && ['table', 'outline', 'canvas'].includes(String(t.view)) && (t.objectId === undefined || string(t.objectId))
+    case 'research': return string(t.workspace) && ['table', 'outline', 'canvas', 'revision'].includes(String(t.view)) && (t.objectId === undefined || string(t.objectId))
     case 'reviews': case 'drafts': return scopeOK(t.scope)
     case 'file': return scopeOK(t.target) && object(t.target) && pathOK(t.target.path) && ['files', 'notes', 'builds'].includes(String(t.target.view))
     case 'source': return object(t.source) && string(t.source.workspace) && pathOK(t.source.path) && Number.isInteger(t.source.line) && string(t.source.buildId) && pdfOK(t.source.pdf)

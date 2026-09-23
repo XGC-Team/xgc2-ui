@@ -1,4 +1,9 @@
 import {t as tr} from '../i18n'
+import { useStartRevisionThread } from '../features/revision/useRevisionThread'
+import { readDesignFocus, requestDesignFocus } from '../features/projects/design-focus'
+import { findContentSession } from '../features/content/useContentDocument'
+import { CONTENT_PATH } from '../features/content/content-model'
+import { newContextItem } from '../features/projects/context-model'
 import { useEffect, useRef, useState } from 'react'
 import { FileText, Globe, Search } from 'lucide-react'
 import { NAV_ITEMS, useWorkbench } from '../store'
@@ -7,7 +12,7 @@ import { useAcademicNotes } from '../features/resources/useAcademicNotes'
 import { useNativeAgentSession } from '../features/chat/Session'
 type PaletteAction={label:string;run:()=>void;icon?:'globe'|'note';hint?:string}
 export function CommandPalette() {
- const {paletteOpen,setPaletteOpen,setActiveNav,toggleTheme,openResource,previewDocument,projectId,openCanvas,chatDock,setChatDock,openSettings,showConversation,locale}=useWorkbench();const native=useNativeAgentSession();const zh=locale==='zh';const [query,setQuery]=useState(''),[index,setIndex]=useState(0);const ref=useRef<HTMLInputElement>(null)
+ const {paletteOpen,setPaletteOpen,setActiveNav,toggleTheme,openResource,previewDocument,projectId,openCanvas,chatDock,setChatDock,openSettings,showConversation,locale,addContextItem}=useWorkbench();const native=useNativeAgentSession();const zh=locale==='zh';const [query,setQuery]=useState(''),[index,setIndex]=useState(0);const ref=useRef<HTMLInputElement>(null)
  const {notes}=useAcademicNotes()
  // 网址即动作：查询形如 URL/域名时，首条给出「打开网页」（局部地址栏已退场，这里是一入口）
  let webUrl='';if(looksLikeUrl(query)){try{webUrl=normalizeWebUrl(query)}catch{/* 非法地址不出动作 */}}
@@ -16,9 +21,17 @@ export function CommandPalette() {
  const q=query.trim().toLowerCase()
  const noteActions:PaletteAction[]=q?notes.filter(n=>(n.title+' '+n.path).toLowerCase().includes(q)).slice(0,8).map(n=>({icon:'note',label:n.title,hint:n.path,run:()=>{setActiveNav('knowledge');previewDocument({workspace:'academic',path:n.path,title:n.title})}})):[]
  // Agent 原生命令：新线程、项目研究画布、三栏停靠、连接与模型——与页面导航同列，仍只有这一个入口
+ const startRevision=useStartRevisionThread()
+ const focus=readDesignFocus(),focusCard=focus&&focus.project===projectId?focus.cardIds[0]:undefined
+ const focusObject=focusCard?findContentSession(projectId)?.snapshot().value?.objects.find(o=>o.id===focusCard):undefined
  const workbenchActions:PaletteAction[]=[
   {label:zh?'新线程':'New thread',hint:projectId||(zh?'通用对话':'General chat'),run:()=>{showConversation();native.newThread()}},
-  ...(projectId?[{label:zh?'打开研究画布':'Open research canvas',hint:projectId,run:()=>openCanvas(projectId)}]:[]),
+  ...(projectId?[{label:zh?'打开研究画布':'Open research canvas',hint:projectId,run:()=>openCanvas(projectId)},{label:zh?'新建修订线程':'New revision thread',hint:projectId,run:()=>void startRevision(projectId)}]:[]),
+  // 作用于画布当前选中的卡片：加入对话上下文（版本化引用）/ 沉淀发现（定位到卡片，在检查器中保存到知识库）
+  ...(projectId&&focusObject?[
+   {label:zh?'将所选卡片加入对话':'Attach selected card to chat',hint:focusObject.title,run:()=>{const digest=findContentSession(projectId)?.snapshot().digest||undefined;addContextItem(newContextItem({project:projectId,kind:'canvas-node',label:focusObject.title,ref:`${CONTENT_PATH}#object/${focusObject.id}`,digest,excerpt:focusObject.body?.slice(0,200),source:{id:focusObject.id,path:CONTENT_PATH,workspace:projectId,digest,excerpt:focusObject.body?.slice(0,200)}}));showConversation()}},
+   {label:zh?'沉淀发现到知识库':'Promote finding to knowledge',hint:focusObject.title,run:()=>{openResource({kind:'research',workspace:projectId,view:'canvas'},'primary');requestDesignFocus(projectId,[focusObject.id])}},
+  ]:[]),
   {label:chatDock?(zh?'取消停靠讨论':'Undock discussion'):(zh?'停靠讨论（讨论 | 画布 | 制品）':'Dock discussion (discussion | canvas | artifact)'),run:()=>setChatDock(!chatDock)},
   {label:zh?'连接与模型':'Connections & models',hint:tr('Settings'),run:()=>openSettings('connections')},
  ]

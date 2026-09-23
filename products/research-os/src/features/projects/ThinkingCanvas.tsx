@@ -1,6 +1,7 @@
 import { Input, Select, Textarea } from '../../components/forms'
 import { SourceReferenceLink } from '../content/SourceReferenceLink'
-import type { ResourceReference } from '../content/content-model'
+import { CARD_TYPES, CARD_TYPE_LABELS, isCardType, type ResourceReference } from '../content/content-model'
+import { LinkedKnowledge } from '../revision/FindingCapture'
 import { openContentResource } from '../content/resource-navigation'
 import { draftIdFromAnchor } from './draft-model'
 import {t as tr} from '../../i18n'
@@ -211,6 +212,8 @@ export function ThinkingCanvas({project,workspace=project,active=true,onRequestC
       <div className="flex items-center gap-1 px-2 pb-2 pt-1">
        {n.ref&&<button className="flex min-w-0 items-center gap-1 rounded-md bg-elevated px-1.5 py-0.5 text-caption text-ink-2 hover:text-ink" title={n.ref.path} onClick={()=>openDocument({workspace:'academic',path:n.ref!.path,title:n.ref!.title})}><Link2 size={11} strokeWidth={1.75} className="shrink-0"/><span className="truncate">{n.ref.title}</span></button>}
        {n.anchor&&<button className="flex min-w-0 items-center gap-1 rounded-md bg-elevated px-1.5 py-0.5 text-caption text-ink-2 hover:text-ink" title={n.anchor} onClick={()=>void openAnchor(n.anchor!)}><FileText size={11} strokeWidth={1.75} className="shrink-0"/><span className="truncate">{n.anchor.split('/').pop()}</span></button>}
+       {/* 卡片类型：主张/问题/决策/证据/约束/修订项…——画布作为逻辑板，类型以文字标出 */}
+       {isCardType(n.cardType)&&!['note','design'].includes(n.cardType)&&<span className="rounded-md border border-line px-1.5 py-0.5 text-caption text-ink-2" data-card-kind={n.cardType}>{CARD_TYPE_LABELS[locale][n.cardType]}{typeof (n as {status?:unknown}).status==='string'&&(n as {status?:string}).status?` · ${(n as {status?:string}).status}`:''}</span>}
        {Boolean(n.evidence?.length)&&<span className="rounded-md bg-elevated px-1.5 py-0.5 text-caption text-ink-3">{copy.evidence} {n.evidence!.length}</span>}
        {Boolean(n.bindings?.length)&&<span className="rounded-md bg-elevated px-1.5 py-0.5 text-caption text-ink-3">{copy.sourceBindings} {n.bindings!.length}</span>}
        {selected&&<span className="ml-auto flex shrink-0 gap-0.5">
@@ -241,10 +244,16 @@ export function ThinkingCanvas({project,workspace=project,active=true,onRequestC
        {canvasSentenceLines(canvas, selectedNode.id).map((line, index)=><li key={line.id} className="leading-5"><span className="text-ink-3">{index+1}. </span>{line.relation?`${copy[RELATION_COPY[line.relation]]} · `:''}{line.text}</li>)}
       </ol>
      </section>}
+     <label className="block text-secondary text-ink-2">{locale==='zh'?'卡片类型':'Card kind'}
+      <Select className="ui-input mt-1 w-full" value={selectedNode.cardType??(selectedNode.kind==='chapter'?'design':'note')} onChange={e=>apply(c=>({...c,nodes:c.nodes.map(x=>x.id===selectedNode.id?{...x,cardType:e.target.value}:x)}))}>
+       {CARD_TYPES.map(type=><option key={type} value={type}>{CARD_TYPE_LABELS[locale][type]}</option>)}
+      </Select>
+     </label>
      <div className="flex flex-wrap gap-1">
       <Button size="xs" icon={Crosshair} onClick={()=>setView('outline')}>{copy.locateOutline}</Button>
       <Button size="xs" onClick={()=>addNodeToContext(selectedNode)}>{copy.addToContext}</Button>
      </div>
+     <LinkedKnowledge project={project} workspace={workspace} object={selectedNode} sources={((selectedNode as {sources?:ResourceReference[]}).sources)??[]}/>
      <section className="space-y-2">
       <p className="text-caption font-medium uppercase tracking-[0.06em] text-ink-3">{copy.evidence}</p>
       {(selectedNode.evidence??[]).map(item=><div key={item.id} className="space-y-1 rounded-md bg-elevated p-2 text-caption">
