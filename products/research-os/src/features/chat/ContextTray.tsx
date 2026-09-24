@@ -13,6 +13,9 @@ import { useAcademicNotes } from '../resources/useAcademicNotes'
 import { extractCanvasPatches, patchContract } from '../revision/revision-model'
 import { agentProposalKey, proposalCounts, useProposals } from '../revision/proposal-store'
 import { sessionProject } from '../revision/useRevisionThread'
+import { extractSourcePatches, sourceProposalId, SOURCE_FENCE } from '../revision/source-patch'
+import { fileSourcePatches } from '../revision/revision-actions'
+import { request } from '../../lib/api'
 
 /* Chat 是控制面：研究对象以「版本化引用」挂到输入框上方（T3/Cursor 的附件语法），
    加入 ≠ 发送；插入草稿与请求画布提议是显式动作。版本细节收进「管理引用」。 */
@@ -101,6 +104,33 @@ export function ContextTray() {
   const bound = Boolean(native.session && sessionProject(native.session) === project && native.streamMatchesSelection)
   const detected = useMemo(() => bound ? native.state.items.filter(item => item.role === 'assistant' && item.text.includes('```research-canvas-patch'))
     .flatMap(item => extractCanvasPatches(item.text).flatMap((p, i) => p.patch ? [{ key: agentProposalKey(native.selectedId, item.id, i, p.patch), patch: p.patch }] : [])) : [], [bound, native.state.items, native.selectedId])
+  // Manuscript edits the agent proposed in this thread (research-source-patch): filed into the review journal on "Review".
+  const sourceFound = useMemo(() => bound ? native.state.items.filter(item => item.role === 'assistant' && item.text.includes('```' + SOURCE_FENCE))
+    .flatMap(item => extractSourcePatches(item.text).flatMap((p, i) => p.patch ? [{ id: sourceProposalId(native.selectedId, item.id, i), label: `${native.session?.provider || 'agent'} · ${native.selectedId.slice(0, 8)}`, patch: p.patch }] : []))
+    // The same message can appear more than once in the stream (delta + final); one patch, one proposal.
+    .filter((f, i, all) => all.findIndex(g => g.id === f.id) === i) : [], [bound, native.state.items, native.selectedId, native.session?.provider])
+  const [filedIds, setFiledIds] = useState<Set<string>>(new Set())
+  const sourceKey = sourceFound.map(f => f.id).join('|')
+  useEffect(() => {
+    // Which of them the journal already holds (e.g. after a reload): read once per new set, never write.
+    if (!project || !sourceKey) return
+    let live = true
+    request<{ content: string }>(`/workspaces/${encodeURIComponent(project)}/files/research-reviews.json`).then(file => {
+      const ids = (JSON.parse(file.content).proposals ?? []).map((p: { id?: string }) => p.id)
+      if (live) setFiledIds(new Set(ids))
+    }).catch(() => {})
+    return () => { live = false }
+  }, [project, sourceKey])
+  const sourceUnfiled = sourceFound.filter(f => !filedIds.has(f.id))
+  const reviewSource = async () => {
+    setNote('')
+    try {
+      const result = await fileSourcePatches({ scope: { projectId: project, workspace: project }, locale, found: sourceUnfiled })
+      setFiledIds(ids => new Set([...ids, ...result.filed, ...result.existing]))
+      if (result.problems.length) setNote(`${zh ? '部分修改未能定位：' : 'Some edits could not be located: '}${result.problems.join(' ')}`)
+      if (result.filed.length || result.existing.length) openResource({ kind: 'reviews', scope: { projectId: project, workspace: project } }, 'secondary')
+    } catch (error) { setNote(error instanceof Error ? error.message : String(error)) }
+  }
   const known = new Set(proposals.filter(p => p.project === project).map(p => p.key))
   const unseen = detected.filter(d => !known.has(d.key))
   const pending = proposalCounts(proposals, project).pending
@@ -145,6 +175,12 @@ export function ContextTray() {
       {project && (unseen.length > 0 || pending > 0) && <button type="button" onClick={() => void review()} data-xgc-role="review-proposals" data-pending={pending + unseen.length}
         className="flex h-6 items-center gap-1 rounded-md border border-line-strong px-1.5 text-caption text-ink hover:bg-hover">
         {unseen.length ? (zh ? `Agent 提出 ${unseen.length} 项画布修改 · 审阅` : `Agent proposed ${unseen.length} canvas change(s) · Review`) : (zh ? `${pending} 项画布提议待审` : `${pending} canvas proposal(s) to review`)}
+      </button>}
+      {project && sourceUnfiled.length === 0 && sourceFound.length > 0 && <button type="button" onClick={() => openResource({ kind: 'reviews', scope: { projectId: project, workspace: project } }, 'secondary')} data-xgc-role="open-source-review"
+        className="flex h-6 items-center gap-1 rounded-md px-1.5 text-caption text-ink-2 hover:bg-hover hover:text-ink">{zh ? '稿件修改 · 打开审阅' : 'Manuscript edits · open review'}</button>}
+      {project && sourceUnfiled.length > 0 && <button type="button" onClick={() => void reviewSource()} data-xgc-role="review-source-patches" data-pending={sourceUnfiled.length}
+        className="flex h-6 items-center gap-1 rounded-md border border-line-strong px-1.5 text-caption text-ink hover:bg-hover">
+        {zh ? `Agent 提出 ${sourceUnfiled.reduce((n, f) => n + f.patch.edits.length, 0)} 处稿件修改 · 审阅` : `Agent proposed ${sourceUnfiled.reduce((n, f) => n + f.patch.edits.length, 0)} manuscript edit(s) · Review`}
       </button>}
       {/* 设计审阅不再常驻列内：有待讨论的批注时出现一枚计数，点开浮层 */}
       {project && (reviewCount > 0 || reviewDockOpen) && <button type="button" aria-pressed={reviewDockOpen} onClick={() => setReviewDockOpen(!reviewDockOpen)} data-xgc-role="review-chip" data-pending={reviewCount}

@@ -1,10 +1,12 @@
-import { request } from '../../lib/api'
+import { APIError, request } from '../../lib/api'
 import type { DraftScope } from '../projects/draft-model'
 import { isReviewLocked } from '../review/write-coordinator'
-import { CONTENT_PATH, type ContentDocument, type ContentObject, type ResourceReference } from '../content/content-model'
+import { CONTENT_PATH, cardType, type ContentDocument, type ContentObject, type ResourceReference } from '../content/content-model'
 import { sharedContentSession } from '../content/useContentDocument'
 import { findingMarkdown, findingPath, findingPromotionProposal } from './revision-model'
 import { connectReview } from '../review/review-api'
+import { resolveSourcePatch, sourcePatchProposal, type SavedFile, type SourcePatch } from './source-patch'
+import { listProjectMaterials } from '../resources/project-files'
 
 /* All writes go through the one shared content writer (autosave + CAS) or a saved-file receipt.
    Each helper reports why it could not act instead of pretending it did. */
@@ -74,4 +76,63 @@ export async function proposeFindingPromotion(input: { scope: DraftScope; path: 
   try { await engine.load(); await engine.add(proposal) } finally { engine.dispose() }
   if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('research:review-journal-changed', { detail: input.scope }))
   return { proposalId: proposal.id }
+}
+
+// ---------- plan → manuscript: agent source patches filed into the review journal ----------
+
+export async function readSaved(workspace: string, path: string): Promise<SavedFile | null> {
+  try {
+    const file = await request<{ content: string; digest: string }>(`/workspaces/${encodeURIComponent(workspace)}/files/${path.split('/').map(encodeURIComponent).join('/')}`)
+    return typeof file?.content === 'string' && file.digest ? { content: file.content, digest: file.digest } : null
+  } catch (error) { if (error instanceof APIError && error.status === 404) return null; throw error }
+}
+
+export type FiledSourcePatches = { filed: string[]; existing: string[]; problems: string[] }
+
+/** Locate each agent patch against the saved manuscript and file it as one review-journal proposal.
+ * Already-filed patches (same stable id) are left alone. Nothing is written to the manuscript here. */
+export async function fileSourcePatches(input: { scope: DraftScope; locale: 'zh' | 'en'; author?: string; found: { id: string; label: string; patch: SourcePatch }[] }): Promise<FiledSourcePatches> {
+  const out: FiledSourcePatches = { filed: [], existing: [], problems: [] }
+  const paths = [...new Set(input.found.flatMap(f => f.patch.edits.map(e => e.path)))]
+  const files: Record<string, SavedFile | null> = {}
+  for (const path of paths) files[path] = await readSaved(input.scope.workspace, path)
+  let cards: { id: string; title: string }[] = [], contentDigest: string | undefined
+  try { const session = await loaded(input.scope); cards = (session.snapshot().value?.objects ?? []).map(o => ({ id: o.id, title: o.title })); contentDigest = session.snapshot().digest || undefined } catch { /* Cards are optional evidence; edits still carry their passage. */ }
+  const engine = connectReview(input.scope, () => {})
+  try {
+    await engine.load()
+    const known = new Set(engine.snapshot().book?.proposals.map(p => p.id) ?? [])
+    for (const f of input.found) {
+      if (known.has(f.id)) { out.existing.push(f.id); continue }
+      const { edits, problems } = resolveSourcePatch(f.patch, files)
+      out.problems.push(...problems)
+      if (!edits.length) continue
+      await engine.add(sourcePatchProposal({ scope: input.scope, id: f.id, author: input.author || 'researcher', at: new Date(), label: f.label, patch: f.patch, edits, cards, contentDigest, locale: input.locale }))
+      out.filed.push(f.id); known.add(f.id)
+    }
+  } finally { engine.dispose() }
+  if (out.filed.length && typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('research:review-journal-changed', { detail: input.scope }))
+  return out
+}
+
+/** After an applied manuscript proposal: mark the revision items it answered as addressed and link the edited passage. */
+export async function markAnswered(scope: DraftScope, cardIds: string[], passage: { path: string; digest?: string; quote: string }): Promise<EditResult> {
+  return editResearchContent(scope, document => cardIds.reduce((d, id) => {
+    const linked = addObjectSource(d, id, { kind: 'file', workspace: scope.workspace, path: passage.path, ...(passage.digest ? { digest: passage.digest } : {}), selector: { quote: passage.quote.slice(0, 200) }, title: passage.path.split('/').pop() })
+    return { ...linked, objects: linked.objects.map(o => o.id === id && cardType(o) === 'revision' ? { ...o, status: 'addressed' } : o) }
+  }, document))
+}
+
+/** Text manuscript files in the project (two directory levels), for the agent's source contract. */
+export async function listManuscriptFiles(workspace: string): Promise<string[]> {
+  const out: string[] = []
+  const walk = async (directory: string, depth: number) => {
+    const entries = await listProjectMaterials(workspace, directory)
+    for (const entry of entries) {
+      if (entry.kind === 'directory' && depth < 2 && !entry.path.split('/').pop()!.startsWith('.')) await walk(entry.path, depth + 1)
+      else if (entry.kind === 'file' && /\.(tex|bib)$/i.test(entry.path)) out.push(entry.path)
+    }
+  }
+  try { await walk('', 0) } catch { /* The contract then says no manuscript was found. */ }
+  return out.slice(0, 30)
 }

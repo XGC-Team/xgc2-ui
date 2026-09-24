@@ -3,6 +3,8 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { applyKnowledgePromotion } from '../resources/knowledge-promotion-api'
 import type { PromotionReceipt } from '../resources/knowledge-promotion'
 import { Button } from '../../components/ui'
+import { answeredCards } from '../revision/source-patch'
+import { markAnswered } from '../revision/revision-actions'
 import { saveDownload } from '../../lib/api'
 import { useWorkbench } from '../../store'
 import { DRAFTS_PATH } from '../projects/draft-model'
@@ -34,6 +36,7 @@ export function ReviewPanelContents({scope, tabId, onTitle, surface = 'panel', a
   const seed = incoming.find(i => i.id === feedbackId) || incoming[0]
   const [title, setTitle] = useState(''), [body, setBody] = useState(''), [author, setAuthor] = useState('researcher')
   const [promotionReceipts, setPromotionReceipts] = useState<Record<string, PromotionReceipt>>({})
+  const [marked, setMarked] = useState<Record<string, boolean>>({})
   const [operations, setOperations] = useState<Operation[]>([]), [localError, setLocalError] = useState('')
   const [kind, setKind] = useState<'text' | 'canvas' | 'block'>('text'), [path, setPath] = useState('')
   const [source, setSource] = useState<FileRecord | null>(null), [choice, setChoice] = useState('0'), [range, setRange] = useState({start: 0, end: 0})
@@ -229,6 +232,21 @@ export function ReviewPanelContents({scope, tabId, onTitle, surface = 'panel', a
           <Button disabled={!checked.length || !decisionReason.trim()} onClick={() => void call(() => api.action(e => e.reject(proposal.id, checked, author, decisionReason)))}>{t('拒绝所选组', 'Reject selected group')}</Button></>}
           {preview && <p role="status" className="whitespace-pre-wrap">{preview}</p>}
         </fieldset>}
+        {(() => {
+          // Plan ↔ manuscript: an applied source proposal that answered revision cards can close them and link the passage.
+          const cards = answeredCards(proposal)
+          const applied = api.book!.attempts.find(a => a.proposalId === proposal.id && a.mode === 'apply' && (a.outcome === 'applied' || a.outcome === 'observed-applied'))
+          const text = proposal.operations.find(o => o.target.kind === 'text')
+          if (!applied || !text) return null
+          return <section className="space-y-1 rounded-lg border border-line p-3 text-caption" data-xgc-role="manuscript-applied">
+            <p className="text-ink-2">{t(`源文件已写入 ${applied.path}。PDF 不会自动重新编译。`, `Source written to ${applied.path}. The PDF is not recompiled automatically.`)}</p>
+            {cards.length > 0 && <Button size="xs" variant="outline" data-xgc-role="mark-answered" disabled={busy || marked[proposal.id]} onClick={() => void call(async () => {
+              const result = await markAnswered(scope, cards, { path: text.target.path, digest: applied.afterDigest, quote: text.after })
+              if (!result.ok) throw new Error(result.detail || result.reason)
+              setMarked(v => ({ ...v, [proposal.id]: true }))
+            })}>{marked[proposal.id] ? t(`已将 ${cards.length} 个修订项标为已修改`, `${cards.length} revision item(s) marked addressed`) : t(`将 ${cards.length} 个修订项标为已修改并链接段落`, `Mark ${cards.length} revision item(s) addressed and link the passage`)}</Button>}
+          </section>
+        })()}
         {proposal.promotion && <section className="space-y-2 rounded-lg border border-line p-3">
           <h3>{t('知识晋升范围审查；不执行全局写入', 'Knowledge scope review; no global write')}</h3>
           <p>{proposal.promotion.scope}</p><p>{proposal.promotion.conditions}</p><p>{proposal.promotion.verification}</p>

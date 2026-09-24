@@ -2,6 +2,37 @@
 
 Branch: `feat/research-os-agent-native-workbench` · Draft PR XGC-Team/xgc2-ui#34 · Refs XGC-Team/xgc2-research-os#12
 
+## Round 5: plan → manuscript through Chat (owner vision handoff)
+
+**Why this slice.** After round 4 a researcher could get from reviewer comments to settled decisions in the GUI (items, agent discussion, canvas proposals). But the step that finishes a revision, changing the paper, was still CLI or by hand. The owner's "edit canvas → paper with LLM assist" direction had no path at all. This round closes that loop without a new write path and without needing TeX.
+
+**The loop, verified live** against the local `researchd` with one real Claude turn on synthetic data:
+1. **Comments → items:** reviewer comments become revision-item cards (R1.1 MPC baseline, R1.2 trials per condition).
+2. **Thread brief:** "New revision thread" builds a brief with the items, the canvas-patch contract, the **source-patch contract**, the real list of manuscript files and their saved text. The text is bounded and pinned to its digest, so the agent quotes real text instead of guessing.
+3. **Agent proposes:** Claude answered with a `research-source-patch` block: `{path, before, after, reason, cards:[R1.1]}`.
+4. **File into the journal:** the tray showed "Agent 提出 N 处稿件修改 · 审阅". One click resolves each edit against the saved file: `before` must occur exactly once, and edits must not overlap. Resolved edits are filed as one proposal in the existing review journal, under a stable id so nothing is filed twice, and the "修改审阅" tab opens.
+5. **Review and apply:** the journal's own diff, preview, conditional apply and guarded revert. `manuscript/main.tex` was written with a before/after digest receipt. The panel says plainly that the PDF is not recompiled.
+6. **Back to the plan:** "标为已修改并链接段落" set R1.1 to `addressed` and attached the edited passage (path, post-write digest, quote) to the card. R1.2 was untouched.
+
+**Bugs found live and fixed:** the same agent message can appear twice in the stream (delta + final). That caused a double-detection and a "Duplicate proposal" error; detection is now deduplicated by stable id. And once a patch was filed, nothing led back to the review, so the tray now keeps a quiet "稿件修改 · 打开审阅" link, and ⌘K has "打开修改审阅".
+
+**Tests:** `tests/source-patch.test.ts` covers:
+- parsing, including rejected paths, identical edits and malformed JSON;
+- unique-quote resolution: ambiguous, stale, missing and overlapping edits;
+- the proposal passing real journal validation and `patchTarget` producing the expected text;
+- the evidence carrying the answered cards;
+- the contract text;
+- the bounded, digest-pinned excerpt.
+
+`npm test` passes 272 tests, and `npm run build` and `npm run lint:review` pass.
+
+**Still open (honest):**
+- The PDF is not rebuilt after a source edit, because LaTeX is off on this host (status bar). PDF → source jumps still need SyncTeX from a real build.
+- Edits are located by exact quote only; there is no fuzzy matching. An agent quoting stale text gets "not in the saved file", never a guess.
+- Findings and derivations are not yet pulled into the thread brief automatically. Attach them via the composer tray.
+
+---
+
 ## Round 4: owner priority list (`RESEARCH_OS_PRIORITY_NEXT.md`)
 
 This round follows the owner's ordered list and `RESEARCH_OS_DESIGN_DEEPEN.md`. Verified in a browser against a local `researchd` (devops copy, throwaway data root, sample project with a synthetic PDF).

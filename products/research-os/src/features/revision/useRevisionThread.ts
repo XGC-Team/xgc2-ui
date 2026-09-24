@@ -4,6 +4,8 @@ import { useNativeAgentSession } from '../chat/Session'
 import { sharedContentSession } from '../content/useContentDocument'
 import { cardType } from '../content/content-model'
 import { revisionThreadSeed } from './revision-model'
+import { manuscriptExcerpt, sourcePatchContract } from './source-patch'
+import { listManuscriptFiles, readSaved } from './revision-actions'
 
 const PROJECT_SCOPES = ['research-repository', 'research-project', 'research-project-discussion']
 
@@ -31,7 +33,10 @@ export function useStartRevisionThread() {
     } catch { /* The seed then says there are no items yet; the board stays the source of truth. */ }
     // The contract and item list ride along with the first message as a visible brief; the composer keeps one plain sentence.
     const zh = state.locale === 'zh'
-    useWorkbench.getState().setThreadBrief(project, { label: zh ? `修订约定 · ${items.length} 项` : `Revision brief · ${items.length} item(s)`, text: revisionThreadSeed({ project, locale: state.locale, items }) })
+    // The brief also carries how to propose manuscript edits, and which source files exist (read, not guessed).
+    const files = await listManuscriptFiles(project)
+    const saved = (await Promise.all(files.filter(f => f.endsWith('.tex')).slice(0, 3).map(async path => { try { const f = await readSaved(project, path); return f ? { path, ...f } : null } catch { return null } }))).filter((f): f is { path: string; content: string; digest: string } => Boolean(f))
+    useWorkbench.getState().setThreadBrief(project, { label: zh ? `修订约定 · ${items.length} 项` : `Revision brief · ${items.length} item(s)`, text: `${revisionThreadSeed({ project, locale: state.locale, items })}${sourcePatchContract(state.locale, files)}\n${manuscriptExcerpt(saved)}\n` })
     native.appendDraft(zh ? '请逐条过一遍审稿意见，先给出每条的修订方案（接受 / 部分接受 / 反驳 + 证据）。' : 'Go through the reviewer comments one by one and propose a revision plan for each (accept / partly accept / rebut + evidence).', project)
   }, [native])
 }

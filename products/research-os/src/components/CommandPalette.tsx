@@ -27,7 +27,7 @@ export function CommandPalette() {
  const focusObject=focusCard?findContentSession(projectId)?.snapshot().value?.objects.find(o=>o.id===focusCard):undefined
  const workbenchActions:PaletteAction[]=[
   {label:zh?'新线程':'New thread',hint:projectId||(zh?'通用对话':'General chat'),run:()=>{showConversation();native.newThread()}},
-  ...(projectId?[{label:zh?'打开研究画布':'Open research canvas',hint:projectId,run:()=>openCanvas(projectId)},{label:zh?'新建修订线程':'New revision thread',hint:projectId,run:()=>void startRevision(projectId)},{label:zh?'打开制品（PDF · 幻灯片 · 视频）':'Open artifacts (PDF · slides · video)',hint:projectId,run:()=>openResource({kind:'artifacts'},'secondary')}]:[]),
+  ...(projectId?[{label:zh?'打开研究画布':'Open research canvas',hint:projectId,run:()=>openCanvas(projectId)},{label:zh?'新建修订线程':'New revision thread',hint:projectId,run:()=>void startRevision(projectId)},{label:zh?'打开修改审阅（稿件与画布差异）':'Open change review (manuscript & canvas diffs)',hint:projectId,run:()=>openResource({kind:'reviews',scope:{projectId,workspace:projectId}},'secondary')},{label:zh?'打开制品（PDF · 幻灯片 · 视频）':'Open artifacts (PDF · slides · video)',hint:projectId,run:()=>openResource({kind:'artifacts'},'secondary')}]:[]),
   // 作用于画布当前选中的卡片：加入对话上下文（版本化引用）/ 沉淀发现（定位到卡片，在检查器中保存到知识库）
   ...(projectId&&focusObject?[
    {label:zh?'将所选卡片加入对话':'Attach selected card to chat',hint:focusObject.title,run:()=>{const digest=findContentSession(projectId)?.snapshot().digest||undefined;addContextItem(newContextItem({project:projectId,kind:'canvas-node',label:focusObject.title,ref:`${CONTENT_PATH}#object/${focusObject.id}`,digest,excerpt:focusObject.body?.slice(0,200),source:{id:focusObject.id,path:CONTENT_PATH,workspace:projectId,digest,excerpt:focusObject.body?.slice(0,200)}}));showConversation()}},
