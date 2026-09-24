@@ -48,6 +48,17 @@ Branch: `feat/research-os-agent-native-workbench` · Draft PR XGC-Team/xgc2-ui#3
 
 `npm test` passes 294 tests, and `npm run build` and `npm run lint:review` pass.
 
+**Layout optimisation (follow-up, `RESEARCH_OS_LAYOUT_OPTIMIZE.md`).** `layoutUnits` is now a deterministic, pure-TS, Sugiyama-style layered layout:
+- **Assumption sub-band.** Role bands have explicit pitches. Assumptions get their own half-pitch band between methods and lemmas/guarantees, and the band vanishes when there are none.
+- **Weighted sweeps.** Up to 8 alternating down/up sweeps, keyed by the **weighted median** of neighbour x (weighted mean for 1–2 neighbours). Weights come from the relation (supports/depends_on 1, answers_reviewer 0.8, refines 0.6, conflicts_with 0.35) and 1/band-span. The ordering with the fewest measured crossings is kept.
+- **Transpose pass** for maps with ≤ 300 edges.
+- **Determinism.** Edges are normalised and sorted first, so the result is independent of edge order.
+- **Spacing.** Slightly calmer: gapX 24, gapY 96.
+
+On the live T-RO map (19 units / 74 edges), straight-line crossings between card centres dropped from **85 to 42 (−51%)** in about 28 ms. The assumption no longer shares the method row.
+
+`tests/writing-map.test.ts` gains 8 cases (15 in the file): determinism; all ids placed; edge-order independence (shuffled); a crafted case untangled from > 0 to 0 crossings; the assumption sub-band never stacking on a method, with the band collapsing when absent; in-band card separation and band spacing; weighted median/mean keys and weights; the fixture; a live-map reduction check.
+
 **Not built (by instruction):** Atom Trail / ledger parsers / append-only journal; the Reviews ceremony; mirroring units into `research-content.json`; Issue sync; PDF/SyncTeX; PPT/Remotion; sentence-level nodes; backend routes. There is also no editing of units from the canvas yet: the writing side owns `units.jsonl`.
 
 ---

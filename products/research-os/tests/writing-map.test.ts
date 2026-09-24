@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { EDGE_TYPES, layoutUnits, parseIndex, parseUnits, parseWritingMap, unitsPathFor, DEFAULT_WRITING_MAP_DIR, ROLE_ROW } from '../src/features/argument/writing-map'
+import { CARD, EDGE_TYPES, EDGE_WEIGHT, countCrossings, layoutUnits, parseIndex, parseUnits, parseWritingMap, unitsPathFor, weightedKey, DEFAULT_WRITING_MAP_DIR, ROLE_ROW, type ArgumentUnit, type Placed } from '../src/features/argument/writing-map'
 
 const line = (o: object) => JSON.stringify(o)
 const unit = (id: string, extra: object = {}) => ({ id, unit_id: id, title_zh: id, role: 'method', status: 'draft', why: 'w', adversarial_notes: 'a', writing_norms: 'n', formal_checks: [], ...extra })
@@ -67,5 +67,84 @@ describe.skipIf(!existsSync(`${LIVE}/index.json`))('live writing map (paper-dmpc
     expect(map.diagnostics.filter(d => d.level === 'error')).toEqual([])
     expect(map.units.length).toBe(map.index.units_count)
     expect(map.units.every(u => u.role !== 'unknown' && u.status !== 'unknown')).toBe(true)
+  })
+})
+
+
+/* ---------- layout quality ---------- */
+// The naive baseline: each band in input order, centred — what crossing reduction must beat or match.
+function naive(units: readonly ArgumentUnit[]): Map<string, Placed> {
+  const out = new Map<string, Placed>(), laid = layoutUnits(units, [])
+  const bands = new Map<number, string[]>()
+  for (const u of units) bands.set(laid.get(u.id)!.y, [...(bands.get(laid.get(u.id)!.y) ?? []), u.id])
+  for (const [y, ids] of bands) { const w = ids.length * CARD.w + (ids.length - 1) * CARD.gapX; ids.forEach((id, j) => out.set(id, { id, x: -w / 2 + j * (CARD.w + CARD.gapX), y })) }
+  return out
+}
+const shuffle = <T,>(xs: readonly T[], seed: number) => { const a = [...xs]; let s = seed; for (let i = a.length - 1; i > 0; i--) { s = (s * 9301 + 49297) % 233280; const j = Math.floor(s / 233280 * (i + 1)); [a[i], a[j]] = [a[j], a[i]] } return a }
+
+describe('argument layout (Sugiyama-style)', () => {
+  const crafted = parseUnits([
+    line(unit('P', { role: 'problem' })),
+    line(unit('C1', { role: 'challenge', edges: [{ to: 'P', type: 'refines' }] })), line(unit('C2', { role: 'challenge', edges: [{ to: 'P', type: 'refines' }] })), line(unit('C3', { role: 'challenge' })),
+    line(unit('M1', { role: 'method', edges: [{ to: 'C3', type: 'supports' }] })), line(unit('M2', { role: 'method', edges: [{ to: 'C2', type: 'supports' }] })), line(unit('M3', { role: 'method', edges: [{ to: 'C1', type: 'supports' }] })),
+    line(unit('A1', { role: 'assumption', edges: [{ to: 'M3', type: 'supports' }] })),
+    line(unit('G1', { role: 'guarantee', edges: [{ to: 'M3', type: 'depends_on' }, { to: 'A1', type: 'depends_on' }] })), line(unit('G2', { role: 'guarantee', edges: [{ to: 'M1', type: 'depends_on' }] })),
+  ].join('\n'))
+  it('places every unit, deterministically', () => {
+    const a = layoutUnits(crafted.units, crafted.edges), b = layoutUnits(crafted.units, crafted.edges)
+    expect([...a.keys()].sort()).toEqual(crafted.units.map(u => u.id).sort())
+    expect([...a.entries()]).toEqual([...b.entries()])
+  })
+  it('does not depend on edge input order', () => {
+    const base = layoutUnits(crafted.units, crafted.edges)
+    for (const seed of [1, 7, 42]) expect(layoutUnits(crafted.units, shuffle(crafted.edges, seed))).toEqual(base)
+  })
+  it('untangles what a single naive pass leaves crossed', () => {
+    expect(countCrossings(naive(crafted.units), crafted.edges)).toBeGreaterThan(0)
+    expect(countCrossings(layoutUnits(crafted.units, crafted.edges), crafted.edges)).toBe(0)
+  })
+  it('gives assumptions their own sub-band between methods and guarantees, never stacked on a method', () => {
+    const pos = layoutUnits(crafted.units, crafted.edges)
+    const y = (id: string) => pos.get(id)!.y
+    expect(y('A1')).toBeGreaterThan(y('M1') + CARD.h); expect(y('A1') + CARD.h).toBeLessThan(y('G1'))
+    for (const m of ['M1', 'M2', 'M3']) expect([pos.get(m)!.x, y(m)]).not.toEqual([pos.get('A1')!.x, y('A1')])
+    // without assumptions the band disappears: methods → guarantees is one full pitch
+    const noA = parseUnits([line(unit('M', { role: 'method' })), line(unit('G', { role: 'guarantee', edges: [{ to: 'M', type: 'depends_on' }] }))].join('\n'))
+    const p2 = layoutUnits(noA.units, noA.edges)
+    expect(p2.get('G')!.y - p2.get('M')!.y).toBe(CARD.h + CARD.gapY)
+  })
+  it('keeps cards in a band apart and bands calmly spaced', () => {
+    const pos = layoutUnits(crafted.units, crafted.edges)
+    const byY = new Map<number, number[]>()
+    for (const p of pos.values()) byY.set(p.y, [...(byY.get(p.y) ?? []), p.x])
+    for (const xs of byY.values()) { xs.sort((a, b) => a - b); for (let i = 1; i < xs.length; i++) expect(xs[i] - xs[i - 1]).toBeGreaterThanOrEqual(CARD.w + CARD.gapX) }
+    const ys = [...byY.keys()].sort((a, b) => a - b)
+    for (let i = 1; i < ys.length; i++) expect(ys[i] - ys[i - 1]).toBeGreaterThan(CARD.h + 30)
+  })
+  it('keys by weighted median (≥3) or weighted mean (1–2); weights follow relation strength', () => {
+    expect(weightedKey([])).toBeUndefined()
+    expect(weightedKey([{ x: 10, w: 1 }])).toBe(10)
+    expect(weightedKey([{ x: 0, w: 1 }, { x: 30, w: 2 }])).toBe(20)
+    expect(weightedKey([{ x: 0, w: 1 }, { x: 5, w: 1 }, { x: 1000, w: 1 }])).toBe(5)
+    expect(weightedKey([{ x: 0, w: 0.35 }, { x: 5, w: 0.35 }, { x: 1000, w: 1 }])).toBe(1000)
+    expect(EDGE_WEIGHT.supports).toBeGreaterThan(EDGE_WEIGHT.conflicts_with)
+    expect(Object.keys(EDGE_WEIGHT).sort()).toEqual([...EDGE_TYPES].sort())
+  })
+  it('the labelled sample still lays out cleanly', () => {
+    const dir = resolve(__dirname, '../public/fixtures/argument-canvas-sample')
+    const map = parseWritingMap(readFileSync(`${dir}/index.json`, 'utf8'), readFileSync(`${dir}/units.jsonl`, 'utf8'))
+    const pos = layoutUnits(map.units, map.edges)
+    expect(pos.size).toBe(5); expect(countCrossings(pos, map.edges)).toBeLessThanOrEqual(countCrossings(naive(map.units), map.edges))
+  })
+})
+
+describe.skipIf(!existsSync(`${LIVE}/index.json`))('live writing map layout (if present)', () => {
+  it('reduces crossings well below the naive ordering and separates the assumption band', () => {
+    const map = parseWritingMap(readFileSync(`${LIVE}/index.json`, 'utf8'), readFileSync(`${LIVE}/units.jsonl`, 'utf8'))
+    const pos = layoutUnits(map.units, map.edges)
+    expect(pos.size).toBe(map.units.length)
+    expect(countCrossings(pos, map.edges)).toBeLessThan(countCrossings(naive(map.units), map.edges))
+    const methodY = new Set(map.units.filter(u => u.role === 'method').map(u => pos.get(u.id)!.y))
+    for (const u of map.units.filter(u => u.role === 'assumption')) expect(methodY.has(pos.get(u.id)!.y)).toBe(false)
   })
 })

@@ -118,27 +118,125 @@ export function unitsPathFor(dir: string, index: WritingMapIndex): string {
   return `${dir.replace(/\/+$/, '')}/${index.units_path || 'units.jsonl'}`
 }
 
-/* ---------- layout: argument layers, top to bottom ---------- */
+/* ---------- layout: argument layers, top to bottom ----------
+   Sugiyama-style, deterministic, pure:
+   1. Bands by role (argument order). Assumptions get their own half-pitch sub-band between methods and
+      lemmas/guarantees ("the method assumes …"), so they never stack on a method card; the band disappears
+      when a map has no assumptions.
+   2. Crossing reduction: alternating down/up sweeps. A unit's key is the weighted median (weighted mean for
+      1–2 neighbours) of its neighbours' x in the bands already fixed in that sweep direction. Neighbours are
+      weighted by edge type (supports/depends_on pull hardest, conflicts_with least) and by 1/band-span, so
+      long edges pull less than adjacent ones. Units without such neighbours keep their slot.
+   3. The ordering with the fewest measured crossings over all sweeps wins; ties keep the earlier ordering.
+   4. For writing-map-sized graphs, a transpose pass swaps adjacent units while that strictly reduces crossings.
+   Edges are normalised and sorted first, so the result does not depend on edge input order. */
 
-/** Rows follow the argument: problem → challenges → methods (+ assumptions) → lemmas/guarantees → evidence/revision/roadblocks. */
-export const ROLE_ROW: Record<UnitRole | 'unknown', number> = { problem: 0, challenge: 1, method: 2, assumption: 2, lemma: 3, guarantee: 3, evidence: 4, revision: 4, roadblock: 4, unknown: 5 }
-export const CARD = { w: 204, h: 80, gapX: 20, gapY: 84 }
+/** Band rank per role; fractional ranks are sub-bands (assumption sits between method and lemma/guarantee). */
+export const ROLE_ROW: Record<UnitRole | 'unknown', number> = { problem: 0, challenge: 1, method: 2, assumption: 2.5, lemma: 3, guarantee: 3, evidence: 4, revision: 4, roadblock: 4, unknown: 5 }
+export const CARD = { w: 204, h: 80, gapX: 24, gapY: 96 }
+/** Soft pull of each relation when ordering a band. Unknown or missing types fall back to 1 (unweighted). */
+export const EDGE_WEIGHT: Record<EdgeType, number> = { supports: 1, depends_on: 1, answers_reviewer: 0.8, refines: 0.6, conflicts_with: 0.35 }
+const SWEEPS = 8
+const TRANSPOSE_MAX_EDGES = 300
 
 export type Placed = { id: string; x: number; y: number }
-/** Deterministic layered layout; within a row, units are ordered by the mean position of their neighbours in earlier rows. */
-export function layoutUnits(units: readonly ArgumentUnit[], edges: readonly ArgumentEdge[]): Map<string, Placed> {
-  const rows = new Map<number, ArgumentUnit[]>()
-  for (const u of units) { const r = ROLE_ROW[u.role]; rows.set(r, [...(rows.get(r) ?? []), u]) }
-  const pos = new Map<string, Placed>()
-  const neighbours = (id: string) => edges.flatMap(e => e.from === id ? [e.to] : e.to === id ? [e.from] : [])
-  for (const r of [...rows.keys()].sort((a, b) => a - b)) {
-    const row = rows.get(r)!
-    const order = row.map((u, i) => {
-      const xs = neighbours(u.id).map(n => pos.get(n)?.x).filter((x): x is number => x !== undefined)
-      return { u, key: xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : Number.POSITIVE_INFINITY, i }
-    }).sort((a, b) => a.key - b.key || a.i - b.i)
-    const width = row.length * CARD.w + (row.length - 1) * CARD.gapX
-    order.forEach(({ u }, i) => pos.set(u.id, { id: u.id, x: -width / 2 + i * (CARD.w + CARD.gapX), y: r * (CARD.h + CARD.gapY) }))
+
+/** Straight-line crossings between card centres (the measure the ordering minimises; also used by tests). */
+export function countCrossings(pos: ReadonlyMap<string, Placed>, edges: readonly ArgumentEdge[]): number {
+  const seg = edges.flatMap(e => { const a = pos.get(e.from), b = pos.get(e.to); return a && b ? [{ e, x1: a.x + CARD.w / 2, y1: a.y + CARD.h / 2, x2: b.x + CARD.w / 2, y2: b.y + CARD.h / 2 }] : [] })
+  const side = (ax: number, ay: number, bx: number, by: number, cx: number, cy: number) => Math.sign((bx - ax) * (cy - ay) - (by - ay) * (cx - ax))
+  let n = 0
+  for (let i = 0; i < seg.length; i++) for (let j = i + 1; j < seg.length; j++) {
+    const p = seg[i], q = seg[j]
+    if (p.e.from === q.e.from || p.e.from === q.e.to || p.e.to === q.e.from || p.e.to === q.e.to) continue
+    if (side(p.x1, p.y1, p.x2, p.y2, q.x1, q.y1) * side(p.x1, p.y1, p.x2, p.y2, q.x2, q.y2) < 0 && side(q.x1, q.y1, q.x2, q.y2, p.x1, p.y1) * side(q.x1, q.y1, q.x2, q.y2, p.x2, p.y2) < 0) n++
   }
-  return pos
+  return n
+}
+
+/** Weighted median (≥3 neighbours) or weighted mean (1–2): the classic crossing-reduction key. */
+export function weightedKey(values: readonly { x: number; w: number }[]): number | undefined {
+  const v = values.filter(x => x.w > 0)
+  if (!v.length) return undefined
+  const total = v.reduce((a, b) => a + b.w, 0)
+  if (v.length <= 2) return v.reduce((a, b) => a + b.x * b.w, 0) / total
+  const sorted = [...v].sort((a, b) => a.x - b.x)
+  let acc = 0
+  for (let i = 0; i < sorted.length; i++) {
+    acc += sorted[i].w
+    if (acc * 2 === total && i + 1 < sorted.length) return (sorted[i].x + sorted[i + 1].x) / 2
+    if (acc * 2 > total) return sorted[i].x
+  }
+  return sorted[sorted.length - 1].x
+}
+
+export function layoutUnits(units: readonly ArgumentUnit[], edges: readonly ArgumentEdge[]): Map<string, Placed> {
+  // bands in argument order; y accumulates so a sub-band takes a shorter pitch than a full band
+  const ranks = [...new Set(units.map(u => ROLE_ROW[u.role]))].sort((a, b) => a - b)
+  const bands = ranks.map(rank => units.filter(u => ROLE_ROW[u.role] === rank).map(u => u.id))
+  const bandOf = new Map<string, number>()
+  bands.forEach((band, i) => band.forEach(id => bandOf.set(id, i)))
+  const ys: number[] = []
+  ranks.forEach((rank, i) => {
+    if (!i) { ys.push(0); return }
+    const step = rank - ranks[i - 1]
+    // a full band step: card + gap; a half step (sub-band): card + a narrower gap
+    ys.push(ys[i - 1] + (step >= 1 ? CARD.h + CARD.gapY : CARD.h + CARD.gapY * 0.45))
+  })
+
+  // normalised, sorted adjacency (independent of edge input order); weight = relation × 1/span
+  const norm = [...edges].filter(e => bandOf.has(e.from) && bandOf.has(e.to) && e.from !== e.to)
+    .sort((a, b) => a.from.localeCompare(b.from) || a.to.localeCompare(b.to) || a.type.localeCompare(b.type))
+  const adj = new Map<string, { id: string; w: number }[]>()
+  for (const e of norm) {
+    const span = Math.max(1, Math.abs(ranks[bandOf.get(e.from)!] - ranks[bandOf.get(e.to)!]))
+    const w = (EDGE_WEIGHT[e.type] ?? 1) / span
+    adj.set(e.from, [...(adj.get(e.from) ?? []), { id: e.to, w }])
+    adj.set(e.to, [...(adj.get(e.to) ?? []), { id: e.from, w }])
+  }
+
+  const pitch = CARD.w + CARD.gapX
+  const place = (order: string[][]): Map<string, Placed> => {
+    const pos = new Map<string, Placed>()
+    order.forEach((band, i) => {
+      const width = band.length * CARD.w + (band.length - 1) * CARD.gapX
+      band.forEach((id, j) => pos.set(id, { id, x: -width / 2 + j * pitch, y: ys[i] }))
+    })
+    return pos
+  }
+  const reorder = (order: string[][], i: number, fixed: (band: number) => boolean) => {
+    const pos = place(order)
+    const keyed = order[i].map((id, slot) => {
+      const key = weightedKey((adj.get(id) ?? []).filter(n => fixed(bandOf.get(n.id)!)).map(n => ({ x: pos.get(n.id)!.x, w: n.w })))
+      return { id, key: key ?? pos.get(id)!.x, slot }
+    })
+    keyed.sort((a, b) => a.key - b.key || a.slot - b.slot)
+    order[i] = keyed.map(k => k.id)
+  }
+
+  const order = bands.map(b => [...b])
+  let best = order.map(b => [...b]), bestCrossings = countCrossings(place(order), norm)
+  let quiet = 0
+  for (let sweep = 0; sweep < SWEEPS && quiet < 2; sweep++) {
+    const before = JSON.stringify(order)
+    if (sweep % 2 === 0) for (let i = 1; i < order.length; i++) reorder(order, i, b => b < i)
+    else for (let i = order.length - 2; i >= 0; i--) reorder(order, i, b => b > i)
+    const crossings = countCrossings(place(order), norm)
+    if (crossings < bestCrossings) { bestCrossings = crossings; best = order.map(b => [...b]) }
+    quiet = JSON.stringify(order) === before ? quiet + 1 : 0 // stop once a down and an up sweep both change nothing
+  }
+  // 4. Transpose (local refinement): swap neighbouring units in a band while that strictly lowers the count.
+  //    Each check is O(E²), so it runs only for maps of writing-map size, not for bulk imports.
+  if (norm.length <= TRANSPOSE_MAX_EDGES) {
+    let improved = true, rounds = 0
+    while (improved && rounds++ < 6) {
+      improved = false
+      for (const band of best) for (let j = 0; j + 1 < band.length; j++) {
+        ;[band[j], band[j + 1]] = [band[j + 1], band[j]]
+        const crossings = countCrossings(place(best), norm)
+        if (crossings < bestCrossings) { bestCrossings = crossings; improved = true } else [band[j], band[j + 1]] = [band[j + 1], band[j]]
+      }
+    }
+  }
+  return place(best)
 }
