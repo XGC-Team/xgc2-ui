@@ -44,10 +44,13 @@ export async function loadKnowledgePage(query: KnowledgeQuery = {}, signal?: Abo
   return page
 }
 
+export const KNOWLEDGE_PAGE_LIMIT = 5000
+
 export async function loadCompleteKnowledgeGraph(query: KnowledgeQuery = {}, signal?: AbortSignal): Promise<KnowledgePage> {
   const collector = new KnowledgePageCollector()
   // Capture caller-owned arrays too: changing the query mid-flight starts a new retrieval.
-  const original = { ...query, tags: query.tags?.slice(), cursor: undefined }
+  // The service's maximum page (MaxPageLimit = 5000): a ten-thousand-note vault is three round trips, not six.
+  const original = { ...query, limit: query.limit ?? KNOWLEDGE_PAGE_LIMIT, tags: query.tags?.slice(), cursor: undefined }
   let next: KnowledgeQuery = original
   for (;;) {
     signal?.throwIfAborted()

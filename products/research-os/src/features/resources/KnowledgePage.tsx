@@ -1,7 +1,9 @@
-import {useCallback,useEffect,useMemo,useState} from 'react'
+import {useCallback,useEffect,useMemo,useRef,useState} from 'react'
 import {t as tr} from '../../i18n'
 import {useWorkbench} from '../../store'
-import {GraphView} from '../../components/GraphView'
+import {GraphView,type GraphMark} from '../../components/GraphView'
+import {rankMatches} from '../../lib/graph-render'
+import {sharedContentSession} from '../content/useContentDocument'
 import type {GraphCamera} from '../../lib/graph-camera'
 import {academicGraph,inspectKnowledgeResource,loadCompleteKnowledgeGraph,type KnowledgeEdge,type KnowledgePage,type KnowledgeQuery} from './academic-graph'
 import {invalidateKnowledgeAccess,knowledgeAccessLost,useAcademicNotes} from './useAcademicNotes'
@@ -21,7 +23,9 @@ export function KnowledgePage(props:KnowledgePageProps){
  return <KnowledgeView key={props.viewId||'academic'} {...props}/>
 }
 function KnowledgeView({viewId='academic'}:KnowledgePageProps){
- const {readingDocument}=useWorkbench()
+ const {readingDocument,locale}=useWorkbench(),zh=locale==='zh'
+ const [layoutState,setLayoutState]=useState<'laying'|'ready'>('ready')
+ const searchRef=useRef<HTMLInputElement>(null)
  const {page,loading,error,refresh}=useAcademicNotes()
  const [view,setView]=useState(()=>readKnowledgeView(viewId))
  const [projected,setProjected]=useState<KnowledgePage|null>(null)
@@ -37,6 +41,15 @@ function KnowledgeView({viewId='academic'}:KnowledgePageProps){
  const filtered=!!(trimKnowledgeQuery(view.query)||view.focus||view.unresolved!=='include'||view.orphans!=='include')
 
  useEffect(()=>{saveKnowledgeView(view,viewId)},[view,viewId])
+ // Keyboard grammar (Obsidian / VS Code): "/" jumps to search; Esc closes the inspector.
+ useEffect(()=>{
+  const onKey=(e:KeyboardEvent)=>{
+   const typing=e.target instanceof HTMLElement&&(e.target.isContentEditable||['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName))
+   if(e.key==='/'&&!typing&&!e.metaKey&&!e.ctrlKey){e.preventDefault();searchRef.current?.focus()}
+   else if(e.key==='Escape'&&!typing)setInspectId('')
+  }
+  window.addEventListener('keydown',onKey);return()=>window.removeEventListener('keydown',onKey)
+ },[])
  useEffect(()=>{
   const lost=()=>{
    setBlocked(true);setProjected(null);setInspectId('');setInspection(null)
@@ -90,19 +103,24 @@ function KnowledgeView({viewId='academic'}:KnowledgePageProps){
  const pending=filtered&&(appliedQuery!==queryKey||projected?.snapshot!==page?.snapshot)
  const status=searchError?`${tr('检索未应用，保留上次完整视图。')} ${searchError}`:searching||pending?tr('正在检索，保留上次完整视图…'):error?`${tr('刷新失败，保留上次完整视图。')} ${error}`:loading?tr('正在核对知识库的新版本…'):''
 
- const results=trimKnowledgeQuery(view.query)&&active?active.nodes.filter(node=>!node.unresolved).slice(0,8):[]
+ const degree=useMemo(()=>{const d=new Map<string,number>();for(const e of active?.edges??[]){d.set(e.source,(d.get(e.source)??0)+1);d.set(e.target,(d.get(e.target)??0)+1)}return d},[active])
+ const results=trimKnowledgeQuery(view.query)&&active?rankMatches(active.nodes,view.query,n=>degree.get(n.id)??0).slice(0,8):[]
+ const marks=useProjectKnowledgeMarks(active)
+ const markLegend=marks.size?(zh?`本项目 · ${marks.size}`:`This project · ${marks.size}`):''
  const counts=`${active?.counts.matched??0} ${tr('节点')} · ${active?.counts.matchedEdges??0} ${tr('关系')}`
 
  // The reader carries its own "back to graph" control; no second header bar.
  if(readingDocument&&!blocked)return <div className="h-full min-h-0"><Reader/></div>
  if(!graph||blocked)return <div className="ui-empty" role="status"><p>{tr(error||'正在读取学术仓库的完整知识与链接…')}</p><button className="ui-btn mt-3" onClick={refresh}>{tr('重新读取')}</button></div>
  return <div className="relative h-full min-h-0" data-xgc-role="knowledge-workspace">
-  <GraphView data={graph} card={false} focus={inspectId||undefined} initialCamera={view.camera} onCameraChange={saveCamera} onSelect={id=>{const node=graph.nodes[id];if(node?.resourceId)setInspectId(node.resourceId)}}/>
+  <GraphView data={graph} focus={inspectId||undefined} marks={marks} frame={filtered?'fit':'keep'} onLayoutState={setLayoutState} initialCamera={view.camera} onCameraChange={saveCamera} onSelect={id=>{const node=graph.nodes[id];if(node?.resourceId)setInspectId(node.resourceId)}}/>
   {/* 检索即浏览（Obsidian 快速切换语法）：输入即列出命中笔记，点选=在图中定位并打开检查器；筛选收进一个弹层 */}
   <div className="absolute left-3 top-3 z-10 w-[min(320px,calc(100%-1.5rem))] rounded-lg border border-line bg-panel shadow-soft" data-xgc-role="knowledge-search">
    <div className="flex items-center gap-1 p-1.5">
     <Search size={13} strokeWidth={1.75} className="ml-1 shrink-0 text-ink-3"/>
-    <input className="h-7 min-w-0 flex-1 bg-transparent px-1 text-secondary outline-none placeholder:text-ink-3" value={view.query} onChange={e=>setFilter('query',e.target.value)} placeholder={tr('检索标题、路径、标签与正文…')} aria-label={tr('检索知识库')}/>
+    <input ref={searchRef} className="h-7 min-w-0 flex-1 bg-transparent px-1 text-secondary outline-none placeholder:text-ink-3" value={view.query} onChange={e=>setFilter('query',e.target.value)} placeholder={tr('检索标题、路径、标签与正文…')} aria-label={tr('检索知识库')}
+     onKeyDown={e=>{if(e.key==='Enter'&&results[0]){e.preventDefault();setInspectId(results[0].id)}if(e.key==='Escape'){e.preventDefault();if(view.query)setFilter('query','');else e.currentTarget.blur()}}}/>
+    {!view.query&&<kbd className="mr-1 shrink-0 rounded border border-line px-1 text-[10px] leading-4 text-ink-3" title={tr('按 / 检索')}>/</kbd>}
     <Popover label={tr('筛选')} width="w-64" trigger={({open,toggle})=><button type="button" aria-expanded={open} onClick={toggle} aria-label={tr('筛选')} title={tr('筛选')} className={cn('grid h-7 w-7 shrink-0 place-items-center rounded-md text-ink-3 hover:bg-hover hover:text-ink',(view.unresolved!=='include'||view.orphans!=='include')&&'text-ink')}><SlidersHorizontal size={13} strokeWidth={1.75}/></button>}>
      <div className="flex flex-col gap-2 p-1 text-caption">
       <label className="flex items-center justify-between gap-2">{tr('未解析')} <select className="ui-select-compact" aria-label={tr('未解析目标过滤')} value={view.unresolved} onChange={e=>setFilter('unresolved',e.target.value as KnowledgeViewState['unresolved'])}><option value="include">{tr('包含')}</option><option value="only">{tr('仅未解析')}</option><option value="exclude">{tr('隐藏')}</option></select></label>
@@ -125,7 +143,8 @@ function KnowledgeView({viewId='academic'}:KnowledgePageProps){
     </button>)}
    </div>}
    <p className="flex items-center gap-1 border-t border-line px-2.5 py-1 text-caption text-ink-3" aria-live="polite">
-    <span className="min-w-0 flex-1 truncate">{view.focus?`${tr('局部图')} · `:''}{counts}</span>
+    <span className="min-w-0 flex-1 truncate">{view.focus?`${tr('局部图')} · `:''}{layoutState==='laying'?(zh?`正在排布 ${active?.counts.matched??0} 个节点…`:`Laying out ${active?.counts.matched??0} nodes…`):counts}</span>
+    {markLegend&&<span className="shrink-0" title={zh?'圈 = 已附加到本项目对话；实心点中空 = 被本项目画布卡片引用':'Ring = attached to this project’s chat; hollow centre = cited by its canvas cards'}>{markLegend}</span>}
     {view.focus&&<button type="button" className="shrink-0 hover:text-ink-2" onClick={()=>setFilter('focus','')}>{tr('返回全局图')}</button>}
    </p>
   </div>
@@ -176,4 +195,32 @@ function NodeInspector({id,inspect,error,titles,onInspect,onClose,onLocal}:{id:s
    </div>
   </>}
  </aside>
+}
+
+/** Notes this project already uses: attached to its chat context, or cited by its canvas cards (by knowledge path). */
+function useProjectKnowledgeMarks(page:KnowledgePage|null):Map<string,GraphMark>{
+ const {projectId,contextItems}=useWorkbench()
+ const [cited,setCited]=useState<Set<string>>(new Set())
+ useEffect(()=>{
+  if(!projectId){setCited(new Set());return}
+  let live=true,off=()=>{}
+  try{
+   const session=sharedContentSession({projectId,workspace:projectId})
+   const read=()=>{if(live)setCited(new Set((session.snapshot().value?.objects??[]).flatMap(o=>o.sources.filter(s=>s.kind==='knowledge'&&s.path).map(s=>s.path!))))}
+   off=session.subscribe(read)
+   if(session.snapshot().status==='loading')void session.load().then(read).catch(()=>{});else read()
+  }catch{/* The workspace is bound to another project; no canvas marks. */}
+  return()=>{live=false;off()}
+ },[projectId])
+ return useMemo(()=>{
+  const out=new Map<string,GraphMark>()
+  if(!page||!projectId)return out
+  const attached=new Set(contextItems.filter(i=>i.project===projectId&&i.ref.startsWith('academic/')).map(i=>i.ref.slice('academic/'.length)))
+  for(const node of page.nodes){
+   if(!node.path)continue
+   const a=attached.has(node.path),c=cited.has(node.path)
+   if(a||c)out.set(node.id,a&&c?'both':a?'context':'canvas')
+  }
+  return out
+ },[page,projectId,contextItems,cited])
 }

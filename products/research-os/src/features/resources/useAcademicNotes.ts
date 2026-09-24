@@ -15,11 +15,15 @@ export function useAcademicNotes(){
  const [error,setError]=useState('')
  const [revision,setRevision]=useState(0)
  const current=useRef<AbortController|null>(null)
+ const pageRef=useRef<KnowledgePage|null>(null)
  useEffect(()=>{
   const c=new AbortController();current.current=c
   setLoading(true);setError('')
   loadCompleteKnowledgeGraph({scope:'knowledge'},c.signal).then(data=>{
    if(c.signal.aborted)return
+   // Same snapshot = same library: keep object identity so the graph neither rebuilds nor re-lays out on window focus.
+   if(pageRef.current&&pageRef.current.snapshot===data.snapshot)return
+   pageRef.current=data
    const documents=notesFromPage(data)
    setPage(data);setNotes(documents);setKnowledgeDocuments(documents)
   }).catch(e=>{
@@ -31,14 +35,18 @@ export function useAcademicNotes(){
  },[revision,setKnowledgeDocuments])
  useEffect(()=>{
   const refresh=()=>setRevision(n=>n+1)
+  // Returning to the window re-checks the library at most once a minute: a full snapshot is megabytes to parse and
+  // validate. Writes made inside the app announce themselves (research:knowledge-changed) and refresh immediately.
+  let lastFocus=Date.now()
+  const onFocus=()=>{if(Date.now()-lastFocus<60_000)return;lastFocus=Date.now();refresh()}
   const clear=()=>{
-   current.current?.abort();setPage(null);setNotes([]);setKnowledgeDocuments([])
+   current.current?.abort();pageRef.current=null;setPage(null);setNotes([]);setKnowledgeDocuments([])
    setLoading(false);setError('知识库当前不可访问，已清除先前视图。')
   }
-  window.addEventListener('focus',refresh)
+  window.addEventListener('focus',onFocus)
   window.addEventListener('research:knowledge-changed',refresh)
   window.addEventListener(accessLostEvent,clear)
-  return()=>{window.removeEventListener('focus',refresh);window.removeEventListener('research:knowledge-changed',refresh);window.removeEventListener(accessLostEvent,clear)}
+  return()=>{window.removeEventListener('focus',onFocus);window.removeEventListener('research:knowledge-changed',refresh);window.removeEventListener(accessLostEvent,clear)}
  },[setKnowledgeDocuments])
  return {notes,page,loading,error,refresh:()=>setRevision(n=>n+1)}
 }

@@ -165,13 +165,15 @@ export function ResourceWorkbench({projects,onQuote,onOpenSession,secondaryWidth
   // Three columns need room: below DOCK.minViewport the docked discussion falls back to a tab, without changing the preference.
   const viewport = useViewportWidth()
   const docked = chatDock && !chatFloat && activeNav==='chat' && viewport >= DOCK.minViewport
-  const sideFloating = sideFloat && secondaryOpen
+  const secondaryEmpty = !resourceLayout.tabs.some(tab=>tab.projectId===projectId&&tab.area==='secondary')
+  // An empty side pane on Workflow / Knowledge / Settings is chrome, not content: it takes no column there.
+  const sideShown = secondaryOpen && (activeNav==='chat' || !secondaryEmpty)
+  const sideFloating = sideFloat && sideShown
   // A floating discussion stays visible on every page (talk to the agent while reading the graph); a docked one on Chat.
   const isVisible = (tab:ResourceTab) => tab.projectId===projectId&&(tab.kind==='chat'&&(chatFloat||docked)?true:active[tab.area]===tab.id&&(tab.area==='secondary'?secondaryOpen:activeNav==='chat'))
-  const secondaryEmpty = !resourceLayout.tabs.some(tab=>tab.projectId===projectId&&tab.area==='secondary')
   const primaryTab = resourceLayout.tabs.find(tab=>tab.id===active.primary)
   const primaryEmpty = !primaryTab || ((docked || chatFloat) && primaryTab.kind==='chat')
-  const secondaryColumns = secondaryOpen&&!sideFloating?`auto ${secondaryWidth}px`:'0px 0px'
+  const secondaryColumns = sideShown&&!sideFloating?`auto ${secondaryWidth}px`:'0px 0px'
   const secondaryStyle = (part:'header'|'body') => sideFloating ? floatPart(sideRect, part, FLOAT_HEADER, zOf('side')) : {gridArea: part==='header' ? 'secondaryTabs' : 'secondaryBody'}
   const grid = docked
     ? {gridTemplateColumns:`${dockWidth}px auto minmax(0, 1fr) ${secondaryColumns}`,gridTemplateAreas:'"dockTabs dockDivider primaryTabs divider secondaryTabs" "dockBody dockDivider primaryBody divider secondaryBody"'}
@@ -193,8 +195,8 @@ export function ResourceWorkbench({projects,onQuote,onOpenSession,secondaryWidth
     {chatFloat&&chat&&<FloatFrame rect={chatRect} onRect={setChatRect} z={zOf('chat')} label={zh?'讨论窗口':'Discussion window'}/>}
     {chatFloat&&chat&&<FloatChatHeader rect={chatRect} onRect={setChatRect} z={zOf('chat')} onRaise={()=>setFront('chat')}/>}
     {sideFloating&&<FloatFrame rect={sideRect} onRect={setSideRect} z={zOf('side')} label={zh?'并排区窗口':'Side pane window'}/>}
-    <div hidden={!secondaryOpen} style={secondaryStyle('header')} {...(sideFloating?raise('side'):{})}><ResourceTabs area="secondary" onTear={tearOff} floating={sideFloating?{rect:sideRect,onRect:setSideRect}:undefined}/></div>
-    <div hidden={!secondaryOpen||sideFloating} style={{gridArea:'divider'}}><ResizeHandle orientation="v" onDelta={onResize} onDraggingChange={onDraggingChange}/></div>
+    <div hidden={!sideShown} style={secondaryStyle('header')} {...(sideFloating?raise('side'):{})}><ResourceTabs area="secondary" onTear={tearOff} floating={sideFloating?{rect:sideRect,onRect:setSideRect}:undefined}/></div>
+    <div hidden={!sideShown||sideFloating} style={{gridArea:'divider'}}><ResizeHandle orientation="v" onDelta={onResize} onDraggingChange={onDraggingChange}/></div>
     <section key="conversation" hidden={!chat||!isVisible(chat)} className="resource-body" {...(chatFloat?raise('chat'):{})} style={chatFloat?floatPart(chatRect,'body',FLOAT_HEADER,zOf('chat')):{gridArea:docked?'dockBody':(chat?.area||'primary')+'Body'}}>
       <Chat projects={projects} active={Boolean(chat&&isVisible(chat))}/>
     </section>
@@ -216,7 +218,7 @@ export function ResourceWorkbench({projects,onQuote,onOpenSession,secondaryWidth
         {!projectId&&<p className="mt-3 text-caption text-ink-3">{zh?'选择一个项目后可打开它的研究画布。':'Select a project to open its research canvas.'}</p>}
       </div>
     </div>:<div className="grid place-content-center p-6" style={{gridArea:'primaryBody'}}><Button onClick={showConversation}>{zh?'打开讨论':'Open discussion'}</Button></div>)}
-    {secondaryOpen&&secondaryEmpty&&<div className="min-h-0 overflow-auto" style={secondaryStyle('body')}>
+    {sideShown&&secondaryEmpty&&<div className="min-h-0 overflow-auto" style={secondaryStyle('body')}>
       {projectId&&preview.status!=='idle'&&preview.status!=='ready'?<WritingPreview preview={preview} onRetry={preview.reload}/>:<p className="p-6 text-secondary text-ink-3">{zh?'打开文件、笔记或研究内容，在此并排工作。':'Open a file, note or research content here.'}</p>}
     </div>}
   </div>

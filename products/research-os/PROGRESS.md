@@ -2,6 +2,81 @@
 
 Branch: `feat/research-os-agent-native-workbench` · Draft PR XGC-Team/xgc2-ui#34 · Refs XGC-Team/xgc2-research-os#12
 
+## Round 7: knowledge base + academic graph to production grade (`RESEARCH_OS_KB_PRODUCTION.md`)
+
+**How I chose.** Before changing anything I profiled a realistic synthetic vault: 3,092 linked notes in 30 topic folders, then 10,092 notes and 33k links in 80 folders, served by the local `researchd`. The baseline at 3k was not daily-use grade:
+- about 15 fps with 5.1 s of main-thread long tasks while the layout settled;
+- 30 fps while panning;
+- off-centre, with no convergence after 6 s;
+- a hairball in which arrowheads piled into black discs on hubs and bold labels collided.
+
+On top of that, the whole graph was rebuilt and re-bloomed **on every window focus**: the snapshot was refetched and replaced even when unchanged. So the work went where the profile pointed: data lifecycle, layout, renderer and legibility, then motion and interlock.
+
+**Data lifecycle**
+- **Same snapshot, same page object.** Nothing rebuilds on focus. Focus-triggered re-checks are throttled to once a minute; parsing a multi-megabyte snapshot to learn nothing cost about 365 ms. In-app writes still refresh at once through `research:knowledge-changed`.
+- **Pages at the service maximum.** The loader requests 5,000 nodes per page (the service's `MaxPageLimit`). At 10k notes, loading dropped from 3.5 s to 1.9 s.
+- **Layout memory by resource id** (`graph-layout-seed.ts`). Search, filters, local graph, reading a note and coming back, or switching pages all re-use positions ("warm": low alpha, no re-bloom). New nodes appear beside a remembered neighbour.
+
+**Layout**
+- **d3-force in a Web Worker** (`graph-layout.worker.ts` / `graph-sim.ts`). It ticks in about 10 ms batches and sends positions back as transferable arrays. The main thread only paints. The same simulation runs as a main-thread fallback (tests, no Worker).
+- **Cluster-aware seeding.** Each folder starts as a compact disc, hubs innermost. A gentle regional pull keeps topics legible as regions, and forces are scaled by graph size (local repulsion, shorter links). The first view is close to final, so the simulation only relaxes.
+
+**Renderer** (`GraphView.tsx`, `graph-render.ts`)
+- **Cached scene layer.** Edges, nodes and marks render into an offscreen bitmap padded beyond the viewport. Pan and zoom transform the bitmap; it re-renders only when the view leaves the padding, the zoom settles, the layout moves, or theme/marks change.
+- **Live overlay.** Hover and focus draw only the neighbourhood, over a faded base.
+- **Cheap draw calls:**
+  - viewport culling;
+  - edges in one stroke, with alpha scaled by density and sub-pixel edges skipped;
+  - nodes batched into about 20 alpha buckets, drawn as rects below 1.6 px;
+  - an O(1) grid hit test instead of scanning every node on each mousemove;
+  - label widths cached, labels placed by priority with a screen-grid collision test;
+  - the loop sleeps when idle.
+- **Legibility:**
+  - zoomed out, only the folder names show, as serif italic region labels with a paper halo; note titles fade in as the regions fade out;
+  - node size grows with √k past 1×;
+  - arrowheads only when zoomed in on edges longer than 36 px;
+  - unresolved targets are hollow;
+  - titles carry a paper halo instead of a box.
+
+**Motion.** Eased camera flights (log-space zoom, duration by distance, at most 700 ms). The neighbourhood highlight cross-fades. The scene fades in once instead of popping per node. Under `prefers-reduced-motion`: instant camera, no springs, and a cold layout computed quietly and shown once settled.
+
+**Interlock and daily use**
+- Notes attached to this project's chat get a ring, and notes cited by its canvas cards get a hollow centre. The search footer shows "本项目 · N".
+- The inspector (read / add to chat / open beside chat / link to canvas card / local graph) is unchanged and flies the camera.
+- Search ranks exact and prefix title matches first: "kalman note 1" now returns Kalman note 1, not Aerial note 11.
+- Keyboard: `/` searches, Enter opens the first hit, Esc clears or closes, and double-clicking empty space reframes.
+- The knowledge tree shows note counts per folder.
+- The empty side pane no longer takes a column on Knowledge, Workflow or Settings.
+
+**Measured** (headless Chrome with software rasterisation, frame times p50 / p95):
+
+| Vault | Phase | Before | After |
+| --- | --- | --- | --- |
+| 3k notes / 10k links | settle | 67 / 83 ms, 5.1 s long tasks | 16.7 / 16.8 ms, 0 long tasks |
+| 3k | pan | 33 / 34 ms | 16.7 / 16.8 ms |
+| 10k notes / 33k links | pan | 50 / 67 ms, 9.7 s long tasks (before the scene cache) | 16.7 / 50 ms, about 1 s |
+| 10k | zoom · hover | 33–50 / 67 ms | 16.7 / 67 ms · 16.7 / 50 ms |
+| 10k | load complete snapshot | 3.5 s | 1.9 s |
+
+The remaining p95 spikes are full scene re-renders at 10k when the zoom settles. On a GPU-rasterised desktop browser these are much cheaper.
+
+**Tests:** `tests/knowledge-graph-engine.test.ts` covers:
+- clustering, seeding compactness and hub placement;
+- warm detection and neighbour placement;
+- convergence of the fallback simulation within budgets, and small drift on a warm start;
+- grid hit testing;
+- label placement with collision and a pinned focus;
+- the LOD budget, the camera flight and fit;
+- search ranking.
+
+`npm test` passes 287 tests, `npm run build` passes (the worker is emitted as its own chunk), and `npm run lint:review` passes.
+
+**Backend gaps (documented, not changed):**
+- The knowledge-graph route rebuilds the vault inventory for **every page** (about 0.36 s each at 10k notes). Caching the inventory per snapshot would make paging nearly free.
+- The client still validates and structured-clones every page. That is honest verification, but it costs about 0.8 s at 10k.
+
+---
+
 ## Round 6: calm change review (owner addendum: declutter, premium, borrowed interaction grammar)
 
 **Why this slice.** Round 5 routes every manuscript edit, and every canvas and artifact field edit, through the "修改审阅" tab. That makes it the place where revision decisions are actually made. It was also the loudest surface left:
