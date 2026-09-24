@@ -2,6 +2,35 @@
 
 Branch: `feat/research-os-agent-native-workbench` · Draft PR XGC-Team/xgc2-ui#34 · Refs XGC-Team/xgc2-research-os#12
 
+## Round 6: calm change review (owner addendum: declutter, premium, borrowed interaction grammar)
+
+**Why this slice.** Round 5 routes every manuscript edit, and every canvas and artifact field edit, through the "修改审阅" tab. That makes it the place where revision decisions are actually made. It was also the loudest surface left:
+- raw digests, base revisions and attempt ids sat in the main flow;
+- an always-visible rejection form and an actor field;
+- stacked monospace before/after blocks;
+- "impact" boilerplate on every edit.
+
+It was the owner's "every control seems important, nothing feels like the intelligent path" on the most important screen. The journal engine and its guarantees are unchanged; this is presentation only.
+
+**What changed (Cursor / VS Code diff-review grammar, our own skin):**
+- **List → detail.** A calm list: title, origin (Agent · manuscript / annotation / knowledge / writing), time, and "N 待审" vs "已处理". Opening a proposal shows the detail, and "← 全部修改" returns to the list.
+- **Inline word diff** (`word-diff.ts`): deletions are struck through in faint ink, insertions sit on a light ground. A semantic-cleanup pass collapses a rewritten clause into one deletion plus one insertion, instead of interleaved fragments; this was found on a real edit. Diffs beyond the size budget fall back to a whole replacement.
+- **One primary action.** Opening a proposal pre-selects every edit still awaiting review. A sticky bar holds "应用所选 · N", with "校验预览" second. Guarded recovery and reject live in "…", and the reject reason appears only when you choose reject. The selection clears after apply, revert or reject.
+- **Details folded:**
+  - base digest, object identity and impact → "详情" per edit;
+  - write receipts → "写入记录" (except pending/uncertain writes, which stay visible with their inspect/confirm actions);
+  - actor, journal path and exports → the header "…".
+- **Evidence as chips.** The passage and the answered revision cards open back to their source.
+- **The Chat overlay dock** (same component) now auto-opens only a proposal that still needs review, never an already-settled one.
+- **Verified in a browser:**
+  - file a test patch → ⌘K "打开修改审阅" → list → detail (2 edits pre-selected) → apply → both "已写入" with the "PDF 不会自动重新编译" note;
+  - back to the list, which shows "已处理";
+  - PDF annotation → Chat overlay dock still works and the composer keeps its height.
+
+**Tests:** `tests/word-diff.test.ts` checks that both sides are reproduced exactly, TeX/CJK/empty sides, the budget fallback, and the clause collapse. `npm test` passes 276 tests, and `npm run build` and `npm run lint:review` pass.
+
+---
+
 ## Round 5: plan → manuscript through Chat (owner vision handoff)
 
 **Why this slice.** After round 4 a researcher could get from reviewer comments to settled decisions in the GUI (items, agent discussion, canvas proposals). But the step that finishes a revision, changing the paper, was still CLI or by hand. The owner's "edit canvas → paper with LLM assist" direction had no path at all. This round closes that loop without a new write path and without needing TeX.

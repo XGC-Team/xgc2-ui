@@ -2,7 +2,10 @@ import { observedFiles, subscribeObservations } from './file-observations'
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { applyKnowledgePromotion } from '../resources/knowledge-promotion-api'
 import type { PromotionReceipt } from '../resources/knowledge-promotion'
-import { Button } from '../../components/ui'
+import { Button, RightMore } from '../../components/ui'
+import { ChevronLeft } from 'lucide-react'
+import { cn } from '../../lib/cn'
+import { wordDiff } from './word-diff'
 import { answeredCards } from '../revision/source-patch'
 import { markAnswered } from '../revision/revision-actions'
 import { saveDownload } from '../../lib/api'
@@ -44,10 +47,11 @@ export function ReviewPanelContents({scope, tabId, onTitle, surface = 'panel', a
   const [checked, setChecked] = useState<string[]>([]), [decisionReason, setDecisionReason] = useState(''), [preview, setPreview] = useState('')
   const [inspection, setInspection] = useState<Record<string, {digest: string; match: string}>>({})
   const [promotion, setPromotion] = useState(false), [conditions, setConditions] = useState(''), [knowledgeScope, setKnowledgeScope] = useState(''), [verification, setVerification] = useState('unverified')
-  const [reading, setReading] = useState(false)
+  const [reading, setReading] = useState(false), [rejecting, setRejecting] = useState(false)
   const formDirty = !!(title || body || operations.length || after || reason || conditions || knowledgeScope)
   useEffect(() => { onFormDirty(formDirty) }, [formDirty, onFormDirty])
-  const newest = api.book?.proposals.at(-1)?.id
+  // The dock opens the newest proposal that still needs the reviewer — never an already-settled one.
+  const newest = api.book ? [...api.book.proposals].reverse().find(p => p.writing || p.operations.some(o => operationState(api.book!, p.id, o.id) === 'review'))?.id : undefined
   useEffect(() => { if (surface === 'writing' && newest) setSelected(newest) }, [surface, newest])
   const report = useRef(onTitle); report.current = onTitle
   useEffect(() => { report.current(zh ? '反馈与修改审阅' : 'Feedback and change review') }, [zh])
@@ -59,7 +63,11 @@ export function ReviewPanelContents({scope, tabId, onTitle, surface = 'panel', a
     setKind(seed.anchor.target?.kind || 'text'); setPath(seed.anchor.target?.path || (seed.anchor.kind !== 'pdf' ? seed.anchor.path : ''))
     setSource(null); setSelected('')
   }, [seed?.id, title, operations.length, after])
-  useEffect(() => { setChecked([]); setPreview(''); setInspection({}) }, [selected])
+  // Opening a proposal selects everything still awaiting review (Cursor: review all, deselect what you don't want).
+  useEffect(() => {
+    const book = api.book, p = book?.proposals.find(x => x.id === selected)
+    setChecked(p && book ? p.operations.filter(o => operationState(book, p.id, o.id) === 'review').map(o => o.id) : []); setPreview(''); setInspection({}); setRejecting(false)
+  }, [selected]) // Deliberately keyed on the selection only: a journal reload must not reset the reviewer's choices.
   const proposal = api.book?.proposals.find(p => p.id === selected)
   const busy = api.busy || reading
   const call = async (fn: () => Promise<unknown>) => { setLocalError(''); try { await fn() } catch (e) { setLocalError(e instanceof Error ? e.message : String(e)) } }
@@ -125,28 +133,45 @@ export function ReviewPanelContents({scope, tabId, onTitle, surface = 'panel', a
   }
   const stateLabel = (value: string) => ({review: t('待审阅', 'Review'), 'migration-review-required': t('内容已迁移，需重新提案审阅', 'Content migrated; a new proposal is required'), applied: t('已写入', 'Applied'), reverted: t('已受保护撤回', 'Reverted'), uncertain: t('结果待核对，禁止盲目重试', 'Uncertain; inspect before retry'), conflict: t('版本冲突', 'Conflict'), rejected: t('已拒绝', 'Rejected'), 'not-written': t('未写入', 'Not written'), pending: t('写入意图已登记／结果待核对', 'Intent recorded / outcome unresolved'), 'observed-applied': t('人工确认当前匹配修改后内容', 'Confirmed matching after content'), 'observed-not-written': t('人工确认当前匹配基线', 'Confirmed matching baseline') }[value] || value)
 
+  const stateOf = (o: Operation) => api.book ? operationState(api.book, proposal!.id, o.id) : 'review'
+  const pendingCount = (p: Proposal) => api.book ? p.operations.filter(o => operationState(api.book!, p.id, o.id) === 'review').length : 0
+  const origin = (p: Proposal) => p.id.startsWith('src-') ? t('Agent · 稿件', 'Agent · manuscript') : p.promotion ? t('知识晋升', 'Knowledge') : p.writing ? t('改稿', 'Writing') : t('批注', 'Annotation')
+  const evidenceLabel = (a: Operation['evidence'][number]) => a.kind === 'canvas' ? a.quote || t('画布卡片', 'Canvas card') : a.kind === 'pdf' ? `${a.path.split('/').pop()} · p.${a.page ?? '?'}` : a.path.split('/').pop() || a.path
+  const unresolved = proposal ? api.book!.attempts.filter(a => a.proposalId === proposal.id && ['pending', 'uncertain'].includes(a.outcome)) : []
+  const records = proposal ? api.book!.attempts.filter(a => a.proposalId === proposal.id) : []
+
+  /* 修改审阅（Cursor / VS Code 内联差异语法）：列表 → 单个提案；每处修改是一段行内词级差异，
+     默认全选待审项，一个主操作「应用所选」；摘要、基线版本、写入回执等技术细节折叠在「详情」里。 */
   return <section className="flex h-full min-h-0 flex-col" aria-label={t('反馈与修改审阅', 'Feedback and change review')} data-review-project={scope.projectId}>
-    <div className="flex h-9 shrink-0 items-center gap-1 px-2">
-      <span className="min-w-0 flex-1 truncate text-caption">{scope.projectId} · {t('修改审阅', 'Change review')}</span>
-      <Button size="xs" disabled={busy} onClick={() => void call(() => api.action(e => e.load()))}>{t('重新读取记录', 'Reload journal')}</Button>
-      <Button size="xs" disabled={!api.book} onClick={() => saveDownload(`${scope.projectId}-review-evidence.json`, {book: api.book, transient: api.transient, error: api.error})}>{t('导出记录', 'Export record')}</Button>
+    <div className="flex h-10 shrink-0 items-center gap-1 border-b border-line px-3">
+      {proposal ? <button type="button" data-xgc-role="review-back" onClick={() => setSelected('')} className="flex min-w-0 flex-1 items-center gap-1 text-caption text-ink-3 hover:text-ink-2"><ChevronLeft size={13}/><span className="truncate">{t('全部修改', 'All changes')}</span></button>
+        : <span className="min-w-0 flex-1 truncate font-display text-[14px] tracking-tight">{t('修改审阅', 'Change review')}</span>}
+      <RightMore label={t('审阅记录', 'Review journal')}>
+        <label className="block text-caption text-ink-3">{t('操作者（本地记录身份，不是身份认证）', 'Actor (local record label, not authentication)')}<input className="ui-input mt-1 h-7 w-full" value={author} onChange={e => setAuthor(e.target.value)}/></label>
+        <p className="break-all text-caption text-ink-3" title={t('预览、目标写入、回执保存分别记录；跨文件不是原子事务。', 'Preview, target writes and journal acknowledgements are separate. Cross-file writes are not atomic.')}>{scope.workspace}/{REVIEW_PATH}</p>
+        <div className="flex flex-wrap gap-1">
+          <Button size="xs" disabled={busy} onClick={() => void call(() => api.action(e => e.load()))}>{t('重新读取记录', 'Reload journal')}</Button>
+          <Button size="xs" disabled={!api.book} onClick={() => saveDownload(`${scope.projectId}-review-evidence.json`, {book: api.book, transient: api.transient, error: api.error})}>{t('导出记录', 'Export record')}</Button>
+          {observations.length > 0 && <Button size="xs" onClick={() => saveDownload(`${scope.projectId}-save-observations.json`, observations)}>{t('导出保存观察', 'Export save observations')}</Button>}
+        </div>
+      </RightMore>
     </div>
-    <div className="min-h-0 flex-1 space-y-4 overflow-auto p-3">
-      <p className="break-all text-caption text-ink-3">{scope.workspace}/{REVIEW_PATH}</p>
-      <p className="text-secondary">{t('预览、目标写入、回执保存分别记录；跨文件不是原子事务。', 'Preview, target writes and journal acknowledgements are separate. Cross-file writes are not atomic.')}</p>
-      {(api.error || localError) && <p role="alert" className="whitespace-pre-wrap text-secondary">{localError || api.error}</p>}
-      {api.auditUncertain && <p role="alert">{t('回执未确认：停止后续写入，导出记录后重新读取并核对。', 'Journal unconfirmed: stop writes, export the record, reload and inspect.')}</p>}
-      {api.transient && <pre className="whitespace-pre-wrap break-all text-caption">{JSON.stringify(api.transient, null, 2)}</pre>}
-      {!api.book && <p role="status">{busy ? t('读取中…', 'Loading…') : t('记录尚不可用。', 'Journal unavailable.')}</p>}
-      <label className="block text-secondary">{t('操作者（本地记录身份，不是身份认证）', 'Actor (local record label, not authentication)')}<input className="ui-input mt-1 w-full" value={author} onChange={e => setAuthor(e.target.value)}/></label>
-      {observations.length>0&&<details className="text-caption"><summary>{t('本次页面会话的真实保存观察（非完整版本历史）','Acknowledged saves in this page session (not full version history)')}</summary>
-        {observations.map(o=><p key={o.id} className="mt-1 break-all">{o.at} · {o.origin} · {o.path} · {o.beforeDigest||'—'} → {o.afterDigest} · {o.semantic?t('内容可能影响关联制品，需检查','Content may affect related artifacts; review needed'):t('仅视觉布局变化，不提示语义影响','Layout-only change; no semantic impact inferred')}</p>)}
-        <Button size="xs" onClick={()=>saveDownload(`${scope.projectId}-save-observations.json`,observations)}>{t('导出保存观察','Export save observations')}</Button>
-      </details>}
-      <nav aria-label={t('已保存提案', 'Saved proposals')} className="space-y-1">
-        {api.book?.proposals.map(p => <Button key={p.id} aria-pressed={p.id === selected} onClick={() => setSelected(p.id)}>{p.title}</Button>)}
-        {seed && <Button aria-pressed={!selected} onClick={() => setSelected('')}>{t('待保存的反馈', 'Unsaved feedback')} · {incoming.length}</Button>}
-      </nav>
+    <div className="min-h-0 flex-1 overflow-auto">
+     <div className="mx-auto w-full max-w-[44rem] space-y-4 px-4 py-4">
+      {(api.error || localError) && <p role="alert" className="whitespace-pre-wrap rounded-md bg-elevated px-3 py-2 text-secondary">{localError || api.error}</p>}
+      {api.auditUncertain && <p role="alert" className="rounded-md bg-elevated px-3 py-2 text-secondary">{t('回执未确认：停止后续写入，导出记录后重新读取并核对。', 'Journal unconfirmed: stop writes, export the record, reload and inspect.')}</p>}
+      {api.transient && <details className="text-caption"><summary>{t('进行中的写入意图', 'Write intent in flight')}</summary><pre className="whitespace-pre-wrap break-all">{JSON.stringify(api.transient, null, 2)}</pre></details>}
+      {!api.book && <p role="status" className="text-secondary text-ink-3">{busy ? t('读取中…', 'Loading…') : t('记录尚不可用。', 'Journal unavailable.')}</p>}
+
+      {!proposal && api.book && <nav aria-label={t('已保存提案', 'Saved proposals')} className="flex flex-col gap-0.5" data-xgc-role="review-list">
+        {seed && <button type="button" onClick={() => setSelected('')} className="flex min-h-10 items-center gap-2 rounded-md border border-dashed border-line px-3 py-2 text-left text-secondary text-ink-2">{t('待保存的反馈', 'Unsaved feedback')} · {incoming.length}</button>}
+        {[...api.book.proposals].reverse().map(p => { const open = pendingCount(p); return <button key={p.id} type="button" aria-pressed={false} onClick={() => setSelected(p.id)} data-review-proposal={p.id}
+          className="flex min-h-11 items-center gap-3 rounded-md px-3 py-2 text-left transition-colors hover:bg-hover">
+          <span className="min-w-0 flex-1"><span className="block truncate text-secondary text-ink">{p.title}</span><span className="block truncate text-caption text-ink-3">{origin(p)} · {new Date(p.at).toLocaleString(zh ? 'zh-CN' : 'en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span></span>
+          <span className={cn('shrink-0 text-caption', open ? 'text-ink' : 'text-ink-3')}>{p.operations.length ? (open ? t(`${open} 处待审`, `${open} to review`) : t('已处理', 'Settled')) : p.promotion ? ({ pending: t('待认可', 'Awaiting approval'), 'approved-scope': t('已认可', 'Approved'), rejected: t('已拒绝', 'Rejected') }[p.promotion.decision]) : ''}</span>
+        </button> })}
+        {!api.book.proposals.length && !seed && <p className="px-3 py-6 text-center text-secondary text-ink-3">{t('还没有待审的修改。Agent 在对话里提出的稿件修改、PDF 批注与画布反馈会出现在这里。', 'No changes to review yet. Manuscript edits the agent proposes in chat, PDF annotations and canvas feedback appear here.')}</p>}
+      </nav>}
       {!proposal && seed && <fieldset disabled={busy || !api.book || api.auditUncertain} className="space-y-3">
         <legend className="font-display">{t('形成局部提案', 'Compose a local proposal')}</legend>
         {incoming.length > 1 && <select aria-label={t('反馈来源', 'Feedback source')} className="ui-input w-full" value={seed.id} onChange={e => {
@@ -188,30 +213,40 @@ export function ReviewPanelContents({scope, tabId, onTitle, surface = 'panel', a
         </div>}
         <Button variant="solid" disabled={!title.trim() || !body.trim() || (!operations.length && !promotion)} onClick={() => void call(saveProposal)}>{t('保存提案供审阅（不应用）', 'Save proposal for review (do not apply)')}</Button>
       </fieldset>}
-      {!proposal && !seed && <p>{t('从阅读选区、PDF 批注、画布卡片或制品字段发起反馈。', 'Start feedback from a reading selection, PDF annotation, canvas card or artifact field.')}</p>}
-      {proposal && <div className="space-y-3">
-        <h2 className="font-display text-lg">{proposal.title}</h2>
-        <p className="break-all text-caption">{proposal.id} · {proposal.author} · {proposal.at}</p>
-        <blockquote className="whitespace-pre-wrap">{proposal.feedback.body}</blockquote>
-        {requiresContentReview(proposal) && <p role="status">{t('此记录属于迁移前版本，仅保留历史。请基于当前研究内容重新建立提案和确认。', 'This record belongs to the pre-migration version and remains historical. Create a new proposal and confirmation against the current research content.')}</p>}
-        <Button size="xs" onClick={() => void call(() => openFeedbackAnchor(proposal.feedback.anchor, scope))}>{t('返回被批注版本', 'Return to annotated version')}</Button>
-        {proposal.operations.map(o => <article key={o.id} className="space-y-2 rounded-lg border border-line p-3" data-review-operation={o.id}>
-          <label className="flex items-start gap-2"><input type="checkbox" disabled={requiresContentReview(proposal)} checked={checked.includes(o.id)} onChange={e => { const group = dependencyClosure(proposal, [o.id]); setChecked(v => e.target.checked ? [...new Set([...v, ...group])] : v.filter(i => !group.includes(i))); setPreview('') }}/><span className="min-w-0 break-all">{o.target.kind} · {o.target.path} · {'field' in o.target ? o.target.field : `${o.target.start}–${o.target.end}`}</span></label>
-          <p role="status">{stateLabel(operationState(api.book!, proposal.id, o.id))}</p>
-          {'objectId' in o.target && <p className="break-all text-caption">{t('对象标识', 'Object identity')} · {o.target.objectId}{o.target.kind === 'block' ? ` / ${o.target.blockId} / ${o.target.artifact}` : ''}</p>}
-          <p className="break-all text-caption">{t('基于版本', 'Base revision')} · {o.baseDigest}</p>
-          <p>{o.reason}</p>
-          <div className="space-y-2" aria-label={t('前后差异', 'Before and after difference')}>
-            <div><strong>{t('修改前', 'Before')}</strong><pre className="whitespace-pre-wrap break-words">{o.before || '∅'}</pre></div>
-            <div><strong>{t('修改后', 'After')}</strong><pre className="whitespace-pre-wrap break-words">{o.after || '∅'}</pre></div>
+
+      {proposal && <article className="space-y-4" data-review-detail={proposal.id}>
+        <header>
+          <p className="text-caption uppercase tracking-[0.08em] text-ink-3">{origin(proposal)} · {proposal.author}</p>
+          <h2 className="mt-1 font-display text-[20px] leading-snug tracking-tight">{proposal.title}</h2>
+          {proposal.feedback.body && <p className="mt-1.5 whitespace-pre-wrap text-secondary text-ink-2">{proposal.feedback.body}</p>}
+          {requiresContentReview(proposal) && <p role="status" className="mt-2 text-caption text-ink-2">{t('此记录属于迁移前版本，仅保留历史。请基于当前研究内容重新建立提案和确认。', 'This record belongs to the pre-migration version and remains historical. Create a new proposal and confirmation against the current research content.')}</p>}
+        </header>
+        {proposal.operations.map(o => { const state = stateOf(o); return <section key={o.id} className="overflow-hidden rounded-lg border border-line bg-panel" data-review-operation={o.id} data-operation-state={state}>
+          <label className="flex items-center gap-2 border-b border-line px-3 py-2">
+            <input type="checkbox" disabled={requiresContentReview(proposal)} checked={checked.includes(o.id)} onChange={e => { const group = dependencyClosure(proposal, [o.id]); setChecked(v => e.target.checked ? [...new Set([...v, ...group])] : v.filter(id => !group.includes(id))) }}/>
+            <span className="min-w-0 flex-1 truncate font-mono text-[12px] text-ink-2" title={o.target.path}>{o.target.path}{'objectId' in o.target ? ` · ${o.target.field}` : ''}</span>
+            <span className={cn('shrink-0 text-caption', state === 'review' ? 'text-ink' : 'text-ink-3')}>{stateLabel(state)}</span>
+          </label>
+          <div className="space-y-2 px-3 py-2.5">
+            <p className="text-secondary text-ink-2">{o.reason}</p>
+            <p className="whitespace-pre-wrap break-words rounded-md bg-inset px-2.5 py-2 font-mono text-[12.5px] leading-6" aria-label={t('前后差异', 'Before and after difference')} data-xgc-role="inline-diff">
+              {wordDiff(o.before, o.after).map((seg, i) => seg.kind === 'same' ? <span key={i} className="text-ink-2">{seg.text}</span>
+                : seg.kind === 'del' ? <del key={i} className="text-ink-3 decoration-ink-3">{seg.text}</del>
+                : <ins key={i} className="rounded-sm bg-active text-ink no-underline">{seg.text}</ins>)}
+            </p>
+            <div className="flex flex-wrap items-center gap-1">
+              {o.evidence.map((a, i) => <button key={i} type="button" title={`${a.path} @ ${a.digest}`} onClick={() => void call(() => openFeedbackAnchor(a, scope))} className="flex h-6 max-w-56 items-center gap-1 rounded-md border border-line px-1.5 text-caption text-ink-2 hover:bg-hover hover:text-ink"><span className="truncate">{evidenceLabel(a)}</span></button>)}
+            </div>
+            <details className="text-caption text-ink-3"><summary className="cursor-pointer">{t('详情', 'Details')}</summary>
+              <p className="mt-1 break-all">{t('基于版本', 'Base revision')} · {o.baseDigest}</p>
+              {'objectId' in o.target && <p className="break-all">{t('对象标识', 'Object identity')} · {o.target.objectId}{o.target.kind === 'block' ? ` / ${o.target.blockId} / ${o.target.artifact}` : ''}</p>}
+              {o.dependsOn.length > 0 && <p className="break-all">{t('依赖组（整体审阅）', 'Dependency group (review together)')} · {o.dependsOn.join(', ')}</p>}
+              <p>{t('可能受影响／待检查，不自动覆盖', 'Potential impact / review needed, not automatically overwritten')} · {o.impacts.length ? o.impacts.join(' · ') : t('未声明', 'none declared')}</p>
+            </details>
           </div>
-          {o.evidence.map((a, i) => <details key={i}><summary>{t('依据', 'Evidence')} · {a.path}</summary><p className="break-all">{a.digest}</p><blockquote className="whitespace-pre-wrap">{a.quote}</blockquote><Button size="xs" onClick={() => void call(() => openFeedbackAnchor(a, scope))}>{t('核对来源', 'Verify source')}</Button></details>)}
-          {o.dependsOn.length > 0 && <p className="break-all text-caption">{t('依赖组（整体审阅）', 'Dependency group (review together)')} · {o.dependsOn.join(', ')}</p>}
-          <p className="text-caption">{t('可能受影响／待检查，不自动覆盖', 'Potential impact / review needed, not automatically overwritten')} · {o.impacts.length ? o.impacts.join(' · ') : t('未声明可确认的关联', 'No confirmed relationship declared')}</p>
-        </article>)}
-        {proposal.operations.length > 0 && <fieldset disabled={busy || api.auditUncertain} className="space-y-2">
-          <div className="flex flex-wrap gap-1">
-            <Button disabled={!checked.length} onClick={() => void call(previewSelected)}>{t('校验预览（不写入）', 'Validate preview (no writes)')}</Button>
+        </section> })}
+        {proposal.operations.length > 0 && <fieldset disabled={busy || api.auditUncertain} className="sticky bottom-0 -mx-4 space-y-2 border-t border-line bg-app/95 px-4 py-3 backdrop-blur-0" data-xgc-role="review-actions">
+          <div className="flex flex-wrap items-center gap-1">
             {surface === 'writing' && onConfirmDesign && !proposal.writing && <Button data-xgc-role="review-confirm-design" variant="solid" disabled={!checked.length || proposal.operations.filter(o => checked.includes(o.id)).some(o => o.target.kind !== 'canvas')} onClick={() => void call(async () => {
               selectedGroups(proposal, checked)
               await onConfirmDesign(proposal.id, checked, author)
@@ -220,17 +255,26 @@ export function ReviewPanelContents({scope, tabId, onTitle, surface = 'panel', a
             {surface !== 'writing' && <Button data-xgc-role="review-apply" disabled={!checked.length} variant="solid" onClick={() => void call(async () => {
               selectedGroups(proposal, checked)
               if (!window.confirm(t('按所选范围进行真实条件写入？独立文件逐项处理，不是原子提交。', 'Write the selected changes with version checks? Independent files are sequential, not atomic.'))) return
-              await api.action(e => e.run(proposal.id, checked, author, 'apply')); setPreview('')
-            })}>{t('应用所选范围', 'Apply selected scope')}</Button>}
-            {surface !== 'writing' && <Button data-xgc-role="review-revert" disabled={!checked.length} onClick={() => void call(async () => {
-              if (!window.confirm(t('撤回所选已应用改动？仅在保护条件仍满足时写入。', 'Recover selected applied changes only where recovery guards still match?'))) return
-              await api.action(e => e.run(proposal.id, checked, author, 'revert')); setPreview('')
-            })}>{t('受保护撤回', 'Guarded recovery')}</Button>}
+              await api.action(e => e.run(proposal.id, checked, author, 'apply')); setPreview(''); setChecked([])
+            })}>{checked.length ? t(`应用所选 · ${checked.length}`, `Apply selected · ${checked.length}`) : t('应用所选', 'Apply selected')}</Button>}
+            <Button disabled={!checked.length} onClick={() => void call(previewSelected)}>{t('校验预览', 'Validate preview')}</Button>
+            <span className="flex-1"/>
+            <RightMore menu label={t('更多审阅操作', 'More review actions')}>
+              {surface !== 'writing' && <Button size="xs" data-xgc-role="review-revert" disabled={!checked.length} onClick={() => void call(async () => {
+                if (!window.confirm(t('撤回所选已应用改动？仅在保护条件仍满足时写入。', 'Recover selected applied changes only where recovery guards still match?'))) return
+                await api.action(e => e.run(proposal.id, checked, author, 'revert')); setPreview(''); setChecked([])
+              })}>{t('受保护撤回所选', 'Guarded recovery of selected')}</Button>}
+              {!proposal.writing && <Button size="xs" disabled={!checked.length} onClick={() => setRejecting(true)}>{t('拒绝所选…', 'Reject selected…')}</Button>}
+              <Button size="xs" onClick={() => void call(() => openFeedbackAnchor(proposal.feedback.anchor, scope))}>{t('返回被批注版本', 'Return to annotated version')}</Button>
+            </RightMore>
           </div>
-          {surface === 'writing' && <p role="status" className="text-caption text-ink-2">{writingCopy[locale].reviewHint}</p>}
-          {!proposal.writing && <><label className="block">{t('拒绝理由', 'Rejection reason')}<input className="ui-input mt-1 w-full" value={decisionReason} onChange={e => setDecisionReason(e.target.value)}/></label>
-          <Button disabled={!checked.length || !decisionReason.trim()} onClick={() => void call(() => api.action(e => e.reject(proposal.id, checked, author, decisionReason)))}>{t('拒绝所选组', 'Reject selected group')}</Button></>}
-          {preview && <p role="status" className="whitespace-pre-wrap">{preview}</p>}
+          {rejecting && !proposal.writing && <div className="flex items-center gap-1">
+            <input autoFocus aria-label={t('拒绝理由', 'Rejection reason')} placeholder={t('拒绝理由（记入审阅记录）', 'Reason (recorded in the journal)')} className="ui-input h-8 min-w-0 flex-1" value={decisionReason} onChange={e => setDecisionReason(e.target.value)}/>
+            <Button disabled={!checked.length || !decisionReason.trim()} onClick={() => void call(async () => { await api.action(e => e.reject(proposal.id, checked, author, decisionReason)); setRejecting(false); setDecisionReason(''); setChecked([]) })}>{t('拒绝', 'Reject')}</Button>
+            <Button onClick={() => setRejecting(false)}>{t('取消', 'Cancel')}</Button>
+          </div>}
+          {surface === 'writing' && <p role="status" className="text-caption text-ink-3">{writingCopy[locale].reviewHint}</p>}
+          {preview && <p role="status" className="whitespace-pre-wrap text-caption text-ink-2">{preview}</p>}
         </fieldset>}
         {(() => {
           // Plan ↔ manuscript: an applied source proposal that answered revision cards can close them and link the passage.
@@ -238,7 +282,7 @@ export function ReviewPanelContents({scope, tabId, onTitle, surface = 'panel', a
           const applied = api.book!.attempts.find(a => a.proposalId === proposal.id && a.mode === 'apply' && (a.outcome === 'applied' || a.outcome === 'observed-applied'))
           const text = proposal.operations.find(o => o.target.kind === 'text')
           if (!applied || !text) return null
-          return <section className="space-y-1 rounded-lg border border-line p-3 text-caption" data-xgc-role="manuscript-applied">
+          return <section className="space-y-1.5 rounded-lg bg-elevated px-3 py-2.5 text-caption" data-xgc-role="manuscript-applied">
             <p className="text-ink-2">{t(`源文件已写入 ${applied.path}。PDF 不会自动重新编译。`, `Source written to ${applied.path}. The PDF is not recompiled automatically.`)}</p>
             {cards.length > 0 && <Button size="xs" variant="outline" data-xgc-role="mark-answered" disabled={busy || marked[proposal.id]} onClick={() => void call(async () => {
               const result = await markAnswered(scope, cards, { path: text.target.path, digest: applied.afterDigest, quote: text.after })
@@ -266,9 +310,10 @@ export function ReviewPanelContents({scope, tabId, onTitle, surface = 'panel', a
             </p>}
           </div>}
         </section>}
-        {api.book!.decisions.filter(d => d.proposalId === proposal.id).map(d => <p key={d.id} className="text-caption">{t('拒绝记录', 'Rejection record')} · {d.actor} · {d.at} · {d.reason} · {d.operationIds.join(', ')}</p>)}
+        {api.book!.decisions.filter(d => d.proposalId === proposal.id).map(d => <p key={d.id} className="text-caption text-ink-3">{t('已拒绝', 'Rejected')} · {d.reason} · {d.actor}</p>)}
         {api.book!.notDispatched?.filter(d => d.proposalId === proposal.id).map(d => <p role="status" key={d.id} className="whitespace-pre-wrap text-caption">{d.mode} · {d.at} · {d.detail}</p>)}
-        {api.book!.attempts.filter(a => a.proposalId === proposal.id).map(a => <article key={a.id} className="space-y-2 rounded-lg bg-elevated p-3">
+        {/* 待核对的写入必须留在眼前；其余回执折叠为「写入记录」 */}
+        {unresolved.map(a => <article key={a.id} className="space-y-2 rounded-lg bg-elevated p-3">
           <p className="break-all">{a.path} · {a.mode} · {stateLabel(a.outcome)}</p>
           <p className="break-all text-caption">{a.id} · {a.actor} · {a.at}</p>
           <p className="break-all text-caption">{a.beforeDigest} → {a.afterDigest || t('无已确认的写入版本', 'No confirmed write revision')}</p>
@@ -281,7 +326,16 @@ export function ReviewPanelContents({scope, tabId, onTitle, surface = 'panel', a
             })}>{t('人工确认观察结果', 'Confirm observed state')}</Button></>}
           </>}
         </article>)}
-      </div>}
+        {records.length > 0 && <details className="text-caption text-ink-3" data-xgc-role="review-records"><summary className="cursor-pointer">{t('写入记录', 'Write records')} · {records.length}</summary>
+          {records.map(a => <div key={a.id} className="mt-2 space-y-0.5 border-t border-line pt-2">
+            <p className="text-ink-2">{a.path} · {a.mode} · {stateLabel(a.outcome)}</p>
+            <p className="break-all">{a.at} · {a.actor}</p>
+            <p className="break-all">{a.beforeDigest} → {a.afterDigest || t('无已确认的写入版本', 'No confirmed write revision')}</p>
+            {a.detail && <p className="whitespace-pre-wrap">{a.detail}</p>}
+          </div>)}
+        </details>}
+      </article>}
+     </div>
     </div>
   </section>
 }
