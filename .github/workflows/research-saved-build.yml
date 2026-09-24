@@ -32,4 +32,4 @@ jobs:
       - name: Product typecheck and bundling
         run: npm run build
       - name: Build-surface lint
-        run: npx --no-install eslint src/features/resources/FilesPage.tsx src/features/resources/SavedSourceEditor.tsx src/features/resources/ManuscriptBuildStatus.tsx src/features/resources/manuscript.ts src/features/resources/manuscript-build.ts src/features/resources/useManuscriptBuild.ts src/features/resources/saved-source.ts src/features/resources/project-files.ts src/features/review/BuildProvenance.tsx src/features/review/build-provenance.ts tests/manuscript-build.test.ts
+        run: npx --no-install eslint src/features/resources/FilesPage.tsx src/features/resources/SavedSourceEditor.tsx src/features/resources/ManuscriptBuildStatus.tsx src/features/resources/manuscript.ts src/features/resources/manuscript-build.ts src/features/resources/useManuscriptBuild.ts src/features/resources/saved-source.ts src/features/resources/project-files.ts src/features/review/build-provenance.ts tests/manuscript-build.test.ts
