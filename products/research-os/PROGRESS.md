@@ -2,6 +2,56 @@
 
 Branch: `feat/research-os-agent-native-workbench` · Draft PR XGC-Team/xgc2-ui#34 · Refs XGC-Team/xgc2-research-os#12
 
+## Round 8: Design Argument Canvas (live T-RO 26-0979 demand)
+
+**What.** A new resource tab **「论证画布」 / Design canvas**. It draws the paper's own argument graph from the writing side's `writing-map/index.json` + `units.jsonl` (schema-semantic v0.2). Nodes are **semantic argument units**: problem, challenge, method, assumption, lemma, guarantee, evidence, revision, roadblock. Sentences are not nodes. Edges are the five typed relations. The inspector shows each unit's flesh: why, adversarial notes, writing norms, formal checks, blocked-by, links.
+
+**Why this, not Atom Trail.** The owner cancelled the ledger/Atom Trail plan as over-design. The paper workers (TRO-写作 / Terminal 12) already maintain the writing map and need to *see and think with* the argument, not a new ledger ceremony. So this slice only reads their files, where they already are.
+
+**How it works:**
+- **Loader** (`useWritingMap`):
+  - It reads `<project>/<dir>/index.json`, then `units_path` (default `units.jsonl`), through the existing workspace file API. No backend change.
+  - `dir` defaults to `review/tro-26-0979-v1/cleaned/reply-kb/writing-map` and can be changed per project from the canvas's "…" menu.
+  - A clearly labelled 5-unit sample ships in `public/fixtures/argument-canvas-sample/` for offline UI work. It is labelled as not paper content everywhere it shows.
+  - If the map is missing, the canvas shows a one-sentence state with the expected path.
+- **Importer** (`writing-map.ts`, pure):
+  - Tolerant, and never invents anything. Bad JSON lines, missing ids, duplicates, `id`≠`unit_id`, unknown roles/statuses (kept verbatim), unknown edge types, dangling or self edges, `units_path` escaping the folder, schema-version drift, and `index.json` count/id mismatches all become **line-numbered import notes**.
+  - `mapping-seed.jsonl` is never read as nodes; the inspector only counts a unit's sentence locators.
+- **Canvas:**
+  - Deterministic layered layout, top to bottom (problem → challenges → methods/assumptions → lemmas/guarantees → evidence/revision/roadblocks). Within a row, units are ordered by their neighbours to reduce crossings.
+  - Same interaction grammar as the knowledge graph: drag to pan, wheel to zoom about the pointer, click to select, double-click empty space to fit (eased flight), Esc to deselect.
+  - Hover lights a unit's neighbourhood. A quiet status highlight offers All / Needs rewrite / Blocked & open.
+  - Roles by glyph and border, statuses by badge, edges by stroke grammar (solid / dashed / dotted / heavy + × / dash-dot + R).
+- **Inspector links, honestly:**
+  - `D-*` opens reply-kb `decisions-log.md` (a hint says to find the id there).
+  - `reply_kb_links` open the file in the side pane, and `vault_links` open in the reader.
+  - Theory, figure, claim and scheme ids are shown as handles only.
+  - `latex_anchors` are read-only `file:start–end` locators with copy. **There is no write-back to `.tex`.**
+  - "加入对话" attaches the unit to Chat as a versioned reference (units.jsonl digest + id).
+- **Entry points:** the project "…" menu, ⌘K "打开论证画布", and the resource "…" menu.
+
+**Verified live** against a local `researchd` serving a shallow clone of `paper-dmpc@docs/writing-map-pilot-20260925`. The owner's repository was not modified.
+- All **19 units / 74 typed edges** import with **zero** import notes.
+- U-G-RF's inspector shows its real why, adversarial notes and norms, D-102/D-105/D-106/D-02/D-03, and its reply-kb modules. Those open the actual `theory-kernel-K5-theorem-outline.md` and `decisions-log.md`, and the vault link opens `paper-dmpc.md` in the reader.
+- Hover highlights, the status filter, attach-to-chat, the missing-path state and the labelled sample all work, with no page errors.
+
+**How to try:** open the paper project → "…" → 论证画布 (or ⌘K "打开论证画布"). Click a unit; double-click empty space to see everything.
+
+**Tests:** `tests/writing-map.test.ts` covers:
+- the importer (flesh, links, anchors);
+- strict edge typing (unknown, dangling, self, duplicate);
+- the no-invention diagnostics;
+- empty and broken inputs, and a guarded `units_path`;
+- the layered layout;
+- the labelled fixture;
+- a live-file check that runs only when this machine has the paper map.
+
+`npm test` passes 294 tests, and `npm run build` and `npm run lint:review` pass.
+
+**Not built (by instruction):** Atom Trail / ledger parsers / append-only journal; the Reviews ceremony; mirroring units into `research-content.json`; Issue sync; PDF/SyncTeX; PPT/Remotion; sentence-level nodes; backend routes. There is also no editing of units from the canvas yet: the writing side owns `units.jsonl`.
+
+---
+
 ## Round 7: knowledge base + academic graph to production grade (`RESEARCH_OS_KB_PRODUCTION.md`)
 
 **How I chose.** Before changing anything I profiled a realistic synthetic vault: 3,092 linked notes in 30 topic folders, then 10,092 notes and 33k links in 80 folders, served by the local `researchd`. The baseline at 3k was not daily-use grade:

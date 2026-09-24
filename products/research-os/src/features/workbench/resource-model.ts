@@ -18,6 +18,7 @@ export type ResourceInput =
   | { kind: 'pdf'; pdf: ManuscriptPDF; followCurrent?: boolean }
   | { kind: 'note'; doc?: { workspace: string; path: string; title: string } }
   | { kind: 'artifacts' }
+  | { kind: 'argument' }
 
 /** Placement belongs to the workspace. Resource identity never contains a panel name. */
 export type ResourceTab = ResourceInput & {
@@ -43,6 +44,7 @@ export function resourceKey(input: ResourceInput, projectId: string): string {
     case 'note': identity = ['note', input.doc?.workspace, input.doc?.path]; break
     case 'web': identity = ['web', input.url || '']; break
     case 'artifacts': identity = ['artifacts']; break
+    case 'argument': identity = ['argument']; break
     case 'file': {
       const target = input.target ?? fileTarget(projectId, projectId)
       identity = ['file', target.workspace, target.path || target.view]
@@ -64,6 +66,7 @@ export function resourceTitle(input: ResourceInput, locale: 'zh' | 'en'): string
     case 'note': return input.doc?.title || (locale === 'zh' ? '笔记' : 'Notes')
     case 'file': return input.target?.path.split('/').pop() || (locale === 'zh' ? '项目文件' : 'Files')
     case 'artifacts': return locale === 'zh' ? '制品' : 'Artifacts'
+    case 'argument': return locale === 'zh' ? '论证画布' : 'Design canvas'
     case 'web': try { return input.url ? new URL(input.url).host : (locale === 'zh' ? '网页' : 'Web') } catch { return 'Web' }
   }
 }
@@ -120,7 +123,7 @@ const pathOK = (value: unknown): value is string => string(value) && !value.star
 const scopeOK = (v: unknown) => object(v) && string(v.projectId) && string(v.workspace)
 function resourceOK(t: Record<string, unknown>): boolean {
   switch (t.kind) {
-    case 'chat': case 'artifacts': return true
+    case 'chat': case 'artifacts': case 'argument': return true
     case 'research': return string(t.workspace) && ['table', 'outline', 'canvas', 'revision'].includes(String(t.view)) && (t.objectId === undefined || string(t.objectId))
     case 'reviews': case 'drafts': return scopeOK(t.scope)
     case 'file': return scopeOK(t.target) && object(t.target) && pathOK(t.target.path) && ['files', 'notes', 'builds'].includes(String(t.target.view))
