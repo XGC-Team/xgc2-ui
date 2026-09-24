@@ -28,7 +28,10 @@ export function useReview(scope: Scope, tabId: string, formDirty: boolean) {
     })
     const warn = (e: BeforeUnloadEvent) => { if (blocked()) { e.preventDefault(); e.returnValue = '' } }
     window.addEventListener('beforeunload', warn)
-    return () => { unregister(); engine.dispose(); if (current.current === engine) current.current = null; window.removeEventListener('beforeunload', warn) }
+    // Another surface (e.g. "promote finding") appended to this journal: re-read it rather than hit a stale-digest conflict.
+    const reread = (e: Event) => { const detail = (e as CustomEvent<Scope>).detail; if (detail && scopeKey(detail) === key && !engine.snapshot().busy) void engine.load().catch(() => {}) }
+    window.addEventListener('research:review-journal-changed', reread)
+    return () => { unregister(); engine.dispose(); if (current.current === engine) current.current = null; window.removeEventListener('beforeunload', warn); window.removeEventListener('research:review-journal-changed', reread) }
   }, [scope.projectId, scope.workspace, tabId, key])
   const action = useCallback(async <T,>(fn: (engine: NonNullable<typeof current.current>) => Promise<T>): Promise<T> => {
     const engine = current.current

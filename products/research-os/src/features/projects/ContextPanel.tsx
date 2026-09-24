@@ -18,7 +18,7 @@ import {
 
 /** The visible context set for Chat. Adding, refreshing and checking never sends a message;
  * the only way content reaches the draft is the explicit insert action. */
-export function ContextPanel() {
+export function ContextPanel({ open = false }: { open?: boolean } = {}) {
   const { locale, projectId, contextItems, removeContextItem, patchContextItem, openResource, openCanvas } = useWorkbench()
   const copy = contextCopy[locale]
   const workspace = workspaceCopy[locale]
@@ -93,7 +93,7 @@ export function ContextPanel() {
     setNote(copy.organizeNote)
   }
   return <section aria-label={copy.title} className="mx-auto w-full max-w-[48rem] px-5 pb-2" data-context-panel={effectiveProject || 'global'}>
-    <details className="rounded-lg border border-line bg-panel px-3 py-2">
+    <details open={open || undefined} className="rounded-lg border border-line bg-panel px-3 py-2">
       <summary className="cursor-pointer text-secondary text-ink-2">{copy.title} · {contextItems.length}</summary>
       <p className="mt-1 text-caption text-ink-3">{copy.addHint}</p>
       <p className="mt-1 text-caption text-ink-3">{copy.uiProject} · {projectId || '—'} · {copy.sessionScope} · {session ? (sessionProject || 'global') : copy.noSession}</p>

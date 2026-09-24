@@ -89,7 +89,7 @@ export function DraftsPage({ scope, tabId, onQuote, onTitle }: {
       <span className="min-w-0 flex-1 truncate text-caption text-ink-2">{current?.title || copy.title}</span>
       <IconBtn icon={RotateCw} label={copy.reload} disabled={state.status === 'loading' || state.status === 'saving'} onClick={reload}/>
       {state.value && <Button size="xs" disabled={!state.dirty || state.status === 'conflict'} loading={state.status === 'saving'} onClick={state.save}>{copy.save}</Button>}
-      {state.value && <RightMore label={copy.title}>
+      {state.value && <RightMore menu label={copy.title}>
         <Button onClick={exportLocal}>{copy.export}</Button>
         {current && <Button onClick={() => onQuote(draftContext(state.value!, current), scope.projectId)}>{copy.quote}</Button>}
       </RightMore>}

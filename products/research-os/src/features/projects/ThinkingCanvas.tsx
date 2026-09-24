@@ -1,6 +1,7 @@
 import { Input, Select, Textarea } from '../../components/forms'
 import { SourceReferenceLink } from '../content/SourceReferenceLink'
-import type { ResourceReference } from '../content/content-model'
+import { CARD_TYPES, CARD_TYPE_LABELS, isCardType, type ResourceReference } from '../content/content-model'
+import { LinkedKnowledge } from '../revision/FindingCapture'
 import { openContentResource } from '../content/resource-navigation'
 import { draftIdFromAnchor } from './draft-model'
 import {t as tr} from '../../i18n'
@@ -34,11 +35,13 @@ const EMPTY_CANVAS=emptyCanvasV2()
 const RELATION_COPY:Record<SemanticRelation,'relationSupports'|'relationContradicts'|'relationDepends'|'relationExemplifies'|'relationContinues'|'relationCites'|'relationQuestions'|'relationVerifies'|'relationAffects'>={
   supports:'relationSupports',contradicts:'relationContradicts',depends:'relationDepends',exemplifies:'relationExemplifies',continues:'relationContinues',cites:'relationCites',questions:'relationQuestions',verifies:'relationVerifies',affects:'relationAffects',
 }
-export function ThinkingCanvas({project,workspace=project,active=true,onRequestConversation,view:controlledView,onViewChange}:{project:string;workspace?:string;active?:boolean;onRequestConversation?:()=>void;view?:'canvas'|'outline';onViewChange?:(view:'canvas'|'outline')=>void}) {
+export function ThinkingCanvas({project,workspace=project,active=true,onRequestConversation,view:controlledView,onViewChange,locked=false}:{project:string;workspace?:string;active?:boolean;onRequestConversation?:()=>void;view?:'canvas'|'outline';onViewChange?:(view:'canvas'|'outline')=>void;locked?:boolean}) {
  const {openDocument,openResource,setActiveNav,locale,addContextItem}=useWorkbench();const copy=workspaceCopy[locale];const native=useNativeAgentSession();const {notes}=useAcademicNotes()
  const documentState=useCanvasDocument(project,workspace);const {mutate}=documentState;const canvas=documentState.value??EMPTY_CANVAS;const messages=projectObjectCopy[locale]
  const [localView,setLocalView]=useState<'canvas'|'outline'>('canvas')
  const view=controlledView??localView
+ // A parent view switcher (research content: table / outline / canvas) owns the toggle; do not render a second one.
+ const controlled=controlledView!==undefined
  const setView=(next:'canvas'|'outline')=>{setLocalView(next);onViewChange?.(next)}
  const [artifact,setArtifact]=useState(PRIMARY_OUTLINE)
  const [cam,setCam]=useState<Cam>({x:0,y:0,k:1})
@@ -157,15 +160,15 @@ export function ThinkingCanvas({project,workspace=project,active=true,onRequestC
   <div className="flex min-h-9 shrink-0 items-center gap-1 overflow-x-auto px-2" onKeyDown={onKey}>
    <Button size="xs" icon={BookOpen} onClick={()=>addNode('chapter')}>{tr("章节")}</Button>
    <Button size="xs" icon={Plus} onClick={()=>addNode('idea')}>{tr("想法")}</Button>
-   <Button size="xs" aria-pressed={view==='canvas'} variant={view==='canvas'?'outline':'ghost'} onClick={()=>setView('canvas')}>{copy.canvas}</Button>
-   <Button size="xs" icon={ListTree} aria-pressed={view==='outline'} variant={view==='outline'?'outline':'ghost'} onClick={()=>setView('outline')}>{copy.outline}</Button>
+   {!controlled&&<Button size="xs" aria-pressed={view==='canvas'} variant={view==='canvas'?'outline':'ghost'} onClick={()=>setView('canvas')}>{copy.canvas}</Button>}
+   {!controlled&&<Button size="xs" icon={ListTree} aria-pressed={view==='outline'} variant={view==='outline'?'outline':'ghost'} onClick={()=>setView('outline')}>{copy.outline}</Button>}
    <IconBtn icon={Undo2} label={copy.undo} disabled={!past.current.length&&!historyVersion} onClick={undo}/>
    <IconBtn icon={Redo2} label={copy.redo} disabled={!future.current.length} onClick={redo}/>
    {view==='canvas'&&<IconBtn icon={Expand} label={copy.fit} onClick={fitCanvas}/>}
    {view==='canvas'&&<Button size="xs" onClick={()=>{fitted.current=false;apply(layoutDesignCanvas)}}>{copy.tidy}</Button>}
    <span role="status" className="min-w-0 flex-1 truncate text-caption text-ink-3" title={`${project}/${CANVAS_PATH}`}>{statusLabel}</span>
    <IconBtn icon={Send} label={copy.addToDraft} onClick={()=>{native.appendDraft(prompt(),project);setActiveNav('chat');onRequestConversation?.()}}/>
-   <RightMore label={copy.more}><Button size="xs" icon={Copy} onClick={()=>void copyPrompt()}>{copied?tr("已复制"):tr("复制提示词")}</Button></RightMore>
+   <RightMore menu label={copy.more}><Button size="xs" icon={Copy} onClick={()=>void copyPrompt()}>{copied?tr("已复制"):tr("复制提示词")}</Button></RightMore>
   </div>
   {blocked&&<div className="px-3 py-2">
    <p role="alert" className="text-secondary text-ink-2">{saveState==='conflict'?messages.canvasConflict:messages.canvasSaveError}</p>
@@ -182,6 +185,7 @@ export function ThinkingCanvas({project,workspace=project,active=true,onRequestC
   :<div ref={box} role="region" aria-label={copy.canvas} tabIndex={0} onKeyDown={onKey} className={cn('relative min-h-0 w-full flex-1 overflow-hidden focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-[-1px]',drag.current?.mode==='pan'?'cursor-grabbing':'cursor-default')} style={{backgroundImage:'radial-gradient(var(--line-strong) 1px,transparent 1px)',backgroundSize:`${24*cam.k}px ${24*cam.k}px`,backgroundPosition:`${cam.x}px ${cam.y}px`}}
    onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={()=>{drag.current=null;setTempEdge(null)}} onWheel={onWheel}
    onDoubleClick={e=>{if(e.target===e.currentTarget||(e.target as HTMLElement).dataset.world)addNode('idea',toWorld(e.clientX,e.clientY))}}>
+   {!canvas.nodes.some(n=>!isCanvasSentence(n.id))&&<CanvasEmpty locale={locale} locked={locked} onIdea={()=>addNode('idea')} onChapter={()=>addNode('chapter')} onWorkflow={()=>setActiveNav('workflow')}/>}
    <div data-world="1" className="absolute left-0 top-0 h-0 w-0" style={{transform:`translate(${cam.x}px,${cam.y}px) scale(${cam.k})`}}>
     <svg className="pointer-events-none absolute overflow-visible" style={{left:0,top:0,width:1,height:1}}>
      {canvas.edges.map((e,i)=>{const a=nodeById.get(e.from),b=nodeById.get(e.to);if(!a||!b||isCanvasSentence(a.id)||isCanvasSentence(b.id))return null
@@ -208,6 +212,8 @@ export function ThinkingCanvas({project,workspace=project,active=true,onRequestC
       <div className="flex items-center gap-1 px-2 pb-2 pt-1">
        {n.ref&&<button className="flex min-w-0 items-center gap-1 rounded-md bg-elevated px-1.5 py-0.5 text-caption text-ink-2 hover:text-ink" title={n.ref.path} onClick={()=>openDocument({workspace:'academic',path:n.ref!.path,title:n.ref!.title})}><Link2 size={11} strokeWidth={1.75} className="shrink-0"/><span className="truncate">{n.ref.title}</span></button>}
        {n.anchor&&<button className="flex min-w-0 items-center gap-1 rounded-md bg-elevated px-1.5 py-0.5 text-caption text-ink-2 hover:text-ink" title={n.anchor} onClick={()=>void openAnchor(n.anchor!)}><FileText size={11} strokeWidth={1.75} className="shrink-0"/><span className="truncate">{n.anchor.split('/').pop()}</span></button>}
+       {/* 卡片类型：主张/问题/决策/证据/约束/修订项…——画布作为逻辑板，类型以文字标出 */}
+       {isCardType(n.cardType)&&!['note','design'].includes(n.cardType)&&<span className="rounded-md border border-line px-1.5 py-0.5 text-caption text-ink-2" data-card-kind={n.cardType}>{CARD_TYPE_LABELS[locale][n.cardType]}{typeof (n as {status?:unknown}).status==='string'&&(n as {status?:string}).status?` · ${(n as {status?:string}).status}`:''}</span>}
        {Boolean(n.evidence?.length)&&<span className="rounded-md bg-elevated px-1.5 py-0.5 text-caption text-ink-3">{copy.evidence} {n.evidence!.length}</span>}
        {Boolean(n.bindings?.length)&&<span className="rounded-md bg-elevated px-1.5 py-0.5 text-caption text-ink-3">{copy.sourceBindings} {n.bindings!.length}</span>}
        {selected&&<span className="ml-auto flex shrink-0 gap-0.5">
@@ -238,10 +244,16 @@ export function ThinkingCanvas({project,workspace=project,active=true,onRequestC
        {canvasSentenceLines(canvas, selectedNode.id).map((line, index)=><li key={line.id} className="leading-5"><span className="text-ink-3">{index+1}. </span>{line.relation?`${copy[RELATION_COPY[line.relation]]} · `:''}{line.text}</li>)}
       </ol>
      </section>}
+     <label className="block text-secondary text-ink-2">{locale==='zh'?'卡片类型':'Card kind'}
+      <Select className="ui-input mt-1 w-full" value={selectedNode.cardType??(selectedNode.kind==='chapter'?'design':'note')} onChange={e=>apply(c=>({...c,nodes:c.nodes.map(x=>x.id===selectedNode.id?{...x,cardType:e.target.value}:x)}))}>
+       {CARD_TYPES.map(type=><option key={type} value={type}>{CARD_TYPE_LABELS[locale][type]}</option>)}
+      </Select>
+     </label>
      <div className="flex flex-wrap gap-1">
       <Button size="xs" icon={Crosshair} onClick={()=>setView('outline')}>{copy.locateOutline}</Button>
       <Button size="xs" onClick={()=>addNodeToContext(selectedNode)}>{copy.addToContext}</Button>
      </div>
+     <LinkedKnowledge project={project} workspace={workspace} object={selectedNode} sources={((selectedNode as {sources?:ResourceReference[]}).sources)??[]}/>
      <section className="space-y-2">
       <p className="text-caption font-medium uppercase tracking-[0.06em] text-ink-3">{copy.evidence}</p>
       {(selectedNode.evidence??[]).map(item=><div key={item.id} className="space-y-1 rounded-md bg-elevated p-2 text-caption">
@@ -289,5 +301,19 @@ export function ThinkingCanvas({project,workspace=project,active=true,onRequestC
     </div>
    </div>
   </div>}
+ </div>
+}
+
+/* 研究画布空态：说清它是什么、不是什么。画布外化意图/论证/证据/约束；执行步骤、审批与回执属于工作流。 */
+function CanvasEmpty({locale,locked,onIdea}:{locale:'zh'|'en';locked:boolean;onIdea:()=>void;onChapter?:()=>void;onWorkflow?:()=>void}){
+ const zh=locale==='zh'
+ return <div className="pointer-events-none absolute inset-0 grid place-content-center p-6" data-xgc-role="canvas-empty">
+  <div className="pointer-events-auto max-w-sm text-center" onDoubleClick={e=>e.stopPropagation()} onPointerDown={e=>e.stopPropagation()}>
+   <p className="font-display text-[18px] tracking-tight">{zh?'研究画布':'Research canvas'}</p>
+   <p className="mt-2 text-secondary text-ink-3">{locked
+    ?(zh?'先在上方建立研究内容，画布才可编辑。':'Create the research content above to start editing.')
+    :(zh?'摆放问题、主张与证据，再用关系连接；执行步骤属于工作流。':'Place questions, claims and evidence, then connect them; execution steps belong in Workflow.')}</p>
+   {!locked&&<div className="mt-4" data-xgc-role="canvas-empty-action"><Button size="sm" variant="outline" icon={Plus} onClick={onIdea}>{zh?'添加想法':'Add an idea'}</Button></div>}
+  </div>
  </div>
 }

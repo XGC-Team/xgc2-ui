@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowLeft, FileText, Folder, RotateCw } from 'lucide-react'
+import { ArrowLeft, FileText, Folder, MessageSquarePlus, RotateCw } from 'lucide-react'
+import { request } from '../../lib/api'
+import { newContextItem } from '../projects/context-model'
 import { useWorkbench } from '../../store'
 import { Button, IconBtn } from '../../components/ui'
 import { listPDFVersions, type ManuscriptPDF } from './manuscript'
@@ -23,7 +25,7 @@ export function FilesPage(props: Props) {
   return <FilesPageContent key={JSON.stringify([projectId, workspace, path, view])} {...props}/>
 }
 function FilesPageContent({ target, active = true, manuscriptEntryPoint, onQuote, onTitle }: Props) {
-  const { locale, openPDF, openResource, setProjectId, setActiveNav, showConversation } = useWorkbench()
+  const { locale, openPDF, openResource, setProjectId, setActiveNav, showConversation, addContextItem } = useWorkbench()
   const copy = projectObjectCopy[locale]
   const { projectId, workspace, path, view } = target
   const [directory, setDirectory] = useState(''), [entries, setEntries] = useState<ProjectEntry[]>([])
@@ -49,6 +51,15 @@ function FilesPageContent({ target, active = true, manuscriptEntryPoint, onQuote
     return () => controller.abort()
   }, [workspace, path, view, directory, revision, active])
   useEffect(() => { if (active && scroll.current) scroll.current.scrollTop = position.current }, [active])
+  // Project documents join the chat as versioned references: text files are read once to pin their digest; a PDF is attached by path.
+  const [attachNote, setAttachNote] = useState('')
+  const attach = async (file: string) => {
+    let digest: string | undefined
+    if (isTextMaterial(file)) try { digest = (await request<{ digest: string }>(`/workspaces/${encodeURIComponent(workspace)}/files/${file.split('/').map(encodeURIComponent).join('/')}`)).digest || undefined } catch { digest = undefined }
+    const label = file.split('/').pop() || file
+    addContextItem(newContextItem({ project: projectId, kind: 'source', label, ref: `${workspace}/${file}`, digest, source: { id: file, path: file, workspace, digest } }))
+    setAttachNote(locale === 'zh' ? `《${label}》已加入对话上下文（未发送）${digest ? '' : '，版本待核对'}。` : `${label} added to chat context (not sent)${digest ? '' : '; version unverified'}.`)
+  }
   const back = () => {
     if (path) openResource({ kind: 'file', target: fileTarget(projectId, workspace, view) })
     else { setEntries([]); position.current = 0; setDirectory(directory.split('/').slice(0, -1).join('/')) }
@@ -78,10 +89,17 @@ function FilesPageContent({ target, active = true, manuscriptEntryPoint, onQuote
             {!loading && !error && !builds.length && <p className="text-secondary text-ink-3">{copy.noBuilds}</p>}
           </> : <>
             {view === 'notes' && <p className="mb-3 text-caption text-ink-3">{copy.noteScope}</p>}
-            {entries.map(entry => <button key={entry.path} type="button" className="ui-list-row" onClick={() => {
+            {attachNote && <p role="status" className="mb-2 text-caption text-ink-3">{attachNote}</p>}
+            {entries.map(entry => <div key={entry.path} className="group relative"><button type="button" className="ui-list-row pr-9" onClick={() => {
               if (entry.kind === 'directory') { setEntries([]); position.current = 0; setDirectory(entry.path) }
+              // A PDF in the workspace (e.g. the submitted manuscript under review) opens in the annotating reader beside the canvas,
+              // without implying a fresh TeX build.
+              else if (/\.pdf$/i.test(entry.path)) openResource({ kind: 'original', workspace, path: entry.path }, 'secondary')
               else openResource({ kind: 'file', target: fileTarget(projectId, workspace, view, entry.path) })
-            }}>{entry.kind === 'directory' ? <Folder size={14} strokeWidth={1.75}/> : <FileText size={14} strokeWidth={1.75}/>}<span className="truncate">{entry.path.split('/').pop()}</span></button>)}
+            }}>{entry.kind === 'directory' ? <Folder size={14} strokeWidth={1.75}/> : <FileText size={14} strokeWidth={1.75}/>}<span className="truncate">{entry.path.split('/').pop()}</span></button>
+              {entry.kind !== 'directory' && projectId && <button type="button" data-xgc-role="file-to-context" aria-label={`${locale === 'zh' ? '加入对话' : 'Add to chat'} · ${entry.path}`} title={locale === 'zh' ? '加入对话（版本化引用，未发送）' : 'Add to chat (versioned reference, not sent)'}
+                className="absolute right-1 top-1/2 grid h-6 w-6 -translate-y-1/2 place-items-center rounded-md text-ink-3 opacity-0 hover:bg-hover hover:text-ink focus-visible:opacity-100 group-hover:opacity-100" onClick={() => void attach(entry.path)}><MessageSquarePlus size={13} strokeWidth={1.75}/></button>}
+            </div>)}
             {!loading && !error && !entries.length && <p className="text-secondary text-ink-3">{view === 'notes' ? copy.noNotes : copy.noFiles}</p>}
           </>}
       </div>

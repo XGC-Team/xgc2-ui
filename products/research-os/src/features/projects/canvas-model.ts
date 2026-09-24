@@ -57,6 +57,8 @@ export type CanvasNodeV2 = CanvasNode & {
   evidence?: CanvasEvidence[]
   writing?: WritingConstraints
   bindings?: SourceBinding[]
+  /** In-memory projection of the card type (claim, decision, revision item…); persisted as kind + role, never as this field. */
+  cardType?: string
 }
 export type CanvasEdgeV2 = { from: string; to: string; relation?: SemanticRelation }
 export type OutlineItem = { node: string; children?: OutlineItem[] }

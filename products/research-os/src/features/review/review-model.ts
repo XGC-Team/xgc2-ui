@@ -1,6 +1,7 @@
 import { validateWritingRecord } from './writing-model.ts'
 import type { WritingRecord } from './writing-contract.ts'
 import { CONTENT_PATH, parseContentDocument } from '../content/content-model.ts'
+import { validateKnowledgePromotion, type KnowledgeCandidate } from '../resources/knowledge-promotion.ts'
 /** Review records are product data, not Agent execution claims. Never infer semantic links from layout. */
 export const REVIEW_PATH = 'research-reviews.json'
 export type Scope = { projectId: string; workspace: string }
@@ -22,7 +23,9 @@ export type Operation = {
 export type Proposal = {
   id: string; author: string; at: string; title: string; feedback: Feedback; operations: Operation[]
   writing?: WritingRecord
-  promotion?: { destination: 'global-knowledge'; scope: string; conditions: string; verification: string; decision: 'pending' | 'approved-scope' | 'rejected'; decidedBy?: string; decidedAt?: string; approvalDigest?: string }
+  /** With a candidate, approval pins the canonical intent digest and the domain executor can write it (research.knowledge-promotion/v1).
+   * Without one, it is a scope review only. */
+  promotion?: { destination: 'global-knowledge'; scope: string; conditions: string; verification: string; decision: 'pending' | 'approved-scope' | 'rejected'; decidedBy?: string; decidedAt?: string; approvalDigest?: string; candidate?: KnowledgeCandidate }
 }
 export type Outcome = 'pending' | 'applied' | 'reverted' | 'conflict' | 'not-written' | 'uncertain' | 'observed-applied' | 'observed-not-written'
 export type Attempt = {
@@ -91,6 +94,7 @@ export function validateProposal(p: unknown, scope: Scope, historical = false): 
   if (p.promotion !== undefined) {
     const k = p.promotion
     check(record(k) && k.destination === 'global-knowledge' && nonempty(k.scope) && nonempty(k.conditions) && nonempty(k.verification) && ['pending', 'approved-scope', 'rejected'].includes(String(k.decision)), 'Knowledge review requires destination, conditions and verification scope.')
+    if (record(k) && k.candidate !== undefined) validateKnowledgePromotion(k as Parameters<typeof validateKnowledgePromotion>[0])
   }
   if (p.writing !== undefined) {
     check(p.promotion === undefined, 'Writing and knowledge promotion are separate review scopes.')

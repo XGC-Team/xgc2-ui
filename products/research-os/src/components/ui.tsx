@@ -199,7 +199,8 @@ export function Tabs({
 }
 
 /* ---------- RightMore: 页面工具行末尾的溢出菜单 ---------- */
-export function RightMore({ label, children }: { label: string; children: ReactNode }) {
+/* menu：动作菜单（VS Code/Cursor 语法）——条目左对齐、点选即关闭；表单类溢出面板（缩放、版本选择）不传 menu */
+export function RightMore({ label, children, menu = false }: { label: string; children: ReactNode; menu?: boolean }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -215,9 +216,35 @@ export function RightMore({ label, children }: { label: string; children: ReactN
       <button type="button" className="grid h-7 w-7 place-items-center rounded-md text-ink-3 transition-all duration-150 hover:bg-hover hover:text-ink active:scale-95" aria-label={tr(label)} title={tr(label)} aria-expanded={open} onClick={() => setOpen(!open)}>
         <MoreHorizontal size={14} strokeWidth={1.75} />
       </button>
-      {open && <div role="dialog" aria-label={tr(label)} className="ui-pop-in absolute right-0 top-full z-50 mt-1 flex w-60 flex-col gap-2 rounded-lg border border-line bg-panel p-3 shadow-pop">{children}</div>}
+      {open && (menu
+        ? <div role="menu" aria-label={tr(label)} className="ui-menu ui-pop-in absolute right-0 top-full z-50 mt-1 flex w-60 flex-col gap-0.5 rounded-lg border border-line bg-panel p-1 shadow-pop"
+            onClick={e => { if ((e.target as HTMLElement).closest('button:not([aria-expanded])')) setOpen(false) }}>{children}</div>
+        : <div role="dialog" aria-label={tr(label)} className="ui-pop-in absolute right-0 top-full z-50 mt-1 flex w-60 flex-col gap-2 rounded-lg border border-line bg-panel p-3 shadow-pop">{children}</div>)}
     </div>
   )
+}
+
+/* ---------- Popover: 与 RightMore 同一套外壳，但触发器与方向可定（贴近输入框时向上展开） ---------- */
+export function Popover({ label, trigger, side = 'bottom', align = 'right', width = 'w-72', children }: {
+  label: string; trigger: (props: { open: boolean; toggle: () => void }) => ReactNode
+  side?: 'top' | 'bottom'; align?: 'left' | 'right'; width?: string; children: ReactNode | ((close: () => void) => ReactNode)
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const close = (e: PointerEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false) }
+    const key = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('pointerdown', close)
+    document.addEventListener('keydown', key)
+    return () => { document.removeEventListener('pointerdown', close); document.removeEventListener('keydown', key) }
+  }, [open])
+  return <div ref={ref} className="relative shrink-0">
+    {trigger({ open, toggle: () => setOpen(!open) })}
+    {open && <div role="dialog" aria-label={label} className={cn('ui-pop-in absolute z-50 flex max-h-[min(420px,60vh)] flex-col gap-1 overflow-hidden rounded-lg border border-line bg-panel p-2 shadow-pop', width, side === 'top' ? 'bottom-full mb-1' : 'top-full mt-1', align === 'right' ? 'right-0' : 'left-0')}>
+      {typeof children === 'function' ? children(() => setOpen(false)) : children}
+    </div>}
+  </div>
 }
 
 /* ---------- Badge: 计数徽标（active 时黑实底，承载语义） ---------- */

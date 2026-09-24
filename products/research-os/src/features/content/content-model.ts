@@ -2,8 +2,29 @@ import type { CanvasNodeV2, CanvasEdgeV2, CanvasEvidence, OutlineArrangement, So
 import type { DraftBook, DraftScope, ResearchDraft, ObjectLink } from '../projects/draft-model'
 
 export const CONTENT_PATH = 'research-content.json'
+// Must match the backend contract (researchcontent.Validate): the server rejects any other object kind.
 export const CONTENT_KINDS = ['question', 'claim', 'assumption', 'evidence', 'design', 'note', 'method', 'workflow', 'tool'] as const
 export type ContentKind = typeof CONTENT_KINDS[number]
+/* Card roles refine a backend kind for the revision logic board without changing the schema:
+   a reviewer comment is a question put to the paper, a decision is a claim about what we will do, a constraint is a binding assumption.
+   Persisted as an extension field `role`, which the backend preserves. */
+export const CARD_ROLES = { revision: 'question', decision: 'claim', constraint: 'assumption' } as const satisfies Record<string, ContentKind>
+export type CardRole = keyof typeof CARD_ROLES
+export type CardType = ContentKind | CardRole
+export const CARD_TYPES: readonly CardType[] = ['question', 'revision', 'claim', 'decision', 'evidence', 'assumption', 'constraint', 'design', 'note', 'method', 'workflow', 'tool']
+export const CARD_TYPE_LABELS: Record<'zh' | 'en', Record<CardType, string>> = {
+  zh: { question: '问题', claim: '主张', assumption: '假设', evidence: '证据', decision: '决策', constraint: '约束', revision: '修订项', design: '设计', note: '笔记', method: '方法', workflow: '流程', tool: '工具' },
+  en: { question: 'Question', claim: 'Claim', assumption: 'Assumption', evidence: 'Evidence', decision: 'Decision', constraint: 'Constraint', revision: 'Revision item', design: 'Design', note: 'Note', method: 'Method', workflow: 'Workflow', tool: 'Tool' },
+}
+export const isCardType = (value: unknown): value is CardType => (CARD_TYPES as readonly unknown[]).includes(value)
+/** The type a card shows: its role when it has a known one, otherwise its backend kind. */
+export function cardType(object: { kind: ContentKind; role?: unknown }): CardType {
+  return typeof object.role === 'string' && object.role in CARD_ROLES && CARD_ROLES[object.role as CardRole] === object.kind ? object.role as CardRole : object.kind
+}
+/** Persisted fields for a card type: a backend kind, plus a role when the type is a refinement. */
+export function cardTypeFields(type: CardType): { kind: ContentKind; role?: CardRole } {
+  return type in CARD_ROLES ? { kind: CARD_ROLES[type as CardRole], role: type as CardRole } : { kind: type as ContentKind }
+}
 export type ResourceReference = {
   kind: 'content' | 'artifact' | 'file' | 'knowledge' | 'literature' | 'workflow' | 'run' | 'build'
   workspace?: string; path?: string; id?: string; revision?: string; digest?: string
@@ -95,7 +116,7 @@ export function projectCanvas(document: ContentDocument): ThinkingCanvasV2 {
   const places = new Map(document.views.canvas.placements.map(p => [p.objectId, p]))
   const nodes: CanvasNodeV2[] = document.objects.map((object, i) => {
     const p = places.get(object.id)
-    return { ...object, evidence: projectEvidence(object), kind: object.legacyKind ?? (object.kind === 'design' ? 'chapter' : 'idea'), x: p?.x ?? 48 + (i % 3) * 360, y: p?.y ?? 40 + Math.floor(i / 3) * 180, ...(p?.collapsed !== undefined ? { collapsed: p.collapsed } : {}) } as CanvasNodeV2
+    return { ...object, cardType: cardType(object), evidence: projectEvidence(object), kind: object.legacyKind ?? (object.kind === 'design' ? 'chapter' : 'idea'), x: p?.x ?? 48 + (i % 3) * 360, y: p?.y ?? 40 + Math.floor(i / 3) * 180, ...(p?.collapsed !== undefined ? { collapsed: p.collapsed } : {}) } as CanvasNodeV2
   })
   const ids = new Set(nodes.map(n => n.id))
   const edges = document.relations.filter(r => local(r.from, document) && local(r.to, document) && ids.has(r.from.id!) && ids.has(r.to.id!))
@@ -109,10 +130,13 @@ export function applyCanvasProjection(document: ContentDocument, canvas: Thinkin
   const objects = canvas.nodes.map(node => {
     const previous = before.get(node.id)
     const { x: _x, y: _y, collapsed: _collapsed, kind, ...fields } = node
-    const next: ContentObject = { ...previous, ...fields, kind: previous?.kind ?? (kind === 'chapter' ? 'design' : 'note'), sources: applyEvidence(previous ?? { ...fields, kind: 'note', sources: [] }, node), legacyKind: previous?.legacyKind ?? kind }
+    const typed = isCardType(node.cardType) ? cardTypeFields(node.cardType) : undefined
+    const next: ContentObject = { ...previous, ...fields, kind: typed?.kind ?? previous?.kind ?? (kind === 'chapter' ? 'design' : 'note'), sources: applyEvidence(previous ?? { ...fields, kind: 'note', sources: [] }, node), legacyKind: previous?.legacyKind ?? kind }
     // A removed optional field is a real edit, not an invitation to revive the old value.
     for (const key of ['writing', 'bindings', 'evidence', 'ref', 'anchor', 'body'] as const) if (!(key in node)) delete next[key]
     delete next.evidence
+    delete next.cardType
+    if (typed) { if (typed.role) next.role = typed.role; else delete next.role }
     if (JSON.stringify(previous?.ref) !== JSON.stringify(node.ref)) {
       const oldRef = previous?.ref as { path?: string } | undefined
       next.sources = next.sources.filter(s => !(s.kind === 'knowledge' && s.path === oldRef?.path && !s.selector))

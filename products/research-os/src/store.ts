@@ -18,6 +18,8 @@ export const NAV_ITEMS = [
   {id:'settings',label:'Settings',description:'供应者与模型配置'},
 ] as const
 export type NavId = typeof NAV_ITEMS[number]['id']
+export type SettingsSection = 'appearance' | 'connections'
+export type ThreadBrief = { label: string; text: string }
 export type ReviewIntent = { id: string; scope: Scope; anchor: Anchor; body: string; at: string; designDiscussion?: true; annotationId?: string }
 const persistLayout = (resourceLayout: ResourceLayout) => {
   writePreference(LAYOUT_PREFERENCE, JSON.stringify(resourceLayout))
@@ -45,6 +47,10 @@ export const useWorkbench = create<{
   contextItems: ContextItem[]
   addContextItem: (item: ContextItem) => void
   removeContextItem: (id: string) => void
+  /* 线程约定：随「首条消息」一起发送的说明（如修订线程的修订项清单与画布提议约定）。
+     以一枚可见、可移除、可展开查看的附件呈现，不再把十几行说明灌进输入框。 */
+  threadBriefs: Record<string, ThreadBrief>
+  setThreadBrief: (project: string, brief: ThreadBrief | null) => void
   patchContextItem: (id: string, patch: Partial<ContextItem>) => void
 
   locale:'zh'|'en';setLocale:(locale:'zh'|'en')=>void
@@ -75,6 +81,13 @@ export const useWorkbench = create<{
   openCanvas:(project:string)=>void
   paletteOpen:boolean; setPaletteOpen:(open:boolean)=>void
   projectId:string; setProjectId:(id:string)=>void
+  /* 设置页深链：侧栏/名册/命令面板跳到某一节（外观、连接与模型） */
+  settingsFocus:{section:SettingsSection;nonce:number}|null; openSettings:(section?:SettingsSection)=>void
+  /* 讨论停靠：Chat 固定为主区左侧一列，主区与并排区同时承载画布与制品——Chat | 画布 | 制品 三栏同时可用 */
+  chatDock:boolean; setChatDock:(docked:boolean)=>void
+  /* 可分离面板：讨论与并排区都可浮动为窗口并随时回停；浮动只换几何，不重挂内容 */
+  chatFloat:boolean; setChatFloat:(floating:boolean)=>void
+  sideFloat:boolean; setSideFloat:(floating:boolean)=>void
 }>((set,get)=>({
   pendingPersistenceError:restoredPending.error,
   reviewScopes:Object.fromEntries(restoredPending.intents.reviewIntents.map(item=>[item.scope.projectId,{...item.scope}])),
@@ -112,6 +125,8 @@ export const useWorkbench = create<{
       : [...s.contextItems, { ...item, source: item.source ? { ...item.source } : undefined }],
   })),
   removeContextItem: id => set(s => ({ contextItems: s.contextItems.filter(item => item.id !== id) })),
+  threadBriefs: {},
+  setThreadBrief: (project, brief) => set(s => { const next = { ...s.threadBriefs }; if (brief) next[project] = { ...brief }; else delete next[project]; return { threadBriefs: next } }),
   patchContextItem: (id, patch) => set(s => ({ contextItems: s.contextItems.map(item => item.id === id ? { ...item, ...patch, id: item.id } : item) })),
 
   locale:readPreference('research-ui-locale')==='en'?'en':'zh',setLocale:(locale)=>{writePreference('research-ui-locale',locale);document.documentElement.lang=locale;set({locale})},
@@ -149,7 +164,15 @@ export const useWorkbench = create<{
   backResource:(area)=>set(s=>persistLayout(backResourceInLayout(s.resourceLayout,s.projectId,area))),
   moveResource:(id,area)=>set(s=>({...persistLayout(moveResourceInLayout(s.resourceLayout,id,area)),secondaryOpen:area==='secondary'||s.secondaryOpen})),
   updateResource:(id,patch)=>set(s=>persistLayout({...s.resourceLayout,tabs:s.resourceLayout.tabs.map(t=>t.id===id?{...t,...patch} as ResourceTab:t)})),
-  showConversation:()=>{get().openResource({kind:'chat'},'primary')},
+  showConversation:()=>{
+    // Docked discussion is always visible beside the primary area; revealing it must not blank the primary tab.
+    const s=get()
+    if(s.chatDock||s.chatFloat){
+      if(!s.resourceLayout.tabs.some(t=>t.projectId===s.projectId&&t.kind==='chat')){const content=s.resourceLayout.active[s.projectId]?.primary;s.openResource({kind:'chat'},'primary');if(content)get().activateResource(content)}
+      set({activeNav:'chat'});return
+    }
+    s.openResource({kind:'chat'},'primary')
+  },
   readingDocument:null,openDocument:(doc)=>{get().openResource({kind:'note',doc})},
   openSourceView:(source)=>{get().openResource({kind:'source',source},'primary')},
   pdfFlash:null,
@@ -180,6 +203,31 @@ export const useWorkbench = create<{
   },
   openCanvas:(project)=>{get().enterWritingProject(project);get().openResource({kind:'research',workspace:project,view:'canvas'},'primary')},
   paletteOpen:false,setPaletteOpen:(paletteOpen)=>set({paletteOpen}),
+  settingsFocus:null,openSettings:(section='connections')=>set({activeNav:'settings',settingsFocus:{section,nonce:Date.now()}}),
+  chatDock:readPreference('research-ui-chat-dock')==='docked',
+  setChatDock:(chatDock)=>{
+    writePreference('research-ui-chat-dock',chatDock?'docked':'tabbed')
+    const s=get(),chat=s.resourceLayout.tabs.find(t=>t.projectId===s.projectId&&t.kind==='chat')
+    // Docking moves the one keyed conversation into its own column; the primary area falls back to its last content tab.
+    if(chatDock&&chat&&s.resourceLayout.active[s.projectId]?.[chat.area]===chat.id){
+      const fallback=s.resourceLayout.tabs.filter(t=>t.projectId===s.projectId&&t.area===chat.area&&t.id!==chat.id).at(-1)
+      if(fallback)s.activateResource(fallback.id)
+    }
+    set({chatDock,chatFloat:false,activeNav:'chat'});writePreference('research-ui-chat-float','docked')
+  },
+  chatFloat:readPreference('research-ui-chat-float')==='floating',
+  setChatFloat:(chatFloat)=>{
+    writePreference('research-ui-chat-float',chatFloat?'floating':'docked')
+    const s=get(),chat=s.resourceLayout.tabs.find(t=>t.projectId===s.projectId&&t.kind==='chat')
+    // Floating the conversation frees its tab slot: the area falls back to its last content tab, like docking.
+    if(chatFloat&&chat&&s.resourceLayout.active[s.projectId]?.[chat.area]===chat.id){
+      const fallback=s.resourceLayout.tabs.filter(t=>t.projectId===s.projectId&&t.area===chat.area&&t.id!==chat.id).at(-1)
+      if(fallback)s.activateResource(fallback.id)
+    }
+    set({chatFloat})
+  },
+  sideFloat:readPreference('research-ui-side-float')==='floating',
+  setSideFloat:(sideFloat)=>{writePreference('research-ui-side-float',sideFloat?'floating':'docked');set({sideFloat,secondaryOpen:true})},
   projectId:readPreference('research-ui-project')||'',setProjectId:(projectId)=>{writePreference('research-ui-project',projectId);if(projectId.trim())rememberRecentProject(projectId);set({projectId,chatSurface:projectId.trim()?'writing':'home'})},
 }))
 

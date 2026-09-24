@@ -24,14 +24,15 @@ function ProjectDesignReviewDock({ scope }: { scope: Scope }) {
   const writing = useDesignWriting(scope, review)
   const incoming = reviewIntents.filter(item => scopeKey(item.scope) === scopeKey(scope)).length
   const call = async (action: () => Promise<unknown>) => { setError(''); try { await action() } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)) } }
-  // Collapsing chrome retains the native observer, journal and unsaved review form.
+  // Closed = hidden, not unmounted: the native observer, journal and unsaved review form survive.
+  // Opened from the composer's review chip (count of pending annotations) or ⌘K; it floats over the thread top.
   return <section hidden={!reviewDockOpen} style={reviewDockOpen ? undefined : { display: 'none' }} className="writing-review-dock" data-xgc-role="writing-review-dock" data-xgc-id={projectId} aria-label={copy.review}>
     <div className="writing-review-dock__header">
       <span className="min-w-0 flex-1 truncate font-display text-[13px]">{copy.review}{incoming ? ` · ${incoming}` : ''}</span>
       <Button size="xs" data-xgc-role="open-design" data-xgc-id={projectId} onClick={() => openResource({kind:'research',workspace:scope.workspace,ownerProjectId:projectId,view:'canvas'},'primary')}>{copy.openDesign}</Button>
-      <Button size="xs" data-xgc-role="collapse-review" data-xgc-id={projectId} onClick={() => setReviewDockOpen(false)}>{copy.collapseReview}</Button>
+      <Button size="xs" data-xgc-role="collapse-review" data-xgc-id={projectId} onClick={() => setReviewDockOpen(false)} aria-label={copy.collapseReview}>×</Button>
     </div>
-    <p className="px-3 pb-2 text-caption text-ink-2">{copy.reviewHint}</p>
+    <div className="max-h-[40%] shrink-0 overflow-y-auto">
     {writing.busy && <p role="status" className="px-3 pb-2 text-caption">{locale === 'zh' ? '正在处理当前设计与改稿请求；会话中的权限请求仍需在对话里处理。' : 'Processing the current design or writing request. Resolve permission requests in the conversation.'}</p>}
     {(error || writing.error) && <p role="alert" className="px-3 pb-2 text-caption">{error || writing.error}</p>}
     {writing.incoming.map(intent => <div key={intent.id} className="px-3 pb-2 text-caption">
@@ -56,6 +57,7 @@ function ProjectDesignReviewDock({ scope }: { scope: Scope }) {
       {proposal.writing!.mapping && <p role="status">{locale === 'zh' ? '设计映射' : 'Design mapping'} · {proposal.writing!.mapping.status} {proposal.writing!.mapping.detail}</p>}
       {proposal.writing!.mapping && proposal.writing!.mapping.status !== 'updated' && <Button size="xs" disabled={review.busy || writing.busy} onClick={() => void call(() => writing.retryMapping(proposal.id))}>{locale === 'zh' ? '核对并重试设计映射' : 'Inspect and retry design mapping'}</Button>}
     </div>)}
+    </div>
     <div className="writing-review-dock__body min-h-0 flex-1">
       <ReviewPanelContents surface="writing" scope={scope} tabId={`writing-review:${projectId}`} api={review} onFormDirty={setFormDirty} onConfirmDesign={writing.confirmDesign} onTitle={() => { /* Dock chrome owns the visible title. */ }}/>
     </div>
