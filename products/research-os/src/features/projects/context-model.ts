@@ -13,23 +13,26 @@ export type ContextItem = {
   source?: DraftSource
   digest?: string
   excerpt?: string
+  /** Norms text inserted in full with the manifest (e.g. the figure style pack brief); bounded, never sent by itself. */
+  body?: string
   capturedAt: string
   state: ContextState
   latestDigest?: string
   latestExcerpt?: string
 }
+export const CONTEXT_BODY_LIMIT = 3000
 function requireContext(ok: unknown, message: string): asserts ok { if (!ok) throw new Error(message) }
 
 /** Version state is derived from what was actually observed; a missing digest is unverifiable, never invented. */
 export function newContextItem(input: {
   id?: string; project: string; kind: ContextItemKind; label: string; ref: string
-  source?: DraftSource; digest?: string; excerpt?: string; capturedAt?: string
+  source?: DraftSource; digest?: string; excerpt?: string; body?: string; capturedAt?: string
 }): ContextItem {
   requireContext(input.project.trim() && input.ref.trim() && input.label !== undefined, 'Invalid context item.')
   return {
     id: input.id ?? crypto.randomUUID(), project: input.project, kind: input.kind, label: input.label, ref: input.ref,
     ...(input.source ? { source: input.source } : {}), ...(input.digest ? { digest: input.digest } : {}),
-    ...(input.excerpt ? { excerpt: input.excerpt } : {}),
+    ...(input.excerpt ? { excerpt: input.excerpt } : {}), ...(input.body ? { body: input.body.slice(0, CONTEXT_BODY_LIMIT) } : {}),
     capturedAt: input.capturedAt ?? new Date().toISOString(),
     state: input.digest ? 'current' : 'unverifiable',
   }
@@ -89,6 +92,7 @@ export function contextManifest(items: ContextItem[], sessionProject: string): s
     const version = item.state === 'stale-snapshot' ? `旧快照 ${item.digest}（已明确标注）` : item.digest ?? '版本无法自动校验'
     lines.push(`- ${item.label}（${kind} · ${item.ref}）`, `  版本： ${version}`)
     if (item.excerpt) lines.push(`  摘录： ${item.excerpt.replace(/\s+/g, ' ').slice(0, 200)}`)
+    if (item.body) lines.push('  规范：', ...item.body.slice(0, CONTEXT_BODY_LIMIT).split('\n').map(line => `    ${line}`))
   }
   lines.push('历史消息使用的仍是当时的内容；此处只是本次可见的引用清单。')
   return lines.join('\n') + '\n'

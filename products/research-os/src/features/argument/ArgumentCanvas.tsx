@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { Copy, MessageSquarePlus, X } from 'lucide-react'
+import { Copy, MessageSquarePlus, Shapes, X } from 'lucide-react'
 import { Button, RightMore } from '../../components/ui'
 import { useWorkbench } from '../../store'
 import { cn } from '../../lib/cn'
@@ -9,6 +9,7 @@ import { newContextItem } from '../projects/context-model'
 import { fileTarget } from '../projects/project-object-model'
 import { CARD, DEFAULT_WRITING_MAP_DIR, EDGE_TYPES, layoutUnits, type ArgumentEdge, type ArgumentUnit, type EdgeType, type UnitRole, type UnitStatus } from './writing-map'
 import { useWritingMap, type MapState } from './useWritingMap'
+import { FIGURE_STYLE_PACK, isFigureUnit } from '../figures/figure-style'
 
 /* 论证画布（Design Argument Canvas）：节点是论文的语义论证单元，不是句子。
    数据权威在论文侧的 writing-map（index.json + units.jsonl），这里只读；LaTeX 锚点只作定位，不回写。
@@ -234,6 +235,8 @@ function Inspector({ unit, map, project, unitsPath, unitsDigest, sample, zh, onS
       <Links title={zh ? '知识库（vault）' : 'Vault'} items={unit.vault_links} onOpen={sample ? undefined : path => openDocument({ workspace: 'academic', path, title: path.split('/').pop()!.replace(/\.md$/, '') })}/>
       <Chips title={zh ? '理论锚点（T15）' : 'Theory (T15)'} items={unit.theory_links}/>
       <Chips title={zh ? '图（T13）' : 'Figures (T13)'} items={unit.figure_ids}/>
+      {isFigureUnit(unit) && <button type="button" data-xgc-role="argument-figure-style" onClick={() => openResource({ kind: 'figure-style' }, 'secondary')} className="-mt-2 flex items-center gap-1 rounded px-1 py-0.5 text-caption text-ink-3 hover:bg-hover hover:text-ink"
+        title={zh ? '只读：TikZ + figstyle 栈、尺寸、色彩与出图核对项' : 'Read-only: TikZ + figstyle stack, sizes, colours and checklist'}><Shapes size={11} strokeWidth={1.75}/>{zh ? `图件风格 v${FIGURE_STYLE_PACK.version}` : `Figure style v${FIGURE_STYLE_PACK.version}`}</button>}
       <Chips title={zh ? '主张' : 'Claims'} items={unit.claim_ids}/>
       <Chips title={zh ? '方案 · 战略' : 'Schemes · thrusts'} items={[...unit.scheme_ids, ...unit.thrust_ids]}/>
       {unit.latex_anchors.length > 0 && <Section title={zh ? 'LaTeX 定位（只读，不回写）' : 'LaTeX locators (read-only)'}>

@@ -2,6 +2,69 @@
 
 Branch: `feat/research-os-agent-native-workbench` · Draft PR XGC-Team/xgc2-ui#34 · Refs XGC-Team/xgc2-research-os#12
 
+## Round 9: Figure Style Foundation (`RESEARCH_OS_FIGURE_STYLE.md`)
+
+Branch `feat/research-os-design-argument-canvas` · Draft PR #35.
+
+**What.** Research OS now knows the manuscript's figure norms as product data. Chat, agents and the Argument Canvas can apply them, so they no longer live only in paper-dmpc docs and the TRO-画图 CLI. The hard stack follows the owner's 2026-09-25 decision: **TikZ** for schematics and collage layout, and **Python matplotlib + `figstyle.py`** for data plots. **DrawIO and MATLAB are retired**, including for photo and RViz collages.
+
+**Shipped:**
+- **Style pack v1.0.0** (`src/features/figures/figure-style.ts`), versioned and pure:
+  - the two allowed stacks and five bans;
+  - sizes: 3.5 in column, 7.16 in text, 3.47 in 2-up subfigure, 8 pt body, 7 pt ticks;
+  - strokes;
+  - ink tokens mirrored from the manuscript's own `mit*` `\definecolor`s, and series colours mirrored from figstyle's Okabe-Ito `PALETTE`. There is no third palette.
+  - checklist: `pdffonts` shows every font embedded; no Type 3; width equals the column; R15-complete captions; single source under `figures-src/`; provenance.
+  - what the OS explicitly does not do.
+- **Seed from the paper**, read-only, through the existing workspace file API with no backend change. Paths are project-relative and configurable from the page's "…" menu.
+  - `docs/figure-inventory.md` §5 is shown verbatim (`## 5.` up to the next `##`).
+  - `figures-src/py/figstyle.py` constants and rcParams are parsed, never executed.
+  - `manuscript/preamble/macros.tex` colours are read.
+  - Any disagreement with the pack is listed as drift; the paper wins.
+  - A missing file shows "not found yet: <path>". A non-404 failure shows as an error. Nothing is invented.
+- **Figure style reader** (resource tab 「图件风格」). It opens from:
+  - ⌘K "打开图件风格（TikZ · figstyle）";
+  - the resource "…" menu;
+  - a quiet link in the Argument Canvas inspector on figure-related units (`figure_ids` non-empty, or a `fig:` LaTeX label).
+- **Chat control plane:**
+  - "加入对话" on the page, ⌘K "将图件风格加入对话", and a new **Norms** group in the attach menu all attach the pack as a versioned reference. With a readable §5, the reference is pinned to the policy file's digest, so "Manage references" sees later policy edits. Without one, it is pinned to `research-os/figure-style@1.0.0`, and the brief says the seed was not read.
+  - When the draft talks about figures (Fig./TikZ/matplotlib/caption/图注/拼版…), one dashed "附加图件风格" offer appears. It never attaches automatically.
+  - Context items gained an optional bounded `body`, so the manifest carries the full brief (stack, bans, sizes, tokens, checklist, render honesty), not a 200-character excerpt.
+- **Honest gates.** The page reports LaTeX from `/capabilities` and the artifact renderer only from this session's observation. It compiles nothing, draws nothing and runs no `pdffonts`.
+
+**Verified live.** I used a `researchd` built from the devops tree (read-only, throwaway data root) serving a clone of `paper-dmpc@docs/writing-map-pilot-20260925`. The owner's repository was not modified.
+- **Committed branch:** §5 and figstyle show as missing with their paths. The preamble colours load. The gate reads "LaTeX 构建关闭（服务端报告）".
+- **After adding the seed files to the clone and reloading:** §5 renders verbatim, and all 26 figstyle parameters appear with **0 drift**. The real `figstyle.py` and `_preamble.tex` from `docs/tro-figure-inventory-20260924` also show 0 drift in a separate check.
+- **Attach:** it produces one "Figure style v1.0.0" chip pinned to the policy's sha256. The figure-talk offer appears for "把图 5 从 MATLAB 改写为 figstyle 数据图", and the inserted manifest contains the full brief.
+- **Inspector link:** U-METH-FW and U-CH-02 show it, U-PROB-01 does not, and the link opens the pack.
+- No page errors.
+
+**Tests:** `tests/figure-style.test.ts` has 18 cases:
+- pack shape and version;
+- ban list;
+- sizes and checklist;
+- no drift against the seeds;
+- §5 extraction;
+- figstyle parsing, including `#` inside quoted hex colours;
+- drift kinds;
+- seed load, the missing-seed state and the error state;
+- attach with and without a seed;
+- the manifest brief and deduplication;
+- the figure-talk detector;
+- the figure-unit rule;
+- the resource tab surviving a layout restore;
+- a static render that shows the bans and checklist and never claims a render;
+- a live-seed check that runs only on this machine.
+
+`npm test` passes 320 tests, and `npm run build` and `npm run lint:review` pass.
+
+**Explicitly deferred:**
+- a TikZ or matplotlib editor in the browser;
+- pixel regression in the OS (T13 owns it on the paper side);
+- deleting `plot/drawio` or `plot/matlab`;
+- Remotion or timeline work;
+- new backend routes. The service still does not advertise renderer availability in `/capabilities`; see Round 4.
+
 ## Round 8: Design Argument Canvas (live T-RO 26-0979 demand)
 
 **What.** A new resource tab **「论证画布」 / Design canvas**. It draws the paper's own argument graph from the writing side's `writing-map/index.json` + `units.jsonl` (schema-semantic v0.2). Nodes are **semantic argument units**: problem, challenge, method, assumption, lemma, guarantee, evidence, revision, roadblock. Sentences are not nodes. Edges are the five typed relations. The inspector shows each unit's flesh: why, adversarial notes, writing norms, formal checks, blocked-by, links.

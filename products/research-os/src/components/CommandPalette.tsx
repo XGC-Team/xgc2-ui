@@ -11,6 +11,7 @@ import { NAV_ITEMS, useWorkbench } from '../store'
 import { looksLikeUrl, normalizeWebUrl } from '../lib/web'
 import { useAcademicNotes } from '../features/resources/useAcademicNotes'
 import { useNativeAgentSession } from '../features/chat/Session'
+import { figureStyleContextItem, loadFigureStyleSeed } from '../features/figures/useFigureStyleSeed'
 type PaletteAction={label:string;run:()=>void;icon?:'globe'|'note';hint?:string}
 export function CommandPalette() {
  const {paletteOpen,setPaletteOpen,setActiveNav,toggleTheme,openResource,previewDocument,projectId,openCanvas,chatDock,setChatDock,chatFloat,setChatFloat,sideFloat,setSideFloat,openSettings,showConversation,locale,addContextItem}=useWorkbench();const native=useNativeAgentSession();const zh=locale==='zh';const [query,setQuery]=useState(''),[index,setIndex]=useState(0);const ref=useRef<HTMLInputElement>(null)
@@ -28,6 +29,9 @@ export function CommandPalette() {
  const workbenchActions:PaletteAction[]=[
   {label:zh?'新线程':'New thread',hint:projectId||(zh?'通用对话':'General chat'),run:()=>{showConversation();native.newThread()}},
   ...(projectId?[{label:zh?'打开研究画布':'Open research canvas',hint:projectId,run:()=>openCanvas(projectId)},{label:zh?'新建修订线程':'New revision thread',hint:projectId,run:()=>void startRevision(projectId)},{label:zh?'打开论证画布（语义论证单元）':'Open design canvas (semantic argument units)',hint:projectId,run:()=>openResource({kind:'argument'},'primary')},{label:zh?'打开修改审阅（稿件与画布差异）':'Open change review (manuscript & canvas diffs)',hint:projectId,run:()=>openResource({kind:'reviews',scope:{projectId,workspace:projectId}},'secondary')},{label:zh?'打开制品（PDF · 幻灯片 · 视频）':'Open artifacts (PDF · slides · video)',hint:projectId,run:()=>openResource({kind:'artifacts'},'secondary')}]:[]),
+  // 图件风格：栈、尺寸、色彩与出图核对项；附加到对话时带上论文政策的版本（读不到就如实标注）
+  {label:zh?'打开图件风格（TikZ · figstyle）':'Open figure style (TikZ · figstyle)',hint:zh?'论文图件规范':'Manuscript figure norms',run:()=>openResource({kind:'figure-style'},'secondary')},
+  ...(projectId?[{label:zh?'将图件风格加入对话':'Attach figure style to chat',hint:projectId,run:()=>{void loadFigureStyleSeed(projectId).catch(()=>null).then(seed=>{addContextItem(figureStyleContextItem(projectId,seed));showConversation()})}}]:[]),
   // 作用于画布当前选中的卡片：加入对话上下文（版本化引用）/ 沉淀发现（定位到卡片，在检查器中保存到知识库）
   ...(projectId&&focusObject?[
    {label:zh?'将所选卡片加入对话':'Attach selected card to chat',hint:focusObject.title,run:()=>{const digest=findContentSession(projectId)?.snapshot().digest||undefined;addContextItem(newContextItem({project:projectId,kind:'canvas-node',label:focusObject.title,ref:`${CONTENT_PATH}#object/${focusObject.id}`,digest,excerpt:focusObject.body?.slice(0,200),source:{id:focusObject.id,path:CONTENT_PATH,workspace:projectId,digest,excerpt:focusObject.body?.slice(0,200)}}));showConversation()}},

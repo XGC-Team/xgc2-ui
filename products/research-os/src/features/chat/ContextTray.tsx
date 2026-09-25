@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { BookOpen, FileText, MessageSquareText, Network, Plus, Presentation, ScrollText, X } from 'lucide-react'
+import { BookOpen, FileText, MessageSquareText, Network, Plus, Presentation, ScrollText, Shapes, X } from 'lucide-react'
 import { Button, Popover, RightMore } from '../../components/ui'
 import { useWorkbench } from '../../store'
 import { cn } from '../../lib/cn'
@@ -16,12 +16,17 @@ import { sessionProject } from '../revision/useRevisionThread'
 import { extractSourcePatches, sourceProposalId, SOURCE_FENCE } from '../revision/source-patch'
 import { fileSourcePatches } from '../revision/revision-actions'
 import { request } from '../../lib/api'
+import { FIGURE_STYLE_PACK, FIGURE_STYLE_REF, isFigureTalk } from '../figures/figure-style'
+import { figureStyleContextItem, loadFigureStyleSeed } from '../figures/useFigureStyleSeed'
 
 /* Chat 是控制面：研究对象以「版本化引用」挂到输入框上方（T3/Cursor 的附件语法），
    加入 ≠ 发送；插入草稿与请求画布提议是显式动作。版本细节收进「管理引用」。 */
 const ICON = { 'canvas-node': Network, draft: Presentation, source: FileText } as const
 
-type Candidate = { key: string; group: 'cards' | 'notes' | 'artifacts'; label: string; hint: string; item: () => ContextItem }
+/** `load` resolves the versioned item when it needs a read first (the figure style pack pins the paper policy's digest). */
+type Candidate = { key: string; group: 'cards' | 'notes' | 'artifacts' | 'norms'; label: string; hint: string; item: () => ContextItem; load?: () => Promise<ContextItem> }
+/** Attach the figure style pack, pinned to the paper policy it was read against (or to the pack version if unreadable). */
+const attachFigureStyle = (project: string) => loadFigureStyleSeed(project).catch(() => null).then(seed => figureStyleContextItem(project, seed))
 
 function useCandidates(project: string, query: string) {
   const { locale, resourceLayout, knowledgeDocuments } = useWorkbench()
@@ -38,7 +43,7 @@ function useCandidates(project: string, query: string) {
     return () => { live = false }
   }, [project])
   return useMemo(() => {
-    const out: Candidate[] = []
+    const out: Candidate[] = [{ key: 'figure-style', group: 'norms', label: `${locale === 'zh' ? '图件风格' : 'Figure style'} v${FIGURE_STYLE_PACK.version}`, hint: 'TikZ · figstyle', item: () => figureStyleContextItem(project), load: () => attachFigureStyle(project) }]
     const digest = document?.digest || undefined
     for (const object of document?.value.objects ?? []) out.push({
       key: `card:${object.id}`, group: 'cards', label: object.title || object.id, hint: CARD_TYPE_LABELS[locale][cardType(object)],
@@ -68,7 +73,7 @@ function AttachList({ project, onPick }: { project: string; onPick: (candidate: 
   const [query, setQuery] = useState('')
   const candidates = useCandidates(project, query)
   const attached = new Set(contextItems.filter(i => i.project === project).map(i => i.ref))
-  const groups = [['cards', zh ? '画布卡片' : 'Canvas cards', Network], ['notes', zh ? '知识笔记' : 'Knowledge notes', BookOpen], ['artifacts', zh ? '制品与 PDF' : 'Artifacts & PDFs', Presentation]] as const
+  const groups = [['norms', zh ? '规范' : 'Norms', Shapes], ['cards', zh ? '画布卡片' : 'Canvas cards', Network], ['notes', zh ? '知识笔记' : 'Knowledge notes', BookOpen], ['artifacts', zh ? '制品与 PDF' : 'Artifacts & PDFs', Presentation]] as const
   return <>
     <input autoFocus aria-label={zh ? '查找可附加的对象' : 'Find an object to attach'} placeholder={zh ? '查找卡片、笔记、制品…' : 'Find cards, notes, artifacts…'} className="ui-input h-7 shrink-0" value={query} onChange={e => setQuery(e.target.value)}/>
     <div className="min-h-0 flex-1 overflow-y-auto">
@@ -98,6 +103,7 @@ export function ContextTray() {
   const brief = threadBriefs[project]
   const reviewCount = reviewIntents.filter(intent => intent.scope.projectId === project).length
   const stale = (item: ContextItem) => item.state !== 'current'
+  const figureTalk = isFigureTalk(native.draft)
   // Proposals the agent made in this thread: detected here, recorded only when the user chooses to review them.
   const { proposals, propose, load } = useProposals()
   useEffect(() => { if (project) void load(project) }, [project, load])
@@ -165,8 +171,11 @@ export function ContextTray() {
       </span> })}
       {project ? <Popover label={zh ? '附加上下文' : 'Attach context'} side="top" align="left" width="w-80" trigger={({ open, toggle }) =>
         <button type="button" aria-expanded={open} onClick={toggle} data-xgc-role="attach-context" className="flex h-6 items-center gap-1 rounded-md px-1.5 text-caption text-ink-3 transition-colors hover:bg-hover hover:text-ink"><Plus size={12} strokeWidth={1.75}/>{items.length ? '' : (zh ? '附加卡片、笔记或 PDF' : 'Attach a card, note or PDF')}</button>}>
-        {close => <AttachList project={project} onPick={c => { addContextItem(c.item()); close() }}/>}
+        {close => <AttachList project={project} onPick={c => { if (c.load) void c.load().then(addContextItem); else addContextItem(c.item()); close() }}/>}
       </Popover> : <span className="px-1.5 text-caption text-ink-3">{zh ? '选择项目后可附加研究对象' : 'Select a project to attach research objects'}</span>}
+      {/* 草稿在谈图件、而图件风格尚未附加：只给一枚安静的提议，从不自动附加 */}
+      {project && figureTalk && !items.some(i => i.ref === FIGURE_STYLE_REF) && <button type="button" data-xgc-role="offer-figure-style" onClick={() => void attachFigureStyle(project).then(addContextItem)}
+        className="flex h-6 items-center gap-1 rounded-md border border-dashed border-line px-1.5 text-caption text-ink-3 hover:bg-hover hover:text-ink"><Shapes size={11} strokeWidth={1.75}/>{zh ? '附加图件风格' : 'Attach figure style'}</button>}
       {items.length > 0 && <RightMore menu label={zh ? '上下文操作' : 'Context actions'}>
         <Button size="xs" onClick={() => insert(false)}>{zh ? '插入引用清单到草稿' : 'Insert references into draft'}</Button>
         <Button size="xs" onClick={() => insert(true)}>{zh ? '请 Agent 提议画布修改' : 'Ask agent for canvas changes'}</Button>
