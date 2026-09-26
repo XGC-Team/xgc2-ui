@@ -1,0 +1,10 @@
+{
+  "paper_id": "sample-not-a-paper",
+  "project": "research-os-fixture",
+  "venue": "SAMPLE — UI development fixture, not paper content",
+  "schema_version": "0.2.0",
+  "units_path": "units.jsonl",
+  "units_count": 5,
+  "unit_ids": ["U-SAMPLE-PROB", "U-SAMPLE-CH", "U-SAMPLE-METH", "U-SAMPLE-G", "U-SAMPLE-REV"],
+  "generated_at": "2026-09-25T00:00:00+08:00"
+}

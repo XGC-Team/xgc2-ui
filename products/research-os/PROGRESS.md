@@ -2,6 +2,130 @@
 
 Branch: `feat/research-os-agent-native-workbench` · Draft PR XGC-Team/xgc2-ui#34 · Refs XGC-Team/xgc2-research-os#12
 
+## Round 9: Figure Style Foundation (`RESEARCH_OS_FIGURE_STYLE.md`)
+
+Branch `feat/research-os-design-argument-canvas` · Draft PR #35.
+
+**What.** Research OS now knows the manuscript's figure norms as product data. Chat, agents and the Argument Canvas can apply them, so they no longer live only in paper-dmpc docs and the TRO-画图 CLI. The hard stack follows the owner's 2026-09-25 decision: **TikZ** for schematics and collage layout, and **Python matplotlib + `figstyle.py`** for data plots. **DrawIO and MATLAB are retired**, including for photo and RViz collages.
+
+**Shipped:**
+- **Style pack v1.0.0** (`src/features/figures/figure-style.ts`), versioned and pure:
+  - the two allowed stacks and five bans;
+  - sizes: 3.5 in column, 7.16 in text, 3.47 in 2-up subfigure, 8 pt body, 7 pt ticks;
+  - strokes;
+  - ink tokens mirrored from the manuscript's own `mit*` `\definecolor`s, and series colours mirrored from figstyle's Okabe-Ito `PALETTE`. There is no third palette.
+  - checklist: `pdffonts` shows every font embedded; no Type 3; width equals the column; R15-complete captions; single source under `figures-src/`; provenance.
+  - what the OS explicitly does not do.
+- **Seed from the paper**, read-only, through the existing workspace file API with no backend change. Paths are project-relative and configurable from the page's "…" menu.
+  - `docs/figure-inventory.md` §5 is shown verbatim (`## 5.` up to the next `##`).
+  - `figures-src/py/figstyle.py` constants and rcParams are parsed, never executed.
+  - `manuscript/preamble/macros.tex` colours are read.
+  - Any disagreement with the pack is listed as drift; the paper wins.
+  - A missing file shows "not found yet: <path>". A non-404 failure shows as an error. Nothing is invented.
+- **Figure style reader** (resource tab 「图件风格」). It opens from:
+  - ⌘K "打开图件风格（TikZ · figstyle）";
+  - the resource "…" menu;
+  - a quiet link in the Argument Canvas inspector on figure-related units (`figure_ids` non-empty, or a `fig:` LaTeX label).
+- **Chat control plane:**
+  - "加入对话" on the page, ⌘K "将图件风格加入对话", and a new **Norms** group in the attach menu all attach the pack as a versioned reference. With a readable §5, the reference is pinned to the policy file's digest, so "Manage references" sees later policy edits. Without one, it is pinned to `research-os/figure-style@1.0.0`, and the brief says the seed was not read.
+  - When the draft talks about figures (Fig./TikZ/matplotlib/caption/图注/拼版…), one dashed "附加图件风格" offer appears. It never attaches automatically.
+  - Context items gained an optional bounded `body`, so the manifest carries the full brief (stack, bans, sizes, tokens, checklist, render honesty), not a 200-character excerpt.
+- **Honest gates.** The page reports LaTeX from `/capabilities` and the artifact renderer only from this session's observation. It compiles nothing, draws nothing and runs no `pdffonts`.
+
+**Verified live.** I used a `researchd` built from the devops tree (read-only, throwaway data root) serving a clone of `paper-dmpc@docs/writing-map-pilot-20260925`. The owner's repository was not modified.
+- **Committed branch:** §5 and figstyle show as missing with their paths. The preamble colours load. The gate reads "LaTeX 构建关闭（服务端报告）".
+- **After adding the seed files to the clone and reloading:** §5 renders verbatim, and all 26 figstyle parameters appear with **0 drift**. The real `figstyle.py` and `_preamble.tex` from `docs/tro-figure-inventory-20260924` also show 0 drift in a separate check.
+- **Attach:** it produces one "Figure style v1.0.0" chip pinned to the policy's sha256. The figure-talk offer appears for "把图 5 从 MATLAB 改写为 figstyle 数据图", and the inserted manifest contains the full brief.
+- **Inspector link:** U-METH-FW and U-CH-02 show it, U-PROB-01 does not, and the link opens the pack.
+- No page errors.
+
+**Tests:** `tests/figure-style.test.ts` has 18 cases:
+- pack shape and version;
+- ban list;
+- sizes and checklist;
+- no drift against the seeds;
+- §5 extraction;
+- figstyle parsing, including `#` inside quoted hex colours;
+- drift kinds;
+- seed load, the missing-seed state and the error state;
+- attach with and without a seed;
+- the manifest brief and deduplication;
+- the figure-talk detector;
+- the figure-unit rule;
+- the resource tab surviving a layout restore;
+- a static render that shows the bans and checklist and never claims a render;
+- a live-seed check that runs only on this machine.
+
+`npm test` passes 320 tests, and `npm run build` and `npm run lint:review` pass.
+
+**Explicitly deferred:**
+- a TikZ or matplotlib editor in the browser;
+- pixel regression in the OS (T13 owns it on the paper side);
+- deleting `plot/drawio` or `plot/matlab`;
+- Remotion or timeline work;
+- new backend routes. The service still does not advertise renderer availability in `/capabilities`; see Round 4.
+
+## Round 8: Design Argument Canvas (live T-RO 26-0979 demand)
+
+**What.** A new resource tab **「论证画布」 / Design canvas**. It draws the paper's own argument graph from the writing side's `writing-map/index.json` + `units.jsonl` (schema-semantic v0.2). Nodes are **semantic argument units**: problem, challenge, method, assumption, lemma, guarantee, evidence, revision, roadblock. Sentences are not nodes. Edges are the five typed relations. The inspector shows each unit's flesh: why, adversarial notes, writing norms, formal checks, blocked-by, links.
+
+**Why this, not Atom Trail.** The owner cancelled the ledger/Atom Trail plan as over-design. The paper workers (TRO-写作 / Terminal 12) already maintain the writing map and need to *see and think with* the argument, not a new ledger ceremony. So this slice only reads their files, where they already are.
+
+**How it works:**
+- **Loader** (`useWritingMap`):
+  - It reads `<project>/<dir>/index.json`, then `units_path` (default `units.jsonl`), through the existing workspace file API. No backend change.
+  - `dir` defaults to `review/tro-26-0979-v1/cleaned/reply-kb/writing-map` and can be changed per project from the canvas's "…" menu.
+  - A clearly labelled 5-unit sample ships in `public/fixtures/argument-canvas-sample/` for offline UI work. It is labelled as not paper content everywhere it shows.
+  - If the map is missing, the canvas shows a one-sentence state with the expected path.
+- **Importer** (`writing-map.ts`, pure):
+  - Tolerant, and never invents anything. Bad JSON lines, missing ids, duplicates, `id`≠`unit_id`, unknown roles/statuses (kept verbatim), unknown edge types, dangling or self edges, `units_path` escaping the folder, schema-version drift, and `index.json` count/id mismatches all become **line-numbered import notes**.
+  - `mapping-seed.jsonl` is never read as nodes; the inspector only counts a unit's sentence locators.
+- **Canvas:**
+  - Deterministic layered layout, top to bottom (problem → challenges → methods/assumptions → lemmas/guarantees → evidence/revision/roadblocks). Within a row, units are ordered by their neighbours to reduce crossings.
+  - Same interaction grammar as the knowledge graph: drag to pan, wheel to zoom about the pointer, click to select, double-click empty space to fit (eased flight), Esc to deselect.
+  - Hover lights a unit's neighbourhood. A quiet status highlight offers All / Needs rewrite / Blocked & open.
+  - Roles by glyph and border, statuses by badge, edges by stroke grammar (solid / dashed / dotted / heavy + × / dash-dot + R).
+- **Inspector links, honestly:**
+  - `D-*` opens reply-kb `decisions-log.md` (a hint says to find the id there).
+  - `reply_kb_links` open the file in the side pane, and `vault_links` open in the reader.
+  - Theory, figure, claim and scheme ids are shown as handles only.
+  - `latex_anchors` are read-only `file:start–end` locators with copy. **There is no write-back to `.tex`.**
+  - "加入对话" attaches the unit to Chat as a versioned reference (units.jsonl digest + id).
+- **Entry points:** the project "…" menu, ⌘K "打开论证画布", and the resource "…" menu.
+
+**Verified live** against a local `researchd` serving a shallow clone of `paper-dmpc@docs/writing-map-pilot-20260925`. The owner's repository was not modified.
+- All **19 units / 74 typed edges** import with **zero** import notes.
+- U-G-RF's inspector shows its real why, adversarial notes and norms, D-102/D-105/D-106/D-02/D-03, and its reply-kb modules. Those open the actual `theory-kernel-K5-theorem-outline.md` and `decisions-log.md`, and the vault link opens `paper-dmpc.md` in the reader.
+- Hover highlights, the status filter, attach-to-chat, the missing-path state and the labelled sample all work, with no page errors.
+
+**How to try:** open the paper project → "…" → 论证画布 (or ⌘K "打开论证画布"). Click a unit; double-click empty space to see everything.
+
+**Tests:** `tests/writing-map.test.ts` covers:
+- the importer (flesh, links, anchors);
+- strict edge typing (unknown, dangling, self, duplicate);
+- the no-invention diagnostics;
+- empty and broken inputs, and a guarded `units_path`;
+- the layered layout;
+- the labelled fixture;
+- a live-file check that runs only when this machine has the paper map.
+
+`npm test` passes 294 tests, and `npm run build` and `npm run lint:review` pass.
+
+**Layout optimisation (follow-up, `RESEARCH_OS_LAYOUT_OPTIMIZE.md`).** `layoutUnits` is now a deterministic, pure-TS, Sugiyama-style layered layout:
+- **Assumption sub-band.** Role bands have explicit pitches. Assumptions get their own half-pitch band between methods and lemmas/guarantees, and the band vanishes when there are none.
+- **Weighted sweeps.** Up to 8 alternating down/up sweeps, keyed by the **weighted median** of neighbour x (weighted mean for 1–2 neighbours). Weights come from the relation (supports/depends_on 1, answers_reviewer 0.8, refines 0.6, conflicts_with 0.35) and 1/band-span. The ordering with the fewest measured crossings is kept.
+- **Transpose pass** for maps with ≤ 300 edges.
+- **Determinism.** Edges are normalised and sorted first, so the result is independent of edge order.
+- **Spacing.** Slightly calmer: gapX 24, gapY 96.
+
+On the live T-RO map (19 units / 74 edges), straight-line crossings between card centres dropped from **85 to 42 (−51%)** in about 28 ms. The assumption no longer shares the method row.
+
+`tests/writing-map.test.ts` gains 8 cases (15 in the file): determinism; all ids placed; edge-order independence (shuffled); a crafted case untangled from > 0 to 0 crossings; the assumption sub-band never stacking on a method, with the band collapsing when absent; in-band card separation and band spacing; weighted median/mean keys and weights; the fixture; a live-map reduction check.
+
+**Not built (by instruction):** Atom Trail / ledger parsers / append-only journal; the Reviews ceremony; mirroring units into `research-content.json`; Issue sync; PDF/SyncTeX; PPT/Remotion; sentence-level nodes; backend routes. There is also no editing of units from the canvas yet: the writing side owns `units.jsonl`.
+
+---
+
 ## Round 7: knowledge base + academic graph to production grade (`RESEARCH_OS_KB_PRODUCTION.md`)
 
 **How I chose.** Before changing anything I profiled a realistic synthetic vault: 3,092 linked notes in 30 topic folders, then 10,092 notes and 33k links in 80 folders, served by the local `researchd`. The baseline at 3k was not daily-use grade:
