@@ -1,5 +1,11 @@
 # @xgc2/ui-react
 
+## 0.16.18
+
+### Patch Changes
+
+- Omit ListPageItemMain's shared tag row when it has no children.
+
 ## 0.16.17
 
 - Ship the 0.10.6 token contract inline: the global reduced-motion floor takes its animation duration from `--xgc-reduced-motion-animation-duration` (default `0.01ms` unchanged), so surfaces whose animation is the timer can declare their lifetime under `prefers-reduced-motion` without weakening the floor for anything else.

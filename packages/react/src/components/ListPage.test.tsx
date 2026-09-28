@@ -27,11 +27,28 @@ describe('ListPage', () => {
       </div>,
     );
     expect(container.querySelector('[data-xgc-role="list-page-item-main"]')?.children).toHaveLength(3);
+    expect(container.querySelector('.xgc-list-tag-row')).toContainElement(screen.getByText('flight'));
     expect(screen.getByTestId('item-icon')).toHaveAttribute('width', '15');
     expect(screen.getByText('No description')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Open resource A' }));
     expect(onOpen).toHaveBeenCalledOnce();
     expect(onRowClick).not.toHaveBeenCalled();
+  });
+
+  it('omits the item tag row when an item has no children', () => {
+    const { container, rerender } = render(
+      <ListPageItemMain icon={ItemIcon} onOpen={vi.fn()} openLabel="Open resource B" title="Resource B" />,
+    );
+
+    expect(container.querySelector('[data-xgc-role="list-page-item-main"]')?.children).toHaveLength(2);
+    expect(container.querySelector('.xgc-list-tag-row')).not.toBeInTheDocument();
+
+    rerender(
+      <ListPageItemMain icon={ItemIcon} onOpen={vi.fn()} openLabel="Open resource B" title="Resource B">
+        {false}
+      </ListPageItemMain>,
+    );
+    expect(container.querySelector('.xgc-list-tag-row')).not.toBeInTheDocument();
   });
 
   it('keeps controls fixed above the independently scrollable resource region', () => {

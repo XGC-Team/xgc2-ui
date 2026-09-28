@@ -1,5 +1,13 @@
 # @xgc2/ui-policy
 
+## 0.16.18
+
+### Patch Changes
+
+- Keep @xgc2/ui-policy paired with @xgc2/ui-react 0.16.18; policy rules are unchanged.
+- Updated dependencies
+  - @xgc2/ui-react@0.16.18
+
 ## 0.16.17
 
 - Keep policy paired with React 0.16.17 and its exact peer dependency; gates are unchanged from 0.16.16.

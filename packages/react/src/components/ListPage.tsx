@@ -103,13 +103,15 @@ export function ListPageItemMain({
         </button>
       </div>
       <span className="xgc-list-item-subtitle">{description?.trim() || 'No description'}</span>
-      <ListPageTagRow
-        className={classNames('xgc-list-item-tags', tagRowClassName)}
-        data-xgc-id={tagRowId}
-        data-xgc-role={tagRowRole}
-      >
-        {children}
-      </ListPageTagRow>
+      {children == null || children === false ? null : (
+        <ListPageTagRow
+          className={classNames('xgc-list-item-tags', tagRowClassName)}
+          data-xgc-id={tagRowId}
+          data-xgc-role={tagRowRole}
+        >
+          {children}
+        </ListPageTagRow>
+      )}
     </div>
   );
 }
