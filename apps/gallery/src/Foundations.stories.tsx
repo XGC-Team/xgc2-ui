@@ -50,6 +50,7 @@ import {
   WorkspaceTabs,
   type AudioCaptureState,
 } from '@xgc2/ui-react';
+import { Heading, Text } from '@xgc2/ui-react/v016';
 
 const meta = {
   title: 'Foundations/Components',
@@ -58,6 +59,59 @@ const meta = {
 
 export default meta;
 type Story = StoryObj<typeof meta>;
+
+const typeRoles = [
+  ['display', 'Page heading · 128 runs'],
+  ['heading', 'Group heading'],
+  ['title', 'Card and dialog title'],
+  ['emphasis', 'Empty-state and section title'],
+  ['chrome', 'Panel, drawer and breadcrumb title'],
+  ['body', 'Body copy and ordinary values'],
+  ['label', 'Field hint label'],
+  ['control', 'Button and tab label'],
+  ['table-header', 'Table header'],
+  ['table-cell', 'Table cell'],
+  ['meta', 'Metadata · updated 2 min ago'],
+  ['status', 'Degraded'],
+  ['caption', 'Caption floor · 11px'],
+  ['caption-caps', 'Menu group'],
+  ['code', '/opt/xgc/profiles/core.yaml'],
+] as const;
+
+export const TypeScale: Story = {
+  render: () => (
+    <div className="xgc-gallery-form">
+      <Stack>
+        {typeRoles.map(([role, sample]) => (
+          <Inline key={role} gap="comfortable">
+            <Text variant="code" style={{ minWidth: '14ch' }}>{role}</Text>
+            <span
+              style={{
+                fontFamily: role === 'code' ? 'var(--type-code-family)' : undefined,
+                fontSize: `var(--type-${role}-size)`,
+                fontWeight: `var(--type-${role}-weight)`,
+                lineHeight: `var(--type-${role}-line-height)`,
+                letterSpacing: `var(--type-${role}-tracking)`,
+                textTransform: role === 'caption-caps' ? 'var(--type-caption-caps-transform)' as 'uppercase' : undefined,
+              }}
+            >
+              {sample}
+            </span>
+          </Inline>
+        ))}
+        <Heading as="h2" variant="page">Heading page (display)</Heading>
+        <Heading as="h3" variant="section">Heading section (title)</Heading>
+        <Heading as="h4" variant="panel">Heading panel (chrome)</Heading>
+        <Text as="p" variant="body">Text body</Text>
+        <Text as="p" variant="secondary">Text secondary</Text>
+        <Text variant="label">Text label</Text>
+        <Text variant="meta">Text meta</Text>
+        <Text variant="caption">Text caption</Text>
+        <Text variant="code">Text code</Text>
+      </Stack>
+    </div>
+  ),
+};
 
 export const Controls: Story = {
   render: () => (

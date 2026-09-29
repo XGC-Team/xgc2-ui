@@ -1,5 +1,13 @@
 # @xgc2/ui-policy
 
+## 0.16.19
+
+### Patch Changes
+
+- Keep @xgc2/ui-policy paired with @xgc2/ui-react 0.16.19; the text-role tokens (`--type-*`) are shared-owned, so product CSS may consume but never redefine them.
+- Updated dependencies
+  - @xgc2/ui-react@0.16.19
+
 ## 0.16.18
 
 ### Patch Changes

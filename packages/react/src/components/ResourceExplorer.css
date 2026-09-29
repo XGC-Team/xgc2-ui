@@ -116,21 +116,21 @@
 
 .xgc-resource-explorer-label {
   color: inherit;
-  font-size: var(--font-base);
-  font-weight: var(--weight-regular);
+  font-size: var(--type-body-size);
+  font-weight: var(--type-body-weight);
   line-height: var(--line-height-tight);
 }
 
 .xgc-resource-explorer-description {
   color: var(--color-text-faint);
-  font-size: var(--font-xs);
+  font-size: var(--type-caption-size);
   line-height: var(--line-height-tight);
 }
 
 .xgc-resource-explorer-trailing {
   min-width: 0;
   color: var(--color-text-faint);
-  font-size: var(--font-sm);
+  font-size: var(--type-meta-size);
   white-space: nowrap;
 }
 

@@ -16,7 +16,7 @@ html {
 }
 
 body {
-  line-height: var(--line-height-normal);
+  line-height: var(--type-body-line-height);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -33,8 +33,8 @@ body {
 /* Core controls ---------------------------------------------------------- */
 
 .xgc-button {
-  font-weight: var(--weight-medium);
-  letter-spacing: -0.005em;
+  font-weight: var(--type-control-weight);
+  letter-spacing: var(--type-control-tracking);
   border-color: var(--color-border);
   box-shadow: 0 1px 0 color-mix(in srgb, var(--color-text-inverse) 3%, transparent);
   transition:
@@ -70,7 +70,6 @@ body {
 }
 
 .xgc-button[data-tone='primary'] {
-  font-weight: var(--weight-semibold);
   box-shadow:
     inset 0 1px 0 color-mix(in srgb, white 14%, transparent),
     0 1px 2px color-mix(in srgb, var(--color-shadow-overlay) 42%, transparent);
@@ -147,7 +146,7 @@ body {
 
 :is(.xgc-tab, .xgc-tab-item) {
   border-radius: calc(var(--radius-control) - var(--space-2xs));
-  font-weight: var(--weight-medium);
+  font-weight: var(--type-control-weight);
   color: var(--color-text-muted);
   transition:
     color var(--duration-quick) var(--easing-standard),
@@ -171,9 +170,12 @@ body {
 
 /* Persistent workspaces and compact panel views share the current material.
  * Keep their footprint: selection is an inset surface, never an extra frame. */
-.xgc-workspace-tab,
+.xgc-workspace-tab {
+  font-weight: var(--type-chrome-weight);
+}
+
 .xgc-panel-view-switcher-button {
-  font-weight: var(--weight-medium);
+  font-weight: var(--type-control-weight);
 }
 
 .xgc-panel-view-switcher[data-xgc-appearance] {
@@ -233,7 +235,7 @@ body {
 .xgc-panel-heading h2,
 .xgc-workspace-panel-title,
 .xgc-topbar-title {
-  letter-spacing: -0.01em;
+  letter-spacing: var(--type-chrome-tracking);
 }
 
 .xgc-panel[data-chrome='flat'] {
