@@ -26,9 +26,16 @@
   --space-control-padding-inline: var(--space-lg);
   --space-control-padding-inline-compact: var(--space-md);
 
-  --font-xs: 10px;
-  --font-sm: 11px;
-  --font-md: 12px;
+  /*
+   * Type scale. 11px is the legibility floor outside fixed-geometry HUD and
+   * chart instrumentation; each step is at least 1px apart so hierarchy is
+   * visible. Text roles (typography.css) map onto these steps; product CSS
+   * consumes the roles, not these primitives.
+   */
+  --font-xs: 11px;
+  --font-sm: 12px;
+  /* Deprecated alias of --font-sm; migrate to --font-sm or a text role. */
+  --font-md: var(--font-sm);
   --font-base: 13px;
   --font-lg: 14px;
   --font-xl: 16px;
@@ -36,10 +43,15 @@
   --weight-regular: 400;
   --weight-medium: 500;
   --weight-semibold: 600;
-  --weight-strong: 650;
+  /* Deprecated alias of --weight-semibold: 650 read as the same bold at UI
+   * sizes and only existed in the variable face. */
+  --weight-strong: var(--weight-semibold);
+  /* Display numerals only (stat values) and fixed-geometry instruments. */
   --weight-bold: 700;
   --tracking-label: 0.02em;
   --tracking-caps: 0.055em;
+  /* Optical tightening for display sizes (16px and above) only. */
+  --tracking-display: -0.01em;
   --line-height-none: 1;
   --line-height-tight: 1.25;
   --line-height-normal: 1.45;

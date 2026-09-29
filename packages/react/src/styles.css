@@ -1,4 +1,5 @@
 @import '@xgc2/ui-tokens';
+@import '@xgc2/ui-tokens/typography.css';
 @import '@xgc2/ui-tokens/base.css';
 
 .xgc-button {

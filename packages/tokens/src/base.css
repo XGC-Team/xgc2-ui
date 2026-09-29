@@ -13,7 +13,24 @@ body {
   color: var(--color-text);
   background: var(--background-app, var(--color-bg-app));
   font-family: var(--font-sans);
-  font-size: var(--font-base);
+  font-size: var(--type-body-size);
+}
+
+/*
+ * Element defaults follow the text roles instead of user-agent bold and the
+ * generic monospace face. Zero specificity: every component or product rule
+ * still wins. Emphasis is expressed by weight; no italic face is bundled.
+ */
+:where(strong, b) {
+  font-weight: var(--type-emphasis-weight);
+}
+
+:where(th) {
+  font-weight: var(--type-table-header-weight);
+}
+
+:where(code, kbd, samp, pre) {
+  font-family: var(--type-code-family);
 }
 
 @supports not selector(::-webkit-scrollbar) {
