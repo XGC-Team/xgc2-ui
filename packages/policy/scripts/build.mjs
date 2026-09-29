@@ -10,6 +10,7 @@ await mkdir(dist, { recursive: true });
 const cssFiles = [
   'packages/tokens/src/index.css',
   'packages/tokens/src/base.css',
+  'packages/tokens/src/typography.css',
   'packages/tokens/src/v016.css',
   'packages/tokens/src/v016-monochrome.css',
   'packages/react/src/styles.css',

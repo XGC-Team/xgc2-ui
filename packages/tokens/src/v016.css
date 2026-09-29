@@ -26,9 +26,14 @@
   --space-control-padding-inline: var(--space-lg);
   --space-control-padding-inline-compact: var(--space-md);
 
-  --font-xs: 10px;
-  --font-sm: 11px;
-  --font-md: 12px;
+  /*
+   * Type scale. 11px is the legibility floor outside fixed-geometry HUD and
+   * chart instrumentation; each step is at least 1px apart so hierarchy is
+   * visible. Text roles (typography.css) map onto these steps; product CSS
+   * consumes the roles, not these primitives.
+   */
+  --font-xs: 11px;
+  --font-sm: 12px;
   --font-base: 13px;
   --font-lg: 14px;
   --font-xl: 16px;
@@ -36,10 +41,12 @@
   --weight-regular: 400;
   --weight-medium: 500;
   --weight-semibold: 600;
-  --weight-strong: 650;
+  /* Display numerals only (stat values) and fixed-geometry instruments. */
   --weight-bold: 700;
   --tracking-label: 0.02em;
   --tracking-caps: 0.055em;
+  /* Optical tightening for display sizes (16px and above) only. */
+  --tracking-display: -0.01em;
   --line-height-none: 1;
   --line-height-tight: 1.25;
   --line-height-normal: 1.45;
@@ -282,7 +289,7 @@
   --color-text-muted: #536177;
   --color-text-soft: #3f4d61;
   --color-text-softer: #4c5a70;
-  --color-text-faint: #69778b;
+  --color-text-faint: #5f6c7e;
   --color-text-disabled: #8995a6;
   --color-text-inverse: #ffffff;
   --color-text-on-danger: #fff4f2;

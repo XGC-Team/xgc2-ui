@@ -295,7 +295,7 @@
   padding: var(--space-md) var(--space-lg);
   color: var(--color-text-muted);
   cursor: pointer;
-  font-size: var(--font-md);
+  font-size: var(--font-sm);
   font-weight: var(--weight-medium);
 }
 
@@ -392,7 +392,7 @@
   gap: var(--space-sm);
   padding: var(--space-2xl) var(--space-xl);
   color: var(--color-text-muted);
-  font-size: var(--font-md);
+  font-size: var(--font-sm);
   text-align: center;
 }
 

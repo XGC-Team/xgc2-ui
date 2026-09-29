@@ -75,7 +75,7 @@
 .robot-instrument-card dd {
   color: var(--color-text-heading);
   font-family: var(--font-mono);
-  font-size: var(--font-md);
+  font-size: var(--font-sm);
 }
 
 .robot-instrument-grid[data-xgc-layout="list"] {

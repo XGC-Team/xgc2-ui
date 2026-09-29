@@ -57,8 +57,8 @@
   border: 0;
   outline: 0;
   font: inherit;
-  font-size: var(--font-lg);
-  font-weight: var(--weight-regular);
+  font-size: var(--type-title-size);
+  font-weight: var(--type-body-weight);
 }
 
 .xgc-command-palette-search input::placeholder {
@@ -98,9 +98,9 @@
   border-radius: var(--radius-xs);
   box-shadow: 0 1px 0 color-mix(in srgb, var(--color-text-inverse) 4%, transparent);
   font-family: var(--font-sans);
-  font-size: var(--font-xs);
-  font-weight: var(--weight-medium);
-  line-height: 1;
+  font-size: var(--type-caption-size);
+  font-weight: var(--type-control-weight);
+  line-height: var(--line-height-none);
 }
 
 .xgc-command-palette-results {
@@ -118,10 +118,11 @@
 .xgc-command-palette-group {
   padding: var(--space-md) var(--space-md) var(--space-xs);
   color: var(--color-text-faint);
-  font-size: var(--font-xs);
-  font-weight: var(--weight-semibold);
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
+  font-size: var(--type-caption-caps-size);
+  font-weight: var(--type-caption-caps-weight);
+  letter-spacing: var(--type-caption-caps-tracking);
+  text-transform: var(--type-caption-caps-transform);
+  line-height: var(--type-caption-caps-line-height);
 }
 
 .xgc-command-palette-item {
@@ -192,13 +193,13 @@
 
 .xgc-command-palette-copy strong {
   color: inherit;
-  font-size: var(--font-base);
-  font-weight: var(--weight-medium);
+  font-size: var(--type-control-size);
+  font-weight: var(--type-control-weight);
 }
 
 .xgc-command-palette-copy > span {
-  color: var(--color-text-faint);
-  font-size: var(--font-sm);
+  color: var(--color-text-muted);
+  font-size: var(--type-meta-size);
 }
 
 .xgc-command-palette-shortcut {

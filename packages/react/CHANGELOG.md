@@ -1,5 +1,16 @@
 # @xgc2/ui-react
 
+## 0.16.19
+
+### Patch Changes
+
+- Ship the 0.11.0 token contract inline, including the text roles (`@xgc2/ui-tokens/typography.css`), the 11px type floor (`--font-xs` 11px, `--font-sm` 12px) and role-based element defaults for `strong`/`b`, `th` and `code`/`kbd`/`samp`/`pre`.
+- Shared components consume text roles instead of primitive steps: field labels, ConfigSection titles, checkbox/switch titles, DescriptionList keys and Vector3 axis labels render the label role (V16 specimen); Panel/WorkspacePanel/Drawer titles, breadcrumbs, the topbar title and WorkspaceTabs the chrome role; FormSection, SectionHeader, EmptyState, workflow-card and notice headings the emphasis role; modal titles, command-tile headings and ResourceMeter labels the title role; buttons and tabs the control role; hints, metadata, pagination and conversation meta the meta role; StatusText the status role; select-menu and command-palette group labels plus stat-card labels the single caption-caps recipe.
+- DataTable, LogTablePage and Markdown table headers share one sentence-case table-header role (12px medium, muted) instead of three treatments; cells use the table-cell role.
+- Remove literal tracking (`-0.005em` buttons, `-0.01em` chrome titles, `-0.015em` headings, `0.05em` stat labels, `0.04em` brand) and literal `line-height: 1`; primary buttons keep the control weight, and the breadcrumb current page is marked by colour instead of a heavier weight so selection does not change text width.
+- `Text` gains the `meta` variant; `Text label` now matches the shared field label and `Heading panel` the real panel title. Secondary text pairs with `--color-text-muted`; `--color-text-faint` is reserved for the caption role.
+- Stop bundling the legacy dense token layer: `styles-v016.css` already ships the effective v016 theme, which defines every dense token, so the earlier fully overridden `:root` blocks only cost payload (`dist/styles.css` 165,996 → 159,929 bytes raw, 25,832 → 23,624 bytes gzip against 0.16.18, including the new role layer).
+
 ## 0.16.18
 
 ### Patch Changes

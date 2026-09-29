@@ -41,7 +41,7 @@
 
 .xgc-resource-workbench-dirty {
   color: var(--color-text-muted);
-  font-size: var(--font-base);
-  font-weight: var(--weight-semibold);
-  line-height: 1;
+  font-size: var(--type-emphasis-size);
+  font-weight: var(--type-emphasis-weight);
+  line-height: var(--line-height-none);
 }

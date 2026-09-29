@@ -533,3 +533,137 @@ export function statusVisualContractViolations(css) {
   }
   return [...new Set(violations)];
 }
+
+/*
+ * Typography: text roles are the contract (@xgc2/ui-tokens/typography.css).
+ * Declarations consume role or primitive tokens, never literal sizes,
+ * weights, line-heights or tracking; shared type tokens are never given a
+ * fallback (they are always defined, so a fallback only encodes a stale
+ * guess); families come from the shared family tokens only.
+ */
+const SHARED_TYPE_TOKEN = /^--(?:font|weight|line-height|tracking|type)-/;
+/* Removed from the token set; referencing one is a hard error, not a
+ * deprecation. Keep this list so stale product CSS fails with a pointer to
+ * the replacement instead of an undefined-token surprise. */
+const REMOVED_TYPE_TOKENS = new Map([
+  ['--font-md', '--font-sm or a text role'],
+  ['--weight-strong', '--weight-semibold or --type-emphasis-weight'],
+]);
+export const SHARED_FAMILY_TOKENS = new Set([
+  '--font-sans',
+  '--font-mono',
+  '--font-display',
+  '--type-code-family',
+  '--type-display-family',
+  '--type-heading-family',
+]);
+const MONO_FAMILY_TOKENS = new Set(['--font-mono', '--type-code-family']);
+const HEAVY_WEIGHT = /^(?:var\(--(?:weight-(?:semibold|strong|bold)|type-(?:emphasis|title|heading|display|caption-caps)-weight)\)|[6-9]00|bold|bolder)$/i;
+const TYPOGRAPHY_VALUE_PROPERTY = /^(?:font|font-size|font-weight|line-height|letter-spacing)$/i;
+const CSS_WIDE_KEYWORD = /^(?:inherit|initial|unset|revert|revert-layer)$/i;
+const TYPOGRAPHIC_CUSTOM_PROPERTY = /(?:^|-)(?:font|weight|line-height|leading|tracking|letter-spacing)(?:$|-)/i;
+const FIXED_GEOMETRY_PRAGMA = /\/\*\s*xgc2-style-policy:\s*fixed-geometry-typography\b([\s\S]*?)\*\//;
+
+/** Remove every var(...) call, including nested fallbacks, from a value. */
+function withoutVarCalls(value) {
+  let result = '';
+  for (let index = 0; index < value.length; index += 1) {
+    if (/^var\s*\(/i.test(value.slice(index))) {
+      let depth = 0;
+      let cursor = value.indexOf('(', index);
+      for (; cursor < value.length; cursor += 1) {
+        if (value[cursor] === '(') depth += 1;
+        else if (value[cursor] === ')') {
+          depth -= 1;
+          if (depth === 0) break;
+        }
+      }
+      index = cursor;
+      result += ' ';
+      continue;
+    }
+    result += value[index];
+  }
+  return result;
+}
+
+/** Every var() call as { name, fallback } (fallback text or null). */
+function varCalls(value) {
+  const calls = [];
+  for (const match of value.matchAll(/var\(\s*(--[\w-]+)\s*(,)?/g)) {
+    calls.push({ name: match[1], hasFallback: Boolean(match[2]) });
+  }
+  return calls;
+}
+
+/**
+ * A stylesheet may declare itself fixed-geometry instrumentation (HUD dials,
+ * rulers, 1ch masks) whose type is measured against frozen boxes. The pragma
+ * needs a reason and exempts only the literal-value rules; fallbacks, shared
+ * families and removed tokens still apply.
+ */
+export function fixedGeometryTypographyExemption(css) {
+  const match = FIXED_GEOMETRY_PRAGMA.exec(css);
+  if (!match) return null;
+  return { reason: match[1].replace(/^[\s:—–-]+/, '').trim() };
+}
+
+export function typographyContractViolations(css, { fixedGeometry = false } = {}) {
+  const source = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  const violations = [];
+  for (const rule of source.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    const selector = rule[1].trim();
+    let monoFamily = false;
+    let heavyWeight = null;
+    for (const match of rule[2].matchAll(/([\w-]+)\s*:\s*([^;{}]+)(?:;|$)/g)) {
+      const property = match[1];
+      const value = match[2].trim().replace(/\s*!important$/i, '');
+      const lowerProperty = property.toLowerCase();
+
+      for (const { name, hasFallback } of varCalls(value)) {
+        if (hasFallback && SHARED_TYPE_TOKEN.test(name)) violations.push(`fallback on shared type token ${name}`);
+        if (REMOVED_TYPE_TOKENS.has(name)) {
+          violations.push(`removed type token ${name}; use ${REMOVED_TYPE_TOKENS.get(name)}`);
+        }
+      }
+
+      if (lowerProperty === 'font-family') {
+        const family = /^var\(\s*(--[\w-]+)\s*\)$/.exec(value)?.[1];
+        if (!CSS_WIDE_KEYWORD.test(value) && !SHARED_FAMILY_TOKENS.has(family)) {
+          violations.push(`font-family outside the shared family tokens: ${value}`);
+        }
+        if (MONO_FAMILY_TOKENS.has(family)) monoFamily = true;
+        continue;
+      }
+
+      if (property.startsWith('--')) {
+        if (!TYPOGRAPHIC_CUSTOM_PROPERTY.test(property) || fixedGeometry) continue;
+        const residual = withoutVarCalls(value);
+        if (/\d/.test(residual)) violations.push(`raw typography value in custom property ${property}`);
+        else if (/["']|\b(?:serif|sans-serif|monospace|system-ui|cursive|fantasy)\b/i.test(residual)) {
+          violations.push(`font stack outside the shared family tokens in ${property}`);
+        }
+        continue;
+      }
+
+      if (!TYPOGRAPHY_VALUE_PROPERTY.test(lowerProperty)) continue;
+      if (lowerProperty === 'font') {
+        if (varCalls(value).some(({ name }) => MONO_FAMILY_TOKENS.has(name))) monoFamily = true;
+      }
+      if (lowerProperty === 'font-weight') heavyWeight = HEAVY_WEIGHT.test(value) ? value : null;
+      if (CSS_WIDE_KEYWORD.test(value)) continue;
+      if (lowerProperty === 'letter-spacing' && /^(?:normal|0(?:px|em)?)$/i.test(value)) continue;
+      if (lowerProperty === 'font-size' && /^0(?:px)?$/i.test(value)) continue;
+      if (fixedGeometry) continue;
+      const residual = withoutVarCalls(value).trim();
+      const literal = lowerProperty === 'font'
+        ? residual.replace(/\//g, ' ').trim()
+        : residual.replace(/\b(?:calc|min|max|clamp)\s*\(|[()+*/,\s-]/gi, '');
+      if (literal) violations.push(`literal ${lowerProperty} ${value} in ${selector}`);
+    }
+    if (monoFamily && heavyWeight) {
+      violations.push(`monospace at weight ${heavyWeight} in ${selector}; bundled mono faces are 400 and 500 only`);
+    }
+  }
+  return [...new Set(violations)];
+}

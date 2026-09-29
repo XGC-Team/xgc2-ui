@@ -78,7 +78,7 @@
   position: absolute;
   inset: 0;
   overflow: hidden;
-  line-height: 1;
+  line-height: var(--line-height-none);
 }
 
 .xgc-manuscript-pdf-text-layer :is(span, br) {

@@ -40,16 +40,18 @@ describe('page-family visual geometry', () => {
 
     expect(configToggle.get('min-height')).toBe('var(--size-control-default)');
     expect(configToggle.get('padding')).toBe('0 var(--space-md)');
-    expect(configTitle.get('font-size')).toBe('var(--font-base)');
-    expect(configTitle.get('font-weight')).toBe('var(--weight-regular)');
-    expect(configTitle.get('line-height')).toBe('var(--line-height-tight)');
+    // ConfigSection titles use the label role (V20: sans/base/regular/tight).
+    expect(configTitle.get('font-size')).toBe('var(--type-label-size)');
+    expect(configTitle.get('font-weight')).toBe('var(--type-label-weight)');
+    expect(configTitle.get('line-height')).toBe('var(--type-label-line-height)');
+    expect(configTitle.has('letter-spacing')).toBe(false);
     expect(configBody.get('padding')).toBe('0 var(--space-xl) var(--space-xs)');
     expect(configRow.get('padding')).toBe('var(--space-sm) 0');
 
     expect(listFolder.get('min-height')).toBe('30px');
     expect(listFolder.get('padding')).toBe('0 var(--xgc-list-folder-title-padding-inline, 0)');
-    expect(listFolderTitle.get('font-size')).toBe('var(--font-base)');
-    expect(listFolderTitle.get('font-weight')).toBe('var(--weight-regular)');
+    expect(listFolderTitle.get('font-size')).toBe('var(--type-body-size)');
+    expect(listFolderTitle.get('font-weight')).toBe('var(--type-body-weight)');
   });
 
   it('keeps Panel and WorkspacePanel headers regular with shared body inset', () => {
@@ -73,9 +75,11 @@ describe('page-family visual geometry', () => {
       .toBe('var(--space-panel-padding)');
     expect(ruleDeclarations(css, '.xgc-workspace-panel-body[data-padding=\'default\']').get('padding'))
       .toBe('var(--space-xs)');
+    // Panel chrome titles use the chrome role; the line box keeps filling the
+    // frozen header row (V18) instead of the role's control line-height.
     for (const title of [panelTitle, workspaceTitle]) {
-      expect(title.get('font-size')).toBe('var(--font-base)');
-      expect(title.get('font-weight')).toBe('var(--weight-regular)');
+      expect(title.get('font-size')).toBe('var(--type-chrome-size)');
+      expect(title.get('font-weight')).toBe('var(--type-chrome-weight)');
       expect(title.get('line-height')).toBe('var(--size-control-panel-header)');
     }
   });
@@ -169,17 +173,18 @@ describe('page-family visual geometry', () => {
     );
 
     expect(field.get('font-size')).toBeUndefined();
+    // V16 specimen: every field hint label renders the label role.
     expect(label.get('font-family')).toBe('var(--font-sans)');
-    expect(label.get('font-size')).toBe('var(--font-base)');
-    expect(label.get('font-weight')).toBe('var(--weight-regular)');
-    expect(label.get('line-height')).toBe('var(--line-height-tight)');
+    expect(label.get('font-size')).toBe('var(--type-label-size)');
+    expect(label.get('font-weight')).toBe('var(--type-label-weight)');
+    expect(label.get('line-height')).toBe('var(--type-label-line-height)');
     expect(label.get('color')).toBe('var(--color-text-muted)');
     expect(sectionLabel.get('font-size')).toBeUndefined();
     expect(sectionLabel.get('font-weight')).toBeUndefined();
     expect(textarea.get('font-size')).toBe(inputValue.get('font-size'));
-    expect(textarea.get('font-size')).toBe('var(--font-base)');
+    expect(textarea.get('font-size')).toBe('var(--type-body-size)');
     expect(textarea.get('font-family')).toBe('var(--font-sans)');
-    expect(textarea.get('font-weight')).toBe('var(--weight-regular)');
+    expect(textarea.get('font-weight')).toBe('var(--type-body-weight)');
   });
 
   it('keeps panel header actions and view switchers inside the compact control height', () => {

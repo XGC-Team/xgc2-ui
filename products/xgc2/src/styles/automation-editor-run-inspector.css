@@ -40,7 +40,7 @@
 
 .automation-editor-run-inspector-title strong {
   color: var(--color-text-heading);
-  font-size: var(--font-md);
+  font-size: var(--font-sm);
 }
 
 .automation-editor-run-inspector-title span {
@@ -155,7 +155,7 @@
 
 .automation-editor-detail-empty strong {
   color: var(--color-text-heading);
-  font-size: var(--font-md);
+  font-size: var(--font-sm);
 }
 
 .automation-editor-log-viewer {

@@ -35,7 +35,9 @@ Canonical roles:
 - code.
 
 Products must not change a role's font size or weight because it moved into a
-different container.
+different container. The executable form of these roles is
+`@xgc2/ui-tokens/typography.css`; the role table and the gate rules live in
+`DESIGN_CONTRACT.md` ("Type scale").
 
 ## 3. Layout families replace manual geometry
 

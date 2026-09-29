@@ -25,7 +25,7 @@
 .workflow-startup-pipeline-header > strong {
   color: var(--color-text-heading);
   font-size: var(--font-lg);
-  font-weight: var(--weight-strong);
+  font-weight: var(--weight-semibold);
   line-height: var(--line-height-tight);
 }
 
@@ -139,7 +139,7 @@
 .workflow-startup-pipeline-heading {
   color: var(--color-text-heading);
   font-size: var(--font-lg);
-  font-weight: var(--weight-strong);
+  font-weight: var(--weight-semibold);
   line-height: var(--line-height-tight);
 }
 

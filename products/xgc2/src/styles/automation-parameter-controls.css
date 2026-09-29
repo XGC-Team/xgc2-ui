@@ -1,7 +1,7 @@
 .automation-run-parameter-empty {
   margin: 0;
   color: var(--color-text-muted);
-  font-size: var(--font-md);
+  font-size: var(--font-sm);
   line-height: var(--line-height-relaxed);
 }
 [data-xgc-role="automation-run-parameter-error"] {
@@ -44,7 +44,7 @@
 .automation-call-parameters > section > header > h3 {
   margin: 0;
   color: var(--color-text-heading);
-  font-size: var(--font-md);
+  font-size: var(--font-sm);
   font-weight: var(--weight-semibold);
 }
 .automation-call-parameters > section > header {

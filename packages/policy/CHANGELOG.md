@@ -1,5 +1,15 @@
 # @xgc2/ui-policy
 
+## 0.16.19
+
+### Patch Changes
+
+- Keep @xgc2/ui-policy paired with @xgc2/ui-react 0.16.19; the text-role tokens (`--type-*`) are shared-owned, so product CSS may consume but never redefine them.
+- New typography gate (`typographyContractViolations`): `font-size`, `font-weight`, `line-height`, `letter-spacing` and the `font` shorthand must come from role or primitive tokens (CSS-wide keywords, `letter-spacing: 0|normal` and `font-size: 0` stay legal); shared type tokens (`--font-*`, `--weight-*`, `--line-height-*`, `--tracking-*`, `--type-*`) may not carry a `var()` fallback; `--font-md` and `--weight-strong` were removed from the token set and referencing either is a hard error; `font-family` must be exactly one shared family token; typographic custom properties may not launder literal values or private font stacks; monospace may not be set above the bundled 400/500 faces.
+- Fixed-geometry instrumentation opts out of the literal-value checks only, per stylesheet, with `/* xgc2-style-policy: fixed-geometry-typography — <decision or instrument contract> */`; an exemption without a reason fails, and the CLI lists every exempt file on stdout.
+- Updated dependencies
+  - @xgc2/ui-react@0.16.19
+
 ## 0.16.18
 
 ### Patch Changes

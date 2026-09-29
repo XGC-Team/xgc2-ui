@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import {
   PRODUCT_CONTROL_GEOMETRY_HOOKS,
   edgeMarkerViolations,
+  fixedGeometryTypographyExemption,
   forbiddenControlAppearanceDefinitions,
   isProductProductionSource,
   pageFamilySelectorCouplingViolations,
@@ -16,6 +17,7 @@ import {
   sharedSelectorViolations,
   skinLifecycleViolations,
   statusVisualContractViolations,
+  typographyContractViolations,
 } from './contract.mjs';
 import { sharedOwnedClasses, sharedOwnedTokens } from './ownership.mjs';
 
@@ -127,7 +129,12 @@ function record(violations, file, message) {
   violations.push(`${relative(process.cwd(), file) || file}: ${message}`);
 }
 
-function inspectCss(file, css, violations) {
+function inspectCss(file, css, violations, exemptions) {
+  const typographyExemption = fixedGeometryTypographyExemption(css);
+  if (typographyExemption) {
+    if (typographyExemption.reason) exemptions.push(file);
+    else record(violations, file, 'fixed-geometry typography exemption needs a reason (decision or instrument contract)');
+  }
   const declarations = css.replace(/\/\*[\s\S]*?\*\//g, '');
   for (const match of declarations.matchAll(/--space-\d+\b/g)) record(violations, file, `numeric spacing token ${match[0]}`);
   for (const match of declarations.matchAll(/--(?:font-(?:2xs|3xl|4xl)|line-height-(?:snug|ui|readable)|tracking-(?:tight|wide|wider|condensed))\b/g)) {
@@ -141,6 +148,9 @@ function inspectCss(file, css, violations) {
   for (const message of rawSpacingLiteralViolations(declarations)) record(violations, file, message);
   for (const message of rawCustomPropertyDurationViolations(declarations)) record(violations, file, message);
   for (const message of semanticGeometryViolations(declarations)) record(violations, file, message);
+  for (const message of typographyContractViolations(declarations, { fixedGeometry: Boolean(typographyExemption?.reason) })) {
+    record(violations, file, message);
+  }
   for (const message of sharedSelectorViolations(declarations, sharedClasses)) {
     record(violations, file, `${message}; compose through a product-owned class or component API`);
   }
@@ -169,7 +179,8 @@ async function run() {
 
   const reactVersion = await verifyReactContract();
   const violations = [];
-  for (const file of cssFiles) inspectCss(file, await readFile(file, 'utf8'), violations);
+  const typographyExemptions = [];
+  for (const file of cssFiles) inspectCss(file, await readFile(file, 'utf8'), violations, typographyExemptions);
   for (const file of sourceFiles) {
     const sourceType = extname(file).toLowerCase().startsWith('.htm') ? 'html' : 'script';
     for (const message of skinLifecycleViolations(await readFile(file, 'utf8'), { sourceType })) {
@@ -178,6 +189,9 @@ async function run() {
   }
 
   process.stdout.write(`XGC2 UI policy ${reactVersion}: scanned ${roots.length} root(s), ${cssFiles.length} CSS file(s), ${sourceFiles.length} production script/HTML file(s)\n`);
+  if (typographyExemptions.length > 0) {
+    process.stdout.write(`fixed-geometry typography exemptions (${typographyExemptions.length}): ${typographyExemptions.map((file) => relative(process.cwd(), file) || file).join(', ')}\n`);
+  }
   if (violations.length > 0) {
     process.stderr.write(`XGC2 visual policy violations:\n${violations.join('\n')}\n`);
     process.exitCode = 1;

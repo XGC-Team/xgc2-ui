@@ -1,0 +1,116 @@
+/*
+ * XGC2 text roles: the single typography contract.
+ *
+ * A role names what a piece of text does, never where it sits in the DOM.
+ * Every role maps onto the primitive scale of the active theme (v016.css) and
+ * is therefore theme-independent. Component and product CSS consume these
+ * role tokens; they do not pick primitive steps, literal sizes, weights,
+ * line-heights or tracking. DESIGN_CONTRACT.md "Type scale" documents the
+ * table, the colour token paired with each role and the review rules.
+ *
+ * Line-height may be replaced by a geometry token only where the text fills a
+ * fixed box (for example a panel header line box). Colour is chosen from the
+ * documented role pairing at the point of use, because skins redefine colour
+ * tokens on the root element.
+ */
+:root {
+  /* display: page headings and display numerals (stat values). */
+  --type-display-family: var(--font-display);
+  --type-display-size: var(--font-2xl);
+  --type-display-weight: var(--weight-semibold);
+  --type-display-line-height: var(--line-height-tight);
+  --type-display-tracking: var(--tracking-display);
+
+  /* heading: document, group and inspector headings. */
+  --type-heading-family: var(--font-display);
+  --type-heading-size: var(--font-xl);
+  --type-heading-weight: var(--weight-semibold);
+  --type-heading-line-height: var(--line-height-tight);
+  --type-heading-tracking: var(--tracking-display);
+
+  /* title: card, section, dialog and command-tile titles. */
+  --type-title-size: var(--font-lg);
+  --type-title-weight: var(--weight-semibold);
+  --type-title-line-height: var(--line-height-tight);
+  --type-title-tracking: normal;
+
+  /* emphasis: body-size strong text (inline strong, compact block titles
+   * such as EmptyState, FormSection and SectionHeader titles). */
+  --type-emphasis-size: var(--font-base);
+  --type-emphasis-weight: var(--weight-semibold);
+  --type-emphasis-line-height: var(--line-height-tight);
+  --type-emphasis-tracking: normal;
+
+  /* chrome: panel, drawer and dialog header titles, breadcrumbs, page
+   * titles and workspace tabs. Hierarchy comes from chrome position. */
+  --type-chrome-size: var(--font-base);
+  --type-chrome-weight: var(--weight-regular);
+  --type-chrome-line-height: var(--line-height-control);
+  --type-chrome-tracking: normal;
+
+  /* body: prose, values and ordinary UI text. */
+  --type-body-size: var(--font-base);
+  --type-body-weight: var(--weight-regular);
+  --type-body-line-height: var(--line-height-normal);
+  --type-body-tracking: normal;
+
+  /* label: field hint labels and key/value keys. */
+  --type-label-size: var(--font-base);
+  --type-label-weight: var(--weight-regular);
+  --type-label-line-height: var(--line-height-tight);
+  --type-label-tracking: normal;
+
+  /* control: button, tab and segmented-control labels. */
+  --type-control-size: var(--font-base);
+  --type-control-weight: var(--weight-medium);
+  --type-control-line-height: var(--line-height-none);
+  --type-control-tracking: normal;
+
+  /* table-header: sentence case, quieter than the cells it labels. */
+  --type-table-header-size: var(--font-sm);
+  --type-table-header-weight: var(--weight-medium);
+  --type-table-header-line-height: var(--line-height-tight);
+  --type-table-header-tracking: normal;
+
+  /* table-cell: one body typeface for every column. */
+  --type-table-cell-size: var(--font-base);
+  --type-table-cell-weight: var(--weight-regular);
+  --type-table-cell-line-height: var(--line-height-normal);
+  --type-table-cell-tracking: normal;
+
+  /* meta: secondary descriptions, hints, timestamps and list metadata. */
+  --type-meta-size: var(--font-sm);
+  --type-meta-weight: var(--weight-regular);
+  --type-meta-line-height: var(--line-height-normal);
+  --type-meta-tracking: normal;
+
+  /* status: compact state labels (StatusText). */
+  --type-status-size: var(--font-sm);
+  --type-status-weight: var(--weight-medium);
+  --type-status-line-height: var(--line-height-tight);
+  --type-status-tracking: normal;
+
+  /* caption: the 11px floor for chart ticks, counters and footnotes. */
+  --type-caption-size: var(--font-xs);
+  --type-caption-weight: var(--weight-regular);
+  --type-caption-line-height: var(--line-height-normal);
+  --type-caption-tracking: normal;
+
+  /* caption-caps: the single uppercase recipe (overlines, menu groups). */
+  --type-caption-caps-size: var(--font-xs);
+  --type-caption-caps-weight: var(--weight-semibold);
+  --type-caption-caps-line-height: var(--line-height-tight);
+  --type-caption-caps-tracking: var(--tracking-caps);
+  --type-caption-caps-transform: uppercase;
+
+  /* code: the only monospace role (code, paths, terminals, JSON,
+   * expressions, identifiers). Bundled mono faces are 400 and 500 only. */
+  --type-code-family: var(--font-mono);
+  --type-code-size: var(--font-sm);
+  --type-code-weight: var(--weight-regular);
+  --type-code-line-height: var(--line-height-normal);
+  --type-code-tracking: normal;
+
+  /* numeric: sans figures that align; never a reason to switch to mono. */
+  --type-numeric-variant: tabular-nums;
+}

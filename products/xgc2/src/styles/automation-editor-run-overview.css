@@ -55,7 +55,7 @@
 }
 .automation-editor-run-primary strong {
   color: var(--color-text-heading);
-  font-size: var(--font-md);
+  font-size: var(--font-sm);
 }
 .automation-editor-run-primary span {
   color: var(--color-text-muted);

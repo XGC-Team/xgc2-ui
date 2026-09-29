@@ -21,7 +21,7 @@
 
 .automation-execution-ingress-transition-ledger > header strong {
   color: var(--color-text-heading);
-  font-size: var(--font-md);
+  font-size: var(--font-sm);
   font-weight: var(--weight-semibold);
   letter-spacing: var(--tracking-label);
   text-transform: uppercase;
@@ -29,7 +29,7 @@
 
 .automation-execution-ingress-transition > header strong {
   color: var(--color-text-heading);
-  font-size: var(--font-md);
+  font-size: var(--font-sm);
   font-family: var(--font-mono);
 }
 

@@ -6,9 +6,9 @@
   overflow: hidden;
   color: var(--color-text-muted);
   font-family: var(--font-sans);
-  font-size: var(--font-md);
-  font-weight: var(--weight-regular);
-  line-height: var(--line-height-tight);
+  font-size: var(--type-chrome-size);
+  font-weight: var(--type-chrome-weight);
+  line-height: var(--type-chrome-line-height);
 }
 
 .xgc-breadcrumb-segment {
@@ -53,12 +53,11 @@
 
 .xgc-breadcrumb-item[aria-current='page'] {
   color: var(--color-text-heading);
-  font-weight: var(--weight-medium);
 }
 
 .xgc-breadcrumb-separator {
   flex: 0 0 auto;
   color: var(--color-text-faint);
-  font-size: var(--font-sm);
+  font-size: var(--type-meta-size);
   user-select: none;
 }

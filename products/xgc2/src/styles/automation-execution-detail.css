@@ -70,7 +70,7 @@
   margin: 0;
   overflow: hidden;
   color: var(--color-text-heading);
-  font-size: var(--font-md);
+  font-size: var(--font-sm);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -161,7 +161,7 @@
   margin: 0;
   overflow-wrap: anywhere;
   color: var(--color-text-heading);
-  font-size: var(--font-md);
+  font-size: var(--font-sm);
 }
 .automation-execution-node-data {
   min-width: 0;
@@ -210,7 +210,7 @@
   display: block;
   margin-top: var(--space-xs);
   overflow: hidden;
-  font-size: var(--font-md);
+  font-size: var(--font-sm);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -226,7 +226,7 @@
   padding: var(--space-md) var(--space-lg);
   color: var(--color-text-muted);
   cursor: pointer;
-  font-size: var(--font-md);
+  font-size: var(--font-sm);
   font-weight: var(--weight-medium);
 }
 
@@ -327,7 +327,7 @@
 .automation-execution-relationships > header strong,
 .automation-execution-result > section > strong {
   color: var(--color-text-heading);
-  font-size: var(--font-md);
+  font-size: var(--font-sm);
   font-weight: var(--weight-semibold);
   letter-spacing: 0;
   text-transform: none;
@@ -362,7 +362,7 @@
   justify-content: space-between;
   gap: var(--space-md);
   color: var(--color-text-heading);
-  font-size: var(--font-md);
+  font-size: var(--font-sm);
   font-weight: var(--weight-semibold);
   letter-spacing: var(--tracking-label);
   text-transform: uppercase;
@@ -379,7 +379,7 @@
 .automation-execution-run-termination p {
   margin: 0;
   color: var(--color-text-muted);
-  font-size: var(--font-md);
+  font-size: var(--font-sm);
   line-height: var(--line-height-normal);
   overflow-wrap: anywhere;
 }

@@ -2,6 +2,7 @@
   color-scheme: dark;
   --font-sans: "Inter Variable", Inter, "SF Pro Text", "Segoe UI Variable Text", "Segoe UI", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, "Cascadia Code", Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  --font-display: var(--font-sans);
 
   /*
    * One bounded spatial rhythm for every product. These are layout choices,
@@ -33,7 +34,6 @@
 
   --font-xs: 9px;
   --font-sm: 10px;
-  --font-md: 11px;
   --font-base: 12px;
   --font-lg: 14px;
   --font-xl: 16px;
@@ -41,10 +41,12 @@
   --weight-regular: 400;
   --weight-medium: 500;
   --weight-semibold: 600;
-  --weight-strong: 650;
   --weight-bold: 700;
   --tracking-label: 0.04em;
   --tracking-caps: 0.07em;
+  /* Legacy dense theme: completes the primitive set referenced by the text
+   * roles in typography.css; its historical scale values are unchanged. */
+  --tracking-display: -0.01em;
   --line-height-none: 1;
   --line-height-tight: 1.25;
   --line-height-normal: 1.4;

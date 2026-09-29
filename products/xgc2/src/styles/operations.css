@@ -150,7 +150,7 @@
 .operations-audit-table td > small,
 .operations-audit-table td > code {
   color: var(--color-text-muted);
-  font-size: var(--font-md);
+  font-size: var(--font-sm);
 }
 
 .operations-audit-table td > code {
@@ -168,7 +168,7 @@
   min-width: 0;
   overflow: hidden;
   color: var(--color-text-muted);
-  font-size: var(--font-md);
+  font-size: var(--font-sm);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -199,7 +199,7 @@
 
 .operations-audit-provenance-value em {
   color: var(--color-text-muted);
-  font-size: var(--font-md);
+  font-size: var(--font-sm);
   font-style: normal;
   font-weight: var(--weight-regular);
   text-transform: none;
@@ -260,7 +260,7 @@
 
 .operations-audit-detail-grid dt {
   color: var(--color-text-muted);
-  font-size: var(--font-md);
+  font-size: var(--font-sm);
   font-weight: var(--weight-regular);
   text-transform: none;
   letter-spacing: 0;
@@ -277,7 +277,7 @@
 
 .operations-audit-detail-value[data-xgc-format="monospace"] {
   font-family: var(--font-mono);
-  font-size: var(--font-md);
+  font-size: var(--font-sm);
   color: var(--color-text-soft);
 }
 

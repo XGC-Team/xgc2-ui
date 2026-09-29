@@ -1,3 +1,8 @@
+/*
+ * Text and Heading are the component form of the text roles in
+ * @xgc2/ui-tokens/typography.css. A variant maps to exactly one role; the
+ * DOM element (`as`) never changes the treatment.
+ */
 .xgc-text,
 .xgc-heading {
   margin: 0;
@@ -7,63 +12,73 @@
 
 .xgc-text[data-variant='body'] {
   color: var(--color-text);
-  font-size: var(--font-base);
-  font-weight: var(--weight-regular);
-  line-height: var(--line-height-normal);
+  font-size: var(--type-body-size);
+  font-weight: var(--type-body-weight);
+  line-height: var(--type-body-line-height);
 }
 
 .xgc-text[data-variant='secondary'] {
   color: var(--color-text-muted);
-  font-size: var(--font-base);
-  font-weight: var(--weight-regular);
-  line-height: var(--line-height-normal);
+  font-size: var(--type-body-size);
+  font-weight: var(--type-body-weight);
+  line-height: var(--type-body-line-height);
 }
 
+/* Same treatment as the shared field hint label (.xgc-form-field-label). */
 .xgc-text[data-variant='label'] {
-  color: var(--color-text-soft);
-  font-size: var(--font-md);
-  font-weight: var(--weight-medium);
-  line-height: var(--line-height-tight);
-  letter-spacing: var(--tracking-label);
+  color: var(--color-text-muted);
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+  line-height: var(--type-label-line-height);
+}
+
+.xgc-text[data-variant='meta'] {
+  color: var(--color-text-muted);
+  font-size: var(--type-meta-size);
+  font-weight: var(--type-meta-weight);
+  line-height: var(--type-meta-line-height);
 }
 
 .xgc-text[data-variant='caption'] {
   color: var(--color-text-faint);
-  font-size: var(--font-sm);
-  font-weight: var(--weight-regular);
-  line-height: var(--line-height-normal);
+  font-size: var(--type-caption-size);
+  font-weight: var(--type-caption-weight);
+  line-height: var(--type-caption-line-height);
 }
 
 .xgc-text[data-variant='code'] {
   color: var(--color-text);
-  font-family: var(--font-mono);
-  font-size: var(--font-md);
-  font-weight: var(--weight-regular);
-  line-height: var(--line-height-normal);
+  font-family: var(--type-code-family);
+  font-size: var(--type-code-size);
+  font-weight: var(--type-code-weight);
+  line-height: var(--type-code-line-height);
   font-variant-ligatures: none;
 }
 
 .xgc-heading {
   color: var(--color-text-heading);
-  font-family: var(--font-display, var(--font-sans));
   text-wrap: balance;
-  letter-spacing: -0.015em;
 }
 
 .xgc-heading[data-variant='page'] {
-  font-size: var(--font-2xl);
-  font-weight: var(--weight-semibold);
-  line-height: var(--line-height-tight);
+  font-family: var(--type-display-family);
+  font-size: var(--type-display-size);
+  font-weight: var(--type-display-weight);
+  line-height: var(--type-display-line-height);
+  letter-spacing: var(--type-display-tracking);
 }
 
 .xgc-heading[data-variant='section'] {
-  font-size: var(--font-lg);
-  font-weight: var(--weight-semibold);
-  line-height: var(--line-height-tight);
+  font-size: var(--type-title-size);
+  font-weight: var(--type-title-weight);
+  line-height: var(--type-title-line-height);
+  letter-spacing: var(--type-title-tracking);
 }
 
+/* Same treatment as the shared Panel / WorkspacePanel header title. */
 .xgc-heading[data-variant='panel'] {
-  font-size: var(--font-base);
-  font-weight: var(--weight-medium);
-  line-height: var(--line-height-tight);
+  font-size: var(--type-chrome-size);
+  font-weight: var(--type-chrome-weight);
+  line-height: var(--type-chrome-line-height);
+  letter-spacing: var(--type-chrome-tracking);
 }

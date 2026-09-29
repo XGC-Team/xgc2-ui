@@ -1,5 +1,14 @@
 # @xgc2/ui-tokens
 
+## 0.11.0
+
+### Minor Changes
+
+- Add `typography.css`, the single text-role contract: `--type-<role>-size`, `-weight`, `-line-height` and `-tracking` for display, heading, title, emphasis, chrome, body, label, control, table-header, table-cell, meta, status, caption, caption-caps and code, plus `--type-code-family`, `--type-display-family`, `--type-heading-family`, `--type-caption-caps-transform` and `--type-numeric-variant`. Roles reference primitives only, so they follow whichever theme is active.
+- Raise the v016 legibility floor and remove near-duplicate steps: `--font-xs` 10px → 11px (caption floor), `--font-sm` 11px → 12px. `--font-md` is removed (was 12px, equal to `--font-sm`) and `--weight-strong` is removed (was 650, now `--weight-semibold` 600); referencing either fails the style gate. Add `--tracking-display` (-0.01em) for 16px and larger display text.
+- `base.css` sizes body text from `--type-body-size` and gives zero-specificity element defaults to the roles: `strong`/`b` use the emphasis weight (not user-agent bold), `th` the table-header weight, and `code`/`kbd`/`samp`/`pre` the bundled monospace family instead of the generic `monospace` face.
+- The legacy dense `index.css` keeps its historical scale values and only gains the primitives the roles reference (`--font-display`, `--tracking-display`).
+
 ## 0.10.6
 
 ### Patch Changes
