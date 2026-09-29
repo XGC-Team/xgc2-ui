@@ -9,6 +9,7 @@
 - DataTable, LogTablePage and Markdown table headers share one sentence-case table-header role (12px medium, muted) instead of three treatments; cells use the table-cell role.
 - Remove literal tracking (`-0.005em` buttons, `-0.01em` chrome titles, `-0.015em` headings, `0.05em` stat labels, `0.04em` brand) and literal `line-height: 1`; primary buttons keep the control weight, and the breadcrumb current page is marked by colour instead of a heavier weight so selection does not change text width.
 - `Text` gains the `meta` variant; `Text label` now matches the shared field label and `Heading panel` the real panel title. Secondary text pairs with `--color-text-muted`; `--color-text-faint` is reserved for the caption role.
+- Stop bundling the legacy dense token layer: `styles-v016.css` already ships the effective v016 theme, which defines every dense token, so the earlier fully overridden `:root` blocks only cost payload (`dist/styles.css` 165,996 → 159,929 bytes raw, 25,832 → 23,624 bytes gzip against 0.16.18, including the new role layer).
 
 ## 0.16.18
 

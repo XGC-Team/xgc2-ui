@@ -1,4 +1,8 @@
-@import '@xgc2/ui-tokens';
+/*
+ * Theme tokens ship once: styles-v016.css imports the effective v016 theme,
+ * which defines every token of the legacy dense index.css. Importing the dense
+ * layer here only added a fully overridden :root block to the bundle.
+ */
 @import '@xgc2/ui-tokens/typography.css';
 @import '@xgc2/ui-tokens/base.css';
 
