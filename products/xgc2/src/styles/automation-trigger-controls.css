@@ -83,14 +83,14 @@
 .automation-trigger-controls-listener strong {
   color: var(--color-text-heading);
   font-size: var(--font-sm);
-  font-weight: var(--weight-strong);
+  font-weight: var(--weight-semibold);
   white-space: nowrap;
 }
 
 .automation-trigger-controls-status {
   flex: 0 0 auto;
   font-size: var(--font-xs);
-  font-weight: var(--weight-strong);
+  font-weight: var(--weight-semibold);
   text-transform: uppercase;
 }
 

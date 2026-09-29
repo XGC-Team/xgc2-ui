@@ -62,7 +62,7 @@
   display: grid;
   gap: var(--space-sm);
   color: var(--color-text-softer);
-  font-size: var(--font-md);
+  font-size: var(--font-sm);
 }
 
 .automation-run-policy-admission-mode-options {
@@ -70,7 +70,7 @@
   display: grid;
   gap: var(--space-sm);
   color: var(--color-text-softer);
-  font-size: var(--font-md);
+  font-size: var(--font-sm);
 }
 
 .automation-run-policy-admission-mode-control {

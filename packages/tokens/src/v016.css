@@ -34,8 +34,6 @@
    */
   --font-xs: 11px;
   --font-sm: 12px;
-  /* Deprecated alias of --font-sm; migrate to --font-sm or a text role. */
-  --font-md: var(--font-sm);
   --font-base: 13px;
   --font-lg: 14px;
   --font-xl: 16px;
@@ -43,9 +41,6 @@
   --weight-regular: 400;
   --weight-medium: 500;
   --weight-semibold: 600;
-  /* Deprecated alias of --weight-semibold: 650 read as the same bold at UI
-   * sizes and only existed in the variable face. */
-  --weight-strong: var(--weight-semibold);
   /* Display numerals only (stat values) and fixed-geometry instruments. */
   --weight-bold: 700;
   --tracking-label: 0.02em;

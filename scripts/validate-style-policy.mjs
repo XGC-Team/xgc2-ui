@@ -68,7 +68,7 @@ for (const file of cssFiles) {
 
 const tokenSource = cssSources.find(({ file }) => file === 'packages/tokens/src/index.css')?.content ?? '';
 const boundedTokenFamilies = [
-  ['font size', /--font-(?:xs|sm|md|base|lg|xl|2xl)\s*:/g, 7],
+  ['font size', /--font-(?:xs|sm|base|lg|xl|2xl)\s*:/g, 6],
   ['line height', /--line-height-(?:none|tight|normal|relaxed|control)\s*:/g, 5],
   ['tracking', /--tracking-(?:label|caps|display)\s*:/g, 3],
   ['radius', /--radius-(?:xs|sm|md|lg|xl)\s*:/g, 5],

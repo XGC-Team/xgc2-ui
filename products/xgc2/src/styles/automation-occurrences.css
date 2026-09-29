@@ -28,7 +28,7 @@
 .automation-occurrences-section > header strong,
 .automation-occurrences-attempts > header strong {
   color: var(--color-text-heading);
-  font-size: var(--font-md);
+  font-size: var(--font-sm);
 }
 
 .automation-occurrences-aggregate-list {
@@ -61,7 +61,7 @@
 
 .automation-occurrences-aggregate-list strong {
   color: var(--color-text-heading);
-  font-size: var(--font-md);
+  font-size: var(--font-sm);
 }
 
 .automation-occurrences-aggregate-list code,

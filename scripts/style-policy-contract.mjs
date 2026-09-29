@@ -542,7 +542,10 @@ export function statusVisualContractViolations(css) {
  * guess); families come from the shared family tokens only.
  */
 const SHARED_TYPE_TOKEN = /^--(?:font|weight|line-height|tracking|type)-/;
-const DEPRECATED_TYPE_ALIASES = new Map([
+/* Removed from the token set; referencing one is a hard error, not a
+ * deprecation. Keep this list so stale product CSS fails with a pointer to
+ * the replacement instead of an undefined-token surprise. */
+const REMOVED_TYPE_TOKENS = new Map([
   ['--font-md', '--font-sm or a text role'],
   ['--weight-strong', '--weight-semibold or --type-emphasis-weight'],
 ]);
@@ -597,7 +600,7 @@ function varCalls(value) {
  * A stylesheet may declare itself fixed-geometry instrumentation (HUD dials,
  * rulers, 1ch masks) whose type is measured against frozen boxes. The pragma
  * needs a reason and exempts only the literal-value rules; fallbacks, shared
- * families and deprecated aliases still apply.
+ * families and removed tokens still apply.
  */
 export function fixedGeometryTypographyExemption(css) {
   const match = FIXED_GEOMETRY_PRAGMA.exec(css);
@@ -619,8 +622,8 @@ export function typographyContractViolations(css, { fixedGeometry = false } = {}
 
       for (const { name, hasFallback } of varCalls(value)) {
         if (hasFallback && SHARED_TYPE_TOKEN.test(name)) violations.push(`fallback on shared type token ${name}`);
-        if (DEPRECATED_TYPE_ALIASES.has(name)) {
-          violations.push(`deprecated type alias ${name}; use ${DEPRECATED_TYPE_ALIASES.get(name)}`);
+        if (REMOVED_TYPE_TOKENS.has(name)) {
+          violations.push(`removed type token ${name}; use ${REMOVED_TYPE_TOKENS.get(name)}`);
         }
       }
 

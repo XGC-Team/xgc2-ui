@@ -38,7 +38,7 @@ describe('Experiment Robot assets Parameters visual contract', () => {
     expect(header).not.toContain('border-bottom:');
     expect(title).toContain('color: var(--color-text-heading);');
     expect(title).toContain('font-size: var(--font-base);');
-    expect(title).toContain('font-weight: var(--weight-strong);');
+    expect(title).toContain('font-weight: var(--weight-semibold);');
     expect(title).toContain('line-height: var(--line-height-tight);');
     expect(css).not.toMatch(/settings-group[^}]*40px/);
     expect(css).not.toMatch(/:nth-(?:child|last-child|of-type)/);

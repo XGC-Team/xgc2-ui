@@ -100,7 +100,7 @@
 .automation-editor-logs-error-count {
   gap: var(--space-xs);
   color: var(--color-danger);
-  font-weight: var(--weight-strong);
+  font-weight: var(--weight-semibold);
 }
 .automation-editor-logs-body {
   min-width: 0;

@@ -34,7 +34,6 @@
 
   --font-xs: 9px;
   --font-sm: 10px;
-  --font-md: 11px;
   --font-base: 12px;
   --font-lg: 14px;
   --font-xl: 16px;
@@ -42,7 +41,6 @@
   --weight-regular: 400;
   --weight-medium: 500;
   --weight-semibold: 600;
-  --weight-strong: 650;
   --weight-bold: 700;
   --tracking-label: 0.04em;
   --tracking-caps: 0.07em;

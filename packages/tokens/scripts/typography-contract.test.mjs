@@ -70,8 +70,10 @@ test('the effective v016 scale keeps an 11px floor and distinct steps', () => {
   for (let index = 1; index < steps.length; index += 1) {
     assert.ok(steps[index] - steps[index - 1] >= 1, `type steps must be at least 1px apart: ${steps.join('/')}`);
   }
-  assert.equal(v016.get('--font-md'), 'var(--font-sm)', '--font-md is a deprecated alias of --font-sm');
-  assert.equal(v016.get('--weight-strong'), 'var(--weight-semibold)', '--weight-strong is a deprecated alias');
+  assert.ok(!v016.has('--font-md'), '--font-md was removed; use --font-sm or a text role');
+  assert.ok(!v016.has('--weight-strong'), '--weight-strong was removed; use --weight-semibold');
+  assert.ok(!dense.has('--font-md'), '--font-md was removed from the dense theme too');
+  assert.ok(!dense.has('--weight-strong'), '--weight-strong was removed from the dense theme too');
   assert.match(v016.get('--tracking-display') ?? '', /^-0?\.\d+em$/, 'display tracking tightens');
 });
 

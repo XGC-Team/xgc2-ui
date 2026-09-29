@@ -347,7 +347,7 @@ test('rejects literal typography and keeps role and primitive tokens legal', () 
   ]);
 });
 
-test('rejects type-token fallbacks, deprecated aliases and private font stacks', () => {
+test('rejects type-token fallbacks, removed tokens and private font stacks', () => {
   const fixture = `
     .fallback { font-size: var(--font-sm, 12px); font-weight: var(--weight-strong, 600); }
     .role-fallback { line-height: var(--type-body-line-height, 1.45); }
@@ -365,9 +365,9 @@ test('rejects type-token fallbacks, deprecated aliases and private font stacks',
   assert.deepEqual(typographyContractViolations(fixture), [
     'fallback on shared type token --font-sm',
     'fallback on shared type token --weight-strong',
-    'deprecated type alias --weight-strong; use --weight-semibold or --type-emphasis-weight',
+    'removed type token --weight-strong; use --weight-semibold or --type-emphasis-weight',
     'fallback on shared type token --type-body-line-height',
-    'deprecated type alias --font-md; use --font-sm or a text role',
+    'removed type token --font-md; use --font-sm or a text role',
     'font-family outside the shared family tokens: "DejaVu Sans", sans-serif',
     'fallback on shared type token --font-mono',
     'font-family outside the shared family tokens: var(--font-mono, ui-monospace, monospace)',
