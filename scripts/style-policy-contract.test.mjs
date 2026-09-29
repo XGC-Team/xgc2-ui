@@ -11,6 +11,8 @@ import {
   isProductProductionSource,
   skinLifecycleViolations,
   statusVisualContractViolations,
+  fixedGeometryTypographyExemption,
+  typographyContractViolations,
 } from './style-policy-contract.mjs';
 
 test('keeps resource-directory geometry separate from form and operator geometry', () => {
@@ -312,5 +314,91 @@ test('rejects status capsules, marker names, glows, and semantic container fills
     'literal status material in .task-status-panel',
     'literal status material in .health-status-surface',
     "state-dependent filled status background in .service-status-card[data-status='offline']",
+  ]);
+});
+
+test('rejects literal typography and keeps role and primitive tokens legal', () => {
+  const fixture = `
+    .raw { font-size: 12px; font-weight: 600; line-height: 1.2; letter-spacing: -0.01em; }
+    .keyword { font-weight: bold; line-height: normal; font-size: smaller; }
+    .relative { font-size: 0.9em; }
+    .shorthand { font: 600 16px var(--font-mono); }
+    .computed { font-size: calc(var(--font-base) * 1.2); }
+    .roles { font-size: var(--type-meta-size); font-weight: var(--type-meta-weight); line-height: var(--type-meta-line-height); letter-spacing: var(--type-meta-tracking); }
+    .primitives { font-size: var(--font-sm); line-height: var(--line-height-tight); }
+    .geometry { line-height: var(--size-control-panel-header); }
+    .composed { line-height: calc(var(--size-control-compact) - var(--stroke-thin) - var(--stroke-thin)); }
+    .hook { font-size: var(--xgc-control-font-size, var(--type-control-size)); }
+    .resets { font: inherit; font-size: inherit; letter-spacing: 0; letter-spacing: normal; font-size: 0; }
+    .shorthand-tokens { font: var(--font-xs)/var(--line-height-none) var(--font-mono); }
+  `;
+
+  assert.deepEqual(typographyContractViolations(fixture), [
+    'literal font-size 12px in .raw',
+    'literal font-weight 600 in .raw',
+    'literal line-height 1.2 in .raw',
+    'literal letter-spacing -0.01em in .raw',
+    'literal font-weight bold in .keyword',
+    'literal line-height normal in .keyword',
+    'literal font-size smaller in .keyword',
+    'literal font-size 0.9em in .relative',
+    'literal font 600 16px var(--font-mono) in .shorthand',
+    'literal font-size calc(var(--font-base) * 1.2) in .computed',
+  ]);
+});
+
+test('rejects type-token fallbacks, deprecated aliases and private font stacks', () => {
+  const fixture = `
+    .fallback { font-size: var(--font-sm, 12px); font-weight: var(--weight-strong, 600); }
+    .role-fallback { line-height: var(--type-body-line-height, 1.45); }
+    .alias { font-size: var(--font-md); }
+    .family { font-family: "DejaVu Sans", sans-serif; }
+    .mono-fallback { font-family: var(--font-mono, ui-monospace, monospace); }
+    .shared { font-family: var(--font-sans); }
+    .code { font-family: var(--type-code-family); }
+    .gallery { --font-gallery: "DejaVu Sans", sans-serif; }
+    .laundered { --panel-title-font-size: 11px; }
+    .derived { --panel-title-font-size: var(--type-title-size); }
+    .control-hook { --xgc-control-height: var(--size-control-compact); }
+  `;
+
+  assert.deepEqual(typographyContractViolations(fixture), [
+    'fallback on shared type token --font-sm',
+    'fallback on shared type token --weight-strong',
+    'deprecated type alias --weight-strong; use --weight-semibold or --type-emphasis-weight',
+    'fallback on shared type token --type-body-line-height',
+    'deprecated type alias --font-md; use --font-sm or a text role',
+    'font-family outside the shared family tokens: "DejaVu Sans", sans-serif',
+    'fallback on shared type token --font-mono',
+    'font-family outside the shared family tokens: var(--font-mono, ui-monospace, monospace)',
+    'font stack outside the shared family tokens in --font-gallery',
+    'raw typography value in custom property --panel-title-font-size',
+  ]);
+});
+
+test('caps monospace at the bundled 400 and 500 faces', () => {
+  const fixture = `
+    .code-strong { font-family: var(--type-code-family); font-weight: var(--weight-semibold); }
+    .code-bold { font-family: var(--font-mono); font-weight: 700; }
+    .code-medium { font-family: var(--font-mono); font-weight: var(--weight-medium); }
+    .sans-strong { font-family: var(--font-sans); font-weight: var(--type-emphasis-weight); }
+  `;
+  const violations = typographyContractViolations(fixture);
+  assert.ok(violations.includes('monospace at weight var(--weight-semibold) in .code-strong; bundled mono faces are 400 and 500 only'));
+  assert.ok(violations.includes('monospace at weight 700 in .code-bold; bundled mono faces are 400 and 500 only'));
+  assert.ok(!violations.some((violation) => /code-medium|sans-strong/.test(violation)));
+});
+
+test('fixed-geometry instrument stylesheets keep measured literals but not fallbacks or stacks', () => {
+  const hud = `/* xgc2-style-policy: fixed-geometry-typography — P15 PFD rulers */
+    .hud { --hud-font-label: 9px; font-size: clamp(8px, 11cqi, var(--font-xs)); line-height: 1; }
+    .hud-code { font-family: "Courier New"; font-size: var(--font-sm, 11px); }
+  `;
+  assert.deepEqual(fixedGeometryTypographyExemption(hud), { reason: 'P15 PFD rulers' });
+  assert.deepEqual(fixedGeometryTypographyExemption('/* xgc2-style-policy: fixed-geometry-typography */'), { reason: '' });
+  assert.equal(fixedGeometryTypographyExemption('.plain { color: red; }'), null);
+  assert.deepEqual(typographyContractViolations(hud, { fixedGeometry: true }), [
+    'font-family outside the shared family tokens: "Courier New"',
+    'fallback on shared type token --font-sm',
   ]);
 });

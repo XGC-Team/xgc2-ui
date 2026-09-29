@@ -98,3 +98,32 @@ test('rejects the full cross-product visual drift contract', async () => {
     await rm(project.directory, { recursive: true, force: true });
   }
 });
+
+test('rejects literal typography and honors reasoned fixed-geometry exemptions only', async () => {
+  const project = await fixture();
+  try {
+    await writeFile(join(project.source, 'styles.css'), `
+      .timestamp { font-size: var(--font-sm, 12px); font-weight: 600; }
+      .terminal { font-family: Monaco, monospace; }
+      .meta { font-size: var(--type-meta-size); line-height: var(--type-meta-line-height); }
+    `);
+    await writeFile(join(project.source, 'hud.css'), `/* xgc2-style-policy: fixed-geometry-typography: P15 HUD rulers */
+      .hud { --hud-font-label: 9px; font-size: var(--hud-font-label); line-height: 1; }
+    `);
+    await writeFile(join(project.source, 'unreasoned.css'), `/* xgc2-style-policy: fixed-geometry-typography */
+      .dial { font-size: 9px; }
+    `);
+    const result = run(project.directory, '--root', 'src', '--html', 'index.html');
+    assert.equal(result.status, 1);
+    assert.match(result.stdout, /fixed-geometry typography exemptions \(1\): src\/hud\.css/);
+    assert.match(result.stderr, /styles\.css: fallback on shared type token --font-sm/);
+    assert.match(result.stderr, /styles\.css: literal font-weight 600 in \.timestamp/);
+    assert.match(result.stderr, /styles\.css: font-family outside the shared family tokens: Monaco, monospace/);
+    assert.doesNotMatch(result.stderr, /hud\.css/);
+    assert.match(result.stderr, /unreasoned\.css: fixed-geometry typography exemption needs a reason/);
+    assert.match(result.stderr, /unreasoned\.css: literal font-size 9px in \.dial/);
+    assert.doesNotMatch(result.stderr, /\.meta/);
+  } finally {
+    await rm(project.directory, { recursive: true, force: true });
+  }
+});

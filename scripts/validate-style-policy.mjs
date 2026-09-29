@@ -5,6 +5,7 @@ import {
   rawFoundationValueViolations,
   semanticGeometryViolations,
   statusVisualContractViolations,
+  typographyContractViolations,
 } from './style-policy-contract.mjs';
 
 const root = new URL('../', import.meta.url);
@@ -57,13 +58,19 @@ for (const file of cssFiles) {
   for (const violation of semanticGeometryViolations(content)) {
     violations.push(`${relative('.', file)}: ${violation}`);
   }
+  // Token sources define the literal primitives the rest of the family consumes.
+  if (!file.startsWith('packages/tokens/src/')) {
+    for (const violation of typographyContractViolations(content)) {
+      violations.push(`${relative('.', file)}: ${violation}`);
+    }
+  }
 }
 
 const tokenSource = cssSources.find(({ file }) => file === 'packages/tokens/src/index.css')?.content ?? '';
 const boundedTokenFamilies = [
   ['font size', /--font-(?:xs|sm|md|base|lg|xl|2xl)\s*:/g, 7],
   ['line height', /--line-height-(?:none|tight|normal|relaxed|control)\s*:/g, 5],
-  ['tracking', /--tracking-(?:label|caps)\s*:/g, 2],
+  ['tracking', /--tracking-(?:label|caps|display)\s*:/g, 3],
   ['radius', /--radius-(?:xs|sm|md|lg|xl)\s*:/g, 5],
   ['icon size', /--size-icon-(?:xs|sm|default|lg|xl)\s*:/g, 5],
 ];
