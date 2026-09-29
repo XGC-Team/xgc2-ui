@@ -20,6 +20,36 @@ This document governs the shared UI packages and frontends using the XGC2 family
 - Draggable and resizable dashboard surfaces use `WorkspacePanel`. It owns the same narrow header material, optional title and critical actions, selected/editing treatment, a `min-height: 0` fill body, and explicit internal scrolling. Products must not redraw its header or surface skin; domain-specific body layout may use the documented slot classes passed by the wrapper.
 - A code label and Copy action use the shared `CodeBlock` and its quiet `--size-header-code` metadata row (the compact GPG-fingerprint treatment). A code block must not look like it owns another panel topbar. Executable snippets declare `language` so shared, theme-aware syntax tokens can highlight them safely. One-screen command collections use `viewport="compact"`; products must not pierce the shared `pre` element to invent another height.
 
+## Type scale
+
+Typography is chosen by text role, never by container or HTML element. The roles live in `@xgc2/ui-tokens/typography.css` as `--type-<role>-size`, `-weight`, `-line-height` and `-tracking` (plus `--type-code-family`, `--type-display-family`, `--type-heading-family`, `--type-caption-caps-transform` and `--type-numeric-variant`); they map onto the v016 primitives shown here. `Text` and `Heading` render the same roles.
+
+| Role | Size | Weight | Line-height | Tracking | Family | Colour | Use |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| display | `--font-2xl` 20px | semibold 600 | tight 1.25 | display −0.01em | display | `--color-text-heading` | page headings; stat values as display numerals (`--weight-bold`) |
+| heading | `--font-xl` 16px | 600 | tight | display | display | heading | document, group and inspector headings |
+| title | `--font-lg` 14px | 600 | tight | normal | sans | heading | card, section, dialog and command-tile titles |
+| emphasis | `--font-base` 13px | 600 | tight | normal | sans | heading | inline strong; EmptyState, FormSection and SectionHeader titles |
+| chrome | 13px | regular 400 | control 18px | normal | sans | heading for titles, muted for trails | Panel, WorkspacePanel, Drawer and dialog header titles, breadcrumbs, page titles, workspace tabs |
+| body | 13px | 400 | normal 1.45 | normal | sans | `--color-text` (secondary: muted) | prose, values, ordinary UI text |
+| label | 13px | 400 | tight | normal | sans | `--color-text-muted` | field hint labels and key/value keys |
+| control | 13px | medium 500 | none | normal | sans | control tone | buttons, tabs, segmented controls |
+| table-header | `--font-sm` 12px | 500 | tight | normal | sans | muted | table headers, sentence case |
+| table-cell | 13px | 400 | normal | normal | sans | text | table cells |
+| meta | 12px | 400 | normal | normal | sans | muted | hints, descriptions, timestamps, list metadata |
+| status | 12px | 500 | tight | normal | sans | status tone | `StatusText` |
+| caption | `--font-xs` 11px | 400 | normal | normal | sans | `--color-text-faint` | chart ticks, counters, footnotes |
+| caption-caps | 11px | 600 | tight | caps 0.055em | sans, uppercase | faint | overlines, menu group labels, stat labels |
+| code | 12px | 400 | normal | normal | mono | text | code, paths, terminals, JSON, expressions, identifiers |
+| numeric | inherited | inherited | inherited | inherited | sans | inherited | `font-variant-numeric: var(--type-numeric-variant)` on any figures that must align |
+
+- Product and component CSS consume the role tokens as a set. Literal font sizes, weights, line-heights and letter-spacing (including `calc()`/`clamp()` over literals), `var()` fallbacks on shared type tokens, and any `font-family` other than one shared family token fail the style gate. `--font-md` (now equal to `--font-sm`) and `--weight-strong` (now equal to `--weight-semibold`) are deprecated aliases.
+- 11px is the floor. Only fixed-geometry instrumentation (HUD rulers, dial tapes, 1ch masks, measured list cards) and chart rulers may go below it or use measured literals; such a stylesheet declares `/* xgc2-style-policy: fixed-geometry-typography — <decision> */`, owns its measured tokens and never exports them to ordinary UI.
+- A line-height may be replaced by a geometry token only when the text fills a frozen box, such as the panel header line box.
+- Weight carries hierarchy, not state. Selected, pressed and current states change colour or background; they never change weight or size, so text width and neighbouring controls stay put.
+- Monospace is the code role only; bundled mono faces are 400 and 500, so mono is never set heavier. Numbers stay sans with the numeric role. Uppercase exists only as caption-caps.
+- Element defaults follow the roles at zero specificity: `strong`/`b` use the emphasis weight, `th` the table-header weight, and `code`/`kbd`/`samp`/`pre` the code family. No italic face is bundled; emphasis is weight.
+
 ## Spacing and layout
 
 - The spacing vocabulary is deliberately finite: `2xs`, `xs`, `sm`, `md`, `lg`, `xl`, `2xl`, and `3xl`, plus a small set of semantic layout roles such as `--space-panel-padding`. Numeric names such as `--space-7` are prohibited. A token must express a reusable scale step or design decision; it must never be a new name for one product's historical pixel value.
@@ -146,4 +176,4 @@ This document governs the shared UI packages and frontends using the XGC2 family
 
 ## Review gate
 
-A UI change is incomplete if it introduces copied foundation controls, product CSS selectors that pierce `.xgc-*` shared internals, shared-token redefinitions, numeric pseudo tokens, a left selection stripe, decorative healthy-state chrome, a second title in the topbar, prominent nested code headers, or document-level scrolling in a fixed operator workspace.
+A UI change is incomplete if it introduces copied foundation controls, product CSS selectors that pierce `.xgc-*` shared internals, shared-token redefinitions, numeric pseudo tokens, literal type values or a private type scale, a left selection stripe, decorative healthy-state chrome, a second title in the topbar, prominent nested code headers, or document-level scrolling in a fixed operator workspace.
