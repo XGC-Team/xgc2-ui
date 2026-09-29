@@ -19,10 +19,8 @@
 .xgc-panel-frame-action,
 .xgc-panel-runtime-action {
   --xgc-control-height: var(--size-control-compact);
-  flex: 0 0 var(--xgc-control-height);
-  width: var(--xgc-control-height);
-  min-width: var(--xgc-control-height);
-  max-width: var(--xgc-control-height);
+  flex: none;
+  height: var(--xgc-control-height);
   aspect-ratio: 1 / 1;
 }
 
@@ -82,6 +80,15 @@
   align-items: center;
   gap: var(--space-xs);
   height: 100%;
+}
+
+/* Fixed-geometry content panels (control grids, video, chat) opt in through
+ * the plugin fillBody flag: the body pins to the frame rectangle instead of
+ * growing it. */
+.xgc-panel-frame[data-xgc-fill-body="true"] > .xgc-panel-frame-body {
+  min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
 }
 
 /* A projection with no header actions gives its full height to content.

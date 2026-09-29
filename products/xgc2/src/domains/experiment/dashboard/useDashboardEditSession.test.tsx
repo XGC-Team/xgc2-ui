@@ -123,6 +123,33 @@ describe('useDashboardEditSession', () => {
     expect(result.current.commitConflict).toBe('409 Conflict');
     expect(result.current.saving).toBe(false);
   });
+
+  it('exits a clean Edit session without confirmation and asks before discarding real spec changes', () => {
+    const selectedExperiment = experimentFixture();
+    const saveExperimentDraft = vi.fn(async (experiment: ExperimentDocument) => experiment);
+    const { result } = renderHook(() => useDashboardEditSession({ selectedExperiment,saveExperimentDraft }));
+
+    act(() => result.current.start());
+    expect(result.current.editing).toBe(true);
+    expect(result.current.dirty).toBe(false);
+    act(() => result.current.requestExit());
+    expect(result.current.editing).toBe(false);
+    expect(result.current.exitConfirmationOpen).toBe(false);
+    expect(saveExperimentDraft).not.toHaveBeenCalled();
+
+    act(() => result.current.start());
+    act(() => result.current.updateDraft({
+      ...result.current.activeDraft!,
+      spec: { ...result.current.activeDraft!.spec,name: 'Renamed in Edit' },
+    }));
+    expect(result.current.dirty).toBe(true);
+    act(() => result.current.requestExit());
+    expect(result.current.editing).toBe(true);
+    expect(result.current.exitConfirmationOpen).toBe(true);
+    act(() => result.current.discard());
+    expect(result.current.editing).toBe(false);
+    expect(result.current.visibleExperiment?.spec.name).toBe('Experiment');
+  });
 });
 
 function experimentFixture(resourceId = 'experiment-a'): ExperimentDocument {
@@ -136,8 +163,9 @@ function experimentFixture(resourceId = 'experiment-a'): ExperimentDocument {
       revision: 1,createdAt: '',updatedAt: '',
     },
     spec: {
-      schemaVersion: 15,name: 'Experiment',description: '',tags: [],
+      schemaVersion:16,name: 'Experiment',description: '',tags: [],
       runModes: ['simulation','physical'],
+      worldBoundary:null,
       localizationOffset:{ x:0,y:0,z:0 },
       robots: [],workflowInstances: [],
       dashboards: [{ id: 'gcs',name: 'GCS',description: '',panels: [] }],

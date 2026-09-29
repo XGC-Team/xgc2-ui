@@ -1,4 +1,11 @@
+import { decodeExperimentWorldBoundary } from './experimentWorldBoundary';
 import { decodeConfigResourceBranch,decodeConfigResourceHead } from '../../shared/configResourceDecoder';
+import {
+  cloneExecutionHostRef,
+  cloneExperimentDeployment,
+  validateExecutionHostRef,
+  validateExperimentDeployment,
+} from './experimentDeployment';
 import {
   protocolBoolean,
   protocolEnum,
@@ -19,6 +26,7 @@ import {
   EXPERIMENT_HYBRID_SOURCES,
   EXPERIMENT_SCHEMA_VERSION,
   PANEL_AUTHORING_TARGETS,
+  PANEL_ACTION_EXECUTION_MODES,
   PANEL_WORKFLOW_FAILURE_POLICIES,
   PANEL_WORKFLOW_RELATIONS,
   PANEL_SCHEMA_VERSION,
@@ -26,11 +34,14 @@ import {
   validateExperimentSpec,
   type ConfigRef,
   type ExperimentDashboard,
+  type ExperimentDeployment,
   type ExperimentDocument,
   type ExperimentPanel,
   type ExperimentRobotBinding,
+  type ExperimentScene,
   type ExperimentSpec,
   type ExperimentWorkflowInstance,
+  type ExecutionHostRef,
   type PanelPortBinding,
   type PanelView,
 } from './experimentModel';
@@ -65,13 +76,19 @@ function decodeExperimentSpec(
   robotKindComposition?: RobotAssetKindComposition,
 ): ExperimentSpec {
   const spec = protocolObject(value,path,[
-    'schemaVersion','name','description','tags','runModes','localizationOffset',
-    'robots','workflowInstances','dashboards',
+    'schemaVersion','name','description','tags','runModes','worldBoundary','localizationOffset',
+    'robots','workflowInstances','dashboards','deployment','scene',
   ]);
   const schemaVersion = protocolRequiredInteger(spec,'schemaVersion',path);
   if (schemaVersion !== EXPERIMENT_SCHEMA_VERSION) {
     throw new Error(`Protocol error: ${path}.schemaVersion must be ${EXPERIMENT_SCHEMA_VERSION}.`);
   }
+  const deployment = Object.hasOwn(spec,'deployment')
+    ? decodeExperimentDeployment(protocolField(spec,'deployment',path),`${path}.deployment`)
+    : undefined;
+  const scene = Object.hasOwn(spec,'scene')
+    ? decodeExperimentScene(protocolField(spec,'scene',path),`${path}.scene`)
+    : undefined;
   const localizationOffsetPath = `${path}.localizationOffset`;
   const localizationOffset = protocolObject(
     protocolField(spec,'localizationOffset',path),
@@ -79,11 +96,14 @@ function decodeExperimentSpec(
     ['x','y','z'],
   );
   return {
+    ...(deployment === undefined ? {} : { deployment }),
+    ...(scene === undefined ? {} : { scene }),
     schemaVersion,
     name: protocolRequiredString(spec,'name',path),
     description: protocolRequiredString(spec,'description',path),
     tags: protocolRequiredStringArray(spec,'tags',path),
     runModes: protocolRequiredStringArray(spec,'runModes',path),
+    worldBoundary: decodeExperimentWorldBoundary(protocolField(spec,'worldBoundary',path)),
     localizationOffset: {
       x:protocolRequiredNumber(localizationOffset,'x',localizationOffsetPath),
       y:protocolRequiredNumber(localizationOffset,'y',localizationOffsetPath),
@@ -97,6 +117,24 @@ function decodeExperimentSpec(
     )),
     dashboards: protocolRequiredArray(spec,'dashboards',path)
       .map((dashboard,index) => decodeDashboard(dashboard,`${path}.dashboards[${index}]`)),
+  };
+}
+
+function decodeExperimentDeployment(value: unknown,path: string): ExperimentDeployment {
+  const issue = validateExperimentDeployment(value);
+  if (issue) throw new Error(`Protocol error: ${path} is invalid: ${issue}`);
+  return cloneExperimentDeployment(value as ExperimentDeployment);
+}
+
+function decodeExperimentScene(value: unknown,path: string): ExperimentScene {
+  const scene = protocolObject(value,path,['asset','simulator','parameters']);
+  const parameters = Object.hasOwn(scene,'parameters')
+    ? protocolRecord(protocolField(scene,'parameters',path),`${path}.parameters`)
+    : undefined;
+  return {
+    asset: protocolRequiredString(scene,'asset',path),
+    simulator: protocolRequiredString(scene,'simulator',path),
+    ...(parameters === undefined ? {} : { parameters }),
   };
 }
 
@@ -142,7 +180,7 @@ function decodeRobotBinding(
     value,
     path,
     [
-      'id','ref','namespace','hybridSource','runtimeParameters','initialPose','px4','scout','mecanum',
+      'id','ref','namespace','hybridSource','runtimeParameters','initialPose','executionHost','simulationSensors','linkProfile','px4','scout','mecanum',
       ...(robotKindComposition?.experimentBindingArms ?? []),
     ],
   );
@@ -152,7 +190,11 @@ function decodeRobotBinding(
     initialPosePath,
     ['x','y','z','yaw'],
   );
+  const executionHost = Object.hasOwn(binding,'executionHost')
+    ? decodeExecutionHostRef(protocolField(binding,'executionHost',path),`${path}.executionHost`)
+    : undefined;
   const decoded: ExperimentRobotBinding = {
+    ...(executionHost === undefined ? {} : { executionHost }),
     id: protocolRequiredString(binding,'id',path),
     ref: decodeConfigRef(protocolField(binding,'ref',path),'robot',`${path}.ref`),
     namespace: protocolRequiredString(binding,'namespace',path),
@@ -172,11 +214,31 @@ function decodeRobotBinding(
       yaw: protocolRequiredNumber(initialPose,'yaw',initialPosePath),
     },
   };
+  const simulationSensorsPath = `${path}.simulationSensors`;
+  const simulationSensors = Object.hasOwn(binding,'simulationSensors')
+    ? protocolObject(
+      protocolField(binding,'simulationSensors',path),
+      simulationSensorsPath,
+      ['simpleLidar'],
+    )
+    : undefined;
+  decoded.simulationSensors = {
+    simpleLidar: simulationSensors === undefined
+      ? false
+      : protocolBoolean(
+        protocolField(simulationSensors,'simpleLidar',simulationSensorsPath),
+        `${simulationSensorsPath}.simpleLidar`,
+      ),
+  };
+  if (Object.hasOwn(binding,'linkProfile')) {
+    decoded.linkProfile = protocolRequiredString(binding,'linkProfile',path);
+  }
   if (Object.hasOwn(binding,'px4')) {
     const px4Path = `${path}.px4`;
-    // Empty kind marker — no transport fields allowed (Robot assets own them).
-    protocolObject(protocolField(binding,'px4',path),px4Path,[]);
-    decoded.px4 = {};
+    const px4 = protocolObject(protocolField(binding,'px4',path),px4Path,['imageSimulationEnabled']);
+    decoded.px4 = Object.hasOwn(px4,'imageSimulationEnabled')
+      ? { imageSimulationEnabled: protocolBoolean(px4.imageSimulationEnabled,`${px4Path}.imageSimulationEnabled`) }
+      : {};
   }
   if (Object.hasOwn(binding,'scout')) {
     const scoutPath = `${path}.scout`;
@@ -215,6 +277,12 @@ function decodeRobotBinding(
     }
   }
   return decoded;
+}
+
+function decodeExecutionHostRef(value: unknown,path: string): ExecutionHostRef {
+  const issue = validateExecutionHostRef(value);
+  if (issue) throw new Error(`Protocol error: ${path} is invalid: ${issue}`);
+  return cloneExecutionHostRef(value as ExecutionHostRef);
 }
 
 function decodeConfigRef(value: unknown,domain: ConfigRef['domain'],path: string): ConfigRef {
@@ -303,10 +371,11 @@ function decodePanelPortBinding(value: unknown,path: string): PanelPortBinding {
     };
   }
   if (kind === 'action') {
-    const binding = protocolObject(value,path,['portId','kind','presetId']);
+    const binding = protocolObject(value,path,['portId','kind','presetId','executionMode']);
     return {
       portId: protocolRequiredString(binding,'portId',path),kind,
       presetId: protocolRequiredString(binding,'presetId',path),
+      ...(Object.hasOwn(binding,'executionMode') ? { executionMode:protocolEnum(binding.executionMode,PANEL_ACTION_EXECUTION_MODES,`${path}.executionMode`) } : {}),
     };
   }
   if (kind === 'data') {

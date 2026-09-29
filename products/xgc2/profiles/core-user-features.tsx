@@ -4,22 +4,22 @@ import {
   Cpu,
   FlaskConical,
   Folder,
-  Home,
+  LandPlot,
   MonitorCog,
   ScrollText,
   Server,
   Settings,
+  Share2,
   ShieldCheck,
   Terminal,
   Workflow,
   Wrench,
 } from 'lucide-react';
 import type {
-  HomePageContribution,
   ProductRouteSurfacePolicy,
   ProductWebComposition,
 } from '../src/shared/productWebComposition';
-import { createPreloadableProductRoute } from '../src/shared/productWebComposition';
+import { assembleProductWebComposition, createPreloadableProductRoute } from '../src/shared/productWebComposition';
 import {
   emptyAutomationNodeWebComposition,
   type AutomationNodeWebComposition,
@@ -30,21 +30,28 @@ import { HostFilesSystemLeaf } from '../src/domains/host/systemLeaves/files';
 import { HostNetworkSystemLeaf } from '../src/domains/host/systemLeaves/network';
 import { HostOverviewSystemLeaf } from '../src/domains/host/systemLeaves/overview';
 import { HostProcessesSystemLeaf } from '../src/domains/host/systemLeaves/processes';
+import { experimentSharedSurfacesContribution } from '../src/domains/experiment/experimentSharedSurfacesContribution';
 import { isAgentEffective } from '../src/domains/managedHost/managedHostPublic';
 const loadExperimentRoute = () => import('../src/domains/experiment/ExperimentRoute').then((module) => ({ default: module.ExperimentRoute }));
 const loadRobotAssetsRoute = () => import('../src/domains/robot/RobotAssetsRoute').then((module) => ({ default: module.RobotAssetsRoute }));
+const loadVenueAssetsRoute = () => import('../src/domains/venue/VenueAssetsRoute').then((module) => ({ default: module.VenueAssetsRoute }));
 const loadOperationsRoute = () => import('../src/domains/execution/OperationsRoute').then((module) => ({ default: module.OperationsRoute }));
 const loadToolboxRoute = () => import('../src/domains/toolbox/ToolboxRoute').then((module) => ({ default: module.ToolboxRoute }));
 const loadSettingsRoute = () => import('../src/domains/settings/SettingsRoute').then((module) => ({ default: module.SettingsRoute }));
+const loadSharingRoute = () => import('../src/domains/access/SharingRoute').then((module) => ({ default: module.SharingRoute }));
 const experimentRoute = createPreloadableProductRoute(loadExperimentRoute);
 const robotAssetsRoute = createPreloadableProductRoute(loadRobotAssetsRoute);
+const venueAssetsRoute = createPreloadableProductRoute(loadVenueAssetsRoute);
 const operationsRoute = createPreloadableProductRoute(loadOperationsRoute);
 const toolboxRoute = createPreloadableProductRoute(loadToolboxRoute);
 const settingsRoute = createPreloadableProductRoute(loadSettingsRoute);
+const sharingRoute = createPreloadableProductRoute(loadSharingRoute);
 const AppearanceSettingsSection = lazy(() => import('../src/domains/settings/AppearanceSettingsSection').then((module) => ({ default: module.AppearanceSettingsSection })));
+const TimeSettingsSection = lazy(() => import('../src/domains/settings/TimeSettingsSection').then((module) => ({ default: module.TimeSettingsSection })));
 const FieldTooltipsSettingsSection = lazy(() => import('../src/domains/settings/FieldTooltipsSettingsSection').then((module) => ({ default: module.FieldTooltipsSettingsSection })));
 const ToolsSettingsSection = lazy(() => import('../src/domains/settings/ToolsSettingsSection').then((module) => ({ default: module.ToolsSettingsSection })));
 const AgentProvidersSettingsSection = lazy(() => import('../src/domains/groundStationInteraction/AgentProvidersSettingsSection').then((module) => ({ default: module.AgentProvidersSettingsSection })));
+const DeviceSignInSettingsSection = lazy(() => import('../src/domains/operatorAccess/DeviceSignInSettingsSection').then((module) => ({ default: module.DeviceSignInSettingsSection })));
 
 // System.HostLogs, System.SSHService, and System.Firewall are intentionally
 // unwired on the product surface. Host log / sshd / firewall leaf modules stay
@@ -89,12 +96,8 @@ const agentSystem = (profile: unknown) => (
 );
 
 export const coreUserFeatureModulePrefixes = {
-  'Home.Shell': [
-    'src/domains/home/HomeRoute',
-    'src/app/home/createHomePageAdapter',
-  ],
   'Home.RecordingLibrary': [
-    'src/domains/home/RecordingLibraryCardContribution',
+    'src/domains/home/homePublic',
     'src/domains/home/RecordingLibrary',
     'src/domains/home/useRecordingLibrary',
     'src/domains/home/recordingLibraryCopy',
@@ -135,17 +138,41 @@ export const coreUserFeatureModulePrefixes = {
     'src/domains/terminal/useTerminalUserScripts',
     'src/domains/usernode/',
   ],
+  'Core.Access': [
+    'src/domains/operatorAccess/',
+    'src/domains/access/entry/',
+    'src/domains/access/accessTypes',
+  ],
+  'Product.VenueAssets': [
+    'src/domains/venue/',
+  ],
+  'Product.Sharing': [
+    'src/domains/access/SharingRoute',
+    'src/domains/access/CollaborationAccessPage',
+    'src/domains/access/accessService',
+    'src/domains/access/useAccessEntries',
+    'src/domains/access/accessLink',
+    'src/domains/operatorAccess/DeviceSignInSettingsSection',
+    'src/domains/operatorAccess/OperatorDeviceSignIn',
+  ],
+  'Experiment.Workspace': [
+    'src/domains/experiment/experimentSharedSurfacesContribution',
+    'src/panels/camera/SharedCameraSurface',
+    'src/panels/camera/SharedCalibrationSurface',
+    'src/panels/robot/SharedRobotRemoteControlSurface',
+  ],
   'Developer.MarkPrompt': ['src/devtools/mark-prompt/'],
   'Developer.ControlGallery': ['src/devtools/control-gallery/'],
 } as const;
 
 export const coreUserFeatureEnabledOwners = [
-  'Home.Shell','Home.RecordingLibrary','RecordingOpenFolder',
+  'Home.RecordingLibrary','RecordingOpenFolder',
   'Experiment.Workspace','Robot.PX4Multirotor.Asset','Robot.ScoutMini.Asset',
   'Robot.MecanumUGV.Asset','Automation','Operations','System','Terminal','Settings',
   'System.Overview','System.Files','System.Processes',
   'System.Network',
   'Terminal.LocalShell','Terminal.RemoteSSH','Product.UserScripts',
+  'Core.Access','Product.Sharing','Product.VenueAssets',
 ] as const;
 
 /**
@@ -163,9 +190,7 @@ export function createCoreUserFeatureComposition(options: {
   agentLinkComputeTargets: boolean;
   automationNodeComposition?: AutomationNodeWebComposition;
   developer?: ProductWebComposition['developer'];
-  home?: HomePageContribution;
 }): ProductWebComposition {
-  const homeSurface = surface(['home'],'Core access',['core.view'],'capability',localCoreOnly);
   const automationNodeComposition = options.automationNodeComposition
     ?? emptyAutomationNodeWebComposition();
   const loadAutomationsRoute = () => import('../src/domains/automation/createAutomationsRoute')
@@ -192,7 +217,6 @@ export function createCoreUserFeatureComposition(options: {
   };
   const terminalRoute = createPreloadableProductRoute(loadTerminalRoute);
   const routes: ProductWebComposition['routes'] = [
-    ...(options.home ? [{ ...options.home.route,surface: options.home.route.surface ?? homeSurface }] : []),
     {
       page: 'experiment',
       component: experimentRoute.component,
@@ -205,6 +229,14 @@ export function createCoreUserFeatureComposition(options: {
       preload: robotAssetsRoute.preload,
       surface: surface(['robot-assets'],'robot asset management',['robot.read','robot.manage'],'control-plane',localCoreOnly),
     },
+    {
+      page: 'venueAssets',
+      component: venueAssetsRoute.component,
+      preload: venueAssetsRoute.preload,
+      // Same advertised product feature as Robot assets. Core does not emit a
+      // separate venue-assets capability; the scene list itself is recordings.read.
+      surface: surface(['robot-assets'],'venue asset catalog',['robot.read','recordings.read'],'control-plane',localCoreOnly),
+    },
     // Calibration assets catalog is not a primary operator surface: results are
     // written by experiment calibration.commit only, so the sidebar list stays empty
     // until then and is not product-routed here.
@@ -213,6 +245,12 @@ export function createCoreUserFeatureComposition(options: {
       component: automationsRoute.component,
       preload: automationsRoute.preload,
       surface: surface(['automations'],'automation management',['automations.read','automations.edit','automations.run'],'capability',agentAutomations),
+    },
+    {
+      page: 'sharing',
+      component: sharingRoute.component,
+      preload: sharingRoute.preload,
+      surface: surface(['settings'],'collaboration sharing management',['access.manage'],'local-only',localCoreOnly),
     },
     {
       page: 'operations',
@@ -260,15 +298,14 @@ export function createCoreUserFeatureComposition(options: {
   ];
 
   const primary: ProductWebComposition['navigation']['primary'] = [
-    ...(options.home
-      ? [{ id: options.home.route.page,label: label('Home','主页'),icon: Home }]
-      : []),
     { id: 'experiment',label: label('Experiments','实验'),icon: FlaskConical },
     { id: 'robotAssets',label: label('Robot assets','机器人资产'),icon: ShieldCheck },
+    { id: 'venueAssets',label: label('Scene assets','场地资产'),icon: LandPlot },
     { id: 'automations',label: label('Automations','自动化'),icon: Workflow },
+    { id: 'sharing',label: label('Sharing','协作授权'),icon: Share2 },
   ];
 
-  return {
+  return assembleProductWebComposition({
     id: options.id,
     agentLinkComputeTargets: options.agentLinkComputeTargets,
     routes,
@@ -299,7 +336,9 @@ export function createCoreUserFeatureComposition(options: {
     },
     settings: {
       sections: [
+        { id: 'device-sign-in',component: DeviceSignInSettingsSection },
         { id: 'appearance',component: AppearanceSettingsSection },
+        { id: 'time',component: TimeSettingsSection },
         { id: 'field-tooltips',component: FieldTooltipsSettingsSection },
         ...(options.developer?.markPrompt
           ? [{ id: 'tools',component: ToolsSettingsSection }]
@@ -308,6 +347,5 @@ export function createCoreUserFeatureComposition(options: {
       ],
     },
     developer: options.developer ?? {},
-    home: options.home,
-  };
+  },experimentSharedSurfacesContribution);
 }

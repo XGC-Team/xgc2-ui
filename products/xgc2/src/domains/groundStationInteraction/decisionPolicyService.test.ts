@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { describe,expect,it } from 'vitest';
 import type { DecisionFacts } from '@xgc2/agent-runtime/client';
-import { decisionModeForScope,type DecisionPolicy,type DecisionRule } from './decisionPolicyService';
+import { decisionModeForScope } from './decisionPolicyService';
+import type { DecisionPolicy,DecisionRule } from './decisionPolicyTypes';
 
 const now=Date.parse('2026-09-08T01:00:00Z');
 const nativeFacts:DecisionFacts={operation:'native.file.read',experimentId:'experiment-a',conversationId:'conversation-a',

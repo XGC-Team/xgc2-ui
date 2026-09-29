@@ -6,6 +6,7 @@ import type { MediaEdgeSessionHandle } from '../../domains/execution/executionPu
 import type { PanelInstance } from '../../domains/experiment/experimentPublic';
 import type { PanelPluginContext } from '../types';
 import { CameraVideoPanel } from './CameraVideoPanel';
+import { DEFAULT_LOCAL_MEDIA_EDGE_URL } from '../../config/urls';
 
 const mediaMocks = vi.hoisted(() => ({
   createSession: vi.fn(),
@@ -26,6 +27,34 @@ describe('CameraVideoPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mediaMocks.createSession.mockResolvedValue(sessionHandle());
+  });
+
+  it('uses the owned station Process for LAN signaling and never falls back to loopback',async () => {
+    const owned = { targetId:'local',instanceId:'media-owned' };
+    const current = sessionHandle();
+    mediaMocks.createSession.mockResolvedValue(current);
+    const view = render(<CameraVideoPanel panel={panel(DEFAULT_LOCAL_MEDIA_EDGE_URL,'front')}
+      context={panelContext} mediaEdgeProcess={owned} />);
+    await waitFor(() => expect(mediaMocks.createSession).toHaveBeenCalledOnce());
+    const options = mediaMocks.createSession.mock.calls[0][0];
+    expect(options).not.toHaveProperty('edgeUrl');
+    const fetchMock = vi.spyOn(globalThis,'fetch').mockResolvedValue(Response.json(current.answer,{ status:201 }));
+    try {
+      await options.signaling.open('v=0');
+      expect(fetchMock.mock.calls[0][0]).toBe('/api/visualization/targets/local/media-edge/media-owned/sources/front/sessions');
+    } finally { fetchMock.mockRestore(); }
+    view.rerender(<CameraVideoPanel panel={panel('','front')} context={panelContext}
+      mediaEdgeProcess={{ targetId:'local',instanceId:'replacement-media' }} />);
+    await waitFor(() => expect(mediaMocks.createSession).toHaveBeenCalledTimes(2));
+    expect(current.close).toHaveBeenCalledWith('consumer-unmounted');
+    expect(mediaMocks.createSession.mock.calls[1][0]).not.toHaveProperty('edgeUrl');
+  });
+
+  it('waits for an explicit missing station owner instead of connecting to authored edgeUrl',() => {
+    render(<CameraVideoPanel panel={panel(DEFAULT_LOCAL_MEDIA_EDGE_URL,'front')} context={panelContext}
+      mediaEdgeProcess={{ targetId:'local',instanceId:'' }} />);
+    expect(mediaMocks.createSession).not.toHaveBeenCalled();
+    expect(screen.getByText('Waiting for the workflow-owned Media Edge process.')).toBeInTheDocument();
   });
 
   it('opens the configured Edge directly and attaches only the delivered track stream', async () => {

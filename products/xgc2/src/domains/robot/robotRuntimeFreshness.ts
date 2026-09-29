@@ -3,6 +3,7 @@ import type {
   RobotChannelProjection,
   RunRobot,
 } from './robotRuntimeModel';
+import { parseInstant } from './robotContractPrimitives';
 import {
   getRunRuntimeState,
   getRobotRuntime,
@@ -126,12 +127,12 @@ function syncProjectionRobotStatuses(
 }
 
 function deadlineExpired(deadline: string | undefined, now: number) {
-  const parsed = deadline ? Date.parse(deadline) : Number.NaN;
+  const parsed = deadline ? parseInstant(deadline) : Number.NaN;
   return !Number.isFinite(parsed) || now >= parsed;
 }
 
 function parsedDeadline(deadline: string | undefined) {
-  return deadline ? Date.parse(deadline) : Number.NaN;
+  return deadline ? parseInstant(deadline) : Number.NaN;
 }
 
 function sameRobotStatus(left: RunRobot, right: RunRobot) {

@@ -70,6 +70,26 @@ describe('SettingsPage', () => {
     expect(screen.queryByText('Startup page')).not.toBeInTheDocument();
   });
 
+  it('uses a Timezone combobox with System as the default station clock', async () => {
+    const onTimezoneChange = vi.fn();
+    renderWithComposition(
+      <SettingsPage
+        skin="dark"
+        language="en-US"
+        timezonePreference="system"
+        timezoneResolved="Asia/Shanghai"
+        onLanguageChange={vi.fn()}
+        onSkinChange={vi.fn()}
+        onTimezoneChange={onTimezoneChange}
+      />,
+    );
+
+    expect(await findSettingsControl('Timezone')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Timezone' })).toHaveTextContent('System (Asia/Shanghai)');
+    selectControlOption('Timezone', 'UTC');
+    expect(onTimezoneChange).toHaveBeenCalledWith('UTC');
+  });
+
   it('uses a Theme combobox with the same control pattern as Language', async () => {
     const onSkinChange = vi.fn();
     const { container } = renderSettings({ onSkinChange });
@@ -87,7 +107,7 @@ describe('SettingsPage', () => {
     expect(screen.queryByRole('button', { name: 'XGC1' })).not.toBeInTheDocument();
   });
 
-  it('renders appearance with only language and theme as collapsible ConfigSection groups without top-level tabs', async () => {
+  it('renders appearance with language and theme as a collapsible ConfigSection without timezone', async () => {
     const { container } = renderSettings();
 
     const skinSection = await waitFor(() => {
@@ -98,12 +118,12 @@ describe('SettingsPage', () => {
     expect(skinSection).toHaveClass('xgc-config-section');
     expect(skinSection).toHaveAttribute('data-xgc-expanded', 'true');
     expect(skinSection).toHaveAttribute('data-xgc-id', 'appearance');
-    // Language + Theme only — Field help is a separate contribution.
     const appearanceFields = [...skinSection.querySelectorAll('.xgc-form-field')];
     expect(appearanceFields).toHaveLength(2);
     expect(appearanceFields[0]).toHaveAttribute('data-xgc-role', 'station-language-setting');
     expect(appearanceFields[1]).toHaveAttribute('data-xgc-role', 'station-theme-setting');
     expect(appearanceFields[1]).toBe(skinSection.querySelector('[data-xgc-role="config-section-body"] > :last-child'));
+    expect(skinSection.querySelector('[data-xgc-role="station-timezone-setting"]')).toBeNull();
     expect(container.querySelectorAll('.ops-setting-row')).toHaveLength(0);
 
     expect(screen.getByRole('button', { name: 'Appearance' })).toHaveAttribute('aria-expanded', 'true');
@@ -113,6 +133,42 @@ describe('SettingsPage', () => {
     expect(screen.queryByRole('tab', { name: 'Tools' })).not.toBeInTheDocument();
     expect(screen.queryByText('Confirm high-risk commands')).not.toBeInTheDocument();
     expect(screen.queryByText('Audit retention days')).not.toBeInTheDocument();
+  });
+
+  it('renders Time as an independent ConfigSection for timezone and other time settings', async () => {
+    const onTimezoneChange = vi.fn();
+    const { container } = renderWithComposition(
+      <SettingsPage
+        skin="dark"
+        language="en-US"
+        timezonePreference="system"
+        timezoneResolved="Asia/Shanghai"
+        onLanguageChange={vi.fn()}
+        onSkinChange={vi.fn()}
+        onTimezoneChange={onTimezoneChange}
+      />,
+    );
+
+    const timeSection = await waitFor(() => {
+      const el = container.querySelector('[data-xgc-role="station-time-settings"]');
+      expect(el).not.toBeNull();
+      return el as HTMLElement;
+    });
+    expect(timeSection).toHaveClass('xgc-config-section');
+    expect(timeSection).toHaveAttribute('data-xgc-expanded', 'true');
+    expect(timeSection).toHaveAttribute('data-xgc-id', 'time');
+    expect(screen.getByRole('button', { name: 'Time' })).toHaveAttribute('aria-expanded', 'true');
+
+    const skinSection = container.querySelector('[data-xgc-role="station-skin-settings"]');
+    expect(skinSection?.querySelector('[data-xgc-role="station-timezone-setting"]')).toBeNull();
+    expect(timeSection.querySelector('[data-xgc-role="station-timezone-setting"]')).not.toBeNull();
+    expect(timeSection.querySelector('[data-xgc-role="station-timezone-setting"]')).toBe(
+      timeSection.querySelector('[data-xgc-role="config-section-body"] > :last-child'),
+    );
+
+    expect(screen.getByRole('button', { name: 'Timezone' })).toHaveTextContent('System (Asia/Shanghai)');
+    selectControlOption('Timezone', 'UTC');
+    expect(onTimezoneChange).toHaveBeenCalledWith('UTC');
   });
 
   it('renders field help as an independent ConfigSection and persists the toggle', async () => {
@@ -212,11 +268,13 @@ describe('SettingsPage', () => {
     selectControlOption('Language', '简体中文');
 
     expect(screen.getByLabelText('语言')).toBeInTheDocument();
+    expect(screen.getByLabelText('时区')).toBeInTheDocument();
     expect(screen.getByText('主题')).toBeInTheDocument();
     expect(screen.getByLabelText('字段帮助提示')).toBeInTheDocument();
     expect(await screen.findByLabelText('选择并复制页面文字')).toBeInTheDocument();
     expect(await screen.findByLabelText('Mark Prompt 悬停控件')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '外观' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '时间' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '字段帮助' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '工具' })).toBeInTheDocument();
     await waitFor(() => expect(window.localStorage.getItem('xgc-language')).toBe('"zh-CN"'));

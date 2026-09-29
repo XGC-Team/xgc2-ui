@@ -33,10 +33,13 @@ import {
   currentParkedRouteSlot,
   resolveParkedRouteSlot,
   visibleParkedRouteKey,
+  type ParkedRouteSlot,
 } from './routeSurfaceModel';
 
 export function AppRoutes() {
-  const nav = useNavigation();
+  const nav = useNavigation((state) => ({
+    page: state.page,pageSection: state.pageSection,managedHostId: state.managedHostId,
+  }));
   const composition = useProductWebComposition();
   const routes = useMemo(() => productRouteMap(composition),[composition]);
   const route = requiredRoute(routes.get(nav.page) ?? routes.get(composition.navigation.defaultPage),composition.id);
@@ -91,6 +94,29 @@ export function AppRoutes() {
   }, []);
 
   const revealedKey = visibleParkedRouteKey(currentSlot.key, readyKeys);
+  // One slot and one route element per visited page, reused across renders:
+  // a navigation change re-renders only the parked routes whose visibility
+  // changed, never the subtree of every mounted page.
+  const [parkedRouteCache] = useState(() => new Map<string,ParkedRoute>());
+  const parkedRoutes = useMemo(() => [...visitedKeys]
+    .concat(visitedKeys.has(currentSlot.key) ? [] : [currentSlot.key])
+    .flatMap((key) => {
+      const slot = resolveParkedRouteSlot(key, routes);
+      if (!slot) return [];
+      const cached = parkedRouteCache.get(key);
+      if (cached && sameParkedRouteSlot(cached.slot,slot)) return [cached];
+      const Route = slot.component;
+      const entry: ParkedRoute = {
+        slot,
+        element: (
+          <LocalRoutePermissionBoundary permissionSurface={slot.permissionSurface}>
+            <Route />
+          </LocalRoutePermissionBoundary>
+        ),
+      };
+      parkedRouteCache.set(key,entry);
+      return [entry];
+    }), [currentSlot.key,parkedRouteCache,routes,visitedKeys]);
   useLayoutEffect(() => {
     if (!bootstrapLoading) return;
     if (revealedKey) releaseBootstrap();
@@ -129,31 +155,28 @@ export function AppRoutes() {
     );
   }
 
-  const parkedSlots = [...visitedKeys]
-    .concat(visitedKeys.has(currentSlot.key) ? [] : [currentSlot.key])
-    .map((key) => resolveParkedRouteSlot(key, routes))
-    .filter((slot): slot is NonNullable<typeof slot> => Boolean(slot));
-
   return (
     <>
-      {parkedSlots.map((slot) => {
-        const Route = slot.component;
-        return (
-          <ParkedProductRoute
-            key={slot.key}
-            slot={slot}
-            revealed={slot.key === revealedKey}
-            onReady={markReady}
-          >
-            <LocalRoutePermissionBoundary permissionSurface={slot.permissionSurface}>
-              <Route />
-            </LocalRoutePermissionBoundary>
-          </ParkedProductRoute>
-        );
-      })}
+      {parkedRoutes.map(({ slot,element }) => (
+        <ParkedProductRoute
+          key={slot.key}
+          slot={slot}
+          revealed={slot.key === revealedKey}
+          onReady={markReady}
+        >
+          {element}
+        </ParkedProductRoute>
+      ))}
       {!revealedKey && !bootstrapLoading ? <WorkspaceBusyOverlay id="workspace" /> : null}
     </>
   );
+}
+
+type ParkedRoute = { slot: ParkedRouteSlot;element: ReactNode };
+
+function sameParkedRouteSlot(left: ParkedRouteSlot,right: ParkedRouteSlot) {
+  return left.key === right.key && left.page === right.page && left.sectionId === right.sectionId
+    && left.permissionSurface === right.permissionSurface && left.component === right.component;
 }
 
 function ReleaseProductWebBootstrap({

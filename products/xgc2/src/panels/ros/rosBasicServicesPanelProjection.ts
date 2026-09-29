@@ -6,11 +6,13 @@ import {
 import type { ProcessInstance } from '../../domains/execution/executionPublic';
 import {
   experimentDescendantRunIds,
+  experimentChildRunBindingId,
   experimentOwnedProcessInstances,
   experimentWorkflowRunIds,
   processReady,
   type ExperimentProcessRuntimeProjection,
 } from '../../domains/experiment/experimentPublic';
+import { resolveRosBasicServiceWorkflowCall } from './rosBasicServiceWorkflow';
 import { rosBasicServices,type RosBasicServiceId } from './rosBasicServicesPanelModel';
 import {
   ROS_CONTROL_PANEL_WORKFLOW_ACTION_ID,
@@ -18,21 +20,6 @@ import {
   pickRosTotalRunServiceChild,
   rosTotalRunLifecycleRootIds,
 } from './rosBasicServicesTotalRunChild';
-
-/** Exact call nodes on the ROS Control parent. Total Run maps each tile to that child. */
-export const ROS_BASIC_SERVICE_CALL_NODE_ID = {
-  roscore:'call-ros',
-  gzserver:'call-gzserver',
-  gzclient:'call-gzclient',
-  rviz:'call-rviz',
-  vrpn:'call-vrpn',
-  adapters:'call-adapters',
-} as const satisfies Record<RosBasicServiceId,string>;
-
-export function rosBasicServiceCallNodeId(actionId:string) {
-  const service = rosBasicServices.find((item) => item.id === actionId);
-  return service ? ROS_BASIC_SERVICE_CALL_NODE_ID[service.id] : undefined;
-}
 
 export type RosBasicServiceBinding = {
   automationResourceId?:string;
@@ -103,6 +90,16 @@ export function rosBasicServiceMetric(projection:RosBasicServiceProjection) {
   return `${projection.progress.ready}/${projection.progress.total}`;
 }
 
+/** One owner resolver shared by the service tile and its Stop control. */
+export function resolveRosBasicServiceRun(
+  runtime:ExperimentProcessRuntimeProjection|undefined,
+  binding:RosBasicServiceBinding|undefined,
+  serviceId:string,
+) {
+  const service = rosBasicServices.find((item) => item.id === serviceId);
+  return service ? selectedRun(runtime,experimentWorkflowRunIds(runtime),binding,service.id) : undefined;
+}
+
 function selectedRun(
   runtime:ExperimentProcessRuntimeProjection|undefined,
   experimentRunIds:ReadonlySet<string>,
@@ -133,7 +130,7 @@ function selectedRun(
       && binding.activeStatus && isAutomationExecutionRunActive({
         id:binding.activeRunId,status:binding.activeStatus,revision:1,
       })) {
-      return { id:binding.activeRunId,status:binding.activeStatus };
+      return { id:binding.activeRunId,status:binding.activeStatus,revision:1 };
     }
   }
   const invoked = serviceCandidates
@@ -147,8 +144,9 @@ function selectedRun(
     .sort((left,right) => right.updatedAt.localeCompare(left.updatedAt)
       || right.revision - left.revision
       || left.id.localeCompare(right.id))[0];
-  if (failed) return failed;
-  return totalRunServiceChild(runtime,experimentRunIds,binding,serviceId);
+  const resident = totalRunServiceChild(runtime,experimentRunIds,binding,serviceId);
+  if (resident && isAutomationExecutionRunActive(resident)) return resident;
+  return failed ?? resident;
 }
 
 function rosControlAutoStartAdmitted(
@@ -190,7 +188,6 @@ function totalRunServiceChild(
   const automationResourceId = binding.automationResourceId;
   const actionId = binding.actionId;
   if (!automationResourceId || !actionId) return undefined;
-  const callNodeId = ROS_BASIC_SERVICE_CALL_NODE_ID[serviceId];
   const expected = {
     automationResourceId,
     actionIds:[ROS_CONTROL_PANEL_WORKFLOW_ACTION_ID,actionId],
@@ -208,18 +205,42 @@ function totalRunServiceChild(
       ...expected,lifecycleRootIds,
     })
   ));
-  return pickRosTotalRunServiceChild(
-    callNodeId,
-    parents,
-    (parentId) => runtime.runDetailsById[parentId]?.relations?.childRuns ?? [],
-    (childRunId,status,revision) => {
-      const summary = runs.find((run) => run.id === childRunId);
-      if (summary) return isAutomationExecutionRunActive(summary) ? summary : undefined;
-      return isAutomationExecutionRunActive({ id:childRunId,status,revision })
-        ? { id:childRunId,status }
-        : undefined;
-    },
-  );
+  // World preparation and later manual service Actions both dispatch the
+  // same target-local binding. Its frozen service Action owns the call node.
+  const ownerIds = new Set(parents.map((parent) => parent.id));
+  for (const parentId of experimentRunIds) {
+    const relations=runtime.runDetailsById[parentId]?.relations;
+    for (const relation of relations?.childRuns ?? []) {
+      if (experimentChildRunBindingId(relations,relation.childRunId) === 'xgc-world-runtime' && relation.boundAt
+        && relation.relation !== 'detached' && !relation.launchAbandonedAt
+        && experimentRunIds.has(relation.childRunId)) ownerIds.add(relation.childRunId);
+    }
+  }
+  const matches = new Map<string,NonNullable<ReturnType<typeof resolveChild>>>();
+  function resolveChild(childRunId:string,status:AutomationRunSummaryView['status'],revision:number) {
+    const summary = runs.find((run) => run.id === childRunId);
+    if (summary && summary.revision >= revision) return visibleServiceRun(summary) ? summary : undefined;
+    return visibleServiceRun({ id:childRunId,status,revision })
+      ? { id:childRunId,status,revision } : undefined;
+  }
+  for (const ownerId of ownerIds) {
+    // Mutable authoring HEAD cannot rename a child of an already running graph.
+    const spec = runtime.runDetailsById[ownerId]?.snapshot?.automationSpec;
+    const call = spec && resolveRosBasicServiceWorkflowCall(spec,serviceId);
+    if (!call) continue;
+    const child = pickRosTotalRunServiceChild(call.nodeId,[{ id:ownerId }],
+      (parentId) => runtime.runDetailsById[parentId]?.relations?.childRuns ?? [],resolveChild);
+    if (child) matches.set(child.id,child);
+  }
+  const active = [...matches.values()].filter(isAutomationExecutionRunActive);
+  if (active.length > 0) return active.length === 1 ? active[0] : undefined;
+  return [...matches.values()].sort((left,right) => (
+    ('updatedAt' in right ? right.updatedAt : '').localeCompare('updatedAt' in left ? left.updatedAt : '')
+  ))[0];
+}
+
+function visibleServiceRun(run:Pick<AutomationRunSummaryView,'id'|'status'|'revision'>) {
+  return isAutomationExecutionRunActive(run) || run.status === 'failed' || run.status === 'rejected';
 }
 
 function runtimeRuns(

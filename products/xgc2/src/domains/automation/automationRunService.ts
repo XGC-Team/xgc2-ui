@@ -1,14 +1,16 @@
 import { HTTPError,request,waitForTransportRetry } from '../../api/http';
-import type { ConfigRef } from '../../shared/configResource';
+import type { ConfigRef,PinnedConfigRef } from '../../shared/configResource';
 import { segment } from '../../shared/url';
 import { executionTargetPath,executionTargetResourceId } from '../execution/executionPublic';
 import { parseAutomationNodeInvocations } from './automationInvocationModel';
 import { parseAutomationNodeExecutionSummaries } from './automationNodeExecutionSummaryModel';
 import { parseAutomationRun } from './automationRunRecordModel';
+import { objectWithKnownKeys,requiredString } from './automationExecutionValidation';
 import type { AutomationRunControl } from './automationHistoryTypes';
 import { parseAutomationExecutionRelations } from './automationRelationsModel';
 import type {
   AutomationRun,
+  AutomationPanelActionSelector,
   AutomationRunActionResponse,
   AutomationRunSnapshot,
   AutomationStopRunSetInput,
@@ -16,8 +18,6 @@ import type {
 } from './automationRunContracts';
 import type {
   AutomationExecutionRelations,
-  AutomationNodeExecutionSummary,
-  AutomationNodeInvocation,
 } from './automationExecutionContracts';
 import { hydrateAutomationSpec } from './automationSpecModel';
 import {
@@ -36,6 +36,9 @@ export type StartAutomationRunInput = {
   /** Optional Experiment ownership frozen with the selected Automation. */
   experimentRef?: ConfigRef;
   automationRef: ConfigRef;
+  /** Refuse a start if Core resolves a different immutable Automation source. */
+  expectedAutomationRef?: PinnedConfigRef;
+  panelAction?: AutomationPanelActionSelector;
   parameters?: Record<string,unknown>;
   reason?: string;
   requestId?: string;
@@ -53,6 +56,28 @@ export async function getAutomationRun(targetId: string, runId: string, options:
   return parseAutomationRun(response, path);
 }
 
+export async function getAutomationRunDetail(
+  targetId: string,
+  runId: string,
+  options: AutomationRequestOptions = {},
+) {
+  const path = `${executionTargetPath(targetId)}/orchestration-runs/${segment(runId)}/detail`;
+  const response = objectWithKnownKeys(
+    await request<unknown>(path, { signal: options.signal }),
+    new Set(['run','invocations','nodeSummaries','relations']),path,
+  );
+  const run = parseAutomationRun(response.run, `${path}.run`);
+  if (run.id !== runId || run.targetId !== executionTargetResourceId(targetId)) {
+    throw new Error('Automation run detail identity does not match the selected Run.');
+  }
+  return {
+    run,
+    invocations: parseAutomationNodeInvocations(response.invocations, `${path}.invocations`, runId),
+    nodeSummaries: parseAutomationNodeExecutionSummaries(response.nodeSummaries, `${path}.nodeSummaries`, runId),
+    relations: parseAutomationExecutionRelations(response.relations, `${path}.relations`, runId, run.targetId),
+  };
+}
+
 export function getAutomationRunSnapshot(targetId: string, runId: string, options: AutomationRequestOptions = {}): Promise<AutomationRunSnapshot> {
   return request<AutomationRunSnapshot>(
     `${executionTargetPath(targetId)}/orchestration-runs/${segment(runId)}/snapshot`,
@@ -63,29 +88,6 @@ export function getAutomationRunSnapshot(targetId: string, runId: string, option
     }
     return { ...snapshot,automationSpec: hydrateAutomationSpec(snapshot.automationSpec) };
   });
-}
-
-export async function listAutomationNodeInvocations(
-  targetId: string,
-  runId: string,
-  options: AutomationRequestOptions = {},
-): Promise<AutomationNodeInvocation[]> {
-  const path = `${executionTargetPath(targetId)}/orchestration-runs/${segment(runId)}/invocations`;
-  const response = await request<unknown>(
-    `${executionTargetPath(targetId)}/orchestration-runs/${segment(runId)}/invocations`,
-    { signal: options.signal },
-  );
-  return parseAutomationNodeInvocations(response, path, runId);
-}
-
-export async function listAutomationNodeExecutionSummaries(
-  targetId: string,
-  runId: string,
-  options: AutomationRequestOptions = {},
-): Promise<AutomationNodeExecutionSummary[]> {
-  const path = `${executionTargetPath(targetId)}/orchestration-runs/${segment(runId)}/node-summaries`;
-  const response = await request<unknown>(path, { signal: options.signal });
-  return parseAutomationNodeExecutionSummaries(response, path, runId);
 }
 
 export async function getAutomationExecutionRelations(
@@ -101,8 +103,8 @@ export async function getAutomationExecutionRelations(
   return parseAutomationExecutionRelations(response, path, runId, executionTargetResourceId(targetId));
 }
 
-// startAutomationRun accepts a live ConfigRef only. Core resolves and pins the
-// commit before projecting an immutable runtime definition.
+// Core resolves the live ConfigRef and pins its commit before projecting an
+// immutable runtime definition. An optional expected pin guards that resolution.
 export class AutomationStartOutcomeUnknownError extends Error {
   readonly originalCause: unknown;
   readonly requestId: string;
@@ -134,12 +136,24 @@ export async function startAutomationRun(targetId: string, input: StartAutomatio
   if (!input.automationRef) throw new Error('automationRef is required.');
   if (!input.actionId || input.actionId.trim() !== input.actionId) throw new Error('An exact actionId is required.');
   if (!input.automationRef.domain.trim() || !input.automationRef.resourceId.trim()) throw new Error('An Automation resource reference is required.');
+  const automationRef = normalizedAutomationRef(input.automationRef);
+  const expectedAutomationRef = input.expectedAutomationRef === undefined
+    ? undefined
+    : validatedExpectedAutomationRef(input.expectedAutomationRef, automationRef);
+  if (input.panelAction !== undefined) {
+    const selector=objectWithKnownKeys(input.panelAction,new Set(['panelId','portId']),'panelAction');
+    for (const key of ['panelId','portId']) requiredString(selector[key],`panelAction.${key}`);
+    if (!input.experimentRef || !expectedAutomationRef) throw new Error('A standalone Panel Action requires Experiment ownership and an expected Automation pin.');
+    requiredString(input.parameters?.runMode,'parameters.runMode');
+  }
   const requestId = input.requestId?.trim() || automationOperationRequestId('automation.run', input.automationRef.resourceId);
   const idempotencyKey = input.idempotencyKey?.trim() || requestId;
   const body = {
     actionId: input.actionId,
     ...(input.experimentRef ? { experimentRef: normalizedExperimentRef(input.experimentRef) } : {}),
-    automationRef: normalizedAutomationRef(input.automationRef),
+    automationRef,
+    ...(input.panelAction ? { panelAction:{ ...input.panelAction } } : {}),
+    ...(expectedAutomationRef ? { expectedAutomationRef } : {}),
     ...(input.throughNodeId?.trim() ? { throughNodeId: input.throughNodeId.trim() } : {}),
     parameters: input.parameters ?? {},
     requestId,
@@ -196,6 +210,27 @@ function normalizedExperimentRef(ref: ConfigRef): ConfigRef {
     throw new Error('Experiment-owned Automation start requires an Experiment resource reference.');
   }
   return normalized;
+}
+
+function validatedExpectedAutomationRef(ref: PinnedConfigRef, automationRef: ConfigRef): PinnedConfigRef {
+  if (!ref || ref.domain !== automationRef.domain || ref.resourceId !== automationRef.resourceId
+    || ref.branch !== automationRef.branch || (ref.componentId ?? '') !== (automationRef.componentId ?? '')) {
+    throw new Error('expectedAutomationRef must match the selected Automation domain, resource, branch and component.');
+  }
+  if (typeof ref.commitId !== 'string' || !ref.commitId.trim() || ref.commitId.trim() !== ref.commitId) {
+    throw new Error('expectedAutomationRef commitId must be a non-empty canonical value.');
+  }
+  if (!Number.isSafeInteger(ref.version) || ref.version < 1) {
+    throw new Error('expectedAutomationRef version must be a positive integer.');
+  }
+  if (typeof ref.digest !== 'string' || !/^[a-f0-9]{64}$/.test(ref.digest)) {
+    throw new Error('expectedAutomationRef digest must be a 64-character lowercase hexadecimal value.');
+  }
+  return {
+    domain: ref.domain,resourceId: ref.resourceId,branch: ref.branch,
+    ...(ref.componentId !== undefined ? { componentId: ref.componentId } : {}),
+    commitId: ref.commitId,version: ref.version,digest: ref.digest,
+  };
 }
 
 export async function recoverAutomationStartOutcome(

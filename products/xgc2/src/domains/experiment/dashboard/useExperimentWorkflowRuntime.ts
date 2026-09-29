@@ -7,14 +7,16 @@ import type {
 import type { ExperimentDocument } from '../experimentModel';
 import {
   activeExperimentSessionCommandRootIds,
-  activeExperimentRun,
   activeExperimentRuns,
   experimentSessionCommandRootIds,
   experimentSessionIsRunning,
   isSystemExperimentRunnerRoot,
   SYSTEM_EXPERIMENT_RUNNER,
 } from '../experimentWorkflowService';
-import type { ExperimentSessionView } from '../experimentWorkflowModel';
+import type { ExperimentRunRecord,ExperimentRunView,ExperimentSessionView } from '../experimentWorkflowModel';
+
+const EMPTY_SESSION_VIEWS: readonly ExperimentSessionView[] = [];
+const EMPTY_ACTIVE_RUNS: ExperimentRunView[] = [];
 
 export type ExperimentWorkflowRuntimeSource = {
   runSummaries:readonly AutomationRunSummaryView[];
@@ -22,8 +24,7 @@ export type ExperimentWorkflowRuntimeSource = {
   resolved:boolean;
   error:string;
   refreshExecutionHistory:(automationResourceId:string) => Promise<unknown>;
-  loadRunDetail:(runId:string,expectedRevision?:number) => Promise<AutomationRunDetail>;
-  retainRunDetail:(runId:string) => () => void;
+  retainRunObservation:(runId:string) => () => void;
   sessionViews?:readonly ExperimentSessionView[];
   refreshSessions?:() => Promise<unknown>;
   convergeStoppedExperiment:(experimentResourceId:string) => Promise<unknown>;
@@ -42,9 +43,8 @@ type SessionCommandRootDemand = {
 /**
  * Projects Experiment lifecycle from the ordinary System Runner Automation
  * history. The initial bounded snapshot is owned by station occupancy. An
- * active Session command root drives one retained, revision-bounded detail
- * hydration so navigation can restore its exact relation closure without
- * polling; broader history/session refresh remains an explicit action.
+ * active Session retains its command roots in the shared bounded observation
+ * so navigation restores their exact bound closure without per-Run requests; broader history/session refresh remains an explicit action.
  */
 export function useExperimentWorkflowRuntime(
   experiment:ExperimentDocument|undefined,
@@ -72,12 +72,12 @@ export function useExperimentWorkflowRuntime(
   const stableSessionCommandRootDemands = useMemo<SessionCommandRootDemand[]>(() => (
     JSON.parse(sessionCommandRootSignature) as SessionCommandRootDemand[]
   ),[sessionCommandRootSignature]);
-  useSessionCommandRootDetails({
-    demands:stableSessionCommandRootDemands,
-    runDetailsById:source.runDetailsById,
-    loadRunDetail:source.loadRunDetail,
-    retainRunDetail:source.retainRunDetail,
-  });
+  const retainRunObservation=source.retainRunObservation;
+  const rootIdsSignature=JSON.stringify(stableSessionCommandRootDemands.map((demand) => demand.id));
+  useEffect(() => {
+    const releases=(JSON.parse(rootIdsSignature) as string[]).map((id) => retainRunObservation(id));
+    return () => releases.forEach((release) => release());
+  },[retainRunObservation,rootIdsSignature]);
   const sessionCommandRootIds = useMemo(() => experimentResourceId
     ? activeExperimentSessionCommandRootIds(
       source.sessionViews ?? [],experimentResourceId,executionTargetId,
@@ -85,7 +85,7 @@ export function useExperimentWorkflowRuntime(
     : new Set<string>(),[
     executionTargetId,experimentResourceId,source.sessionViews,
   ]);
-  const projectedRuns = useMemo(() => mergeSessionCommandRootRuns(
+  const computedProjectedRuns = useMemo(() => mergeSessionCommandRootRuns(
     source.runSummaries,
     source.runDetailsById,
     stableSessionCommandRootDemands,
@@ -93,6 +93,9 @@ export function useExperimentWorkflowRuntime(
   ),[
     experimentBranch,source.runDetailsById,source.runSummaries,stableSessionCommandRootDemands,
   ]);
+  // Element-wise reference reuse: a sync that leaves every merged run untouched
+  // keeps the previous array so downstream projections do not recompute.
+  const projectedRuns = useStableList(computedProjectedRuns);
   const observedRunIds = useMemo(() => new Set(projectedRuns.flatMap((run) => (
     experimentResourceId
       && isSystemExperimentRunnerRoot(run)
@@ -101,27 +104,42 @@ export function useExperimentWorkflowRuntime(
       ? [run.id]
       : []
   ))),[experimentBranch,experimentResourceId,projectedRuns]);
-  const activeRun = useMemo(() => experiment
-    ? activeExperimentRun(
-      projectedRuns,
-      experiment,
-      executionTargetId,
-      source.runDetailsById,
-      sessionCommandRootIds,
-    )
-    : undefined,[
-    experiment,executionTargetId,sessionCommandRootIds,
-    projectedRuns,source.runDetailsById,
-  ]);
-  const activeRuns = useMemo(() => experiment
-    ? activeExperimentRuns(
+  const runViewCacheRef = useRef<{
+    experiment:ExperimentDocument;
+    targetId:string;
+    byId:ReadonlyMap<string,{ run:ExperimentRunRecord;exact?:AutomationRun;view:ExperimentRunView }>;
+    views:ExperimentRunView[];
+  } | undefined>(undefined);
+  // experimentRunView rebuilds every view object on each call. Reuse the
+  // previous view per Run id while all four of its inputs (run record, exact
+  // run, experiment, target) keep their references.
+  const activeRuns = useMemo(() => {
+    if (!experiment) return EMPTY_ACTIVE_RUNS;
+    const cache=runViewCacheRef.current;
+    const runsById=new Map(projectedRuns.map((run) => [run.id,run]));
+    const byId=new Map<string,{ run:ExperimentRunRecord;exact?:AutomationRun;view:ExperimentRunView }>();
+    const views=activeExperimentRuns(
       projectedRuns,experiment,executionTargetId,
       source.runDetailsById,sessionCommandRootIds,
-    )
-    : [],[
+    ).map((view) => {
+      const run=runsById.get(view.id);
+      const exact=source.runDetailsById[view.id]?.run;
+      const cached=cache?.byId.get(view.id);
+      const reused=cache?.experiment===experiment && cache.targetId===executionTargetId
+        && cached && cached.run===run && cached.exact===exact ? cached.view : view;
+      byId.set(view.id,{ run:run as ExperimentRunRecord,exact,view:reused });
+      return reused;
+    });
+    const previous=cache?.views;
+    const stable=previous && previous.length===views.length
+      && views.every((view,index) => view===previous[index]) ? previous : views;
+    runViewCacheRef.current={ experiment,targetId:executionTargetId,byId,views:stable };
+    return stable;
+  },[
     experiment,executionTargetId,sessionCommandRootIds,
     projectedRuns,source.runDetailsById,
   ]);
+  const activeRun = experiment ? activeRuns[0] : undefined;
   const sessionActive = useMemo(() => experimentResourceId
     ? experimentSessionIsRunning(source.sessionViews ?? [],experimentResourceId)
     : false,[experimentResourceId,source.sessionViews]);
@@ -145,7 +163,7 @@ export function useExperimentWorkflowRuntime(
   return {
     activeRun,
     activeRuns,
-    sessionViews:source.sessionViews ?? [],
+    sessionViews:source.sessionViews ?? EMPTY_SESSION_VIEWS,
     sessionActive,
     runDetailsById:source.runDetailsById,
     observedRunIds,
@@ -194,46 +212,20 @@ function isActiveSessionState(state:ExperimentSessionView['session']['state']) {
   return state==='opening' || state==='active' || state==='stopping';
 }
 
+/** Reuse the previous list reference while every element keeps its identity. */
+function useStableList<T>(list:readonly T[]):readonly T[] {
+  const ref=useRef(list);
+  const current=ref.current;
+  if (current.length!==list.length || list.some((item,index) => item!==current[index])) {
+    ref.current=list;
+  }
+  return ref.current;
+}
+
 function compareSessionCommandRootDemand(left:SessionCommandRootDemand,right:SessionCommandRootDemand) {
   return left.sessionRevision-right.sessionRevision
     || left.memberRevision-right.memberRevision
     || left.sessionId.localeCompare(right.sessionId);
-}
-
-function useSessionCommandRootDetails({
-  demands,runDetailsById,loadRunDetail,retainRunDetail,
-}: {
-  demands:readonly SessionCommandRootDemand[];
-  runDetailsById:Readonly<Record<string,AutomationRunDetail>>;
-  loadRunDetail:(runId:string,expectedRevision?:number) => Promise<AutomationRunDetail>;
-  retainRunDetail:(runId:string) => () => void;
-}) {
-  const attemptedRef=useRef(new Set<string>());
-  const demandSignature=JSON.stringify(demands);
-  useEffect(() => {
-    const releases=demands.map((demand) => retainRunDetail(demand.id));
-    return () => releases.forEach((release) => release());
-  },[demandSignature,demands,retainRunDetail]);
-  useEffect(() => {
-    const activeAttemptKeys=new Set(demands.map((demand) => sessionCommandRootAttemptKey(
-      demand,runDetailsById[demand.id]?.run?.revision,
-    )));
-    attemptedRef.current.forEach((key) => {
-      if (!activeAttemptKeys.has(key)) attemptedRef.current.delete(key);
-    });
-    demands.forEach((demand) => {
-      const detail=runDetailsById[demand.id];
-      if (detail?.loading || (detail?.run && detail.relations)) return;
-      const attemptKey=sessionCommandRootAttemptKey(demand,detail?.run?.revision);
-      if (attemptedRef.current.has(attemptKey)) return;
-      attemptedRef.current.add(attemptKey);
-      void Promise.resolve(loadRunDetail(demand.id,detail?.run?.revision)).catch(() => undefined);
-    });
-  },[demandSignature,demands,loadRunDetail,runDetailsById]);
-}
-
-function sessionCommandRootAttemptKey(demand:SessionCommandRootDemand,runRevision?:number) {
-  return `${demand.id}:${demand.sessionId}:${demand.sessionRevision}:${demand.memberRevision}:${runRevision ?? 0}`;
 }
 
 function mergeSessionCommandRootRuns(

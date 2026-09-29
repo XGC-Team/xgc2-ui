@@ -31,6 +31,17 @@ describe('projectLichtblickStartup',() => {
     expect(projected.stages[0]).toMatchObject({ id:'run',status:'failed',detail:'Failed to fetch' });
     expect(projected.stages[0]?.identity).toBeUndefined();
   });
+
+  it('keeps run admitted while owned viewer or bridge processes still exist',() => {
+    const projected = projectLichtblickStartup({
+      phase:'starting',runActive:false,viewer:process('lichtblick-web','starting'),
+    });
+    expect(projected.stages.map((stage) => [stage.id,stage.status])).toEqual([
+      ['run','ready'],
+      ['viewer','active'],
+      ['bridge','pending'],
+    ]);
+  });
 });
 
 function process(definitionId: string,observedState: ProcessInstance['observedState']): ProcessInstance {

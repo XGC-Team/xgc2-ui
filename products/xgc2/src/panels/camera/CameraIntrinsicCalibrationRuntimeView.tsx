@@ -11,6 +11,7 @@ import type {
 } from '../../domains/execution/cameraCalibrationProcessPublic';
 import { MEASURED_READY_PROGRESS_FILL } from '../../shared/measuredReadyProgress';
 import { CameraCalibrationRuntimeLayout } from './CameraCalibrationLayouts';
+import { CalibrationImagePlaceholder,CameraCalibrationDetectionPreview } from './CameraCalibrationReadonlyViews';
 import type { CameraVideoPlaybackMetrics } from './CameraVideoPanel';
 import { useCameraText } from './cameraMessages';
 
@@ -69,8 +70,9 @@ export function CameraIntrinsicCalibrationRuntimeView({
   const saveControl=<ControlButton tone="primary" dataXgcRole="camera-intrinsic-save"
     dataXgcId={processInstanceId} disabled={!canSave}
     title={saveDisabledReason(t,serverState,assetPin,actionBusy)} onClick={onSave}>
-    {busyAction==='save' ? <LoaderCircle className="spin" size={14} /> : <Save size={14} />}
-    {t('Save result')}
+    {busyAction==='save' ? <LoaderCircle className="spin" size={14} />
+      : calibrationStored ? <CheckCircle2 size={14} /> : <Save size={14} />}
+    {calibrationStored ? t('Saved') : t('Save result')}
   </ControlButton>;
 
   return <CameraCalibrationRuntimeLayout kind="intrinsic" processInstanceId={processInstanceId}
@@ -85,25 +87,20 @@ export function CameraIntrinsicCalibrationRuntimeView({
           </span>
         </header>
         <div className="panels-camera-intrinsic-raw-live" data-xgc-role="camera-intrinsic-raw-live" data-xgc-id={processInstanceId}>
-          {liveStage ?? <FramePlaceholder text={t('Waiting for the live camera')} />}
+          {liveStage ?? <CalibrationImagePlaceholder text={t('Waiting for the live camera')} />}
         </div>
       </section>}>
-      <section className="panels-camera-intrinsic-card panels-camera-intrinsic-detection-preview"
-        data-xgc-role="camera-intrinsic-annotated-view" data-xgc-id={processInstanceId}>
-        <header><div><Camera size={14} /><strong>{t('Detection result')}</strong></div>
-          <span data-xgc-role="camera-intrinsic-detection"
-            data-xgc-id={processInstanceId}
-            data-xgc-detected={detection?.status === 'detected' ? 'true' : undefined}
-            title={detection?.sequence
-              ? t('Board visibility in the current continuously processed frame; not cumulative calibration progress.')
-              : t('Waiting for the continuous detector to process its first image.')}>
-            {detection?.sequence ? detectionCornerSummary(t,serverState) : t('waiting')}
-          </span></header>
-        {annotatedImageUrl
-          ? <img src={annotatedImageUrl} alt={t('Annotated intrinsic calibration frame')} draggable={false}
-              data-xgc-role="camera-intrinsic-annotated-frame" data-xgc-id={processInstanceId} />
-          : <FramePlaceholder text={t('Waiting for a detection result')} />}
-      </section>
+      <CameraCalibrationDetectionPreview
+        id={processInstanceId}
+        status={detection?.sequence ? detectionCornerSummary(t,serverState) : t('waiting')}
+        statusTitle={detection?.sequence
+          ? t('Board visibility in the current continuously processed frame; not cumulative calibration progress.')
+          : t('Waiting for the continuous detector to process its first image.')}
+        detected={detection?.status === 'detected'}
+        imageUrl={annotatedImageUrl}
+        imageAlt={t('Annotated intrinsic calibration frame')}
+        placeholder={t('Waiting for a detection result')}
+      />
       <section className="panels-camera-intrinsic-card panels-camera-intrinsic-coverage"
         data-xgc-role="camera-intrinsic-coverage" data-xgc-id={processInstanceId}>
         <header><div><Aperture size={14} /><strong>{t('View coverage')}</strong></div>
@@ -215,12 +212,6 @@ export function CameraIntrinsicCalibrationRuntimeView({
         </ControlButton>
       </div>
   </CameraCalibrationRuntimeLayout>;
-}
-
-function FramePlaceholder({ text }: { text:string }) {
-  return <div className="panels-camera-calibration-image-placeholder">
-    <Camera size={28} aria-hidden="true" /><span>{text}</span>
-  </div>;
 }
 
 function saveDisabledReason(

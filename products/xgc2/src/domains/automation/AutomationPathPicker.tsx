@@ -26,6 +26,8 @@ export function AutomationPathPicker({
   fileExtensions,
   value,
   variant = 'path',
+  initialDirectory,
+  portal = false,
   onSelect,
   onClose,
 }: {
@@ -34,13 +36,15 @@ export function AutomationPathPicker({
   fileExtensions?: readonly string[];
   value: string;
   variant?: AutomationPathPickerVariant;
+  initialDirectory?: string;
+  portal?: boolean;
   onSelect: (path: string) => void;
   onClose: () => void;
 }) {
   const t = useAutomationCanvasText();
   const {
     error,files,load,loading,path,preview,previewLoading,selectedFile,selectFile,setPath,visibleEntries,worldPicker,
-  } = useAutomationPathBrowser({ targetId,kind,fileExtensions,value,variant });
+  } = useAutomationPathBrowser({ targetId,kind,fileExtensions,value,variant,initialDirectory });
   const hostLabel = automationPickerHostLabel(targetId);
   // Filter copy belongs in the dialog header so operators know why other suffixes are hidden.
   const extensionHint = kind === 'file' ? automationPathFileExtensionPickerHint(fileExtensions) : undefined;
@@ -55,7 +59,7 @@ export function AutomationPathPicker({
         'data-xgc-variant': variant,
       }}
       onClose={onClose}
-      portal={false}
+      portal={portal}
       size="large"
       title={(
         <span className="automation-path-picker-title">

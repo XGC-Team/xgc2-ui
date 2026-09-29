@@ -1,7 +1,7 @@
 import { Activity,List,MonitorUp,RefreshCw,Route,Search,Settings2 } from 'lucide-react';
 import { useCallback,useMemo,useState,type ReactNode } from 'react';
 import { ControlButton } from '../../../components/controls/ControlButton';
-import { Input,Notice,Panel,SidebarNavItem,StatCard,StatusText,Toolbar } from '@xgc2/ui-react';
+import { EmptyState,Input,Notice,Panel,SidebarNavItem,StatCard,StatusText,Toolbar } from '@xgc2/ui-react';
 import { SortableDataTable } from '../../../components/SortableDataTable';
 import { formatBytes,formatDateTime } from '../hostFormatting';
 import type {
@@ -205,6 +205,7 @@ function NetworkView({
 }
 
 function NetworkPathCheck({ snapshot,target }: { snapshot: HostNetworkSnapshot;target: string }) {
+  const t = useHostText();
   const checks = hostNetworkPathChecks(snapshot,target);
   return (
     <div className="xgc-host-runtime-list-wrap" data-xgc-role="host-network-path-check" data-xgc-id="host-network-path-check">
@@ -217,7 +218,7 @@ function NetworkPathCheck({ snapshot,target }: { snapshot: HostNetworkSnapshot;t
           { id: 'result',header: 'Result',cell: (check) => <em>{check.value}</em> },
           { id: 'detail',header: 'Observed path',cell: (check) => check.detail },
         ]}
-        emptyMessage="Enter a URL, hostname, or IP in the filter above."
+        emptyMessage={<EmptyState density="compact" title={t('Enter a URL, hostname, or IP in the filter above.')} />}
         getRowProps={(check) => ({ 'data-xgc-role': 'host-network-path-row','data-xgc-id': check.id,'data-xgc-tone': check.tone })}
         rowKey={(check) => check.id}
         rows={checks}

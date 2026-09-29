@@ -83,8 +83,12 @@ function inRange(value: number,minimum: number,maximum: number) {
   return Number.isFinite(value) && value >= minimum && value <= maximum;
 }
 
-function degreesToRadians(value: number) {
+export function degreesToRadians(value: number) {
   return value * Math.PI / 180;
+}
+
+export function radiansToDegrees(value: number) {
+  return value * 180 / Math.PI;
 }
 
 function title(value: string) {

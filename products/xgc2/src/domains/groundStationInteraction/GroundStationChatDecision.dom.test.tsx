@@ -1,9 +1,17 @@
 // @vitest-environment jsdom
 
-import { act,fireEvent,render,screen,within } from '@testing-library/react';
+import { act,fireEvent,render,screen,waitFor,within } from '@testing-library/react';
 import { describe,expect,it,vi } from 'vitest';
-import { GroundStationDecisionChatCard,GroundStationOperatorResponseBubble } from './GroundStationChatDecision';
+import { GroundStationDecisionChatCard,GroundStationDecisionResultLog,GroundStationOperatorResponseBubble } from './GroundStationChatDecision';
 import type { GroundStationDecisionInteraction } from './groundStationInteractionTypes';
+
+vi.mock('../operatorAccess/operatorAccessPublic', async (importOriginal) => ({
+  ...(await importOriginal() as object),
+  ensureOperatorControlSession: async () => true,
+  operatorControlSessionReady: () => true,
+  useOperatorControlSession: () => ({ phase: 'ready', ensuring: false, blocked: false, retry: vi.fn() }),
+  OperatorControlSessionNotice: () => null,
+}));
 
 function decision(id = 'arm-test'): GroundStationDecisionInteraction {
   return {
@@ -26,19 +34,25 @@ describe('GroundStationDecisionChatCard', () => {
     expect(request).toHaveAttribute('data-xgc-id', interaction.id);
     expect(container.querySelectorAll('article')).toHaveLength(1);
     expect(request.querySelector('.xgc-conversation-message')).toBeNull();
-    for (const leaf of ['title','message','origin']) {
+    for (const leaf of ['title','message']) {
       expect(request.querySelector(`[data-xgc-role="ground-station-chat-decision-${leaf}"][data-xgc-id="arm-test"]`)).toBeInTheDocument();
     }
+    expect(request.querySelector('[data-xgc-role="decision-card-details-toggle"]')).toBeNull();
+    expect(request.querySelector('[data-xgc-role="ground-station-chat-decision-origin"]')).toBeNull();
+    expect(within(request).queryByRole('button', { name: 'Add a note' })).toBeNull();
     expect(request.querySelector('[data-xgc-role="decision-card-time"]')).toBeInTheDocument();
     expect(within(request).getByText(interaction.message)).toBeInTheDocument();
-    expect(within(request).getByText('Preflight')).toBeInTheDocument();
     expect(within(request).getByText('Preflight arm test')).toBeInTheDocument();
     expect(request).toHaveClass('xgc-decision-card','xgc-ground-station-decision-request');
     const approve = within(request).getByRole('button', { name: 'Arm 5 robots' });
     expect(approve).toBeEnabled();
     expect(approve).toHaveAttribute('data-xgc-tone', 'default');
     expect(approve).toHaveAttribute('data-xgc-appearance', 'raised');
-    expect(within(request).getByRole('button', { name: 'Cancel' })).toBeEnabled();
+    const reject = within(request).getByRole('button', { name: 'Cancel' });
+    expect(reject).toBeEnabled();
+    expect(reject).toHaveAttribute('data-xgc-appearance', 'raised');
+    expect(approve).toHaveClass('xgc-ground-station-decision-choice');
+    expect(reject).toHaveClass('xgc-ground-station-decision-choice');
   });
 
   it.each([
@@ -50,41 +64,32 @@ describe('GroundStationDecisionChatCard', () => {
     const onRespond = vi.fn(() => new Promise<GroundStationDecisionInteraction>((complete) => { resolve = complete; }));
     render(<GroundStationDecisionChatCard interaction={interaction} onRespond={onRespond} presentation="panel" />);
     fireEvent.click(screen.getByRole('button', { name: label }));
-    expect(onRespond).toHaveBeenCalledWith(interaction, action, {});
     expect(screen.getByRole('button', { name: label })).toBeDisabled();
     expect(screen.getByRole('button', { name: label })).toHaveAttribute('aria-busy', 'true');
+    await waitFor(() => expect(onRespond).toHaveBeenCalledWith(interaction, action, {}));
     expect(screen.queryByText(/Confirming|Rejecting/)).toBeNull();
     await act(async () => { resolve(interaction); });
   });
 
-  it('keeps two simultaneous response notes separately markable and submits the correct note', async () => {
+  it('does not offer empty Details or an optional note on compact operator confirms', () => {
     const first = decision('request-one');
     const second = decision('request-two');
-    const onRespond = vi.fn(async () => second);
     const { container } = render(<>
-      <GroundStationDecisionChatCard interaction={first} onRespond={onRespond} presentation="panel" />
-      <GroundStationDecisionChatCard interaction={second} onRespond={onRespond} presentation="panel" />
+      <GroundStationDecisionChatCard interaction={first} onRespond={vi.fn()} presentation="panel" />
+      <GroundStationDecisionChatCard interaction={second} onRespond={vi.fn()} presentation="panel" />
     </>);
     for (const interaction of [first,second]) {
       const request = container.querySelector(`[data-xgc-role="ground-station-chat-decision-entry"][data-xgc-id="${interaction.id}"]`)!;
-      const addNote = within(request as HTMLElement).getByRole('button', { name: 'Add a note' });
-      expect(addNote).toHaveAttribute('data-xgc-id', interaction.id);
-      fireEvent.click(addNote);
-      expect(request.querySelector(`[data-xgc-role="ground-station-decision-reason-label"][data-xgc-id="${interaction.id}"]`))
-        .toBeInTheDocument();
-      expect(request.querySelector(`[data-xgc-role="ground-station-decision-reason-input"][data-xgc-id="${interaction.id}"]`))
-        .toBeInTheDocument();
+      expect(request.querySelector('[data-xgc-role="decision-card-details-toggle"]')).toBeNull();
+      expect(within(request as HTMLElement).queryByRole('button', { name: 'Add a note' })).toBeNull();
+      expect(request.querySelector(`[data-xgc-role="ground-station-decision-reason-input"][data-xgc-id="${interaction.id}"]`)).toBeNull();
     }
-    const secondRequest = container.querySelector<HTMLElement>('[data-xgc-role="ground-station-chat-decision-entry"][data-xgc-id="request-two"]')!;
-    fireEvent.change(within(secondRequest).getByRole('textbox', { name: 'Operator note' }), { target: { value: 'Area checked' } });
-    await act(async () => { fireEvent.click(within(secondRequest).getByRole('button', { name: 'Arm 5 robots' })); });
-    expect(onRespond).toHaveBeenCalledWith(second, 'approved', { reason: 'Area checked' });
   });
 
   it('uses a three-row Confirm ticket: kicker and clock, operation, then controls', () => {
     const interaction = decision('set-mode');
     interaction.title = 'Confirm Set mode';
-    interaction.message = 'Confirm Set mode for the selected PX4 robots?';
+    interaction.message = 'Confirm setting PX4 robots ["px4-01","px4-02"] to flight mode OFFBOARD?';
     interaction.origin = {
       type: 'automation',
       ref: 'px4-control',
@@ -97,26 +102,191 @@ describe('GroundStationDecisionChatCard', () => {
     const { container } = render(<GroundStationDecisionChatCard interaction={interaction} onRespond={vi.fn()} presentation="panel" />);
     const request = container.querySelector('[data-xgc-role="ground-station-chat-decision-entry"][data-xgc-id="set-mode"]') as HTMLElement;
     expect(request.querySelector('[data-xgc-role="ground-station-chat-decision-title"]')).toHaveTextContent('Set mode');
-    expect(request.querySelector('[data-xgc-role="ground-station-chat-decision-origin"]')).toHaveTextContent('PX4 panel control executor');
-    expect(request.querySelector('[data-xgc-role="ground-station-chat-decision-message"]')).toHaveTextContent('selected PX4 robots');
+    expect(request.querySelector('[data-xgc-role="decision-card-details-toggle"]')).toBeNull();
+    expect(request.querySelector('[data-xgc-role="ground-station-chat-decision-origin"]')).toBeNull();
+    expect(request.querySelector('[data-xgc-role="ground-station-chat-decision-targets"]')).toHaveTextContent('px4-01, px4-02');
+    expect(request.querySelector('[data-xgc-role="ground-station-chat-decision-message"]')).toHaveTextContent('Confirm Set mode for px4-01, px4-02?');
+    expect(request).not.toHaveTextContent('the selected');
+    expect(request).not.toHaveTextContent('PX4 panel control executor');
     expect(request).not.toHaveTextContent('confirmation-request');
     expect(within(request).getByRole('button', { name: 'Set mode' })).toBeEnabled();
+    expect(request.querySelector('[data-xgc-role="ground-station-decision-deadline"]')).toBeNull();
     const time = request.querySelector('[data-xgc-role="decision-card-time"]')!;
     expect(time.textContent).not.toMatch(/2026/);
   });
 
-  it('keeps the third row as an authorization result instead of leftover Confirm', () => {
-    const interaction = decision('answered');
-    interaction.title = 'Confirm Arm';
-    interaction.status = 'resolved';
-    interaction.response = { action: 'approved',actor: 'station-main' };
-    interaction.payload.decision.approveLabel = 'Confirm';
-    const { container } = render(<GroundStationDecisionChatCard interaction={interaction} onRespond={vi.fn()} presentation="panel" />);
-    const request = container.querySelector('[data-xgc-role="ground-station-chat-decision-entry"][data-xgc-id="answered"]') as HTMLElement;
-    expect(request.querySelector('[data-xgc-role="ground-station-chat-decision-title"]')).toHaveTextContent('Arm');
-    const outcome = request.querySelector('[data-xgc-role="ground-station-decision-response-state"]');
-    expect(outcome).toHaveTextContent('Authorized');
-    expect(outcome).not.toHaveTextContent('Confirm');
+  it('puts a white circular countdown on the same row as equal-width Set mode and Cancel', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-09-12T04:00:00Z'));
+    try {
+      const interaction = decision('set-mode');
+      interaction.title = 'Confirm Set mode';
+      interaction.message = 'Confirm Set mode for the selected PX4 robots?';
+      interaction.createdAt = '2026-09-12T04:00:00Z';
+      interaction.updatedAt = interaction.createdAt;
+      interaction.expiresAt = '2026-09-12T04:00:30Z';
+      interaction.payload.decision.approveLabel = 'Confirm';
+      interaction.payload.decision.rejectLabel = 'Cancel';
+      const { container } = render(<GroundStationDecisionChatCard interaction={interaction} onRespond={vi.fn()} presentation="panel" />);
+      const request = container.querySelector('[data-xgc-role="ground-station-chat-decision-entry"][data-xgc-id="set-mode"]') as HTMLElement;
+      const actions = request.querySelector('[data-xgc-role="ground-station-decision-actions"]') as HTMLElement;
+      const deadline = request.querySelector('[data-xgc-role="ground-station-decision-deadline"]') as HTMLElement;
+      const approve = within(request).getByRole('button', { name: 'Set mode' });
+      const reject = within(request).getByRole('button', { name: 'Cancel' });
+      expect(actions).toContainElement(deadline);
+      expect(actions).toContainElement(approve);
+      expect(actions).toContainElement(reject);
+      expect(deadline).toHaveAttribute('data-xgc-variant', 'ring');
+      expect(deadline).toHaveAttribute('role', 'timer');
+      expect(deadline).toHaveAccessibleName('Expires in 30s');
+      expect(deadline.querySelector('.xgc-ground-station-decision-deadline-count')).toHaveTextContent('30');
+      expect(deadline.querySelector('.xgc-ground-station-decision-deadline-fill')).toHaveAttribute('stroke-dasharray');
+      expect(request).not.toHaveTextContent('Expires in 30s');
+      expect(approve.compareDocumentPosition(reject) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+      expect(reject.compareDocumentPosition(deadline) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+      expect(actions.lastElementChild).toBe(deadline);
+      expect(approve).toHaveClass('xgc-ground-station-decision-choice');
+      expect(reject).toHaveClass('xgc-ground-station-decision-choice');
+      expect(request).not.toHaveTextContent(/the selected/i);
+      expect(request.querySelector('[data-xgc-role="ground-station-chat-decision-message"]')).toHaveTextContent('Confirm Set mode?');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('keeps a far-future compact countdown as a short ring mark instead of a long English line', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-09-12T04:00:00Z'));
+    try {
+      const interaction = decision('set-mode');
+      interaction.createdAt = '2026-09-12T04:00:00Z';
+      interaction.updatedAt = interaction.createdAt;
+      interaction.expiresAt = '2099-07-15T09:05:00Z';
+      const { container } = render(<GroundStationDecisionChatCard interaction={interaction} onRespond={vi.fn()} presentation="panel" />);
+      const request = container.querySelector('[data-xgc-role="ground-station-chat-decision-entry"][data-xgc-id="set-mode"]') as HTMLElement;
+      const deadline = request.querySelector('[data-xgc-role="ground-station-decision-deadline"]') as HTMLElement;
+      expect(request.querySelector('[data-xgc-role="ground-station-decision-actions"]')).toContainElement(deadline);
+      expect(deadline).toHaveAttribute('data-xgc-variant', 'ring');
+      expect(deadline.querySelector('.xgc-ground-station-decision-deadline-count')).toHaveTextContent('');
+      expect(request).not.toHaveTextContent(/Expires in/);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('enters only once per pending identity and never for terminal states', () => {
+    const pending = decision('pending-once');
+    const { container, rerender } = render(
+      <GroundStationDecisionChatCard interaction={pending} onRespond={vi.fn()} presentation="panel" />,
+    );
+    const request = container.querySelector('[data-xgc-role="ground-station-chat-decision-entry"][data-xgc-id="pending-once"]') as HTMLElement;
+    expect(request).toHaveAttribute('data-xgc-decision-state', 'pending');
+    expect(request).toHaveAttribute('data-xgc-arrive', 'true');
+
+    // Remount with the same id must not re-arm the entrance animation.
+    rerender(<GroundStationDecisionChatCard interaction={pending} onRespond={vi.fn()} presentation="panel" />);
+    expect(request).toHaveAttribute('data-xgc-arrive', 'true');
+
+    const resolved = decision('resolved-history');
+    resolved.status = 'resolved';
+    resolved.response = { action: 'approved', actor: 'station-main' };
+    rerender(<GroundStationDecisionChatCard interaction={resolved} onRespond={vi.fn()} presentation="panel" />);
+    const resolvedCard = container.querySelector('[data-xgc-role="ground-station-chat-decision-entry"][data-xgc-id="resolved-history"]') as HTMLElement;
+    expect(resolvedCard).not.toHaveClass('xgc-ground-station-decision-request');
+    expect(resolvedCard).not.toHaveAttribute('data-xgc-arrive');
+  });
+
+  it('collapses a resolved decision to a one-line confirmation log instead of the black card', () => {
+    const resolved = decision('answered');
+    resolved.title = 'Confirm Arm';
+    resolved.message = 'Confirm Arm for the selected PX4 robots?';
+    resolved.status = 'resolved';
+    resolved.response = { action: 'approved', actor: 'station-main' };
+    const { container } = render(<GroundStationDecisionChatCard interaction={resolved} onRespond={vi.fn()} presentation="panel" />);
+    const entry = container.querySelector('[data-xgc-role="ground-station-chat-decision-entry"][data-xgc-id="answered"]') as HTMLElement;
+    expect(entry).not.toHaveClass('xgc-ground-station-decision-request');
+    expect(entry.querySelector('[data-xgc-role="ground-station-chat-decision-resolved"]')).toHaveTextContent('Confirm Arm?');
+    expect(entry).not.toHaveTextContent('Arm · Authorized');
+    expect(entry).not.toHaveTextContent(/the selected/i);
+    expect(entry.querySelector('[data-xgc-role="ground-station-decision-response-state"]')).toBeNull();
+    expect(entry.querySelector('[data-xgc-role="ground-station-chat-decision-title"]')).toBeNull();
+  });
+
+  it('includes target names in the frozen confirmation when they are known', () => {
+    const resolved = decision('answered');
+    resolved.title = 'Confirm Set mode';
+    resolved.message = 'Confirm setting PX4 robots ["px4-01","px4-02"] to flight mode OFFBOARD?';
+    resolved.status = 'resolved';
+    resolved.response = { action: 'approved', actor: 'station-main' };
+    const { container } = render(<GroundStationDecisionChatCard interaction={resolved} onRespond={vi.fn()} presentation="panel" />);
+    const entry = container.querySelector('[data-xgc-role="ground-station-chat-decision-entry"][data-xgc-id="answered"]') as HTMLElement;
+    expect(entry.querySelector('[data-xgc-role="ground-station-chat-decision-resolved"]'))
+      .toHaveTextContent('Confirm Set mode for px4-01, px4-02?');
+    expect(entry).not.toHaveTextContent('Authorized');
+  });
+
+  it('keeps a distinctive consequence as the frozen request log', () => {
+    const resolved = decision('answered');
+    resolved.title = 'Confirm Arm px4-01, px4-02';
+    resolved.message = 'Confirm the area is clear?';
+    resolved.status = 'resolved';
+    resolved.response = { action: 'approved', actor: 'station-main' };
+    const { container } = render(<GroundStationDecisionChatCard interaction={resolved} onRespond={vi.fn()} presentation="panel" />);
+    const entry = container.querySelector('[data-xgc-role="ground-station-chat-decision-entry"][data-xgc-id="answered"]') as HTMLElement;
+    expect(entry.querySelector('[data-xgc-role="ground-station-chat-decision-resolved"]'))
+      .toHaveTextContent('Confirm the area is clear?');
+    expect(entry).not.toHaveTextContent('Arm · Authorized');
+  });
+
+  it('does not paste the confirmation question under an Arm · Rejected summary', () => {
+    const resolved = decision('answered');
+    resolved.title = 'Confirm Arm';
+    resolved.message = 'Confirm Arm for PX4 robots ["px4-01","px4-02"]?';
+    resolved.status = 'resolved';
+    resolved.response = { action: 'rejected', actor: 'station-main', reason: 'Area not clear' };
+    const { container } = render(<GroundStationDecisionChatCard interaction={resolved} onRespond={vi.fn()} presentation="panel" />);
+    const entry = container.querySelector('[data-xgc-role="ground-station-chat-decision-entry"][data-xgc-id="answered"]') as HTMLElement;
+    expect(entry.querySelector('[data-xgc-role="ground-station-chat-decision-resolved"]'))
+      .toHaveTextContent('Confirm Arm for px4-01, px4-02?');
+    expect(entry.querySelector('[data-xgc-role="ground-station-chat-decision-resolved-detail"]')).toBeNull();
+    expect(entry).not.toHaveTextContent('Arm · Rejected');
+  });
+});
+
+describe('GroundStationDecisionResultLog', () => {
+  it('reports mixed per-target results after an approved run', () => {
+    const resolved = decision('answered');
+    resolved.title = 'Confirm Arm';
+    resolved.message = 'Confirm Arm for PX4 robots ["px4-01","px4-02","px4-03"]?';
+    resolved.status = 'resolved';
+    resolved.response = {
+      action: 'approved',
+      actor: 'station-main',
+      results: { invocationId: 'action-1', attempt: 1, state: 'completed', at: '2026-07-15T09:02:00Z', succeeded: ['px4-01', 'px4-02'], failed: ['px4-03'] },
+    };
+    const { container } = render(<GroundStationDecisionResultLog interaction={resolved} presentation="panel" />);
+    expect(container.querySelector('[data-xgc-role="ground-station-chat-decision-result"]'))
+      .toHaveTextContent('px4-01, px4-02 Arm succeeded, px4-03 failed');
+  });
+
+  it('waits for an execution receipt after Confirm without claiming success', () => {
+    const resolved = decision('answered');
+    resolved.title = 'Confirm Arm';
+    resolved.status = 'resolved';
+    resolved.response = { action: 'approved', actor: 'station-main' };
+    const { container } = render(<GroundStationDecisionResultLog interaction={resolved} presentation="panel" />);
+    expect(container.querySelector('[data-xgc-role="ground-station-chat-decision-result"]'))
+      .toHaveTextContent('Awaiting execution receipt');
+  });
+
+  it('reports not executed after cancel', () => {
+    const resolved = decision('answered');
+    resolved.title = 'Confirm Arm';
+    resolved.status = 'resolved';
+    resolved.response = { action: 'rejected', actor: 'station-main' };
+    const { container } = render(<GroundStationDecisionResultLog interaction={resolved} presentation="panel" />);
+    expect(container.querySelector('[data-xgc-role="ground-station-chat-decision-result"]'))
+      .toHaveTextContent('Not executed');
   });
 });
 

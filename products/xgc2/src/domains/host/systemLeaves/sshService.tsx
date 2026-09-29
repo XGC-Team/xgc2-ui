@@ -240,7 +240,7 @@ function HostSSHPanel({
             <ControlButton tone="primary" disabled={configTask.isBusy() || !actionsEnabled} dataXgcRole="host-ssh-save-config" dataXgcId="host-ssh-save-config" onClick={() => void saveAllConfig()}><Save size={14} aria-hidden="true" />Save</ControlButton>
           </div>
           {configTask.message && <Notice tone={configTask.messageTone} density="compact" onDismiss={configTask.clearMessage}>{configTask.message}</Notice>}
-          <TextareaControl className="xgc-host-ssh-editor" value={allConfig} aria-label="Full SSH configuration" spellCheck={false} disabled={configTask.isBusy() || !actionsEnabled} onChange={setAllConfig} />
+          <TextareaControl className="xgc-host-ssh-editor" data-xgc-format="monospace" value={allConfig} aria-label="Full SSH configuration" spellCheck={false} disabled={configTask.isBusy() || !actionsEnabled} onChange={setAllConfig} />
         </div>
       )}
 

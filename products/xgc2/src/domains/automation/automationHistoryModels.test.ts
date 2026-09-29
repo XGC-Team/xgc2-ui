@@ -9,12 +9,50 @@ import {
   parseAutomationExecutionHistoryEntry,
   parseAutomationExecutionHistoryPage,
   parseAutomationIngressTransitionPage,
+  summaryNeedsHistoryEnrichment,
 } from './automationExecutionHistoryModel';
 import type {
   AutomationExecutionHistoryEntry,
 } from './automationHistoryTypes';
 
 describe('automation execution history models', () => {
+  it('requires history enrichment for new source-less SSE roots, not for complete or child summaries',() => {
+    const withoutSource = (overrides: Record<string,unknown> = {},resourceId = 'automation-a') => {
+      const raw:Record<string,unknown> = runSummary(overrides);
+      delete raw.sourceKind;
+      delete raw.sourceRef;
+      return parseAutomationExecutionHistoryEntry(runEntry({ run:raw,automationResourceId: resourceId }),'/entry',{ ...expected,automationResourceId: resourceId }).run!;
+    };
+    // SSE lifecycle summaries never carry source metadata: a new root must be
+    // enriched from the history read (standalone Panel Action attribution).
+    expect(summaryNeedsHistoryEnrichment(withoutSource())).toBe(true);
+    const child = withoutSource({ parentRunId:'parent',rootRunId:'parent',callNodeId:'call',depth:1 });
+    expect(summaryNeedsHistoryEnrichment(child)).toBe(false);
+    const enriched = parseAutomationExecutionHistoryEntry(runEntry({ run:runSummary() }),'/entry',expected).run!;
+    expect(summaryNeedsHistoryEnrichment(enriched)).toBe(false);
+    const runnerId = '069f036b-9638-4827-9524-73ff03fe99c9';
+    const runner = withoutSource({ automationResourceId: runnerId },runnerId);
+    expect(summaryNeedsHistoryEnrichment(runner)).toBe(true);
+    const runnerFull = parseAutomationExecutionHistoryEntry(runEntry({
+      automationResourceId: runnerId,
+      run:runSummary({ automationResourceId: runnerId,experimentSelector: { runMode:'simulation' } }),
+    }),'/entry',{ ...expected,automationResourceId: runnerId }).run!;
+    expect(summaryNeedsHistoryEnrichment(runnerFull)).toBe(false);
+  });
+
+  it('preserves exact standalone metadata through thin history updates and rejects changed ownership',() => {
+    const panelAction={ panelId:'controls',portId:'capture',workflowInstanceId:'worker',presetId:'capture',executionMode:'standalone',runMode:'simulation' };
+    const full=parseAutomationExecutionHistoryEntry(runEntry({ run:runSummary({ panelAction }) }),'/entry',expected);
+    expect(full.run?.panelAction).toEqual(panelAction);
+    const thin=parseAutomationExecutionHistoryEntry(runEntry({ run:runSummary({ revision:2 }) }),'/entry',expected);
+    expect(mergeAutomationExecutionHistoryEntries([full],[thin])[0]?.run).toMatchObject({ revision:2,panelAction });
+    expect(mergeAutomationExecutionHistoryEntries([thin],[full])[0]?.run).toMatchObject({ revision:2,panelAction });
+    const foreign=parseAutomationExecutionHistoryEntry(runEntry({ run:runSummary({ revision:3,panelAction:{ ...panelAction,portId:'other' } }) }),'/entry',expected);
+    expect(() => mergeAutomationExecutionHistoryEntries([full],[foreign])).toThrow('conflicting immutable');
+    expect(() => parseAutomationExecutionHistoryEntry(runEntry({ run:runSummary({ panelAction:{ ...panelAction,token:'secret' } }) }),'/entry',expected)).toThrow('token');
+    expect(() => parseAutomationExecutionHistoryEntry(runEntry({ run:runSummary({ panelAction,parentRunId:'parent',rootRunId:'parent',callNodeId:'call',depth:1 }) }),'/entry',expected)).toThrow('Experiment-sourced root');
+  });
+
   it.each<AutomationExecutionIngressStatus>(INGRESS_STATUSES)(
     'parses the safe %s ingress whitelist without a Run',
     (status) => {
@@ -58,6 +96,11 @@ describe('automation execution history models', () => {
     }) }),'/entry',expected);
     expect(parsed.run?.experimentSelector).toEqual({
       runMode:'night-field',panelId:'robot-control',presetId:'drive',
+    });
+    expect(parseAutomationExecutionHistoryEntry(runEntry({ run:runSummary({
+      experimentSelector:{ runMode:'night-field',placement:'per-robot' },
+    }) }),'/entry',expected).run?.experimentSelector).toEqual({
+      runMode:'night-field',placement:'per-robot',
     });
     expect(() => parseAutomationExecutionHistoryEntry(runEntry({ run:runSummary({
       experimentSelector:{ runMode:'night-field',panelId:'robot-control',inputOverridesJson:'secret' },
@@ -106,6 +149,19 @@ describe('automation execution history models', () => {
     expect(() => parseAutomationExecutionHistoryEntry(ingressEntry({
       acceptedAt: '2024-02-31T00:00:00.123456789Z',
     }), '/entry', expected)).toThrow('canonical UTC RFC3339Nano timestamp');
+  });
+
+  it.each(['call','action'])('accepts %s delivery to the exported Action entrypoint', (sourceKind) => {
+    for (const triggerKind of ['trigger.manual','trigger.automation-call','trigger.schedule',
+      'trigger.webhook','trigger.chat-message','trigger.form-submission','trigger.target-startup']) {
+      const entry = parseAutomationExecutionHistoryEntry(ingressEntry({
+        ingress: ingressFixture({ sourceKind,triggerKind }),
+      }), '/entry', expected);
+      expect(entry.ingress).toMatchObject({ sourceKind,triggerKind });
+    }
+    expect(() => parseAutomationExecutionHistoryEntry(ingressEntry({
+      ingress: ingressFixture({ sourceKind,triggerKind: 'process.run-bash' }),
+    }), '/entry', expected)).toThrow('unsupported value');
   });
 
   it('requires ingress source and Run trigger projections to describe one invocation', () => {

@@ -87,9 +87,9 @@ describe('shared visual contract integration', () => {
       /\.camera-video-panel-root\[data-image-fit='cover'\] \.camera-video-panel-stream \{[^}]*object-fit:\s*cover/s,
     );
     expect(readPanel('gazebo-world-camera-panel.css')).toMatch(
-      /\.gazebo-world-camera-panel-image-view \.camera-video-panel-stream \{[^}]*object-fit:\s*cover/s,
+      /\.gazebo-world-camera-panel-image-view \.camera-video-panel-stream \{[^}]*object-fit:\s*contain/s,
     );
-    expect(readPanel('gazebo-world-camera-panel.css')).not.toMatch(/object-fit:\s*contain/);
+    expect(readPanel('gazebo-world-camera-panel.css')).not.toMatch(/object-fit:\s*cover/);
     expect(readPanel('camera-video-panel.css')).not.toMatch(
       /\.camera-video-panel-stream \{[^}]*background:\s*var\(--color-bg-canvas\)/s,
     );
@@ -117,6 +117,12 @@ describe('shared visual contract integration', () => {
     expect(readPanel('camera-intrinsic-panel.css')).not.toMatch(
       /\.panels-camera-intrinsic-detection-preview > header\s*\{/,
     );
+    expect(homeStyle).toMatch(/\.home-player-video \{[^}]*min-height:\s*0/s);
+    expect(homeStyle).toMatch(/\.home-player-video \{[^}]*max-height:\s*100%/s);
+    expect(homeStyle).toMatch(/\.home-player-footer \{[^}]*flex:\s*0 0 auto/s);
+    expect(homeStyle).toMatch(/\.home-player-footer \{[^}]*padding-bottom:\s*var\(--space-panel-padding\)/s);
+    expect(homeStyle).toMatch(/\.home-player-actions \{[^}]*max-width:\s*100%/s);
+    expect(homeStyle).toMatch(/\.home-player-actions \{[^}]*grid-auto-columns:\s*1fr/s);
     expect(readPanel('camera-intrinsic-panel.css')).not.toMatch(
       /\.panels-camera-intrinsic-detection-preview \{[^}]*padding:\s*0/s,
     );
@@ -178,7 +184,17 @@ describe('shared visual contract integration', () => {
     expect(readStyle('workflow-startup-pipeline.css'))
       .toMatch(/data-current='true'\] \.workflow-startup-pipeline-mark/);
     expect(readStyle('workflow-startup-pipeline.css'))
-      .toMatch(/data-xgc-status='ready'\] \.workflow-startup-pipeline-mark[^}]*background:\s*var\(--color-text-heading\)/s);
+      .toMatch(/data-xgc-status='ready'\] \.workflow-startup-pipeline-mark[^}]*border-color:\s*var\(--color-text-heading\)/s);
+    expect(readStyle('workflow-startup-pipeline.css'))
+      .toMatch(/data-xgc-status='ready'\] \.workflow-startup-pipeline-mark[^}]*color:\s*var\(--color-text-heading\)/s);
+    // Outside the empty-state overlays the reached mark stays a hollow ring;
+    // the empty-state overlays keep the operator-mandated filled disc (2026-09-11).
+    expect(readStyle('workflow-startup-pipeline.css'))
+      .toMatch(/^\.workflow-startup-pipeline-stage\[data-xgc-status='ready'\] \.workflow-startup-pipeline-mark \{[^}]*border-color:\s*var\(--color-text-heading\)/m);
+    expect(readStyle('workflow-startup-pipeline.css'))
+      .not.toMatch(/^\.workflow-startup-pipeline-stage\[data-xgc-status='ready'\] \.workflow-startup-pipeline-mark \{[^}]*background:/m);
+    expect(readStyle('workflow-startup-pipeline.css'))
+      .toMatch(/\[data-xgc-role\$='-empty-state'\] \.workflow-startup-pipeline-stage\[data-xgc-status='ready'\] \.workflow-startup-pipeline-mark \{[^}]*background:\s*var\(--color-text-heading\)/);
     expect(readStyle('workflow-startup-pipeline.css'))
       .toMatch(/:not\(\[data-xgc-status='failed'\]\)\[data-current='true'\]/);
     expect(readStyle('workflow-startup-pipeline.css'))
@@ -200,11 +216,15 @@ describe('shared visual contract integration', () => {
     expect(readStyle('workflow-startup-pipeline.css'))
       .toMatch(/\.workflow-startup-pipeline-rail\[data-passed='true'\]/);
     expect(readStyle('workflow-startup-pipeline.css'))
-      .toMatch(/workflow-startup-send 1\.6s linear 1 forwards/);
+      .toMatch(/workflow-startup-send var\(--workflow-startup-send-duration\) var\(--easing-standard\) 1 forwards/);
     expect(readStyle('workflow-startup-pipeline.css'))
       .not.toMatch(/workflow-startup-send[^;]*infinite/);
     expect(readStyle('workflow-startup-pipeline.css'))
+      .toMatch(/\[data-sending='true'\]:not\(\[data-passed='true'\]\)/);
+    expect(readStyle('workflow-startup-pipeline.css'))
       .toMatch(/\.workflow-startup-pipeline-rail\[data-sending='true'\]/);
+    expect(readStyle('lichtblick-panel.css'))
+      .not.toMatch(/workflow-startup-pipeline-send/);
     expect(readStyle('workflow-startup-pipeline.css'))
       .not.toMatch(/\.workflow-startup-pipeline-stage \{[^}]*pointer-events:\s*none/s);
     expect(readStyle('workflow-startup-pipeline.css'))
@@ -224,7 +244,7 @@ describe('shared visual contract integration', () => {
     expect(intrinsic).toMatch(/\.panels-camera-intrinsic-validation-heading dt,\s*\.panels-camera-intrinsic-validation-heading dd\s*\{[^}]*font-family:\s*var\(--font-sans\);[^}]*font-size:\s*var\(--font-base\);[^}]*font-weight:\s*var\(--weight-regular\);[^}]*line-height:\s*var\(--line-height-normal\);/s);
     expect(intrinsic).not.toMatch(/panels-camera-intrinsic-validation-heading dd[^}]*font-mono/s);
     expect(intrinsic).toMatch(/\.panels-camera-intrinsic-validation-heading-title,\s*\.panels-camera-intrinsic-validation-controls > header\s*\{[^}]*color:\s*var\(--color-text-heading\);[^}]*font-size:\s*var\(--font-base\);[^}]*line-height:\s*var\(--line-height-normal\);/s);
-    expect(intrinsic).toMatch(/\.panels-camera-intrinsic-card > header > span \{[^}]*font-family:\s*var\(--font-mono\);[^}]*font-size:\s*var\(--font-base\);/s);
+    expect(intrinsic).toMatch(/\.panels-camera-intrinsic-card > header > span \{[^}]*font-family:\s*var\(--font-sans\);[^}]*font-variant-numeric:\s*tabular-nums;/s);
     expect(intrinsic).toMatch(/\.panels-camera-intrinsic-guidance-instruction \{[^}]*font-size:\s*var\(--font-base\)/s);
     expect(intrinsic).not.toMatch(/\.panels-camera-intrinsic-guidance-instruction \{[^}]*font-size:\s*var\(--font-xs\)/s);
     expect(intrinsic).toMatch(/\.panels-camera-intrinsic-card > header strong,\s*\.panels-camera-intrinsic-validation-heading-title strong,\s*\.panels-camera-intrinsic-validation-controls > header strong,\s*\.panels-camera-intrinsic-validation-gallery > header strong\s*\{[^}]*font-size:\s*var\(--font-base\);[^}]*font-weight:\s*var\(--weight-bold\);/s);
@@ -249,19 +269,16 @@ describe('shared visual contract integration', () => {
     expect(intrinsic).not.toMatch(/data-main-expanded/);
   });
 
-  it('keeps the parked Experiment route out of every other page layout', () => {
-    expect(readStyle('workspace-layout.css')).toMatch(
-      /\[data-xgc-role="experiment-route-surface"\]\[hidden\]\s*\{[^}]*display:\s*none/s,
-    );
-  });
-
-  it('keeps the visible dashboard tab in the remaining-height chain for Config and GCS', () => {
+  it('keeps retained dashboards measurable and hidden surfaces outside the page flow', () => {
     const dashboard = readStyle('dashboard.css');
     expect(dashboard).toMatch(
-      /\[data-xgc-role="experiment-dashboard-surface"\]:not\(\[hidden\]\) \[data-xgc-role="experiment-dashboard-tab-surface"\]:not\(\[hidden\]\) \{[^}]*height:\s*100%/s,
+      /\[data-xgc-role="experiment-dashboard-surface"\] \[data-xgc-role="experiment-dashboard-tab-surface"\] \{[^}]*height:\s*100%/s,
     );
     expect(dashboard).toMatch(
-      /\[data-xgc-role="experiment-dashboard-tab-surface"\]\[hidden\] \{[^}]*display:\s*none/s,
+      /\[data-xgc-role="experiment-dashboard-tab-surface"\]\[hidden\] \{[^}]*position:\s*absolute;[^}]*visibility:\s*hidden/s,
+    );
+    expect(dashboard).toMatch(
+      /\[data-xgc-role="experiment-dashboard-canvas"\]\[data-xgc-fill-remaining="true"\][^}]*height:\s*100%/s,
     );
   });
 
@@ -273,20 +290,20 @@ describe('shared visual contract integration', () => {
     expect(dashboard).not.toMatch(/\.xgc-panel-frame:hover \.xgc-panel-workflow-open/);
   });
 
-  it('keeps the stable Home recording library on the shared regular Panel header', () => {
+  it('keeps the stable recording library on the shared regular Panel header', () => {
     expect(sharedStyle).toMatch(/\.xgc-panel-header\s*\{[^}]*padding:\s*0 var\(--space-panel-padding\)[;}]/s);
     expect(sharedStyle).toMatch(
       /\.xgc-panel:not\(\[data-chrome=['"]?flat['"]?\]\):has\(>\s*\.xgc-panel-header\)\[data-padding=['"]?default['"]?\]\s*>\s*\.xgc-panel-body\s*\{[^}]*padding:\s*var\(--space-panel-padding\)[;}]/s,
     );
-    expect(sharedStyle).toMatch(/\.xgc-panel-heading h2\s*\{[^}]*font-size:\s*var\(--font-base\)[;}]/s);
-    expect(sharedStyle).toMatch(/\.xgc-panel-heading h2\s*\{[^}]*font-weight:\s*var\(--weight-regular\)[;}]/s);
+    // Panel header titles render the shared chrome role (base size, regular) from ui-react 0.16.19.
+    expect(sharedStyle).toMatch(/\.xgc-panel-heading h2\s*\{[^}]*font-size:\s*var\(--type-chrome-size\)[;}]/s);
+    expect(sharedStyle).toMatch(/\.xgc-panel-heading h2\s*\{[^}]*font-weight:\s*var\(--type-chrome-weight\)[;}]/s);
     expect(homeStyle).not.toContain('.home-library-head');
     expect(homeStyle).not.toContain('.home-section-title');
     expect(homeStyle).not.toMatch(/\.home-library-panel[^{}]*\.xgc-panel-(?:header|heading)/);
   });
 
-  it('keeps Home recording rows and folder headers on one semantic geometry contract', () => {
-    const galleryRule = homeStyle.match(/\.home-gallery\s*\{([^}]*)\}/s)?.[1] ?? '';
+  it('keeps recording rows and folder headers on one semantic geometry contract', () => {
     const featureRule = homeStyle.match(/\.home-gallery-card\[data-xgc-rows="feature"\]\s*\{([^}]*)\}/s)?.[1] ?? '';
     const listRule = homeStyle.match(/\.home-recording-list\s*\{([^}]*)\}/s)?.[1] ?? '';
     const playerRule = homeStyle.match(/\.home-player\s*\{([^}]*)\}/s)?.[1] ?? '';
@@ -296,20 +313,20 @@ describe('shared visual contract integration', () => {
     const nameRule = homeStyle.match(/\.home-recording-name\s*\{([^}]*)\}/s)?.[1] ?? '';
     const metaRule = homeStyle.match(/\.home-recording-meta\s*\{([^}]*)\}/s)?.[1] ?? '';
 
-    expect(galleryRule).toMatch(/grid-template-rows:\s*minmax\(0,\s*1fr\)/);
     expect(featureRule).toMatch(/grid-row:\s*1/);
     expect(listRule).toMatch(/--xgc-list-folder-gap:\s*var\(--space-xs\)/);
     expect(listRule).toMatch(/--xgc-list-folder-item-gap:\s*var\(--space-xs\)/);
     expect(listRule).not.toMatch(/--xgc-list-folder-title-padding-inline/);
-    expect(listRule).toMatch(/--home-recording-row-indent:\s*var\(--space-lg\)/);
+    const childrenRule = homeStyle.match(/\.home-recording-folder-children\s*\{([^}]*)\}/s)?.[1] ?? '';
+    expect(childrenRule).toMatch(/padding-inline-start:\s*var\(--space-sm\)/);
     expect(listRule).toMatch(/gap:\s*var\(--space-xs\)/);
     expect(listRule).toMatch(/font-family:\s*var\(--font-sans\)/);
     expect(playerRule).not.toMatch(/padding:/);
     expect(folderTitleRule).toMatch(/font-family:\s*var\(--font-sans\)/);
     expect(folderTitleRule).toMatch(/font-size:\s*var\(--font-base\)/);
     expect(folderTitleRule).toMatch(/font-weight:\s*var\(--weight-regular\)/);
-    expect(rowRule).toMatch(/width:\s*calc\(100% - var\(--home-recording-row-indent\)\)/);
-    expect(rowRule).toMatch(/margin-inline-start:\s*var\(--home-recording-row-indent\)/);
+    expect(rowRule).toMatch(/width:\s*100%/);
+    expect(rowRule).not.toMatch(/margin-inline-start:/);
     expect(rowRule).toMatch(/min-height:\s*var\(--size-control-compact\)/);
     expect(rowRule).toMatch(/padding:\s*var\(--space-2xs\)\s+var\(--space-sm\)/);
     expect(rowRule).toMatch(/font-family:\s*var\(--font-sans\)/);
@@ -343,7 +360,7 @@ describe('shared visual contract integration', () => {
     expect(homeStyle).not.toMatch(/home-experiment-/);
   });
 
-  it.each(['dark', 'light'])('keeps Home recording text tokenized for the %s skin', (skin) => {
+  it.each(['dark', 'light'])('keeps recording library text tokenized for the %s skin', (skin) => {
     const skinBlock = skin === 'dark'
       ? sharedStyle.match(/:root,\s*:root\[data-skin=['"]?dark['"]?\]\s*\{[^}]*\}/)?.[0] ?? ''
       : sharedStyle.match(/:root\[data-skin=['"]?light['"]?\]\s*\{[^}]*\}/)?.[0] ?? '';
@@ -365,5 +382,17 @@ describe('shared visual contract integration', () => {
     expect(runtimeStyle).toMatch(/\.automation-node-dialog-columns > \.automation-node-runtime-panel \{[^}]*overflow:\s*hidden/s);
     expect(runtimeStyle).not.toMatch(/background:\s*(?:#|rgb\(|hsl\()/i);
     expect(runtimeStyle).not.toMatch(/mask|margin\s*:\s*-/i);
+  });
+
+  it('keeps the ground-station toast lifetime duration intact under reduced motion', () => {
+    const toast = readStyle('../domains/groundStationInteraction/GroundStationInteractionToast.css');
+    const durationExpression = /var\(--gsi-toast-duration, calc\(var\(--duration-deliberate\) \* 18\)\)/;
+    expect(toast).toMatch(new RegExp(`\\.xgc-ground-station-toast \\{[^}]*animation-duration:\\s*${durationExpression.source};`, 's'));
+    const reduceBlock = toast.match(/@media \(prefers-reduced-motion: reduce\) \{([\s\S]*)\}\s*$/)?.[1] ?? '';
+    expect(reduceBlock).toMatch(new RegExp(`--xgc-reduced-motion-animation-duration:\\s*${durationExpression.source};`));
+    expect(reduceBlock).not.toMatch(/animation-duration:[^;]*!important/);
+    expect(reduceBlock).not.toMatch(/--xgc-reduced-motion-animation-duration:[^;]*!important/);
+    expect(toast).not.toMatch(/animation-duration:[^;]*\d(?:ms|s)\b/);
+    expect(toast).not.toMatch(/--xgc-reduced-motion-animation-duration:[^;]*\d(?:ms|s)\b/);
   });
 });

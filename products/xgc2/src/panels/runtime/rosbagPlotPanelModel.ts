@@ -130,11 +130,20 @@ export type ChartScale = {
 };
 
 export function chartScale(series: readonly ROSBagPlotSeries[], domain?: { tMin: number;tMax: number }): ChartScale {
-  const points = series.flatMap((item) => item.points);
-  const tMin = domain?.tMin ?? Math.min(0,...points.map((point) => point.t));
-  const tMax = domain?.tMax ?? Math.max(tMin + 1e-6,...points.map((point) => point.t));
-  let vMin = Math.min(...points.map((point) => point.v));
-  let vMax = Math.max(...points.map((point) => point.v));
+  let tLo = 0;
+  let tHi = Number.NEGATIVE_INFINITY;
+  let vMin = Number.POSITIVE_INFINITY;
+  let vMax = Number.NEGATIVE_INFINITY;
+  for (const item of series) {
+    for (const point of item.points) {
+      if (point.t < tLo) tLo = point.t;
+      if (point.t > tHi) tHi = point.t;
+      if (point.v < vMin) vMin = point.v;
+      if (point.v > vMax) vMax = point.v;
+    }
+  }
+  const tMin = domain?.tMin ?? tLo;
+  let tMax = domain?.tMax ?? Math.max(tMin + 1e-6, tHi);
   if (!Number.isFinite(vMin) || !Number.isFinite(vMax)) {
     vMin = 0;
     vMax = 1;
@@ -143,7 +152,8 @@ export function chartScale(series: readonly ROSBagPlotSeries[], domain?: { tMin:
     vMin -= 1;
     vMax += 1;
   }
-  return { tMin,tMax: tMax <= tMin ? tMin + 1e-6 : tMax,vMin,vMax };
+  if (tMax <= tMin) tMax = tMin + 1e-6;
+  return { tMin,tMax,vMin,vMax };
 }
 
 export function polylineForSeries(

@@ -2,9 +2,9 @@ import { ChevronLeft,ChevronRight } from 'lucide-react';
 import { useMemo,type CSSProperties } from 'react';
 import { ControlButton } from '../../components/controls/ControlButton';
 import { EmptyState } from '@xgc2/ui-react';
-import { experimentProcessRuntimeProjection } from '../../domains/experiment/experimentPublic';
+import { experimentProcessRuntimeProjection,robotInstrumentSessionBindingRunIds } from '../../domains/experiment/experimentPublic';
 import type { ExperimentDocument } from '../../domains/experiment/experimentPublic';
-import { useRobotSelection,useRobotText,useRunRobots,useUgvChassisHold } from '../../domains/robot/robotPublic';
+import { useRobotSelection,useRobotText,useRobotRuns,useUgvChassisHold } from '../../domains/robot/robotPublic';
 import {
   useRobotAssetKindComposition,
   type RobotAssetDocument,
@@ -31,22 +31,21 @@ export function RobotInstrumentsGrid({ panel,context }: PanelPluginProps<readonl
   const experimentRuntime = experimentProcessRuntimeProjection(context.ports.data['robot-runtime']?.value);
   const action = context.ports.actions[ROBOT_SIMULATION_WORKFLOW_SLOT];
   const targetId = context.executionTargetId || experimentRuntime?.targetId || 'local';
-  // Core projects exact connection-owner descendants under the active
-  // Session/System root. Never probe a Panel child before that typed lineage is
-  // present: unknown children correctly remain fail-closed rather than causing
-  // a transient /robots 404 and a dead event stream.
   const projectionRunId = robotProjectionSessionRunId(
-    experimentRuntime,action?.activeInvocation?.id,action?.trace.workflowInstanceId,
+    experimentRuntime,action?.trace.workflowInstanceId,
   );
-  const runtime = useRunRobots(targetId,projectionRunId);
+  const session = experimentRuntime?.sessionViews?.find(view => view.members.some(member => (
+    member.kind === 'workflow_run' && member.ownerId === projectionRunId
+  )));
+  const projectionRunIds = robotInstrumentSessionBindingRunIds(session, [action?.trace.workflowInstanceId ?? '']);
+  const runtime = useRobotRuns(targetId,projectionRunIds);
   const robotKindComposition = useRobotAssetKindComposition();
+  // One lookup per binding and per card instead of a catalog scan for each.
+  const assetIndex = useMemo(() => robotAssetIndex(assets.assets),[assets.assets]);
   const staticRobots = useMemo(() => (experiment?.spec.robots ?? []).flatMap((binding) => {
-    const asset = assets.assets.find((candidate) => (
-      candidate.head.resourceId === binding.ref.resourceId
-      && candidate.branch.name === binding.ref.branch
-    ));
+    const asset = assetIndex.byRef.get(assetRefKey(binding.ref.resourceId,binding.ref.branch));
     return asset ? [staticRobot(binding,asset,robotKindComposition)] : [];
-  }),[assets.assets,experiment?.spec.robots,robotKindComposition]);
+  }),[assetIndex,experiment?.spec.robots,robotKindComposition]);
   const runtimeRobots = runtime.projection?.robots;
   const robots = useMemo(
     () => resolveRobotInstrumentRoster(staticRobots,runtimeRobots),
@@ -57,6 +56,7 @@ export function RobotInstrumentsGrid({ panel,context }: PanelPluginProps<readonl
   const [selected,setSelected] = useRobotSelection({
     experimentId,dashboardId,panelId:panel.id,shared:context.sharedStateScope,
   });
+  const selectedIds = useMemo(() => new Set(selected),[selected]);
   const [chassisHold] = useUgvChassisHold({
     experimentId,dashboardId,panelId:panel.id,shared:context.sharedStateScope,
   });
@@ -121,11 +121,11 @@ export function RobotInstrumentsGrid({ panel,context }: PanelPluginProps<readonl
               assetTargetCoreId="local"
               key={robot.id}
               targetId={targetId}
-              runId={projectionRunId}
+              runId={runtime.runIdsByRobotId?.[robot.id]}
               runMode={experimentRuntime?.activeRun?.runMode}
               robot={robot}
-              assetSpec={assets.assets.find((candidate) => candidate.head.resourceId === robot.robotAssetId)?.spec}
-              selected={selected.includes(robot.id)}
+              assetSpec={assetIndex.byId.get(robot.robotAssetId)?.spec}
+              selected={selectedIds.has(robot.id)}
               chassisHold={chassisHold && robotCategory(robot, robotKindComposition) === 'ugv'}
               instrument={board.viewMode !== 'list'}
               onSelect={board.toggleRobot}
@@ -156,6 +156,22 @@ export function RobotInstrumentsGrid({ panel,context }: PanelPluginProps<readonl
       )}
     </div>
   );
+}
+
+function assetRefKey(resourceId:string,branch:string) {
+  return `${resourceId}\u0000${branch}`;
+}
+
+/** First asset per (resource, branch) and per resource, as find() would pick. */
+function robotAssetIndex(assets:readonly RobotAssetDocument[]) {
+  const byRef = new Map<string,RobotAssetDocument>();
+  const byId = new Map<string,RobotAssetDocument>();
+  assets.forEach((asset) => {
+    const ref = assetRefKey(asset.head.resourceId,asset.branch.name);
+    if (!byRef.has(ref)) byRef.set(ref,asset);
+    if (!byId.has(asset.head.resourceId)) byId.set(asset.head.resourceId,asset);
+  });
+  return { byRef,byId };
 }
 
 function experimentDocument(value:unknown):ExperimentDocument|undefined {

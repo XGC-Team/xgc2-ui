@@ -1,5 +1,7 @@
 .workflow-startup-pipeline {
   --workflow-startup-mark: var(--size-icon-lg);
+  /* 原裸值 1.6s；取最近 token 表达式 220ms * 7 = 1.54s（policy 0.16.16 禁裸时长）。 */
+  --workflow-startup-send-duration: calc(var(--duration-deliberate) * 7);
   width: 100%;
   height: 100%;
   min-width: 0;
@@ -82,14 +84,31 @@
   border-radius: 50%;
   pointer-events: none;
   z-index: 1;
+  transition: background-color var(--duration-fast) var(--easing-standard),
+    border-color var(--duration-fast) var(--easing-standard),
+    color var(--duration-fast) var(--easing-standard);
 }
 
-/* Arrived prefix and the waiting node only. Later `active` processes stay hollow. */
-.workflow-startup-pipeline-stage:not([data-xgc-status='failed'])[data-current='true'] .workflow-startup-pipeline-mark,
-.workflow-startup-pipeline-stage[data-xgc-status='ready'] .workflow-startup-pipeline-mark {
+/* Empty-state startup pipelines (Lichtblick / Gazebo world camera): the
+   arrived prefix and the waiting node read as a filled disc in heading color
+   with the glyph in surface color — the operator-mandated completed reading
+   (black background, white glyph, 2026-09-11). Later `active` processes stay
+   hollow. Do not hollow this out in the name of the status material policy. */
+[data-xgc-role$='-empty-state'] .workflow-startup-pipeline-stage:not([data-xgc-status='failed'])[data-current='true'] .workflow-startup-pipeline-mark,
+[data-xgc-role$='-empty-state'] .workflow-startup-pipeline-stage[data-xgc-status='ready'] .workflow-startup-pipeline-mark {
   color: var(--color-bg-surface);
   background: var(--color-text-heading);
   border-color: var(--color-text-heading);
+  border-width: var(--stroke-strong);
+}
+
+/* Outside the empty-state overlays (for example the intrinsic calibration
+   lifecycle) the same reached reading stays a strong ring in heading color. */
+.workflow-startup-pipeline-stage:not([data-xgc-status='failed'])[data-current='true'] .workflow-startup-pipeline-mark,
+.workflow-startup-pipeline-stage[data-xgc-status='ready'] .workflow-startup-pipeline-mark {
+  color: var(--color-text-heading);
+  border-color: var(--color-text-heading);
+  border-width: var(--stroke-strong);
 }
 
 .workflow-startup-pipeline-stage[data-xgc-status='failed'] .workflow-startup-pipeline-mark {
@@ -98,6 +117,8 @@
 }
 
 .workflow-startup-pipeline-rail {
+  /* 原裸值 1.6s；取最近 token 表达式 220ms * 7 = 1.54s（policy 0.16.16 禁裸时长）。 */
+  --workflow-startup-send-duration: calc(var(--duration-deliberate) * 7);
   position: absolute;
   left: calc(var(--workflow-startup-mark) / 2);
   top: var(--workflow-startup-mark);
@@ -105,6 +126,7 @@
   width: var(--stroke-strong);
   overflow: visible;
   background: var(--color-border-muted);
+  border-radius: var(--stroke-strong);
   pointer-events: none;
   transform: translateX(-50%);
 }
@@ -141,6 +163,7 @@
   font-size: var(--font-lg);
   font-weight: var(--weight-semibold);
   line-height: var(--line-height-tight);
+  transition: color var(--duration-fast) var(--easing-standard);
 }
 
 .workflow-startup-pipeline-fact {
@@ -157,23 +180,30 @@
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .workflow-startup-pipeline-rail[data-sending='true'] .workflow-startup-pipeline-send {
-    height: 0;
-    animation: workflow-startup-send 1.6s linear 1 forwards;
+  .workflow-startup-pipeline-rail[data-sending='true'][data-catch-up='true']:not([data-passed='true']) {
+    /* 原裸值 0.2s（catch-up 追赶）；取最近 token --duration-deliberate = 220ms。 */
+    --workflow-startup-send-duration: var(--duration-deliberate);
   }
 
-  .workflow-startup-pipeline-rail[data-sending='true'] .workflow-startup-pipeline-send::after {
+  .workflow-startup-pipeline-rail[data-sending='true']:not([data-passed='true']) .workflow-startup-pipeline-send {
+    height: 0;
+    animation: workflow-startup-send var(--workflow-startup-send-duration) var(--easing-standard) 1 forwards;
+  }
+
+  .workflow-startup-pipeline-rail[data-sending='true']:not([data-passed='true']) .workflow-startup-pipeline-send::after {
     content: '';
     position: absolute;
     left: 50%;
     bottom: 0;
-    width: 0.5em;
-    height: 0.5em;
+    width: 0.625em;
+    height: 0.625em;
     border-radius: 50%;
     background: var(--color-text-heading);
     transform: translate(-50%, 50%);
-    animation: workflow-startup-send-head 1.6s linear 1 forwards;
+    animation: workflow-startup-send-head var(--workflow-startup-send-duration) var(--easing-standard) 1 forwards;
   }
+
+
 }
 
 @keyframes workflow-startup-send {
@@ -182,6 +212,6 @@
 }
 
 @keyframes workflow-startup-send-head {
-  0%, 88% { opacity: 1; }
-  100% { opacity: 0; }
+  0%, 82% { opacity: var(--opacity-full); transform: translate(-50%, 50%) scale(1); }
+  100% { opacity: var(--opacity-hidden); transform: translate(-50%, 50%) scale(0.3); }
 }

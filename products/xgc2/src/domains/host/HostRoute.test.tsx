@@ -8,7 +8,10 @@ import { defineHostSystemComposition } from './hostSystemComposition';
 
 const navigation = vi.hoisted(() => ({ section: 'files',managedHostId: 'local' }));
 vi.mock('../../app/navigationContext',() => ({
-  useNavigation: () => ({ ...navigation,pageSection: () => navigation.section,setPageSection: vi.fn() }),
+  useNavigation: (select?: (state: never) => unknown) => {
+    const navigationState = ({ ...navigation,pageSection: () => navigation.section,setPageSection: vi.fn() });
+    return select ? select(navigationState as never) : navigationState;
+  },
 }));
 vi.mock('../../app/useTargetCore',() => ({ useTargetCore: () => ({}) }));
 vi.mock('../managedHost/managedHostPublic',async (original) => ({

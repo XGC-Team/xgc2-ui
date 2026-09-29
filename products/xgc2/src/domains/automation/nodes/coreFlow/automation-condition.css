@@ -51,12 +51,8 @@
   min-width: 0;
 }
 
-.automation-condition-expression input {
-  font-family: var(--font-mono);
-  font-size: var(--font-sm);
-}
-
-.automation-condition-expression:has(input[data-drag-active="true"]) {
+/* Drag state rides the consumer class on the InputControl shell. */
+.automation-condition-expression.automation-condition-expression-drag {
   border-color: var(--color-accent);
   box-shadow: var(--shadow-ring-accent-soft);
 }

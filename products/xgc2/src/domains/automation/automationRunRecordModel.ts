@@ -7,6 +7,7 @@ import {
 } from '../../shared/executionStatusVocabulary';
 import type {
   AutomationRun,
+  AutomationPanelActionInvocation,
   AutomationRunAdmissionConflict,
   AutomationRunTerminationKind,
 } from './automationRunContracts';
@@ -37,7 +38,7 @@ const runKeys = new Set([
   'definitionDigest','executionModel','sourceKind','sourceRef','automationRef','status','revision','parameters','reason',
   'terminationKind','primaryError','cleanupErrors','parentRunId','admissionMode','admissionScope','admissionKey','admissionLimit',
   'admissionOnConflict','replacesRunId','rootRunId','callNodeId','throughNodeId','depth','correlationId','triggerInvocation',
-  'result','acceptedAt','createdAt','startedAt','updatedAt','finishedAt',
+  'panelAction','result','acceptedAt','createdAt','startedAt','updatedAt','finishedAt',
 ]);
 const pinnedConfigRefKeys = new Set(['domain','resourceId','branch','componentId','commitId','version','digest']);
 const runSourceKinds = new Set<AutomationRun['sourceKind']>(['experiment','automation']);
@@ -116,6 +117,10 @@ export function parseAutomationRun(value: unknown, path: string): AutomationRun 
     }
     if (parentRunId === id || rootRunId === id) throw invalidExecution(path, 'a child Run must not reference itself as parent or root');
   }
+  const panelAction = entry.panelAction === undefined ? undefined : parsePanelActionInvocation(entry.panelAction,`${path}.panelAction`);
+  if (panelAction && (sourceKind !== 'experiment' || depth !== 0)) {
+    throw invalidExecution(`${path}.panelAction`,'requires an Experiment-sourced root Run');
+  }
   const triggerInvocation = entry.triggerInvocation === undefined
     ? undefined
     : parseTriggerInvocation(entry.triggerInvocation, `${path}.triggerInvocation`);
@@ -153,6 +158,7 @@ export function parseAutomationRun(value: unknown, path: string): AutomationRun 
     depth,
     correlationId: correlationId!,
     ...(triggerInvocation === undefined ? {} : { triggerInvocation }),
+    ...(panelAction === undefined ? {} : { panelAction }),
     ...(resultPresent ? { result: entry.result } : {}),
     acceptedAt,createdAt,
     ...(startedAt === undefined ? {} : { startedAt }),
@@ -242,4 +248,14 @@ function samePinnedConfigRef(left: PinnedConfigRef, right: PinnedConfigRef) {
   return left.domain === right.domain && left.resourceId === right.resourceId && left.branch === right.branch &&
     left.componentId === right.componentId && left.commitId === right.commitId && left.version === right.version &&
     left.digest === right.digest;
+}
+
+/** Frozen public ownership; never inferred from user parameters. */
+export function parsePanelActionInvocation(value:unknown,path:string):AutomationPanelActionInvocation {
+  const entry=objectWithKnownKeys(value,new Set(['panelId','portId','workflowInstanceId','presetId','executionMode','runMode']),path);
+  if (entry.executionMode!=='standalone') throw invalidExecution(`${path}.executionMode`,'must be standalone');
+  return { panelId:requiredString(entry.panelId,`${path}.panelId`),portId:requiredString(entry.portId,`${path}.portId`),
+    workflowInstanceId:requiredString(entry.workflowInstanceId,`${path}.workflowInstanceId`),
+    presetId:requiredString(entry.presetId,`${path}.presetId`),executionMode:'standalone',
+    runMode:requiredString(entry.runMode,`${path}.runMode`) };
 }

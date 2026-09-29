@@ -1,11 +1,16 @@
-import { Suspense, useCallback, type ReactNode } from 'react';
+import { memo, Suspense, useCallback, type ReactNode } from 'react';
 import {
   ProductRouteVisibilityProvider,
   RouteReadyProvider,
 } from '../shared/routeReady';
 import type { ParkedRouteSlot } from './routeSurfaceModel';
 
-export function ParkedProductRoute({
+/**
+ * Memo boundary: a parked page re-renders only when its own visibility, slot
+ * or content element changes; the page's own state and subscriptions update
+ * as usual. The DOM identity of every visited page is unchanged.
+ */
+export const ParkedProductRoute = memo(function ParkedProductRoute({
   slot,
   revealed,
   onReady,
@@ -37,4 +42,4 @@ export function ParkedProductRoute({
       </ProductRouteVisibilityProvider>
     </div>
   );
-}
+});

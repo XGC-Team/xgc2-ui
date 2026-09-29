@@ -1,12 +1,11 @@
 // @vitest-environment node
 import { beforeEach,describe,expect,it,vi } from 'vitest';
-import { downloadHostFile,getHostFileContent,getHostFiles } from './hostFileService';
+import { downloadHostFile,getHostFiles } from './hostFileService';
 import { HOST_FOLDER_ZIP_MAX_BYTES } from './hostFilesModel';
 import { zipHostDirectory,zipHostFile } from './hostFolderZipActions';
 
 vi.mock('./hostFileService', () => ({
   downloadHostFile: vi.fn(),
-  getHostFileContent: vi.fn(),
   getHostFiles: vi.fn(),
 }));
 
@@ -53,7 +52,7 @@ describe('host ZIP downloads', () => {
   });
 
   it('preserves the bytes returned by the download boundary and UTF-8 member names', async () => {
-    // Mocked transport: this does not assert Agent fs/read is binary-safe.
+    // The transport bytes must survive ZIP packaging unchanged.
     const payload = Uint8Array.from([0, 255, 128, 80, 75, 13, 10]);
     vi.mocked(downloadHostFile).mockResolvedValue(new Blob([payload]));
     const member = await readSingleMember(await zipHostFile('/tmp/测试.bin', '测试.bin'));
@@ -77,10 +76,12 @@ describe('host ZIP downloads', () => {
         modTime: '2026-09-06T00:00:00Z', isSymlink: false, canEdit: true, canDownload: true,
       }],
     });
-    vi.mocked(getHostFileContent).mockResolvedValue({ path: '/tmp/folder/测试.txt', content: 'hello', size: 5 });
+    const payload = new Uint8Array([0,255,128,192,10]);
+    vi.mocked(downloadHostFile).mockResolvedValue(new Blob([payload]));
     const member = await readSingleMember(await zipHostDirectory('/tmp/folder', 'folder'));
     expect(member.name).toBe('测试.txt');
-    expect(new TextDecoder().decode(member.content)).toBe('hello');
+    expect(member.content).toEqual(payload);
+    expect(downloadHostFile).toHaveBeenCalledWith('/tmp/folder/测试.txt', undefined);
   });
 
   it('still emits a valid empty directory ZIP', async () => {

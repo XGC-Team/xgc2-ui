@@ -2,6 +2,7 @@ export const LICHTBLICK_EMBED_CHANNEL = 'xgc2.lichtblick.embed';
 export const LICHTBLICK_EMBED_VERSION = 2;
 export const LICHTBLICK_EMBED_SURFACES = [
   '3d-tools',
+  'obstacle-scene',
   'panel-controls',
   'panel-settings',
   'alerts',

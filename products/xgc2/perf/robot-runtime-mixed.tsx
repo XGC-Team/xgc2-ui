@@ -1,4 +1,4 @@
-import { memo,Profiler,type ProfilerOnRenderCallback } from 'react';
+import { memo,Profiler,useSyncExternalStore,type ProfilerOnRenderCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   useRobotChannelBundle,
@@ -37,7 +37,7 @@ type BenchmarkCounters = {
   mutations: number;
   mutationNodes: number;
   frames: number;
-  fleetRenders: number;
+  swarmRenders: number;
   cardRenders: Record<string,number>;
   profilerCommits: number;
   profilerDurationMs: number;
@@ -50,6 +50,8 @@ declare global {
       start: () => void;
       stop: () => void;
       reset: () => void;
+      /** Park every card as a hidden route/dashboard would (DOM stays mounted). */
+      setParked: (parked: boolean) => void;
       snapshot: () => BenchmarkCounters & {
         cards: number;
         px4Cards: number;
@@ -67,7 +69,7 @@ const counters: BenchmarkCounters = {
   mutations: 0,
   mutationNodes: 0,
   frames: 0,
-  fleetRenders: 0,
+  swarmRenders: 0,
   cardRenders: {},
   profilerCommits: 0,
   profilerDurationMs: 0,
@@ -79,6 +81,12 @@ let revision = 0;
 let robotCursor = 0;
 let channelCursor = 0;
 let streamController: ReadableStreamDefaultController<Uint8Array> | undefined;
+let parked = false;
+const parkedListeners = new Set<() => void>();
+const subscribeParked = (listener: () => void) => {
+  parkedListeners.add(listener);
+  return () => { parkedListeners.delete(listener); };
+};
 
 installPerformanceObservers();
 installBenchmarkTransport();
@@ -86,13 +94,17 @@ installBenchmarkTransport();
 window.__xgcMixedRobotBenchmark = {
   start: () => { counters.running = true; },
   stop: () => { counters.running = false; },
+  setParked: (next) => {
+    parked = next;
+    parkedListeners.forEach((listener) => listener());
+  },
   reset: () => {
     counters.events = 0;
     counters.changes = 0;
     counters.mutations = 0;
     counters.mutationNodes = 0;
     counters.frames = 0;
-    counters.fleetRenders = 0;
+    counters.swarmRenders = 0;
     counters.cardRenders = {};
     counters.profilerCommits = 0;
     counters.profilerDurationMs = 0;
@@ -116,12 +128,12 @@ const onRender: ProfilerOnRenderCallback = (_id,_phase,actualDuration) => {
 
 createRoot(document.getElementById('root')!).render(
   <Profiler id="mixed-robot-runtime" onRender={onRender}>
-    <MixedFleet />
+    <MixedSwarm />
   </Profiler>,
 );
 
-function MixedFleet() {
-  counters.fleetRenders += 1;
+function MixedSwarm() {
+  counters.swarmRenders += 1;
   const runtime = useRunRobots(targetId, runId);
   return (
     <main className="robot-instruments-panel mode-double" data-xgc-role="mixed-robot-benchmark">
@@ -138,12 +150,14 @@ const BenchmarkRobotCard = memo(function BenchmarkRobotCard({ robot }: { robot: 
   counters.cardRenders[robot.id] = (counters.cardRenders[robot.id] ?? 0) + 1;
   const status = useRunRobotStatus(targetId, runId, robot.id);
   const px4 = robot.kind === 'px4_multirotor';
+  const cardParked = useSyncExternalStore(subscribeParked,() => parked,() => parked);
   const channels = useRobotChannelBundle(
     targetId,
     runId,
     robot.id,
     px4 ? instrumentChannels : listChannels,
     px4 ? 'interactive' : 'compact',
+    cardParked,
   );
   const flight = value(channels['state.flight']);
   const poseChannel = channels[px4 ? 'state.pose' : 'vrpn.position'];
@@ -161,9 +175,13 @@ const BenchmarkRobotCard = memo(function BenchmarkRobotCard({ robot }: { robot: 
         data-robot-kind={robot.kind}
       >
         <FlightRobotInstrument
+          robotId={robot.id}
           name={robot.name}
           telemetry={{
+            presentation: 'fs150',
             online: status.online,
+            connectionState: robot.connectionState,
+            linkFresh: Boolean(channels['diagnostic.fcu-link'] && !channels['diagnostic.fcu-link'].stale),
             poseFresh: Boolean(poseChannel && !poseChannel.stale),
             mocapState: channelFreshness(channels['state.mocap.pose']),
             healthTone: status.operationalReady ? 'healthy' : status.online ? 'fault' : 'unavailable',
@@ -174,6 +192,7 @@ const BenchmarkRobotCard = memo(function BenchmarkRobotCard({ robot }: { robot: 
             mocapSpeed,
             localizationError,
             imu: value(channels['state.imu']),
+            localVelocity: value(channels['state.velocity']),
             power,
             localSetpoint: value(channels['setpoint.local']),
             localSetpointState: channelFreshness(channels['setpoint.local']),
@@ -340,12 +359,19 @@ function robot(id: string,kind: 'px4_multirotor' | 'scout_mini',index: number,no
     robotAssetCommitId: `benchmark-${kind}-${index + 1}-commit`,
     robotAssetDigest: 'b'.repeat(64),
     name: kind === 'px4_multirotor' ? `PX4 ${index + 1}` : `Scout ${index + 1}`,
-    kind,modality: 'inherit',
+    kind,hybridSource: 'simulation',
     profileId: kind === 'px4_multirotor' ? 'fixture.aerial.v1' : 'fixture.ground.v1',
     namespace: kind === 'px4_multirotor' ? `/uav${index + 1}` : `/scout${index + 1}`,
     ...(kind === 'px4_multirotor'
-      ? { px4: { mavSystemId: index + 1,managementIp: `192.0.2.${index + 1}`,mocapRigidBodyName: id } }
-      : { scout: { managementAddress: `192.0.2.${100 + index}` } }),
+      ? { px4: {
+        modelId: 'fs150',mavSystemId: index + 1,managementIp: `192.0.2.${index + 1}`,
+        mocapRigidBodyName: id.replace('-','_'),positioningFrameNumber: index + 1,positioningComparisonThresholdM: 0.5,
+      } }
+      : { scout: {
+        managementAddress: `192.0.2.${100 + index}`,connector: 'swarm_ros_bridge',telemetryRemotePort: 9000 + index,
+        controlLocalPort: 9100 + index,mocapRigidBodyName: id.replace('-','_'),positioningFrameNumber: 20 + index,
+        positioningComparisonThresholdM: 0.5,
+      } }),
     operationContracts: [],adapterDefinitionId: kind === 'px4_multirotor' ? 'px4-adapter' : 'scout-adapter',
     connectionEpoch: 1,connectionState: 'live',connectionRevision: 1,
     online: true,operationalReady: true,status: 'online',onlineUntil: deadline,operationalReadyUntil: deadline,

@@ -65,7 +65,7 @@
   color: var(--color-text-heading);
   font-size: var(--font-sm);
   font-weight: var(--weight-medium);
-  line-height: 18px;
+  line-height: var(--line-height-control);
 }
 .automation-node-name-input {
   min-width: 0;

@@ -170,6 +170,26 @@ describe('DashboardGrid', () => {
     dispatch.mockRestore();
   });
 
+  it('stretches Config standalone-page row height to the measured shell without zeroing gutters', () => {
+    render(
+      <DashboardGrid
+        panels={[panel('robot-assets', { x: 0, y: 0, w: 30, h: 16 }, 'experiment-robot-assets')]}
+        editing={false}
+        fillRemainingHeight
+        onLayoutCommit={vi.fn()}
+      >
+        {(item) => <div>{item.title}</div>}
+      </DashboardGrid>,
+    );
+
+    expect(gridMock.props?.gridConfig.margin).toEqual([8, 8]);
+    expect(gridMock.props?.gridConfig.containerPadding).toEqual([8, 8]);
+    expect(gridMock.props?.layout[0]).toMatchObject({ i: 'robot-assets',h: 16 });
+    const rowHeight = gridMock.props?.gridConfig.rowHeight ?? 0;
+    expect(8 * 2 + 16 * rowHeight + 15 * 8).toBeCloseTo(600, 10);
+    expect(rowHeight).not.toBe(39);
+  });
+
   it('keeps GCS gutters at zero so PanelFrame trailing borders form single seams', () => {
     render(
       <DashboardGrid panels={[panel('panel-a')]} editing={false} gcsMode onLayoutCommit={vi.fn()}>

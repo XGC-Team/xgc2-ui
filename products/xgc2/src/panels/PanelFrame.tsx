@@ -12,6 +12,7 @@ export function PanelFrame({
   gcsMode = false,
   chrome,
   interactiveWhileEditing = false,
+  fillBody = false,
   children,
   headerLeading,
   headerStatus,
@@ -26,6 +27,8 @@ export function PanelFrame({
   gcsMode?: boolean;
   chrome?: 'framed' | 'seamed' | 'flat';
   interactiveWhileEditing?: boolean;
+  /** Pin the body to the frame rectangle for fixed-geometry content panels. */
+  fillBody?: boolean;
   children: ReactNode;
   headerLeading?: ReactNode;
   headerStatus?: ReactNode;
@@ -99,6 +102,7 @@ export function PanelFrame({
       data-xgc-selected={editing && selected ? 'true' : undefined}
       data-xgc-editing={editing ? 'true' : undefined}
       data-xgc-interactive-while-editing={editing && interactiveWhileEditing ? 'true' : undefined}
+      data-xgc-fill-body={fillBody ? 'true' : undefined}
       editing={editing}
       headerClassName="xgc-panel-frame-header"
       headerProps={{

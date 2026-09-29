@@ -10,7 +10,10 @@ const targetState = vi.hoisted(() => ({
 }));
 
 vi.mock('../../app/navigationContext', () => ({
-  useNavigation: () => ({ managedHostId: targetState.managedHostId }),
+  useNavigation: (select?: (state: never) => unknown) => {
+    const navigationState = ({ managedHostId: targetState.managedHostId });
+    return select ? select(navigationState as never) : navigationState;
+  },
 }));
 
 vi.mock('../../app/useTargetCore', () => ({

@@ -29,6 +29,14 @@ export function useAutomationDraftHistory(initialSpec: AutomationSpec) {
     setSavedFingerprint(draftFingerprint(next));
   }, []);
 
+  const acknowledgeSave = useCallback((submitted: AutomationSpec, saved: AutomationSpec) => {
+    // Only normalize the submitted revision; newer edits and undo/redo own the present.
+    setHistory((current) => current.present === submitted
+      ? { ...current,present: cloneAutomationSpec(saved) }
+      : current);
+    setSavedFingerprint(draftFingerprint(saved));
+  }, []);
+
   const undo = useCallback(() => {
     setHistory((current) => {
       const previous = current.past.at(-1);
@@ -51,7 +59,7 @@ export function useAutomationDraftHistory(initialSpec: AutomationSpec) {
     });
   }, []);
 
-  return { draft,dirty,commitChange,adopt,undo,redo };
+  return { draft,dirty,commitChange,adopt,acknowledgeSave,undo,redo };
 }
 
 function freshHistory(spec: AutomationSpec): EditorHistory {

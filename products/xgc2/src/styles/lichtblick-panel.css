@@ -23,7 +23,8 @@
 }
 
 .lichtblick-workspace > .lichtblick-frame[hidden],
-.lichtblick-workspace > .lichtblick-workflow-slot[hidden] {
+.lichtblick-workspace > .lichtblick-workflow-slot[hidden],
+.lichtblick-workspace > [data-xgc-role="lichtblick-empty-state"][hidden] {
   display: none;
 }
 
@@ -56,13 +57,8 @@
   content-visibility: hidden;
 }
 
-.lichtblick-workspace[data-xgc-parked="true"] .xgc-workspace-busy-ring,
-.lichtblick-workspace[data-xgc-parked="true"] .workflow-startup-pipeline-send {
+.lichtblick-workspace[data-xgc-parked="true"] .xgc-workspace-busy-ring {
   animation: none;
-}
-
-.lichtblick-workspace[data-xgc-parked="true"] .workflow-startup-pipeline-rail[data-sending="true"] .workflow-startup-pipeline-send {
-  height: 100%;
 }
 
 .lichtblick-workspace > [data-xgc-role="lichtblick-empty-state"],
@@ -71,6 +67,13 @@
   place-items: center;
   min-height: 0;
   height: 100%;
+}
+
+.lichtblick-workspace > [data-xgc-role="lichtblick-empty-state"] {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: var(--background-surface, var(--color-bg-surface));
 }
 
 .lichtblick-workspace > [data-xgc-role="lichtblick-embed-busy"] {
@@ -101,11 +104,6 @@
 
 .lichtblick-embed-surface-switches > button {
   justify-content: flex-start;
-}
-
-.lichtblick-header-actions .xgc-panel-runtime-action:disabled {
-  cursor: not-allowed;
-  opacity: var(--opacity-disabled);
 }
 
 .lichtblick-workflow-slot,

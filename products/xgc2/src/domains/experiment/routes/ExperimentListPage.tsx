@@ -21,6 +21,7 @@ import {
   userNamespaceIdForFolder,
 } from '../../../shared/configResourceProtection';
 import { useAppLanguage } from '../../../shared/localization/localizedText';
+import { formatOperatorDateTime } from '../../../shared/operatorTime';
 import {
   buildProjectedConfigAssetCatalog,
   ConfigAssetCatalogControls,
@@ -172,7 +173,7 @@ export function ExperimentListPage({
           />
         </ListPageItemMain>
         <ListPageItemMeta className="experiment-row-meta" data-xgc-role="experiment-meta" data-xgc-id={id}>
-          <span title={t('Last updated')}>{new Date(item.head.updatedAt).toLocaleString(language)}</span>
+          <span title={t('Last updated')}>{formatOperatorDateTime(item.head.updatedAt, language)}</span>
         </ListPageItemMeta>
         <ListPageItemActions
           className="experiment-row-actions"

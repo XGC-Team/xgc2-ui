@@ -28,7 +28,7 @@ export function experimentRobotAssignmentLabel(
 ) {
   const role = experimentRobotRoleLabel(binding);
   const asset = assetName.trim();
-  return asset ? `${role} — ${asset}` : role;
+  return asset ? `${asset} — ${role}` : role;
 }
 
 /** Native Robot slots render and persist as one UAV cluster followed by one UGV cluster. */

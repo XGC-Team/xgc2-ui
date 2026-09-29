@@ -23,11 +23,10 @@
 }
 
 .settings-layout {
-  /* width:100% + max-width keeps the track stable when sections collapse. */
+  /* width:100% keeps the track stable when sections collapse; the 800px cap
+   * and centering are owned by the workspace-content child above. */
   box-sizing: border-box;
   width: 100%;
-  max-width: 800px;
-  justify-self: center;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: var(--space-xs);
@@ -54,7 +53,8 @@
 }
 
 .settings-layout > [data-xgc-layout-family='form-settings'] > [data-xgc-role='config-section-body'] > [data-xgc-role='config-section-disclosure']:last-child,
-.settings-layout > [data-xgc-layout-family='form-settings'] > [data-xgc-role='config-section-body'] > .xgc-form-actions:last-child {
+.settings-layout > [data-xgc-layout-family='form-settings'] > [data-xgc-role='config-section-body'] > [data-xgc-role='agent-provider-config-actions']:last-child,
+.settings-layout > [data-xgc-layout-family='form-settings'] > [data-xgc-role='config-section-body'] > [data-xgc-role='operator-device-sign-in-actions']:last-child {
   border-bottom: 0;
 }
 
@@ -64,7 +64,7 @@
 
 /* Nested fields line up with the fold title; 320px controls stay on the Language track.
  * FormActions stay un-indented so a 320px justify-self-end row can share that column. */
-.settings-layout > [data-xgc-layout-family='form-settings'] > [data-xgc-role='config-section-body']:has(> [data-xgc-role='config-section-disclosure']) > .xgc-form-field {
+.settings-layout > [data-xgc-layout-family='form-settings'] > [data-xgc-role='config-section-body']:has(> [data-xgc-role='config-section-disclosure']) > .agent-provider-config-field {
   padding-inline-start: calc(14px + var(--space-md));
 }
 
@@ -84,11 +84,32 @@
   min-width: 0;
 }
 
+.settings-layout > [data-xgc-layout-family='form-settings'] > [data-xgc-role='config-section-body'] > [data-xgc-role='operator-device-sign-in-actions'] > [data-xgc-role] {
+  width: 100%;
+  min-width: 0;
+}
+
+.settings-layout > [data-xgc-layout-family='form-settings'] > [data-xgc-role='config-section-body'] > [data-xgc-role='operator-device-sign-in-actions'] {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 320px;
+  min-width: 0;
+  justify-self: end;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-md);
+}
+
+.settings-layout > [data-xgc-layout-family='form-settings'] > [data-xgc-role='config-section-body'] > [data-xgc-role='operator-device-sign-in-actions']:has(> :nth-child(2)) {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .config-section-disclosure-toggle {
   min-width: 0;
   min-height: var(--size-control-default);
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: var(--space-md);
   padding: 0;
   border: 0;
@@ -138,7 +159,8 @@
   transform: rotate(-90deg);
 }
 
-.settings-layout > [data-xgc-layout-family='form-settings'] > [data-xgc-role='config-section-body'] > .xgc-form-actions {
+.settings-layout > [data-xgc-layout-family='form-settings'] > [data-xgc-role='config-section-body'] > [data-xgc-role='agent-provider-config-actions'],
+.settings-layout > [data-xgc-layout-family='form-settings'] > [data-xgc-role='config-section-body'] > [data-xgc-role='operator-device-sign-in-actions'] {
   padding-block: var(--space-sm);
 }
 
@@ -149,7 +171,8 @@
   }
 
   .config-section-disclosure-status,
-  .settings-layout > [data-xgc-layout-family='form-settings'] > [data-xgc-role='config-section-body'] > [data-xgc-role='agent-provider-config-actions'] {
+  .settings-layout > [data-xgc-layout-family='form-settings'] > [data-xgc-role='config-section-body'] > [data-xgc-role='agent-provider-config-actions'],
+  .settings-layout > [data-xgc-layout-family='form-settings'] > [data-xgc-role='config-section-body'] > [data-xgc-role='operator-device-sign-in-actions'] {
     justify-self: start;
     max-width: none;
   }

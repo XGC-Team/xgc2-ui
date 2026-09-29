@@ -47,7 +47,7 @@ describe('hostPathForCommandFile', () => {
     );
   });
 
-  it('adds the host Documents path when Core home is the local-fleet container home', () => {
+  it('adds the host Documents path when Core home is the local-swarm container home', () => {
     expect(publicUserScriptRelativePath('$HOME/Documents/XGC/UserScripts/FS150/configure-linux.sh'))
       .toBe('FS150/configure-linux.sh');
     expect(accountHomeFromHostHome('/home/tester/xgc2')).toBe('/home/tester');

@@ -1,15 +1,22 @@
 import {
+  robotConnectionPresentation,
+  px4CoreSubscriptionReady,
+  type RobotConnectionPresentation,
+} from './robotConnectionPresentation';
+import {
   booleanValue,
   clamp,
   firstNumber,
+  measuredQuaternion,
   normalizeYaw,
-  normalizedQuaternion,
   numberValue,
   objectValue,
   quaternionPitchDegrees,
   quaternionRollDegrees,
   quaternionYawDegrees,
   robotStreamRate,
+  streamChannelReady,
+  streamHealthChannel,
   stringValue,
   twistLinearSpeed2Norm,
   type RobotHealthTone,
@@ -33,9 +40,20 @@ export function flightArmedTone(armed: boolean | null | undefined): 'success' | 
   return armed === true ? 'success' : 'normal';
 }
 
+/** HUD and list MODE/ARM gate: Core flight stale, never Adapter stream-health. */
+export function flightPedestalLive(input: {
+  connectionPresentation: RobotConnectionPresentation;
+  flightChannelStale?: boolean;
+}): boolean {
+  return input.connectionPresentation !== 'disconnected'
+    && input.flightChannelStale !== true;
+}
+
 export type FlightRobotInstrumentTelemetry = {
   presentation: 'fs150' | 'mocap_rotor';
   online: boolean;
+  connectionState: string;
+  connectionDetail?: string;
   linkFresh: boolean;
   poseFresh: boolean;
   mocapState: 'fresh' | 'stale' | 'missing';
@@ -52,21 +70,25 @@ export type FlightRobotInstrumentTelemetry = {
   localSetpointState: 'fresh' | 'stale' | 'missing';
   power: Record<string,unknown>;
   health?: Record<string,unknown>;
+  controller?: Record<string,unknown>;
   streamHealth: Record<string,unknown>;
   fcuLink: Record<string,unknown>;
+  /** Core `channels['state.flight'].stale`. Missing is not stale. */
+  flightChannelStale?: boolean;
 };
 
 export type FlightRobotInstrumentReadout = {
   presentation: 'fs150' | 'mocap_rotor';
   online: boolean;
+  connectionPresentation: RobotConnectionPresentation;
   linkReady: boolean;
   connected: boolean;
   armed: boolean | null;
   mode: string;
   flightStage: string;
-  roll: number;
-  pitch: number;
-  yaw: number;
+  roll: number | null;
+  pitch: number | null;
+  yaw: number | null;
   speed: number | null;
   altitude: number | null;
   climb: number | null;
@@ -88,75 +110,144 @@ export type FlightRobotInstrumentReadout = {
 };
 
 export function flightRobotInstrumentReadout(input: FlightRobotInstrumentTelemetry): FlightRobotInstrumentReadout {
-  const connected = booleanValue(input.flight.connected) ?? input.online;
-  const orientation = objectValue(input.imu.orientation) ?? objectValue(input.pose.orientation);
+  const connected = booleanValue(input.flight.connected) === true;
+  const imuLive = channelLive(input.streamHealth,'state.imu',Boolean(objectValue(input.imu.orientation)));
+  const quaternion = imuLive ? measuredQuaternion(objectValue(input.imu.orientation)) : null;
+  const poseLive = input.poseFresh;
+  const velocityLive = channelLive(
+    input.streamHealth,
+    'state.velocity',
+    Boolean(objectValue(input.localVelocity.linear)),
+  );
   const mocapLinear = input.mocapState === 'fresh' ? objectValue(input.mocapVelocity.linear) : undefined;
-  const localLinear = objectValue(input.localVelocity.linear);
-  // Climb stays MAVROS-local. Left/right rulers are VRPN twist 2-norm and VRPN z.
+  const localLinear = velocityLive ? objectValue(input.localVelocity.linear) : undefined;
   const vrpnLinear = vrpnTwistLinear(input);
   const vrpnPosition = vrpnHeightPosition(input);
-  const linear = localLinear;
-  const position = objectValue(input.pose.position);
+  const position = poseLive ? objectValue(input.pose.position) : undefined;
   const mocapPosition = input.mocapState === 'fresh' ? objectValue(input.mocapPose.position) : undefined;
-  const quaternion = normalizedQuaternion(orientation);
   const percentage = firstNumber(input.power, 'percentage');
   const positioningState = stringValue(objectValue(input.health?.positioning)?.state);
-  const positioningStatus = input.presentation === 'fs150'
-    ? positioningState === 'POSITIONING_STATE_ACTIVE'
-      ? 'ready'
-      : positioningState === 'POSITIONING_STATE_FROZEN' ? 'frozen' : 'unavailable'
-    : input.poseFresh ? 'ready' : 'unavailable';
+  const positioningStatus = input.presentation === 'mocap_rotor'
+    ? input.poseFresh ? 'ready' : 'unavailable'
+    : adapterPositioningStatus(positioningState);
   const rtt = firstNumber(input.fcuLink, 'roundTripTimeMs', 'round_trip_time_ms');
+  const connectionPresentation = robotConnectionPresentation({
+    connectionState: input.connectionState,
+    connectionDetail: input.connectionDetail,
+    hasRun: input.healthTone !== 'idle',
+    coreReady: px4CoreSubscriptionReady({
+      flight: input.flight,
+      streamHealth: input.streamHealth,
+    }),
+  });
+  // Missing Core state.flight is not stale; recovering may still show last MODE.
+  const robotOwnedLive = connectionPresentation !== 'disconnected';
+  const pedestalLive = flightPedestalLive({
+    connectionPresentation,
+    flightChannelStale: input.flightChannelStale,
+  });
+  const controllerLive = robotOwnedLive
+    && channelLive(input.streamHealth, 'state.controller', Boolean(stringValue(input.controller?.text)));
+  const imuAttitudeLive = robotOwnedLive && imuLive;
+  const attitude = imuAttitudeLive ? quaternion : null;
+  const powerChannel = streamHealthChannel(input.streamHealth, 'state.power');
+  const powerLive = robotOwnedLive && booleanValue(powerChannel?.stale) !== true;
+  const climbLive = robotOwnedLive && velocityLive;
   return {
     presentation: input.presentation,
-    online: input.online && connected,
+    online: input.online,
+    connectionPresentation,
     linkReady: input.linkFresh,
     connected,
-    armed: connected ? booleanValue(input.flight.armed) ?? false : null,
-    mode: stringValue(input.flight.mode) ?? '--',
-    flightStage: flightStageLabel(firstNumber(input.flight, 'landedState', 'landed_state')),
-    roll: clamp(quaternionRollDegrees(quaternion), -30, 30),
-    pitch: clamp(quaternionPitchDegrees(quaternion), -30, 30),
-    yaw: normalizeYaw(quaternionYawDegrees(quaternion)),
+    armed: pedestalLive ? booleanValue(input.flight.armed) ?? null : null,
+    mode: pedestalLive ? stringValue(input.flight.mode) ?? '--' : '--',
+    flightStage: input.presentation === 'mocap_rotor'
+      ? (pedestalLive
+        ? flightStageLabel(firstNumber(input.flight, 'landedState', 'landed_state'))
+        : '--')
+      : (controllerLive
+        ? (stringValue(input.controller?.text)?.trim() || '--')
+        : '--'),
+    roll: attitude ? clamp(quaternionRollDegrees(attitude), -30, 30) : null,
+    pitch: attitude ? clamp(quaternionPitchDegrees(attitude), -30, 30) : null,
+    yaw: attitude ? normalizeYaw(quaternionYawDegrees(attitude)) : null,
     speed: twistLinearSpeed2Norm(vrpnLinear),
     altitude: numberValue(vrpnPosition?.z) ?? null,
-    climb: numberValue(linear?.z) ?? null,
+    climb: climbLive ? numberValue(localLinear?.z) ?? null : null,
     positionErrorCm: scaledNonNegative(input.localizationError.meters, 100),
     x: numberValue(position?.x) ?? null,
     y: numberValue(position?.y) ?? null,
     mocapPosition: instrumentVector(mocapPosition),
     mocapVelocity: instrumentVector(mocapLinear),
-    localSetpoint: localSetpointLabel(input.localSetpointState,input.localSetpoint),
+    localSetpoint: robotOwnedLive
+      ? localSetpointLabel(input.localSetpointState,input.localSetpoint)
+      : '--',
     battery: percentage == null ? null : clamp(percentage <= 1 ? percentage * 100 : percentage,0,100),
-    batteryVoltage: firstNumber(input.power, 'voltageV', 'voltage_v') ?? null,
-    batteryCurrent: firstNumber(input.power, 'currentA', 'current_a') ?? null,
-    roundTripTimeMs: rtt == null ? null : Math.max(0,rtt),
+    batteryVoltage: powerLive ? firstNumber(input.power, 'voltageV', 'voltage_v') ?? null : null,
+    batteryCurrent: powerLive ? firstNumber(input.power, 'currentA', 'current_a') ?? null : null,
+    roundTripTimeMs: robotOwnedLive && rtt != null ? Math.max(0,rtt) : null,
     positioning: positioningStatus === 'ready',
     positioningStatus,
     mocap: input.mocapState === 'missing' ? '--' : input.mocapState,
     healthTone: input.healthTone,
     frequencies: {
-      imu: robotStreamRate(input.streamHealth,'state.imu'),
-      power: robotStreamRate(input.streamHealth,'state.power'),
-      localPosition: robotStreamRate(input.streamHealth,'state.pose'),
+      imu: robotOwnedLive ? robotStreamRate(input.streamHealth,'state.imu') : 0,
+      power: powerLive ? robotStreamRate(input.streamHealth,'state.power') : 0,
+      localPosition: robotOwnedLive ? robotStreamRate(input.streamHealth,'state.pose') : 0,
       mocapPosition: robotStreamRate(input.streamHealth,'state.mocap.pose'),
       mocapVelocity: robotStreamRate(
         input.streamHealth,
         input.presentation === 'mocap_rotor' ? 'state.velocity' : 'state.mocap.velocity',
       ),
-      localSetpoint: robotStreamRate(input.streamHealth,'setpoint.local'),
-      visionPose: robotStreamRate(input.streamHealth,'state.vision.pose'),
+      localSetpoint: robotOwnedLive ? robotStreamRate(input.streamHealth,'setpoint.local') : 0,
+      visionPose: robotOwnedLive ? robotStreamRate(input.streamHealth,'state.vision.pose') : 0,
     },
   };
 }
 
+function channelLive(
+  streamHealth: Record<string,unknown>,
+  channelId: string,
+  fallback: boolean,
+) {
+  return streamHealthChannel(streamHealth, channelId)
+    ? streamChannelReady(streamHealth, channelId)
+    : fallback;
+}
+
+function adapterPositioningStatus(
+  positioningState: string | undefined,
+): FlightRobotInstrumentReadout['positioningStatus'] {
+  if (
+    positioningState === 'POSITIONING_STATE_ACTIVE'
+    || positioningState === 'POSITIONING_STATE_STABLE'
+    || positioningState === 'POSITIONING_STATE_MOVING'
+  ) {
+    return 'ready';
+  }
+  if (
+    positioningState === 'POSITIONING_STATE_FROZEN'
+    || positioningState === 'POSITIONING_STATE_JITTERING'
+    || positioningState === 'POSITIONING_STATE_WARMING_UP'
+  ) {
+    return 'frozen';
+  }
+  return 'unavailable';
+}
+
 function vrpnTwistLinear(input: FlightRobotInstrumentTelemetry) {
-  if (input.presentation === 'mocap_rotor') return objectValue(input.localVelocity.linear);
+  if (input.presentation === 'mocap_rotor') {
+    return channelLive(input.streamHealth,'state.velocity',true)
+      ? objectValue(input.localVelocity.linear)
+      : undefined;
+  }
   return input.mocapState === 'fresh' ? objectValue(input.mocapVelocity.linear) : undefined;
 }
 
 function vrpnHeightPosition(input: FlightRobotInstrumentTelemetry) {
-  if (input.presentation === 'mocap_rotor') return objectValue(input.pose.position);
+  if (input.presentation === 'mocap_rotor') {
+    return input.poseFresh ? objectValue(input.pose.position) : undefined;
+  }
   return input.mocapState === 'fresh' ? objectValue(input.mocapPose.position) : undefined;
 }
 

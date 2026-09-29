@@ -12,13 +12,13 @@ import {
 import { RobotControlPanelOptionsEditor } from './robot/RobotControlPanelOptionsEditor';
 import { RobotInstrumentsGrid } from './robot/RobotInstrumentsGrid';
 import { experimentRobotAssetsPanelPlugin } from './robot/experimentRobotAssetsPanelManifest';
+import { experimentEnvironmentPanelPlugin } from './environment/manifest';
 import { rosBasicServicesPanelPlugin } from './ros/manifest';
 import {
   ROBOT_SIMULATION_WORKFLOW_SLOT,
 } from './robot/robotSimulationPanelModel';
 import { px4RotorControlActions } from './robot/px4RotorControlPanelModel';
 import { PREFLIGHT_ARM_TEST_WORKFLOW_SLOT } from './robot/preflightStatusPanelModel';
-import { LICHTBLICK_WORKFLOW_SLOT } from './visualization/lichtblickWorkflowModel';
 import { EXPERIMENT_PROCESS_RUNTIME_DATASOURCE } from '../domains/experiment/experimentPublic';
 import { robotSelectionWorkflowParameters } from '../domains/robot/robotPublic';
 import { gazeboScenePanelPlugin } from './gazebo/manifest';
@@ -31,11 +31,11 @@ import {
 } from './camera/manifest';
 import { automationWorkflowAuditPanelPlugin,automationWorkflowControlPanelPlugin } from './automation/manifest';
 import { workflowLogsPanelPlugin } from './automation/workflowLogsManifest';
-import { recordingControlPanelPlugin,rosbagPlotPanelPlugin } from './runtime/manifest';
+import { rosbagPlotPanelPlugin,scientificGalleryPanelPlugin } from './runtime/manifest';
 import { LichtblickPlugin } from './builtinPanelComponents';
 import { LichtblickPanelFrameProvider,LichtblickPanelHeaderActions,LichtblickPanelHeaderLeading } from './visualization/LichtblickPanelFrame';
 import { LichtblickPanelOptionsEditor } from './visualization/LichtblickPanelOptionsEditor';
-import { LICHTBLICK_LAYOUT_DEFAULTS,validateLichtblickLayoutOptions } from './visualization/lichtblickLayoutOptions';
+import { LICHTBLICK_PRESENTATION_OPTION_KEYS,LICHTBLICK_LAYOUT_DEFAULTS,validateLichtblickLayoutOptions } from './visualization/lichtblickLayoutOptions';
 import { WebProxyPanelOptionsEditor } from './visualization/WebProxyPanelOptionsEditor';
 import { WebProxyWorkspace } from './visualization/WebProxyWorkspace';
 import { definePanelPlugin,type AnyPanelPluginDefinition } from './types';
@@ -56,9 +56,10 @@ export const corePanelPlugins: AnyPanelPluginDefinition[] = [
   gazeboWorldCameraPanelPlugin,
   cameraIntrinsicCalibrationPanelPlugin,
   cameraIntrinsicValidationPanelPlugin,
-  recordingControlPanelPlugin,
   rosbagPlotPanelPlugin,
+  scientificGalleryPanelPlugin,
   experimentRobotAssetsPanelPlugin,
+  experimentEnvironmentPanelPlugin,
   definePanelPlugin({
     id: GROUND_STATION_ACTIVITY_PANEL_ID,
     name: 'Ground station activity',
@@ -99,12 +100,13 @@ export const corePanelPlugins: AnyPanelPluginDefinition[] = [
     frameProvider: GroundStationConversationFrameProvider,
     headerLeading: GroundStationConversationHeaderLeading,
     headerActions: GroundStationConversationHeaderActions,
+    fillBody: true,
   }),
   definePanelPlugin({
     id: 'robot-instruments-grid',
     name: 'Robot instruments grid',
     localizedName: { 'en-US':'Robot instruments grid','zh-CN':'机器人仪表网格' },
-    category: 'Fleet',
+    category: 'Swarm',
     description: 'Live semantic state plus versioned robot selection that automation nodes can query.',
     localizedDescription: {
       'en-US':'Live semantic state plus versioned robot selection that automation nodes can query.',
@@ -189,6 +191,7 @@ export const corePanelPlugins: AnyPanelPluginDefinition[] = [
     frameProvider: RobotControlFrameProvider,
     headerLeading: RobotControlHeaderLeading,
     headerActions: RobotControlHeaderActions,
+    fillBody: true,
     dataPorts: [
       { id:'robots',label:'Experiment robots',contract:'experiment.robots.v1',required:true },
       { id:'robot-runtime',label:'Robot runtime',contract:workflowRuntimeDatasources.runRobots },
@@ -258,10 +261,14 @@ export const corePanelPlugins: AnyPanelPluginDefinition[] = [
       { id:'visualization',label:'Lichtblick runtime',contract:EXPERIMENT_PROCESS_RUNTIME_DATASOURCE,required:true },
       { id:'telemetry',label:'ROS telemetry',contract:'ros1.telemetry.v1' },
     ],
-    actionPorts: [{ id:LICHTBLICK_WORKFLOW_SLOT,label:'Lichtblick service',required:true,actionKinds:['service'] }],
+    actionPorts: [
+      { id:'lichtblick',label:'Lichtblick service',required:true,actionKinds:['service'] },
+      { id:'scene-command',label:'Edit obstacle scene',localizedLabel:{ 'en-US':'Edit obstacle scene','zh-CN':'编辑障碍场景' },actionKinds:['command'] },
+    ],
     optionSchema: {
       ...dashboardOptionSchema,
       layoutMode: { type: 'string' },
+      sceneNamespace: { type: 'string' },
       gridVisible: { type: 'boolean' },
       gridColor: { type: 'string' },
       gridSize: { type: 'number' },
@@ -269,7 +276,26 @@ export const corePanelPlugins: AnyPanelPluginDefinition[] = [
       gridLineWidth: { type: 'number' },
       axesVisible: { type: 'boolean' },
       axesScale: { type: 'number' },
+      scoutModelScale: { type: 'number' },
+      px4ModelScale: { type: 'number' },
+      mecanumModelScale: { type: 'number' },
+      worldBoundaryMode: { type: 'string' },
+      predictionLineWidth: { type: 'number' },
+      predictionAxisScale: { type: 'number' },
       markerColor: { type: 'string' },
+      markerBackgroundVisible: { type: 'boolean' },
+      markerBackgroundColor: { type: 'string' },
+      uavHeightProjection: { type: 'boolean' },
+      labelScaleInvariant: { type: 'boolean' },
+      labelFontSizeMeters: { type: 'number' },
+      labelFontSizePixels: { type: 'number' },
+      markerOpacity: { type: 'number' },
+      uavLabelOffset: { type: 'number' },
+      scoutLabelOffset: { type: 'number' },
+      mecanumLabelOffset: { type: 'number' },
+      uavPalette: { type: 'array' },
+      scoutPalette: { type: 'array' },
+      mecanumPalette: { type: 'array' },
       plotPaths: { type: 'array' },
     },
     authoringPorts: [
@@ -277,6 +303,10 @@ export const corePanelPlugins: AnyPanelPluginDefinition[] = [
     ],
     defaultOptions: { ...LICHTBLICK_LAYOUT_DEFAULTS },
     optionsEditor: LichtblickPanelOptionsEditor,
+    optionsEditorActionDefaults: LICHTBLICK_PRESENTATION_OPTION_KEYS,
+    runtimeBoundActionDefaults: [
+      'commandJson','rosMasterUri','rosIp','rosHostname','runMode','visualizationTopics','transformTopics',
+    ],
     validatePanel: (panel) => validateLichtblickLayoutOptions(panel.options),
     frameProvider: LichtblickPanelFrameProvider,
     headerLeading: LichtblickPanelHeaderLeading,
@@ -324,12 +354,16 @@ export const corePanelPlugins: AnyPanelPluginDefinition[] = [
   }),
 ];
 
-export const availablePanelPlugins = corePanelPlugins;
+export const availablePanelPlugins = corePanelPlugins.filter((plugin) => !plugin.hiddenFromOperatorLibrary);
 
 const panelPluginsById = new Map<string,AnyPanelPluginDefinition>();
-for (const plugin of availablePanelPlugins) {
+for (const plugin of corePanelPlugins) {
   if (panelPluginsById.has(plugin.id)) throw new Error(`Panel plugin already registered: ${plugin.id}`);
   panelPluginsById.set(plugin.id, plugin);
+}
+
+export function isHiddenFromOperatorLibrary(pluginId: string) {
+  return Boolean(getPanelPlugin(pluginId)?.hiddenFromOperatorLibrary);
 }
 
 export function getPanelPlugin(pluginId: string) {

@@ -1,0 +1,30 @@
+.shared-camera-surface {
+  display: grid;
+  gap: var(--space-md);
+  width: 100%;
+  min-width: 0;
+}
+
+.shared-camera-live {
+  min-width: 0;
+  min-height: 0;
+  aspect-ratio: 16 / 9;
+}
+
+.shared-camera-snapshot {
+  display: grid;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.shared-camera-actions {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.shared-camera-snapshot-image {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}

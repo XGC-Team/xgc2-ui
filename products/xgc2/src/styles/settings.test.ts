@@ -49,7 +49,7 @@ describe('settings form geometry', () => {
     const status = ruleDeclarations(settingsCss, '.config-section-disclosure-status');
     const nested = ruleDeclarations(
       settingsCss,
-      ".settings-layout > [data-xgc-layout-family='form-settings'] > [data-xgc-role='config-section-body']:has(> [data-xgc-role='config-section-disclosure']) > .xgc-form-field",
+      ".settings-layout > [data-xgc-layout-family='form-settings'] > [data-xgc-role='config-section-body']:has(> [data-xgc-role='config-section-disclosure']) > .agent-provider-config-field",
     );
     const actions = ruleDeclarations(
       settingsCss,
@@ -76,6 +76,15 @@ describe('settings form geometry', () => {
     expect(actions.get('gap')).toBe('var(--space-md)');
     expect(actionButtons.get('width')).toBe('100%');
     expect(actionButtons.get('min-width')).toBe('0');
+    const deviceActions = ruleDeclarations(
+      settingsCss,
+      ".settings-layout > [data-xgc-layout-family='form-settings'] > [data-xgc-role='config-section-body'] > [data-xgc-role='operator-device-sign-in-actions']",
+    );
+    expect(deviceActions.get('max-width')).toBe('320px');
+    expect(deviceActions.get('width')).toBe('100%');
+    expect(deviceActions.get('justify-self')).toBe('end');
+    expect(deviceActions.get('display')).toBe('grid');
+    expect(deviceActions.get('grid-template-columns')).toBe('minmax(0, 1fr)');
     expect(settingsCss).not.toMatch(/:has\(> \[data-xgc-role='config-section-disclosure'\]\) > \.xgc-form-actions \{/);
     expect(settingsCss).toContain("[aria-expanded='false'] .config-section-disclosure-chevron");
     expect(settingsCss).not.toMatch(/config-section-disclosure:hover/);

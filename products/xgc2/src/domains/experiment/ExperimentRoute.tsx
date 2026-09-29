@@ -1,4 +1,4 @@
-import { useEffect,useLayoutEffect } from 'react';
+import { useEffect,useLayoutEffect,useMemo } from 'react';
 import { useNavigation } from '../../app/navigationContext';
 import { useDeferRouteReady } from '../../shared/routeReady';
 import { ControlButton } from '../../components/controls/ControlButton';
@@ -27,7 +27,7 @@ import { resolveLegacyDevFixtureDeepLink } from './experimentLegacyDeepLink';
 import { useExperimentCatalog } from './useExperimentCatalog';
 import { useExperimentLocation } from './useExperimentLocation';
 import { otherExperimentRunDisabledReason } from './experimentStationOccupancy';
-import { useStationExperimentOccupancy } from './useExperimentListRunningIds';
+import { StationExperimentOccupancyProvider,useStationExperimentOccupancy } from './useExperimentListRunningIds';
 import {
   ExperimentDashboardRoute,
 } from './routes/ExperimentDashboardRoute';
@@ -35,19 +35,39 @@ import { ExperimentListRoute } from './routes/ExperimentListRoute';
 import { ExperimentSurfaceVisibilityProvider } from './experimentSurfaceVisibility';
 
 export function ExperimentRoute() {
-  const nav = useNavigation();
-  const { gcsMode } = nav;
+  const nav = useNavigation((state) => ({ targetCoreId: state.targetCoreId,managedHostId: state.managedHostId }));
   const coreNodes = useCoreNodes();
-  const robotKindComposition = useRobotAssetKindComposition();
   const selectedTargetCore = coreNodes.find((core) => core.id === nav.targetCoreId) ?? coreNodes[0];
   const routedTargetCoreId = selectedTargetCore && !isLocalCore(selectedTargetCore) ? selectedTargetCore.id : undefined;
   const apiTarget = routedTargetCoreId ? { targetCoreId: routedTargetCoreId } : undefined;
   const executionTargetId = selectedExecutionTargetId({ managedHostId: nav.managedHostId,selectedTargetCore });
-  const automation = useAutomationWorkspace(executionTargetId);
-  // Experiment occupancy and the System Runner always belong to this Core.
-  // Panel Workflows may independently target Agents; selecting one must never
-  // move the station-wide safety lock onto that Agent.
   const localAutomation = useAutomationWorkspace('local');
+  const environment={ coreNodes,selectedTargetCore,routedTargetCoreId,apiTarget,executionTargetId };
+  return executionTargetId==='local'
+    ? <ExperimentRouteContent {...environment} automation={localAutomation} localAutomation={localAutomation} />
+    : <RemoteExperimentRoute {...environment} localAutomation={localAutomation} />;
+}
+
+type ExperimentRouteEnvironment = {
+  coreNodes:ReturnType<typeof useCoreNodes>;
+  selectedTargetCore:ReturnType<typeof useCoreNodes>[number]|undefined;
+  routedTargetCoreId:string|undefined;
+  apiTarget:{ targetCoreId:string }|undefined;
+  executionTargetId:string;
+};
+type ExperimentRouteAutomation = ReturnType<typeof useAutomationWorkspace>;
+
+function RemoteExperimentRoute(props:ExperimentRouteEnvironment & { localAutomation:ExperimentRouteAutomation }) {
+  const automation=useAutomationWorkspace(props.executionTargetId);
+  return <ExperimentRouteContent {...props} automation={automation} />;
+}
+
+function ExperimentRouteContent({
+  coreNodes,selectedTargetCore,routedTargetCoreId,apiTarget,executionTargetId,automation,localAutomation,
+}:ExperimentRouteEnvironment & { automation:ExperimentRouteAutomation;localAutomation:ExperimentRouteAutomation }) {
+  const nav=useNavigation((state) => ({ page:state.page,gcsMode:state.gcsMode }));
+  const { gcsMode }=nav;
+  const robotKindComposition=useRobotAssetKindComposition();
   const location = useExperimentLocation(nav.page, executionTargetId);
   const catalog = useExperimentCatalog();
   const robotBindings = useRobotAssetStore(undefined, robotKindComposition);
@@ -66,7 +86,7 @@ export function ExperimentRoute() {
   );
   const bindingIssue = experimentBindingIssue(
     selectedExperiment,
-    robotBindings.assets,
+    robotBindings.loading || robotBindings.error ? undefined : robotBindings.assets,
     robotKindComposition,
   );
   const robotAdmissionDisabledReason = experimentRobotAdmissionDisabledReason(
@@ -126,9 +146,16 @@ export function ExperimentRoute() {
         : { view: 'list' },
     }));
   }, [nav.page,selectedExperiment?.spec.name,view]);
+  const automationPanelRuntime = usePanelAutomationRuntimeProjection(automation);
+  const localPanelRuntime = usePanelAutomationRuntimeProjection(localAutomation);
+  const robotAssetCatalog = useMemo(() => ({
+    assets: robotBindings.assets,
+    loading: robotBindings.loading,
+    error: robotBindings.error,
+  }),[robotBindings.assets,robotBindings.error,robotBindings.loading]);
 
   return (
-    <>
+    <StationExperimentOccupancyProvider value={occupancy}>
       {catalogResolutionPending && catalog.error ? (
         <EmptyState
           as="section"
@@ -191,17 +218,17 @@ export function ExperimentRoute() {
             <ExperimentDashboardRoute
               experiment={{
                 selectedExperiment,
-                automationRuntime: panelAutomationRuntime(automation),
-                localAutomationRuntime:panelAutomationRuntime(localAutomation),
+                automationRuntime: automationPanelRuntime,
+                localAutomationRuntime: localPanelRuntime,
                 saveExperimentDraft: catalog.saveExperimentDraft,
-                robotAssetCatalog: {
-                  assets: robotBindings.assets,
-                  loading: robotBindings.loading,
-                  error: robotBindings.error,
-                },
+                robotAssetCatalog,
                 experimentAdmissionDisabledReason: occupancyReason || robotAdmissionDisabledReason,
                 stationOccupancyResolved: occupancy.resolved,
                 stationOccupancyError: occupancy.error,
+                stationOccupancyActive: Boolean(
+                  selectedExperiment
+                  && occupancy.runningExperimentIds.has(selectedExperiment.head.resourceId),
+                ),
                 stationSessions: occupancy.sessions,
                 refreshStationOccupancy: occupancy.refresh,
                 convergeStoppedExperiment: occupancy.convergeStoppedExperiment,
@@ -220,29 +247,29 @@ export function ExperimentRoute() {
           </ExperimentSurfaceVisibilityProvider>
         </div>
       )}
-    </>
+    </StationExperimentOccupancyProvider>
   );
 }
 
-function panelAutomationRuntime(
+/**
+ * The dashboard reads only these workspace fields. Memoize on them, not on the
+ * whole workspace object, so catalog, activation, MCP or stream-state updates
+ * do not hand every Panel a new runtime.
+ */
+function usePanelAutomationRuntimeProjection(
   automation: AutomationPanelContext['automation'],
 ): AutomationPanelContext['automation'] {
-  return {
-    targetId: automation.targetId,
-    documents: automation.documents,
-    catalog: automation.catalog,
-    runSummaries: automation.runSummaries,
-    runDetailsById: automation.runDetailsById,
-    loading: automation.loading,
-    error: automation.error,
-    runDocument: automation.runDocument,
-    runBoundAutomation: automation.runBoundAutomation,
-    stop: automation.stop,
-    stopRunSet: automation.stopRunSet,
-    loadRunDetail: automation.loadRunDetail,
-    retainRunDetail: automation.retainRunDetail,
-    refreshExecutionHistory: automation.refreshExecutionHistory,
-  };
+  const {
+    targetId,documents,catalog,runSummaries,runDetailsById,loading,error,runDocument,runBoundAutomation,
+    stop,cancel,stopRunSet,loadRunDetail,retainRunDetail,retainRunObservation,refreshExecutionHistory,
+  } = automation;
+  return useMemo(() => ({
+    targetId,documents,catalog,runSummaries,runDetailsById,loading,error,runDocument,runBoundAutomation,
+    stop,cancel,stopRunSet,loadRunDetail,retainRunDetail,retainRunObservation,refreshExecutionHistory,
+  }),[
+    cancel,catalog,documents,error,loadRunDetail,loading,refreshExecutionHistory,retainRunDetail,
+    retainRunObservation,runBoundAutomation,runDetailsById,runDocument,runSummaries,stop,stopRunSet,targetId,
+  ]);
 }
 
 function experimentBindingIssue(
@@ -251,12 +278,19 @@ function experimentBindingIssue(
   composition: RobotAssetKindComposition,
 ) {
   if (!experiment) return undefined;
+  // The route re-derives this on every render (each Run event); resolve each
+  // binding by (resource, branch) instead of scanning the catalog per robot.
+  const assetsByRef = new Map<string,RobotAssetDocument>();
+  robotAssets?.forEach((asset) => {
+    const key = `${asset.head.resourceId}\u0000${asset.branch.name}`;
+    if (!assetsByRef.has(key)) assetsByRef.set(key, asset);
+  });
+  const bindingAsset = (binding: ExperimentDocument['spec']['robots'][number]) => (
+    assetsByRef.get(`${binding.ref.resourceId}\u0000${binding.ref.branch}`)
+  );
   // Generic admission: any robot whose contribution refuses Experiment binding.
   const admissionRefusal = robotAssets && experiment.spec.robots.flatMap((binding) => {
-    const asset = robotAssets.find((candidate) => (
-      candidate.head.resourceId === binding.ref.resourceId
-      && candidate.branch.name === binding.ref.branch
-    ));
+    const asset = bindingAsset(binding);
     if (!asset) return [];
     const reason = robotAssetExperimentDisabledReason(asset, composition);
     return reason ? [{ binding, asset, reason }] : [];
@@ -267,12 +301,7 @@ function experimentBindingIssue(
       message: `Robot binding ${admissionRefusal.binding.id} resolves to asset ${admissionRefusal.asset.spec.name}. ${admissionRefusal.reason}`,
     };
   }
-  const missingRobot = robotAssets && experiment.spec.robots.find((binding) => (
-    !robotAssets.some((asset) => (
-      asset.head.resourceId === binding.ref.resourceId
-      && asset.branch.name === binding.ref.branch
-    ))
-  ));
+  const missingRobot = robotAssets && experiment.spec.robots.find((binding) => !bindingAsset(binding));
   if (missingRobot) {
     return {
       kind: 'unresolved' as const,

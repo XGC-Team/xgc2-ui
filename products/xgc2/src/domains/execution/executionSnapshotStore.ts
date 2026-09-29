@@ -11,7 +11,7 @@ const eventListeners = new Map<string,Set<(event: ExecutionEvent) => void>>();
 
 /**
  * Browser-side audit window for completed Process instances. The largest
- * fleet Stop fits comfortably inside one window, while live/in-flight truth is
+ * swarm Stop fits comfortably inside one window, while live/in-flight truth is
  * never subject to this limit.
  */
 export const EXECUTION_TERMINAL_PROCESS_INSTANCE_LIMIT = 256;

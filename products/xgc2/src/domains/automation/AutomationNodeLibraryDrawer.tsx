@@ -1,3 +1,4 @@
+import { EmptyState } from '@xgc2/ui-react';
 import { ArrowLeft,ChevronRight,Plus,Search,X } from 'lucide-react';
 import { useEffect,useMemo,useState } from 'react';
 import { ConfigDrawer } from '../../components/ConfigDrawer';
@@ -105,7 +106,7 @@ export function AutomationNodeLibraryDrawer({ resourceId,dataXgcRole,dataXgcId,i
 }
 
 function LibraryEmpty({ id,title,body }: { id: string;title: string;body: string }) {
-  return <div className="automation-library-empty" data-xgc-role="automation-node-catalog-empty" data-xgc-id={id}><Search size={22} aria-hidden="true" /><strong>{title}</strong><span>{body}</span></div>;
+  return <EmptyState className="automation-library-empty" appearance="plain" data-xgc-role="automation-node-catalog-empty" data-xgc-id={id} title={title} description={body} />;
 }
 
 function NodeCatalogButton({ entry,onAdd,nodeComposition }: {

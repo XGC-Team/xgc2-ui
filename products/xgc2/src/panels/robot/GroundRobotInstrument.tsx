@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { useRobotText } from '../../domains/robot/robotPublic';
 import {
   GROUND_COMMAND_CHANNEL_ID,
@@ -11,16 +12,22 @@ import {
 } from './groundInstrumentModel';
 import { GROUND_FREQUENCY_ALARM_HZ } from './frequencyAlarm';
 import { InstrumentFrequencyRow } from './InstrumentFrequencyRow';
+import {
+  InstrumentCenterMark,
+  InstrumentCompassDirection,
+  InstrumentCompassTicks,
+  InstrumentMetricRuler,
+  InstrumentPitchMarks,
+  InstrumentRollScale,
+} from './InstrumentHudMarks';
 import { RobotInstrumentStatusGlyph } from './RobotInstrumentStatus';
 import {
   adapterPositioningStatus,
   imuAgeCommunicationStatus,
   listHeaderStatusItems,
 } from './RobotListHeaderStatusModel';
+import { RobotInstrumentIdentity } from './RobotInstrumentIdentity';
 import { unsignedZeroFixed } from './robotTelemetryValues';
-
-const pitchMarks = [-30,-20,-10,0,10,20,30] as const;
-const compassTicks = [15,30,45,60,75,105,120,135,150,165,195,210,225,240,255,285,300,315,330,345];
 
 export function GroundRobotInstrument({
   robotId,
@@ -50,18 +57,19 @@ export function GroundRobotInstrument({
   const left = 75 - deltaHeight - pitchOffset;
   const right = 75 + deltaHeight - pitchOffset;
   const headerItems = listHeaderStatusItems({
+    connection: value.connectionPresentation,
     communication: imuAgeCommunicationStatus(
       { sourceAgeMs: value.imuAgeMs,stale: value.imuStale },
       GROUND_IMU_AGE_SOURCE,
     ),
     battery: {
       percentage: value.battery,
+      estimated: true,
       voltageV: value.batteryVoltage,
       source: 'state.power.voltageV+percentageState+percentage',
       stale: value.powerStale,
     },
     position: adapterPositioningStatus(telemetry.health),
-    idle: telemetry.healthTone === 'idle',
     // Ground HUD header matches UAV: communication / positioning / battery only.
     // Scout chassis mode lives on the status pedestal, not as a fourth glyph.
   }, t);
@@ -71,9 +79,11 @@ export function GroundRobotInstrument({
     ['CMD','CMD',GROUND_COMMAND_CHANNEL_ID,value.frequencies.command] as const,
     ['BAT','BAT',GROUND_POWER_CHANNEL_ID,value.frequencies.power] as const,
   ];
-  const showPedestal = scoutChassis;
+  const pedestalKind = scoutChassis ? 'chassis' : 'controller';
   const pedestalMode = value.hasChassisContract ? value.controlMode : '--';
-  const pedestalTone = scoutChassisModeTone(telemetry.chassis);
+  const pedestalTone = value.hasChassisContract
+    ? scoutChassisModeTone(telemetry.chassis)
+    : 'normal';
   const voltageLabel = value.batteryVoltage == null ? '-- V' : `${value.batteryVoltage.toFixed(1)} V`;
   const currentSuffix = value.batteryCurrent == null ? '' : ` · ${value.batteryCurrent.toFixed(1)} A`;
   return (
@@ -83,9 +93,10 @@ export function GroundRobotInstrument({
       data-xgc-embedded={embedded ? 'true' : undefined}
       data-xgc-id={robotId}
       data-xgc-health={telemetry.healthTone}
-      data-xgc-connection={value.online ? 'online' : 'offline'}
+      data-xgc-connection={value.connectionPresentation}
+      data-xgc-attitude={value.heading == null ? 'unknown' : 'measured'}
       data-xgc-chassis={chassisChrome}
-      data-xgc-pedestal={showPedestal ? 'chassis' : 'none'}
+      data-xgc-pedestal={pedestalKind}
       data-heading={value.heading == null ? undefined : value.heading.toFixed(2)}
       data-roll={value.roll == null ? undefined : value.roll.toFixed(2)}
       data-pitch={value.pitch == null ? undefined : value.pitch.toFixed(2)}
@@ -94,7 +105,12 @@ export function GroundRobotInstrument({
       aria-label={t('{name} ground robot instrument',{ name })}
     >
       <div className="robot-flight-instrument-header">
-        <strong className="robot-ground-identity" title={name}>{name}</strong>
+        <RobotInstrumentIdentity
+          robotId={robotId}
+          name={name}
+          className="robot-ground-identity"
+          title={name}
+        />
         <div
           className="robot-ground-header-status robot-instrument-status-icons"
           data-xgc-role="robot-instrument-status"
@@ -111,6 +127,7 @@ export function GroundRobotInstrument({
               tone={item.tone}
               source={item.source}
               value={item.value}
+              estimated={item.estimated}
               active={item.active}
             />
           ))}
@@ -125,47 +142,16 @@ export function GroundRobotInstrument({
         <div className="robot-flight-sky" style={{ clipPath: `polygon(0% 0%, 100% 0%, 100% ${(right / 150) * 100 + 0.35}%, 0% ${(left / 150) * 100 + 0.35}%)` }} />
         <div className="robot-flight-ground" style={{ clipPath: `polygon(0% ${(left / 150) * 100 - 0.35}%, 100% ${(right / 150) * 100 - 0.35}%, 100% 100%, 0% 100%)` }} />
         <svg className="robot-flight-pitch-ladder" viewBox="0 0 150 150" style={{ transform: `translate(-50%, -50%) translateY(${-pitchOffset}px) rotate(${roll}deg)` }}>
-          {pitchMarks.map((angle) => {
-            const yMark = 75 + angle * 0.8;
-            const zero = angle === 0;
-            return (
-              <g
-                key={angle}
-                className="robot-flight-pitch-mark"
-                data-xgc-role="robot-flight-pitch-mark"
-                data-xgc-id={`${robotId}:${angle}`}
-                data-xgc-region={angle > 0 ? 'sky' : zero ? 'horizon' : 'ground'}
-                transform={`translate(0 ${yMark})`}
-              >
-                {!zero && <text x="62" y="2" textAnchor="end">{Math.abs(angle)}</text>}
-                <line x1={zero ? 55 : 65} x2="85" y1="0" y2="0" />
-                {zero && <line x1="85" x2="95" y1="0" y2="0" />}
-                {!zero && <text x="88" y="2" textAnchor="start">{Math.abs(angle)}</text>}
-                <rect className="robot-flight-pitch-mark-hit" x="50" y="-8" width="50" height="16" />
-              </g>
-            );
-          })}
+          <InstrumentPitchMarks robotId={robotId} />
         </svg>
-        <svg className="robot-flight-center-mark" width="44" height="8" viewBox="0 0 44 8">
-          <line x1="7" y1="4" x2="15" y2="4" />
-          <circle cx="22" cy="4" r="2" />
-          <line x1="29" y1="4" x2="37" y2="4" />
-        </svg>
+        <InstrumentCenterMark />
         <div className="robot-flight-roll-indicator">
-          <svg className="robot-flight-roll-arc" width="100" height="100" viewBox="0 0 100 100">
-            <path d="M 28 11.9 A 44 44 0 0 1 72 11.9" fill="none" stroke="white" strokeWidth="1.2" opacity="0.8" />
-          </svg>
-          {pitchMarks.map((angle) => <span
-            key={angle}
-            className="robot-flight-roll-tick"
-            data-xgc-emphasis={angle % 30 === 0 ? 'major' : 'minor'}
-            style={{ transform: `rotate(${angle}deg)` }}
-          />)}
+          <InstrumentRollScale />
           <span className="robot-flight-roll-arrow" style={{ transform: `rotate(${roll}deg)` }} />
         </div>
       </div>
 
-      <MetricRuler
+      <InstrumentMetricRuler
         robotId={robotId}
         side="left"
         value={fixedValue(value.linearSpeed,1)}
@@ -173,7 +159,7 @@ export function GroundRobotInstrument({
         title={t('VRPN twist linear speed (2-norm)')}
         source="vrpn.velocity.linear"
       />
-      <MetricRuler
+      <InstrumentMetricRuler
         robotId={robotId}
         side="right"
         value={fixedValue(value.z,1)}
@@ -182,16 +168,25 @@ export function GroundRobotInstrument({
         source="vrpn.position.position.z"
       />
 
-      {showPedestal && (
-        <div
-          className="robot-flight-bottom-status"
-          data-xgc-role="robot-ground-chassis-mode"
+      <div
+        className="robot-flight-bottom-status"
+        data-xgc-columns={scoutChassis ? '2' : '1'}
+      >
+        {scoutChassis && (
+          <span
+            data-xgc-role="robot-ground-chassis-mode"
+            data-xgc-id={robotId}
+            data-xgc-tone={pedestalTone}
+            title={t('Chassis control mode')}
+          >{pedestalMode}</span>
+        )}
+        <span
+          data-xgc-role="robot-controller-state"
           data-xgc-id={robotId}
-          data-xgc-columns="1"
-        >
-          <span data-xgc-tone={pedestalTone} title={t('Chassis control mode')}>{pedestalMode}</span>
-        </div>
-      )}
+          data-xgc-tone="normal"
+          title={t('Controller state')}
+        >{value.controllerStatus}</span>
+      </div>
 
       <div className="robot-flight-bottom-panel">
         <div className="robot-flight-frequency-list">
@@ -259,13 +254,8 @@ export function GroundRobotInstrument({
       >
         <div className="robot-flight-compass-bg" />
         <div className="robot-flight-compass-dial" style={{ transform: `rotate(${-yaw}deg)` }}>
-          {(['N','E','S','W'] as const).map((label) => <Direction key={label} label={label} yaw={yaw} />)}
-          {compassTicks.map((angle) => <span
-            key={angle}
-            className="robot-flight-compass-tick"
-            data-xgc-emphasis={angle % 45 === 0 ? 'major' : 'minor'}
-            style={{ transform: `rotate(${angle}deg)` }}
-          />)}
+          {(['N','E','S','W'] as const).map((label) => <InstrumentCompassDirection key={label} label={label} yaw={yaw} />)}
+          <InstrumentCompassTicks />
         </div>
         <span className="robot-flight-heading-triangle" />
         <strong data-xgc-role="robot-ground-heading" data-xgc-id={robotId} data-xgc-tone="normal">
@@ -276,7 +266,7 @@ export function GroundRobotInstrument({
   );
 }
 
-function InstrumentStatus({ robotId,role,label,value,title,voltageV,currentA,tone }: {
+const InstrumentStatus = memo(function InstrumentStatus({ robotId,role,label,value,title,voltageV,currentA,tone }: {
   robotId: string;
   role: string;
   label: string;
@@ -286,6 +276,7 @@ function InstrumentStatus({ robotId,role,label,value,title,voltageV,currentA,ton
   currentA?: number | null;
   tone?: 'danger' | 'success' | 'normal';
 }) {
+  const { sign, body } = splitSignedStatusValue(value);
   return (
     <span
       data-xgc-role={role}
@@ -295,37 +286,12 @@ function InstrumentStatus({ robotId,role,label,value,title,voltageV,currentA,ton
       title={title}
     >
       <small>{label}</small>
-      <strong className="robot-flight-status-value" data-xgc-tone={tone ?? 'normal'}>{value}</strong>
+      <strong className="robot-flight-status-value" data-xgc-tone={tone ?? 'normal'}>
+        {sign ? <span className="robot-flight-status-sign" data-xgc-sign={sign === '-' ? 'minus' : 'plus'}>{sign}</span> : null}{body}
+      </strong>
     </span>
   );
-}
-
-function MetricRuler({ robotId,side,value,unit,title,source }: {
-  robotId: string;
-  side: 'left' | 'right';
-  value: string;
-  unit: string;
-  title?: string;
-  source?: string;
-}) {
-  return (
-    <div
-      className="robot-flight-metric-ruler"
-      data-xgc-role="robot-flight-metric-ruler"
-      data-xgc-id={`${robotId}:${side}`}
-      data-xgc-side={side}
-      data-xgc-source={source}
-      data-xgc-tone="normal"
-      title={title}
-    >
-      <span><strong>{value}</strong><small>{unit}</small></span>
-    </div>
-  );
-}
-
-function Direction({ label,yaw }: { label: 'N' | 'E' | 'S' | 'W';yaw: number }) {
-  return <span className="robot-flight-direction" data-xgc-direction={label.toLowerCase()}><b style={{ transform: `rotate(${yaw}deg)` }}>{label}</b></span>;
-}
+});
 
 function fixedValue(value: number | null,digits: number) {
   return value == null ? '--' : unsignedZeroFixed(value, digits);
@@ -338,4 +304,12 @@ function signedFixed(value: number, digits: number) {
 
 function commandValue(value: number | null, digits: number, unit: string) {
   return value == null ? `-- ${unit}` : `${signedFixed(value, digits)} ${unit}`;
+}
+
+/** Placeholder `--` is not a minus. Leading `+`/`-` before a digit share a 1ch slot. */
+function splitSignedStatusValue(value: string): { sign: '+' | '-' | ''; body: string } {
+  if (value.startsWith('--') || (!value.startsWith('+') && !value.startsWith('-'))) {
+    return { sign: '', body: value };
+  }
+  return { sign: value[0] as '+' | '-', body: value.slice(1) };
 }

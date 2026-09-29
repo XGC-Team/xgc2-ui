@@ -4,10 +4,12 @@ import type { TerminalComposition } from './terminalComposition';
 import { EMPTY_TERMINAL_COMPOSITION } from './terminalComposition';
 import {
   buildTerminalLoginHosts,
+  isTerminalDirectShellHostId,
   terminalLoginIdentity,
 } from './terminalLoginHosts';
 import type { TerminalHost } from './terminalModel';
 import { terminalPersistenceScope } from './terminalPersistenceModel';
+import { retainTerminalTarget,terminalEmbeddedScope,type TerminalEmbeddedTarget } from './terminalEmbeddedScopeModel';
 import { useTerminalText } from './terminalMessages';
 import type { TerminalTab } from './terminalNavigation';
 import { TerminalWorkspace } from './TerminalWorkspace';
@@ -18,6 +20,7 @@ import { useTerminalSettingSnapshot } from './useTerminalSettingSnapshot';
 import { useProductRouteVisible } from '../../shared/routeReady';
 import { TERMINAL_ROBOT_HOST_ID_PREFIX } from './terminalRobotHosts';
 import { peekTerminalRobotLogin,subscribeTerminalRobotLogin,takeTerminalRobotLogin } from './terminalRobotLoginIntent';
+import '../../styles/terminal.css';
 
 export type TerminalPageProps = {
   activeTab: TerminalTab;
@@ -31,13 +34,50 @@ export type TerminalPageProps = {
   managedHostId?: string;
   /** Display label for Agent-local synthetic targets. */
   agentLabel?: string;
+  /** The containing workspace already selects the target; show its shell directly. */
+  embedded?: boolean;
+  /** Stable owning workspace ID, used only to isolate embedded session UI state. */
+  workspaceId?: string;
+  /** Literal working directory for newly created Direct shell sessions. */
+  initialDirectory?: string;
   /** Static product leaf graph. Missing slots hide and do not load that owner UI. */
   composition?: TerminalComposition;
 };
 
 export function TerminalPage(props: TerminalPageProps) {
+  if (props.embedded) {
+    return <EmbeddedTerminalPages key={props.workspaceId ?? ''} {...props} />;
+  }
   const persistenceScope = terminalPersistenceScope(props.targetCoreId, props.managedHostId);
   return <TerminalPageScope key={persistenceScope} {...props} persistenceScope={persistenceScope} />;
+}
+
+// Keep visited host panes mounted while the owning workspace lives. Switching
+// A -> B hides A instead of disconnecting its Agent stream or recreating its PTY.
+// The containing Deploy page must also hide, not unmount, this component on tabs.
+function EmbeddedTerminalPages(props: TerminalPageProps) {
+  const { targetCoreId,managedHostId,agentLabel,workspaceId,initialDirectory } = props;
+  const target = useMemo(() => ({
+    persistenceScope: terminalEmbeddedScope(targetCoreId,managedHostId,workspaceId),
+    targetCoreId,
+    managedHostId,
+    agentLabel,
+    initialDirectory,
+  }),[agentLabel,managedHostId,targetCoreId,workspaceId,initialDirectory]);
+  const [visited,setVisited] = useState<readonly TerminalEmbeddedTarget[]>([target]);
+  useEffect(() => {
+    setVisited((items) => retainTerminalTarget(items,target));
+  },[target]);
+  // Render a newly selected target immediately; committing the visit keeps its key.
+  return retainTerminalTarget(visited,target).map((item) => (
+    <TerminalPageScope
+      key={item.persistenceScope}
+      {...props}
+      {...item}
+      activeTab="terminal"
+      visible={props.visible !== false && item.persistenceScope === target.persistenceScope}
+    />
+  ));
 }
 
 function TerminalPageScope({
@@ -47,7 +87,9 @@ function TerminalPageScope({
   targetCoreId,
   managedHostId,
   agentLabel,
+  embedded = false,
   persistenceScope,
+  initialDirectory,
   composition = EMPTY_TERMINAL_COMPOSITION,
 }: TerminalPageProps & { persistenceScope: string }) {
   const routeVisible = useProductRouteVisible();
@@ -57,9 +99,10 @@ function TerminalPageScope({
   const UserScriptsLeaf = composition.UserScripts;
   const identity = terminalLoginIdentity(managedHostId);
   const isAgentIdentity = identity === 'agent';
+  const directOnly = embedded || isAgentIdentity;
   // Agent: Direct shell only. Hosts catalog management is Core-only.
-  const hostsEnabled = HostsLeaf != null && !isAgentIdentity;
-  const userScriptsEnabled = UserScriptsLeaf != null;
+  const hostsEnabled = !embedded && HostsLeaf != null && !isAgentIdentity;
+  const userScriptsEnabled = !embedded && UserScriptsLeaf != null;
 
   const terminalText = useTerminalText();
   const { prompt: promptText,dialog: passwordDialog } = useTextPromptDialog();
@@ -78,33 +121,34 @@ function TerminalPageScope({
     promptConnectPassword,
     targetCoreId,
     managedHostId,
+    initialDirectory,
   });
   const [customHostsReady,setCustomHostsReady] = useState(false);
-  // Agent identity never loads Core Host catalog into Targets (local Agent data only).
+  // Embedded panes and Agent identity never load Core inventories into Targets.
   const hosts = useTerminalHostCatalog({
     persistenceScope,
     targetCoreId: isAgentIdentity ? undefined : targetCoreId,
-    enabled: !isAgentIdentity,
+    enabled: !directOnly,
     // Session restore waits until identity catalogs are ready (see effect below).
     onLoaded: () => setCustomHostsReady(true),
   });
   // Host catalog errors still count as "ready" so robot-only / Agent login remains usable.
   useEffect(() => {
-    if (isAgentIdentity || hosts.error) setCustomHostsReady(true);
-  },[hosts.error,isAgentIdentity]);
+    if (directOnly || hosts.error) setCustomHostsReady(true);
+  },[directOnly,hosts.error]);
   // Robot SSH shortcuts are Core-local inventory only — never projected for Agent.
   const robotHosts = useTerminalRobotHosts(isAgentIdentity ? undefined : targetCoreId, {
-    enabled: !isAgentIdentity,
+    enabled: !directOnly,
   });
-  // Targets rail is identity-local: Core = Direct + Hosts + robots; Agent = Direct only.
+  // Embedded panes have one explicit target; the full global Core rail is unchanged.
   const loginHosts = useMemo(
     () => buildTerminalLoginHosts({
       identity,
-      customHosts: isAgentIdentity ? [] : hosts.items,
-      robotHosts: isAgentIdentity ? [] : robotHosts.hosts,
+      customHosts: directOnly ? [] : hosts.items,
+      robotHosts: directOnly ? [] : robotHosts.hosts,
       agentLabel,
     }),
-    [agentLabel,hosts.items,identity,isAgentIdentity,robotHosts.hosts],
+    [agentLabel,directOnly,hosts.items,identity,robotHosts.hosts],
   );
   const restoreSessions = terminal.restoreSessions;
   // Wait for Host + Robot catalogs before restoring sessions so Xterm does not
@@ -112,25 +156,33 @@ function TerminalPageScope({
   const [loginCatalogReady,setLoginCatalogReady] = useState(false);
   const didRestoreSessions = useRef(false);
   useEffect(() => {
+    if (embedded && (!routeVisible || !visible)) return;
     if (!customHostsReady || !robotHosts.ready || didRestoreSessions.current) return;
     didRestoreSessions.current = true;
     restoreSessions(loginHosts);
     setLoginCatalogReady(true);
-  },[customHostsReady,loginHosts,restoreSessions,robotHosts.ready]);
+  },[customHostsReady,embedded,loginHosts,restoreSessions,robotHosts.ready,routeVisible,visible]);
   const openHost = terminal.openHost;
   const openHostRef = useRef(openHost);
   openHostRef.current = openHost;
+  const didOpenEmbeddedSession = useRef(false);
   useEffect(() => {
-    if (!routeVisible || !visible || !localShellEnabled || activeTab !== 'terminal'
+    if (!embedded || !routeVisible || !visible || !localShellEnabled || !loginCatalogReady || didOpenEmbeddedSession.current) return;
+    didOpenEmbeddedSession.current = true;
+    const host = loginHosts.find((item) => isTerminalDirectShellHostId(item.id));
+    if (host && terminal.sessions.length === 0) void openHostRef.current(host);
+  }, [embedded,routeVisible,visible,localShellEnabled,loginCatalogReady,loginHosts,terminal.sessions.length]);
+  useEffect(() => {
+    if (embedded || !routeVisible || !visible || !localShellEnabled || activeTab !== 'terminal'
       || !loginCatalogReady || !loginIntent || loginIntent.scope !== persistenceScope) return;
     const host = loginHosts.find((item) => item.id === `${TERMINAL_ROBOT_HOST_ID_PREFIX}${loginIntent.robotAssetId}`);
     if (!host || !takeTerminalRobotLogin(loginIntent)) return;
     void openHostRef.current(host);
-  },[activeTab,localShellEnabled,loginCatalogReady,loginHosts,loginIntent,persistenceScope,routeVisible,visible]);
+  },[activeTab,embedded,localShellEnabled,loginCatalogReady,loginHosts,loginIntent,persistenceScope,routeVisible,visible]);
   const setting = useTerminalSettingSnapshot(targetCoreId, managedHostId);
   const error = terminal.error
     || (hostsEnabled && !isAgentIdentity ? hosts.error : '')
-    || (!isAgentIdentity ? robotHosts.error : '')
+    || (!directOnly ? robotHosts.error : '')
     || setting.error;
 
   const HostsView = hostsEnabled ? HostsLeaf : undefined;
@@ -164,6 +216,7 @@ function TerminalPageScope({
 
       {localShellEnabled ? (
         <TerminalWorkspace
+          embedded={embedded}
           visible={workspaceVisible}
           hosts={loginHosts}
           sessions={loginCatalogReady ? terminal.sessions : []}

@@ -652,39 +652,39 @@ describe('AutomationNodeConfigPanel', () => {
 				robotTopics: { type: 'array',title: 'Robot topics' },
 				globalTopics: { type: 'array',title: 'Global topics' },
 				includeMotionCapture: { type: 'boolean',title: 'Motion capture' },
-				cameraTopicRoots: { type: 'array',title: 'Camera topic roots' },
+				cameras: { type: 'array',title: 'Cameras' },
 			} },
 		};
 		const general = { ...newAutomationNode('ros1.record-bag', {
-			recordingProfile: 'general',slotIds: [],robotTopics: [],globalTopics: [],includeMotionCapture: false,cameraTopicRoots: [],
+			recordingProfile: 'general',slotIds: [],robotTopics: [],globalTopics: [],includeMotionCapture: false,cameras: [],
 			expectedDurationMinutes: 60,estimatedVideoBitrateMbps: 0,capacitySafetyFactor: 1.25,
 			splitSizeMiB: 1024,maxSplits: 10,minFreeSpaceGiB: 2,compression: 'lz4',
 		}, 'Record ROS bag', 1),id: 'general-bag' };
 		const onChange = vi.fn();
 		const generalView = render(<AutomationNodeConfigPanel node={general} catalog={rosCatalog} onChange={onChange} onError={vi.fn()} />);
-		expect(screen.queryByLabelText('Camera topic roots')).not.toBeInTheDocument();
+		expect(screen.queryByLabelText('Cameras')).not.toBeInTheDocument();
 		fireEvent.click(screen.getByRole('button', { name: 'Recording profile' }));
 		fireEvent.click(screen.getByRole('option', { name: 'camera_scientific' }));
 		expect(onChange).toHaveBeenLastCalledWith({ parameters: {
 			...general.parameters,
-			recordingProfile: 'camera_scientific',cameraTopicRoots: ['/xgc/camera/world'],
+			recordingProfile: 'camera_scientific',cameras: [{ root: '/xgc/camera/world',topics: ['video','video_h264','image_raw/compressed','camera_info','frame_timing','stream_info','tf'] }],
 			expectedDurationMinutes: 60,estimatedVideoBitrateMbps: 24,capacitySafetyFactor: 1.25,
-			splitSizeMiB: 2048,maxSplits: 8,minFreeSpaceGiB: 4,compression: 'none',
+			splitSizeMiB: 5120,maxSplits: 8,minFreeSpaceGiB: 4,compression: 'none',
 		} });
 		generalView.unmount();
 
 		const scientific = { ...general,id: 'scientific-bag',parameters: {
-			...general.parameters,recordingProfile: 'camera_scientific',cameraTopicRoots: ['/xgc/camera/world'],
-			estimatedVideoBitrateMbps: 24,splitSizeMiB: 2048,maxSplits: 8,minFreeSpaceGiB: 4,compression: 'none',
+			...general.parameters,recordingProfile: 'camera_scientific',cameras: [{ root: '/xgc/camera/world',topics: ['video','video_h264','image_raw/compressed','camera_info','frame_timing','stream_info','tf'] }],
+			estimatedVideoBitrateMbps: 24,splitSizeMiB: 5120,maxSplits: 8,minFreeSpaceGiB: 4,compression: 'none',
 		} };
 		const scientificOnChange = vi.fn();
 		render(<AutomationNodeConfigPanel node={scientific} catalog={rosCatalog} onChange={scientificOnChange} onError={vi.fn()} />);
-		expect(screen.getByLabelText('Camera topic roots')).toBeInTheDocument();
+		expect(screen.getByLabelText('Cameras')).toBeInTheDocument();
 		fireEvent.click(screen.getByRole('button', { name: 'Recording profile' }));
 		fireEvent.click(screen.getByRole('option', { name: 'general' }));
 		expect(scientificOnChange).toHaveBeenLastCalledWith({ parameters: {
 			...scientific.parameters,
-			recordingProfile: 'general',cameraTopicRoots: [],
+			recordingProfile: 'general',cameras: [],
 			expectedDurationMinutes: 60,estimatedVideoBitrateMbps: 0,capacitySafetyFactor: 1.25,
 			splitSizeMiB: 1024,maxSplits: 10,minFreeSpaceGiB: 2,compression: 'lz4',
 		} });

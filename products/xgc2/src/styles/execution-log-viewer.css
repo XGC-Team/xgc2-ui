@@ -14,7 +14,8 @@
 .execution-log-section h3 {
   margin: 0 0 var(--space-md);
   color: var(--color-text-heading);
-  font-size: var(--font-base);
+  font-size: var(--type-emphasis-size);
+  font-weight: var(--type-emphasis-weight);
 }
 .execution-log-output pre {
   max-height: 300px;
@@ -27,7 +28,7 @@
 .execution-log-section > header > div > span {
   margin: -4px 0 var(--space-md);
   color: var(--color-text-muted);
-  font-size: var(--font-xs);
+  font-size: var(--type-meta-size);
 }
 .execution-log-stream-grid {
   display: grid;
@@ -44,8 +45,9 @@
   display: block;
   margin-bottom: var(--space-sm);
   color: var(--color-text-muted);
-  font-family: var(--font-mono);
-  font-size: var(--font-sm);
+  font-family: var(--type-code-family);
+  font-size: var(--type-code-size);
+  font-weight: var(--weight-medium);
 }
 .execution-log-stream > .execution-log-output,
 .execution-log-stream > .execution-log-output pre {

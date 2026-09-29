@@ -23,7 +23,7 @@ function read(experimentId:string):readonly RemoteMessage[] {
   cache.set(experimentId,messages);
   return messages;
 }
-export function syncGroundStationRemoteMessages(experimentId:string,panelId:string,controllers:readonly {id:string;robots:readonly {name:string}[]}[],conversationId?:string) {
+export function syncGroundStationRemoteMessages(experimentId:string,panelId:string,controllers:readonly {id:string;conversationId?:string;robots:readonly {name:string}[]}[],conversationId?:string) {
   if (!experimentId) return;
   const previous = read(experimentId);
   const now = new Date().toISOString();
@@ -31,7 +31,7 @@ export function syncGroundStationRemoteMessages(experimentId:string,panelId:stri
   const next = previous.map(item => item.panelId === panelId && !item.closedAt && !ids.has(item.id)
     ? {...item,closedAt:now} : item);
   for (const controller of controllers) {
-    if (!next.some(item => item.id === controller.id)) next.push({id:controller.id,panelId,conversationId,names:controller.robots.map(robot => robot.name),createdAt:now});
+    if (!next.some(item => item.id === controller.id)) next.push({id:controller.id,panelId,conversationId:controller.conversationId ?? conversationId,names:controller.robots.map(robot => robot.name),createdAt:now});
   }
   if (JSON.stringify(previous) === JSON.stringify(next)) return;
   cache.set(experimentId,next);
@@ -49,6 +49,13 @@ export function isGroundStationRemoteMessageClosed(experimentId:string,controlle
 
 export function remoteMessagesForConversation(messages:readonly RemoteMessage[],conversationId?:string) {
   return conversationId ? messages.filter(message => message.conversationId === conversationId) : [];
+}
+
+export function remoteControllerChatCopy(names:readonly string[],closed:boolean,locale:string) {
+  const zh = locale === 'zh' || locale === 'zh-CN';
+  const list = zh ? names.join('、') : names.join(', ');
+  if (zh) return closed ? `${list} 的遥控器关闭` : `${list} 的遥控器`;
+  return closed ? `Remote controller for ${list} closed` : `Remote controller for ${list}`;
 }
 
 /** A blank conversation exists locally before the first prompt creates a CLI session. */

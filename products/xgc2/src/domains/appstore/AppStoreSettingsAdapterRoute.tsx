@@ -12,7 +12,7 @@ import { appStoreSettingsCopy } from './appStoreSettingsCopy';
  * hosts never receive AppStore fields or copy.
  */
 export function AppStoreSettingsAdapter({ language }: ProductSettingsContext) {
-  const nav = useNavigation();
+  const nav = useNavigation((state) => ({ managedHostId: state.managedHostId }));
   const { routedTargetCoreId,selectedTargetCore } = useTargetCore('appStore');
   const targetId = selectedExecutionTargetId({ managedHostId: nav.managedHostId,selectedTargetCore });
   const copy = appStoreSettingsCopy[language];

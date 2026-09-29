@@ -22,7 +22,8 @@ export function createPanelInstance(plugin: PanelPluginDefinition, panels: Panel
       portId:port.id,kind:'data' as const,projection:port.contract,
     })),
     ...(plugin.authoringPorts ?? []).filter((port) => (
-      port.target === 'experiment.robots' || port.target === 'experiment.localizationOffset'
+      port.target === 'experiment.robots' || port.target === 'experiment.worldBoundary'
+        || port.target === 'experiment.localizationOffset' || port.target === 'experiment.scene'
     )).map((port) => ({
       portId:port.id,kind:'authoring' as const,target:port.target,
     })),

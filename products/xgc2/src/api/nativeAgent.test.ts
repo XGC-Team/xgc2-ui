@@ -21,9 +21,9 @@ describe('native Agent station transport',() => {
   it('allows only the exact provider settings routes outside an Experiment',async () => {
     const fetchMock = vi.fn(async () => new Response('{}'));
     vi.stubGlobal('fetch',fetchMock);
-    await fetchNativeAgent('/api/agent-runtime/settings');
-    await fetchNativeAgent('/api/agent-runtime/settings/refresh',{method:'POST'});
-    for (const path of ['/api/agent-runtime/sessions','/api/agent-runtime/settings?target=other','/api/agent-runtime/settings/extra']) {
+    await fetchNativeAgent('/api/native-agents/settings');
+    await fetchNativeAgent('/api/native-agents/settings/refresh',{method:'POST'});
+    for (const path of ['/api/native-agents/sessions','/api/native-agents/settings?target=other','/api/native-agents/settings/extra']) {
       expect(() => fetchNativeAgent(path)).toThrow();
     }
     expect(fetchMock).toHaveBeenCalledTimes(2);

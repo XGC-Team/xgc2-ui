@@ -1,3 +1,5 @@
+import { cloneExperimentDeployment, newExecutionHostRef, validateExperimentDeploymentBindings, type ExperimentDeployment, type ExecutionHostRef } from './experimentDeployment';
+import { cloneExperimentWorldBoundary,validateExperimentWorldBoundary,type ExperimentWorldBoundary } from './experimentWorldBoundary';
 import { normalizeExperimentPanel } from './experimentPanelModel';
 import type { ConfigRef as ConfigurationRef,ConfigResourceBranch,ConfigResourceHead } from '../../shared/configResource';
 import type { GridPos } from '../../types/common';
@@ -10,6 +12,8 @@ import {
   validateExperimentRobotBindings,
 } from './experimentRobotBindings';
 import type { RobotAssetKindComposition } from '../robot/robotAssetPublic';
+
+export type { DeploymentPlacement, ExperimentDeployment, ExecutionHostRef } from './experimentDeployment';
 
 export const EXPERIMENT_DOMAIN = 'experiment';
 export const EXPERIMENT_SCHEMA_VERSION = GENERATED_EXPERIMENT_SCHEMA_VERSION;
@@ -64,7 +68,12 @@ export const DEFAULT_EXPERIMENT_LOCALIZATION_OFFSET: ExperimentLocalizationOffse
   x:0,y:0,z:0,
 });
 
+/** Built-in radio-link profiles (Core's GET /link-profiles catalog). */
+export const EXPERIMENT_LINK_PROFILES = ['ideal','lab-wifi','weak','severe','intermittent'] as const;
+
 export type ExperimentRobotBinding = {
+  /** This Experiment owns software placement; the Robot asset never does. */
+  executionHost?: ExecutionHostRef;
   /** Stable logical role used by workflows and runtime UI. */
   id: string;
   /** Physical Robot asset; replacing it does not change the logical role. */
@@ -74,11 +83,17 @@ export type ExperimentRobotBinding = {
   hybridSource: ExperimentHybridSource;
   runtimeParameters: Record<string,string>;
   initialPose: RobotPose;
+  /** Experiment-owned simulated sensors common to supported Robot kinds. */
+  simulationSensors?: { simpleLidar: boolean };
   /**
-   * Empty kind marker for PX4 slots. Transport identity (ports / MAV system ID)
-   * lives exclusively on the Robot asset; this object must remain empty.
+   * Radio-link condition the network station imposes on this slot (D-116 M2).
+   * Absent is Ideal. Only the radio network is degraded, never physics.
    */
-  px4?: Record<string, never>;
+  linkProfile?: string;
+  /**
+   * Experiment-owned PX4 camera switch. Transport identity lives on the Robot asset.
+   */
+  px4?: { imageSimulationEnabled?: boolean };
   scout?: {
     lidarSimulationEnabled: boolean;
     imageSimulationEnabled: boolean;
@@ -92,10 +107,15 @@ export type ExperimentRobotBinding = {
   [contributedKindSettings: string]: unknown;
 };
 
+export const PANEL_ACTION_EXECUTION_MODES = ['session','standalone'] as const;
+export type PanelActionExecutionMode = typeof PANEL_ACTION_EXECUTION_MODES[number];
+
 export type PanelActionPortBinding = {
   portId: string;
   kind: 'action';
   presetId: string;
+  /** Omission preserves the existing Experiment Session route. */
+  executionMode?: PanelActionExecutionMode;
 };
 
 export const PANEL_WORKFLOW_RELATIONS = [
@@ -131,6 +151,8 @@ export type PanelDataPortBinding = {
 export const PANEL_AUTHORING_TARGETS = [
   'experiment.robots',
   'experiment.localizationOffset',
+  'experiment.worldBoundary',
+  'experiment.scene',
   'action-preset',
 ] as const;
 export type PanelAuthoringTarget = (typeof PANEL_AUTHORING_TARGETS)[number];
@@ -197,10 +219,20 @@ export type ExperimentDashboard = {
   panels: ExperimentPanel[];
 };
 
+export type ExperimentScene = {
+  asset: string;
+  simulator: string;
+  parameters?: Record<string,unknown>;
+};
+
 /** Product defaults apply only when an author supplies no labels. */
 export const DEFAULT_EXPERIMENT_RUN_MODES = ['simulation','physical'] as const satisfies readonly ExperimentRunMode[];
 
 export type ExperimentSpec = {
+  /** Missing legacy provenance stays missing until explicit migration. */
+  deployment?: ExperimentDeployment;
+  scene?: ExperimentScene;
+  worldBoundary:ExperimentWorldBoundary | null;
   schemaVersion: number;
   name: string;
   description: string;
@@ -240,18 +272,24 @@ export const SYSTEM_PANEL_WORKFLOW_RESOURCE_ID = '9fe44326-8277-5e8e-97aa-bd9005
 export const PANEL_WORKFLOW_PORT_ID = 'panel-workflow';
 
 export function newExperimentSpec({
+  deployment,
+  scene,
   name,
   description = '',
   tags = [],
   runModes = [...DEFAULT_EXPERIMENT_RUN_MODES],
+  worldBoundary = null,
   localizationOffset = DEFAULT_EXPERIMENT_LOCALIZATION_OFFSET,
   robots = [],
   workflowInstances,
 }: {
+  deployment?: ExperimentDeployment;
+  scene?: ExperimentScene;
   name: string;
   description?: string;
   tags?: string[];
   runModes?: ExperimentRunMode[];
+  worldBoundary?:ExperimentWorldBoundary | null;
   localizationOffset?: ExperimentLocalizationOffset;
   robots?: ExperimentRobotBinding[];
   workflowInstances?: ExperimentWorkflowInstance[];
@@ -262,13 +300,20 @@ export function newExperimentSpec({
   ));
   const authoredWorkflowIds = new Set((workflowInstances ?? []).map((instance) => instance.id));
   return {
+    ...(deployment === undefined ? {} : { deployment: cloneExperimentDeployment(deployment) }),
+    ...(scene === undefined ? {} : { scene: cloneExperimentScene(scene) }),
     schemaVersion: EXPERIMENT_SCHEMA_VERSION,
     name: name.trim(),
     description: description.trim(),
     tags: normalizedStrings(tags),
     runModes: normalizeExperimentRunModes(runModes),
+    worldBoundary: cloneExperimentWorldBoundary(worldBoundary),
     localizationOffset: normalizeExperimentLocalizationOffset(localizationOffset),
-    robots: normalizeExperimentRobotBindings(robots, robotKindComposition),
+    robots: normalizeExperimentRobotBindings(robots, robotKindComposition).map((binding) => (
+      deployment === undefined || binding.executionHost !== undefined ? binding : {
+        ...binding, executionHost: newExecutionHostRef(deployment.placement, binding.id),
+      }
+    )),
     workflowInstances: normalizeWorkflowInstances(
       [
         ...(workflowInstances ?? []),
@@ -301,16 +346,42 @@ export function normalizeExperimentSpec(
 ): ExperimentSpec {
   const dashboards = normalizeExperimentDashboards(spec.dashboards);
   return {
+    ...(spec.deployment === undefined ? {} : { deployment: cloneExperimentDeployment(spec.deployment) }),
+    ...(spec.scene === undefined ? {} : { scene: cloneExperimentScene(spec.scene) }),
     schemaVersion: EXPERIMENT_SCHEMA_VERSION,
     name: spec.name.trim(),
     description: spec.description.trim(),
     tags: normalizedStrings(spec.tags),
     runModes: normalizeExperimentRunModes(spec.runModes),
+    worldBoundary: cloneExperimentWorldBoundary(spec.worldBoundary),
     localizationOffset: normalizeExperimentLocalizationOffset(spec.localizationOffset),
     robots: normalizeExperimentRobotBindings(spec.robots, robotKindComposition),
     workflowInstances: normalizeWorkflowInstances(spec.workflowInstances),
     dashboards,
   };
+}
+
+function cloneExperimentScene(scene: ExperimentScene): ExperimentScene {
+  return {
+    ...scene,
+    ...(scene.parameters === undefined ? {} : { parameters: structuredClone(scene.parameters) }),
+  };
+}
+
+/** One authored preset cannot acquire two execution owners through different ports. */
+export function panelActionExecutionIssue(bindings: readonly PanelPortBinding[]): string {
+  const primary = bindings.find((binding) => binding.kind === 'workflow')?.presetId;
+  const modes = new Map<string,PanelActionExecutionMode>();
+  for (const binding of bindings) {
+    if (binding.kind !== 'action') continue;
+    const mode = binding.executionMode === undefined ? 'session' : binding.executionMode;
+    if (!(PANEL_ACTION_EXECUTION_MODES as readonly string[]).includes(mode)) return 'Select a valid Action execution mode.';
+    if (mode === 'standalone' && binding.presetId === primary) return 'The primary workflow Action must run with the Experiment.';
+    const previous = modes.get(binding.presetId);
+    if (previous && previous !== mode) return 'Actions sharing a preset must use the same execution mode.';
+    modes.set(binding.presetId,mode);
+  }
+  return '';
 }
 
 export function validateExperimentSpec(
@@ -319,6 +390,8 @@ export function validateExperimentSpec(
 ): string {
   if (spec.schemaVersion !== EXPERIMENT_SCHEMA_VERSION) return `Unsupported experiment schema version ${spec.schemaVersion}.`;
   if (!spec.name.trim()) return 'Experiment name is required.';
+  const deploymentIssue = validateExperimentDeploymentBindings(spec.deployment, spec.robots);
+  if (deploymentIssue) return deploymentIssue;
   const runModes = normalizeExperimentRunModes(spec.runModes);
   if (runModes.length === 0) return 'At least one run mode is required.';
   const seenRunModes = new Set<string>();
@@ -332,6 +405,8 @@ export function validateExperimentSpec(
   if (![spec.localizationOffset.x,spec.localizationOffset.y,spec.localizationOffset.z].every(Number.isFinite)) {
     return 'Localization offset X, Y, and Z must be finite numbers.';
   }
+  const boundaryIssue = validateExperimentWorldBoundary(spec.worldBoundary);
+  if (boundaryIssue) return boundaryIssue;
   const robotIssue = validateExperimentRobotBindings(spec.robots, robotKindComposition);
   if (robotIssue) return robotIssue;
   const workflowIds = new Set<string>();
@@ -413,6 +488,8 @@ export function validateExperimentSpec(
         && panelWorkflow.failurePolicy !== 'keep-experiment') {
         return `Panel "${panel.id}" detached Panel Workflow cannot stop the Experiment.`;
       }
+      const executionIssue = panelActionExecutionIssue(panel.portBindings);
+      if (executionIssue) return executionIssue;
       const portIds = new Set<string>();
       for (const binding of panel.portBindings) {
         if (!binding.portId.trim()) return `Panel "${panel.id}" has a port binding without a port ID.`;
@@ -431,16 +508,33 @@ export function validateExperimentSpec(
   return '';
 }
 
+const RETIRED_VIDEO_DASHBOARD_ID = 'video';
+const ANALYSIS_DASHBOARD_ID = 'algorithm';
+const ANALYSIS_DASHBOARD_NAME = 'Analysis';
+const LEGACY_ANALYSIS_DASHBOARD_NAMES = new Set(['Algorithm', 'Figures']);
+const RETIRED_STANDALONE_VIDEO_PLUGIN_ID = 'experiment-video-production';
+const RETIRED_STANDALONE_VIDEO_PANEL_ID = 'offline-video-production';
+
+function operatorDashboardName(id: string, name: string): string {
+  if (id === ANALYSIS_DASHBOARD_ID && LEGACY_ANALYSIS_DASHBOARD_NAMES.has(name)) return ANALYSIS_DASHBOARD_NAME;
+  return name;
+}
+
 export function normalizeExperimentDashboards(dashboards?: ExperimentDashboard[]): ExperimentDashboard[] {
   const source = dashboards && dashboards.length > 0 ? dashboards : defaultDashboards;
   const seen = new Set<string>();
-  const normalized = source.map((dashboard) => ({
-    id: dashboard.id.trim(),
-    name: dashboard.name.trim() || 'Dashboard',
-    description: dashboard.description?.trim() ?? '',
-    panels: (dashboard.panels ?? []).map(normalizeExperimentPanel),
-  })).filter((dashboard) => {
-    if (!dashboard.id || seen.has(dashboard.id)) return false;
+  const normalized = source.map((dashboard) => {
+    const id = dashboard.id.trim();
+    return {
+      id,
+      name: operatorDashboardName(id, dashboard.name.trim() || 'Dashboard'),
+      description: dashboard.description?.trim() ?? '',
+      panels: (dashboard.panels ?? [])
+        .filter((panel) => panel.pluginId !== RETIRED_STANDALONE_VIDEO_PLUGIN_ID && panel.id !== RETIRED_STANDALONE_VIDEO_PANEL_ID)
+        .map(normalizeExperimentPanel),
+    };
+  }).filter((dashboard) => {
+    if (!dashboard.id || dashboard.id === RETIRED_VIDEO_DASHBOARD_ID || seen.has(dashboard.id)) return false;
     seen.add(dashboard.id);
     return true;
   });
@@ -470,6 +564,8 @@ export const defaultDashboards: ExperimentDashboard[] = [
         { portId: 'robot-runtime',kind: 'data',projection: 'experiment.runtime.v1' },
         { portId: 'robots-editor',kind: 'authoring',target: 'experiment.robots' },
         { portId: 'world-origin-offset-editor',kind: 'authoring',target: 'experiment.localizationOffset' },
+        { portId: 'world-boundary-editor',kind: 'authoring',target: 'experiment.worldBoundary' },
+        { portId: 'scene-editor',kind: 'authoring',target: 'experiment.scene' },
       ],
     }],
   },

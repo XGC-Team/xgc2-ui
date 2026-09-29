@@ -39,8 +39,8 @@ export function listAutomationDocuments(options: {
     .then((documents) => documents.map(normalizeAutomationDocument));
 }
 
-export function getAutomationDocument(resourceId: string, options: AutomationRequestOptions = {}): Promise<AutomationDocument> {
-  return request<AutomationDocument>(`/automations/${segment(resourceId)}${queryString({ branch: 'main' })}`, { signal: options.signal })
+export function getAutomationDocument(resourceId: string, options: AutomationRequestOptions & { branch?:string } = {}): Promise<AutomationDocument> {
+  return request<AutomationDocument>(`/automations/${segment(resourceId)}${queryString({ branch: options.branch ?? 'main' })}`, { signal: options.signal })
     .then(normalizeAutomationDocument);
 }
 

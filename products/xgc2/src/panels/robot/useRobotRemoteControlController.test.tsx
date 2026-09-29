@@ -3,12 +3,92 @@
 import { act,renderHook,waitFor } from '@testing-library/react';
 import { describe,expect,it,vi } from 'vitest';
 import {
+  releasedRemoteIntent,
   stoppedRemoteIntent,
   useRobotRemoteControlController,
   type RemoteControlIntent,
 } from './useRobotRemoteControlController';
 
 describe('useRobotRemoteControlController', () => {
+  it('never submits for a read-only lifetime, including activation, finish, and StrictMode cleanup',async () => {
+    const submit = vi.fn(async () => undefined);
+    const ready = vi.fn();
+    const hook = renderHook(() => useRobotRemoteControlController({
+      identity:'read-only',controllerId:'read-only',robotIds:['scout'],submit,canMotion:false,onFinishReady:ready,
+    }),{ reactStrictMode:true });
+    act(() => hook.result.current.send({ gear:2,longitudinal:1,lateral:0,yaw:0 },true));
+    hook.unmount();
+    await act(async () => {});
+    expect(submit).not.toHaveBeenCalled();
+    expect(ready).not.toHaveBeenCalled();
+  });
+
+  it('automatically releases after in-flight motion and discards queued input on permission removal',async () => {
+    const requests:Array<{ intent:RemoteControlIntent;resolve:()=>void }> = [];
+    const submit = vi.fn((_id:string,_robots:readonly string[],intent:RemoteControlIntent) => new Promise<void>(resolve => {
+      requests.push({ intent,resolve });
+    }));
+    const replacement = vi.fn(async () => undefined);
+    const hook = renderHook(({ allowed,sender }) => useRobotRemoteControlController({
+      identity:'revocation',controllerId:'revocation',robotIds:['scout'],submit:sender,canMotion:allowed,activateOnMount:false,
+    }),{ initialProps:{ allowed:true,sender:submit } });
+    act(() => {
+      hook.result.current.send({ gear:3,longitudinal:1,lateral:0,yaw:0 });
+      hook.result.current.send({ gear:3,longitudinal:1,lateral:1,yaw:0 });
+    });
+    hook.rerender({ allowed:false,sender:replacement });
+    act(() => hook.result.current.send({ gear:1,longitudinal:-1,lateral:0,yaw:0 }));
+    hook.unmount();
+    expect(requests).toHaveLength(1);
+    await act(async () => requests[0]!.resolve());
+    expect(requests.map(request => request.intent)).toEqual([
+      { gear:3,longitudinal:1,lateral:0,yaw:0 },
+      { ...releasedRemoteIntent,gear:3 },
+    ]);
+    await act(async () => requests[1]!.resolve());
+    expect(replacement).not.toHaveBeenCalled();
+  });
+
+  it('waits for StrictMode final release before allowing replacement input on the same controller',async () => {
+    const requests:Array<{ intent:RemoteControlIntent;resolve:()=>void }> = [];
+    const submit = vi.fn((_id:string,_robots:readonly string[],intent:RemoteControlIntent) => new Promise<void>(resolve => {
+      requests.push({ intent,resolve });
+    }));
+    const hook = renderHook(() => useRobotRemoteControlController({
+      identity:'strict-queue',controllerId:'strict-queue',robotIds:['scout'],submit,
+    }),{ reactStrictMode:true });
+    const forward:RemoteControlIntent = { gear:2,longitudinal:1,lateral:0,yaw:0 };
+    act(() => hook.result.current.send(forward));
+    expect(requests.map(request => request.intent)).toEqual([stoppedRemoteIntent]);
+    await act(async () => requests[0]!.resolve());
+    expect(requests.map(request => request.intent)).toEqual([stoppedRemoteIntent,releasedRemoteIntent]);
+    await act(async () => requests[1]!.resolve());
+    expect(requests.map(request => request.intent)).toEqual([stoppedRemoteIntent,releasedRemoteIntent,forward]);
+    await act(async () => requests[2]!.resolve());
+    hook.unmount();
+    await act(async () => requests[3]!.resolve());
+  });
+
+  it('blocks replacement motion when its predecessor release fails instead of reporting a successful handover',async () => {
+    let rejectRelease!:(error:Error)=>void;
+    const submit = vi.fn(async (_id:string,_robots:readonly string[],intent:RemoteControlIntent) => {
+      if (intent.release) await new Promise<void>((_resolve,reject) => { rejectRelease = reject; });
+    });
+    const first = renderHook(() => useRobotRemoteControlController({
+      identity:'failed-handover',controllerId:'failed-handover',robotIds:['scout'],submit,
+    }));
+    await act(async () => {});
+    first.unmount();
+    const second = renderHook(() => useRobotRemoteControlController({
+      identity:'failed-handover',controllerId:'failed-handover',robotIds:['scout'],submit,
+    }));
+    act(() => second.result.current.send({ gear:2,longitudinal:1,lateral:0,yaw:0 }));
+    await act(async () => rejectRelease(new Error('release was not confirmed')));
+    expect(second.result.current.error).toBe('release was not confirmed');
+    expect(submit.mock.calls.map(([, ,intent]) => intent)).toEqual([stoppedRemoteIntent,releasedRemoteIntent]);
+    second.unmount();
+  });
+
   it('arms a zero intent on open, then coalesces later changes to one queued workflow', async () => {
     const completions: Array<() => void> = [];
     const submit = vi.fn(() => new Promise<void>((resolve) => completions.push(resolve)));
@@ -77,7 +157,7 @@ describe('useRobotRemoteControlController', () => {
     expect(submit).toHaveBeenCalledTimes(2);
     await act(async () => { completions.shift()?.(); });
     expect(submit).toHaveBeenCalledTimes(3);
-    expect(submit).toHaveBeenLastCalledWith('closing',['px4-01'],stoppedRemoteIntent);
+    expect(submit).toHaveBeenLastCalledWith('closing',['px4-01'],releasedRemoteIntent);
     let finished = false;
     void closing.then(() => { finished = true; });
     expect(finished).toBe(false);
@@ -128,7 +208,7 @@ describe('useRobotRemoteControlController', () => {
     hook.unmount();
     await act(async () => { rejectMotion(new Error('motion failed'));await closing; });
     expect(submit).toHaveBeenCalledTimes(3);
-    expect(submit).toHaveBeenLastCalledWith('failed',['px4-01'],stoppedRemoteIntent);
+    expect(submit).toHaveBeenLastCalledWith('failed',['px4-01'],releasedRemoteIntent);
   });
 
   it('does not block a different controller while one robot request is pending',async () => {

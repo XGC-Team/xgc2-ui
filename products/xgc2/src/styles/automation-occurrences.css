@@ -2,9 +2,9 @@
   flex: 0 0 auto;
   margin-left: auto;
   color: var(--color-text-muted);
-  font-size: var(--font-xs);
+  font-size: var(--type-caption-size);
   line-height: var(--line-height-tight);
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: var(--type-numeric-variant);
 }
 
 .automation-occurrences-section {
@@ -22,13 +22,14 @@
   justify-content: space-between;
   gap: var(--space-lg);
   color: var(--color-text-muted);
-  font-size: var(--font-sm);
+  font-size: var(--type-meta-size);
 }
 
 .automation-occurrences-section > header strong,
 .automation-occurrences-attempts > header strong {
   color: var(--color-text-heading);
-  font-size: var(--font-sm);
+  font-size: var(--type-emphasis-size);
+  font-weight: var(--type-emphasis-weight);
 }
 
 .automation-occurrences-aggregate-list {
@@ -61,7 +62,8 @@
 
 .automation-occurrences-aggregate-list strong {
   color: var(--color-text-heading);
-  font-size: var(--font-sm);
+  font-size: var(--type-emphasis-size);
+  font-weight: var(--type-emphasis-weight);
 }
 
 .automation-occurrences-aggregate-list code,
@@ -69,7 +71,7 @@
   min-width: 0;
   overflow: hidden;
   color: var(--color-text-muted);
-  font-size: var(--font-xs);
+  font-size: var(--type-meta-size);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -115,8 +117,8 @@
 .automation-occurrences-facts code {
   overflow: hidden;
   color: var(--color-text-muted);
-  font-family: var(--font-mono);
-  font-size: var(--font-xs);
+  font-family: var(--type-code-family);
+  font-size: var(--type-code-size);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -137,7 +139,7 @@
 
 .automation-occurrences-facts dt {
   color: var(--color-text-muted);
-  font-size: var(--font-xs);
+  font-size: var(--type-meta-size);
 }
 
 .automation-occurrences-facts dd {
@@ -145,7 +147,7 @@
   margin: 0;
   overflow-wrap: anywhere;
   color: var(--color-text-heading);
-  font-size: var(--font-sm);
+  font-size: var(--type-meta-size);
 }
 
 .automation-occurrences-attempts {
@@ -164,7 +166,7 @@
 
 .automation-occurrences-attempt small {
   color: var(--color-text-muted);
-  font-size: var(--font-xs);
+  font-size: var(--type-meta-size);
 }
 
 .automation-occurrences-public-data {
@@ -183,16 +185,12 @@
 
 .automation-occurrences-public-data > section > strong {
   color: var(--color-text-heading);
-  font-size: var(--font-sm);
+  font-size: var(--type-meta-size);
+  font-weight: var(--type-emphasis-weight);
 }
 
 .automation-occurrences-empty {
-  display: grid;
-  place-content: center;
-  gap: var(--space-sm);
   min-height: 160px;
-  color: var(--color-text-muted);
-  text-align: center;
 }
 
 .automation-occurrences-technical {

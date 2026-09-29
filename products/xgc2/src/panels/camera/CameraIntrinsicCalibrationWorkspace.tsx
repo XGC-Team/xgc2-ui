@@ -100,7 +100,7 @@ export function CameraIntrinsicCalibrationWorkspace({
             panelId={panel.id}
             workflow={document}
             detail={detail}
-            catalog={runtime?.catalog ?? []}
+            catalog={runtime?.catalog ?? []} loadRunDetail={runtime?.loadRunDetail}
           />
         ) : (
           <EmptyState
@@ -120,6 +120,7 @@ export function CameraIntrinsicCalibrationWorkspace({
             enabled={viewerReady && !ownerStopping}
             livePlaybackMetrics={livePlaybackMetrics}
             liveStage={<CameraVideoPanel panel={videoPanel} context={context}
+              mediaEdgeProcess={{ targetId,instanceId:mountedMediaEdgeIdRef.current }}
               expectedSourceSize={{ width:3840,height:2160 }}
               connectionEnabled={viewerReady && !ownerStopping}
               ownerLifecycle={ownerStopping ? 'stopping' : 'running'}

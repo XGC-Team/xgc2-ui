@@ -6,18 +6,23 @@ import { GroundStationActivityChat } from './GroundStationActivityChat';
 import { decodeGroundStationInteraction } from './groundStationInteractionDecoder';
 import type {
   GroundStationContextInteraction,
+  GroundStationDecisionInteraction,
   GroundStationStatusInteraction,
 } from './groundStationInteractionTypes';
 
 function renderChat(
   presentation: 'overlay' | 'panel',
-  items: { statuses?: GroundStationStatusInteraction[];contexts?: GroundStationContextInteraction[] },
+  items: {
+    statuses?: GroundStationStatusInteraction[];
+    contexts?: GroundStationContextInteraction[];
+    decisions?: GroundStationDecisionInteraction[];
+  },
 ) {
   return render(<GroundStationActivityChat
     enabled
     presentation={presentation}
     targetId="local"
-    decisions={[]}
+    decisions={items.decisions ?? []}
     statuses={items.statuses ?? []}
     contexts={items.contexts ?? []}
     streamState="connected"
@@ -70,6 +75,26 @@ describe('GroundStationActivityChat density', () => {
     // The bubble is the collapsed one: meta row hidden.
     expect(screen.queryByText('mission · status')).toBeNull();
     expect(bubbleEntry?.querySelector('time')).toBeNull();
+  });
+
+  it('records a PX4 confirm as named request, operator Cancel or Confirm, and result', () => {
+    const interaction = decode({
+      id: 'arm-1',kind: 'decision',presentation: 'panel',responseMode: 'decision',severity: 'warning',
+      title: 'Confirm Arm',
+      message: 'Confirm Arm for PX4 robots ["px4-01","px4-02"]?',
+      status: 'resolved',revision: 2,
+      createdAt: '2026-07-15T09:00:00Z',updatedAt: '2026-07-15T09:01:00Z',resolvedAt: '2026-07-15T09:01:00Z',
+      payload: { decision: { approveLabel: 'Confirm',rejectLabel: 'Cancel',requireReason: false } },
+      origin: { type: 'automation',ref: 'px4-control' },
+      response: { action: 'rejected',actor: 'station-main',at: '2026-07-15T09:01:00Z' },
+    });
+    if (interaction.kind !== 'decision') throw new Error('invalid decision fixture');
+    renderChat('panel', { decisions: [interaction] });
+    expect(screen.getByText('Confirm Arm for px4-01, px4-02?')).toBeInTheDocument();
+    expect(screen.getByText('Cancel')).toBeInTheDocument();
+    expect(screen.getByText('Not executed')).toBeInTheDocument();
+    expect(screen.queryByText(/the selected/i)).toBeNull();
+    expect(screen.queryByText(/Arm · Rejected/)).toBeNull();
   });
 });
 

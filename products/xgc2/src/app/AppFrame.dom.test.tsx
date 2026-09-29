@@ -38,7 +38,10 @@ const managedHostMock = vi.hoisted(() => ({
 }));
 
 vi.mock('./navigationContext', () => ({
-  useNavigation: () => navigationMock.state,
+  useNavigation: (select?: (state: never) => unknown) => {
+    const navigationState = navigationMock.state;
+    return select ? select(navigationState as never) : navigationState;
+  },
 }));
 
 vi.mock('./useTargetCore', () => ({
@@ -89,7 +92,7 @@ describe('AppFrame target selector', () => {
     navigationMock.state = navigationState();
   });
 
-  it.each(['home','automations','experiment'])('keeps %s free of the retired screen recorder while preserving notifications', (page) => {
+  it.each(['automations','experiment'])('keeps %s free of the retired screen recorder while preserving notifications', (page) => {
     navigationMock.state = navigationState({ page });
     const { container } = renderWithComposition(<AppFrame><div>content</div></AppFrame>);
 
@@ -236,7 +239,7 @@ describe('AppFrame target selector', () => {
   });
 
   it('jumps to the first compiled page enabled by a selected Agent profile', () => {
-    navigationMock.state = navigationState({ page: 'home' });
+    navigationMock.state = navigationState({ page: 'experiment' });
     managedHostMock.hosts = [managedHostFixture({
       id: 'agent-a',
       displayName: 'Operations Agent',
@@ -269,7 +272,7 @@ describe('AppFrame target selector', () => {
   });
 
   it('returns to local Core when a selected Agent has a valid all-disabled profile', () => {
-    navigationMock.state = navigationState({ page: 'home' });
+    navigationMock.state = navigationState({ page: 'experiment' });
     managedHostMock.hosts = [managedHostFixture({
       id: 'agent-a',
       displayName: 'Closed Agent',
@@ -308,6 +311,8 @@ describe('AppFrame target selector', () => {
     expect(screen.queryByRole('button', { name: 'Robot links' })).not.toBeInTheDocument();
     expect(container.querySelector('[data-xgc-role="primary-nav-item"][data-xgc-id="experiment"]')).toBeInTheDocument();
     expect(container.querySelector('[data-xgc-role="primary-nav-item"][data-xgc-id="robotAssets"]')).toBeInTheDocument();
+    expect(container.querySelector('[data-xgc-role="primary-nav-item"][data-xgc-id="venueAssets"]')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Scene assets' })).toBeInTheDocument();
     expect(container.querySelector('[data-xgc-role="primary-nav-item"][data-xgc-id="connections"]')).toBeNull();
     expect(container.querySelector('[data-xgc-role="primary-nav-item"][data-xgc-id="automations"]')).toBeInTheDocument();
     expect(container.querySelector('[data-xgc-role="primary-nav-item"][data-xgc-id="usernodeAssets"]')).toBeNull();
@@ -456,7 +461,7 @@ describe('AppFrame target selector', () => {
   });
 
   it('never exposes a persisted Agent when AgentLink.ComputeTargets is disabled', () => {
-    navigationMock.state = navigationState({ page: 'home',managedHostId: 'agent-a' });
+    navigationMock.state = navigationState({ page: 'experiment',managedHostId: 'agent-a' });
     managedHostMock.status = 'loading';
     targetCoreMock.coreNodes = [coreNode({})];
 
@@ -580,8 +585,8 @@ describe('AppFrame target selector', () => {
   });
 
   it('enables the fallback decision dialog only on an Experiment dashboard route', () => {
-    navigationMock.state = navigationState({ page: 'home' });
-    const view = renderWithComposition(<AppFrame><div>home</div></AppFrame>);
+    navigationMock.state = navigationState({ page: 'robotAssets' });
+    const view = renderWithComposition(<AppFrame><div>robot assets</div></AppFrame>);
     const host = () => view.container.querySelector('[data-xgc-role="ground-station-interaction-host-test"]');
     expect(host()).toHaveAttribute('data-show-decision-dialog', 'false');
 
@@ -629,7 +634,7 @@ describe('AppFrame target selector', () => {
     const view = renderWithComposition(<AppFrame><div>content</div></AppFrame>);
     fireEvent(window, new CustomEvent('xgc:experiment-breadcrumb', { detail: { view: 'detail',name: 'Flight test' } }));
     expect(view.container.querySelector('[data-xgc-role="page-title-current"]')).toHaveTextContent('Flight test');
-    for (const page of ['robotAssets','automations','home']) {
+    for (const page of ['robotAssets','automations','settings']) {
       navigationMock.state = navigationState({ page });
       view.rerender(<AppFrame><div>content</div></AppFrame>);
       expect(view.container).not.toHaveTextContent('Flight test');
@@ -637,6 +642,22 @@ describe('AppFrame target selector', () => {
     navigationMock.state = navigationState({ page: 'experiment' });
     view.rerender(<AppFrame><div>content</div></AppFrame>);
     expect(view.container.querySelector('[data-xgc-role="page-title-current"]')).toHaveTextContent('Flight test');
+  });
+
+  it('shows the selected scene in the existing topbar trail without leaking into another page', () => {
+    navigationMock.state = navigationState({ page: 'venueAssets' });
+    const view = renderWithComposition(<AppFrame><div>scene detail</div></AppFrame>);
+    fireEvent(window, new CustomEvent('xgc:venue-breadcrumb', { detail: { view: 'detail', name: 'park' } }));
+    expect(view.container.querySelector('[data-xgc-role="page-title-back"]')).toHaveTextContent('Scene assets');
+    expect(view.container.querySelector('[data-xgc-role="page-title-current"]')).toHaveTextContent('park');
+    navigationMock.state = navigationState({ page: 'settings' });
+    view.rerender(<AppFrame><div>settings</div></AppFrame>);
+    expect(view.container.querySelector('[data-xgc-role="page-title-current"]')).not.toHaveTextContent('park');
+    navigationMock.state = navigationState({ page: 'venueAssets' });
+    view.rerender(<AppFrame><div>scene detail</div></AppFrame>);
+    expect(view.container.querySelector('[data-xgc-role="page-title-current"]')).toHaveTextContent('park');
+    fireEvent(window, new CustomEvent('xgc:venue-breadcrumb', { detail: { view: 'list' } }));
+    expect(view.container.querySelector('[data-xgc-role="page-title-current"]')).toBeNull();
   });
 
   it('places the current experiment name after Experiments', () => {
@@ -653,6 +674,7 @@ describe('AppFrame target selector', () => {
     ['experiment','xgc:experiment-list','#/experiments/flight-test','#/experiments'],
     ['automations','xgc:automation-list','#/automations/local/workflows/mission-a',undefined],
     ['robotAssets','xgc:robot-list','#/assets/robots/scout-mini','#/assets/robots'],
+    ['venueAssets','xgc:venue-list','#/venues/workshop',undefined],
   ] as const)('returns %s to its list when the topbar catalog title is clicked', (page,eventName,detailHash,listHash) => {
     window.location.hash = detailHash;
     navigationMock.state = navigationState({ page });
@@ -674,6 +696,7 @@ describe('AppFrame target selector', () => {
     ['automations','xgc:automation-list','#/automations/local/workflows/mission-a',undefined],
     ['experiment','xgc:experiment-list','#/experiments/flight-test','#/experiments'],
     ['robotAssets','xgc:robot-list','#/assets/robots/scout-mini','#/assets/robots'],
+    ['venueAssets','xgc:venue-list','#/venues/workshop',undefined],
   ] as const)('returns an active %s primary route to its list contract', (page,eventName,detailHash,listHash) => {
     window.location.hash = detailHash;
     navigationMock.state = navigationState({ page });
@@ -697,11 +720,12 @@ describe('AppFrame target selector', () => {
     ['automations','xgc:automation-list'],
     ['experiment','xgc:experiment-list'],
     ['robotAssets','xgc:robot-list'],
+    ['venueAssets','xgc:venue-list'],
   ] as const)('enters an inactive %s route without overriding its restored resource', (page,eventName) => {
-    navigationMock.state = navigationState({ page: 'home' });
+    navigationMock.state = navigationState({ page: 'settings' });
     const onList = vi.fn();
     window.addEventListener(eventName,onList);
-    const { container } = renderWithComposition(<AppFrame><div>home</div></AppFrame>);
+    const { container } = renderWithComposition(<AppFrame><div>settings</div></AppFrame>);
 
     const item = container.querySelector<HTMLButtonElement>(
       `[data-xgc-role="primary-nav-item"][data-xgc-id="${page}"]`,
@@ -762,7 +786,6 @@ describe('AppFrame target selector', () => {
 
   it.each([
     ['terminal','Terminal'],
-    ['home','Home'],
     ['system','System'],
     ['settings','Settings'],
     ['operations','Operations'],
@@ -784,6 +807,7 @@ describe('AppFrame target selector', () => {
     ['automations','Automations'],
     ['experiment','Experiments'],
     ['robotAssets','Robot assets'],
+    ['venueAssets','Scene assets'],
   ] as const)('keeps %s list titles as markable back controls instead of current', (page,label) => {
     navigationMock.state = navigationState({ page });
     const { container } = renderWithComposition(<AppFrame><div>{page}</div></AppFrame>);
@@ -854,7 +878,6 @@ function profileWithSurfaces(...surfaces: Array<keyof ReturnType<typeof agentEff
 
 function focusedGcsCapabilities() {
   return [
-    'product.home', 'core.view',
     'product.experiments', 'experiment.read',
     'product.robot-assets', 'robot.read',
     'product.usernode-assets', 'usernode.read',

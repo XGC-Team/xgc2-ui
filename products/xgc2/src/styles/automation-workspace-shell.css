@@ -88,10 +88,14 @@
 .page-topbar-actions .automation-workspace-command-control [data-xgc-spinning="true"],
 [data-xgc-role="automation-definitions-page"] [data-xgc-spinning="true"],
 [data-xgc-role="automation-definition-detail"] [data-xgc-spinning="true"] {
-  animation: automation-spin calc(var(--duration-deliberate) * 3) linear infinite;
+  animation: xgc-workspace-busy-spin calc(var(--duration-deliberate) * 3) linear infinite;
 }
-@keyframes automation-spin {
-  to { transform: rotate(360deg); }
+@media (prefers-reduced-motion: reduce) {
+  .page-topbar-actions .automation-workspace-command-control [data-xgc-spinning="true"],
+  [data-xgc-role="automation-definitions-page"] [data-xgc-spinning="true"],
+  [data-xgc-role="automation-definition-detail"] [data-xgc-spinning="true"] {
+    animation: none;
+  }
 }
 .automation-resource-state {
   position: relative;

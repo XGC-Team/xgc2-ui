@@ -11,8 +11,8 @@
   overflow: hidden;
   padding: 0 var(--space-md);
   color: var(--color-text-muted);
-  font-size: var(--xgc-shell-ui-font-size);
-  font-weight: var(--weight-regular);
+  font-size: var(--type-chrome-size);
+  font-weight: var(--type-chrome-weight);
   line-height: var(--size-control-navigation);
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -62,7 +62,7 @@
   display: grid;
   gap: var(--space-sm);
   color: var(--color-text-softer);
-  font-size: var(--font-sm);
+  font-size: var(--type-meta-size);
 }
 
 .automation-run-policy-admission-mode-options {
@@ -70,7 +70,7 @@
   display: grid;
   gap: var(--space-sm);
   color: var(--color-text-softer);
-  font-size: var(--font-sm);
+  font-size: var(--type-meta-size);
 }
 
 .automation-run-policy-admission-mode-control {

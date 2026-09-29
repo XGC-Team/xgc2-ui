@@ -2,9 +2,8 @@ import { decodeDecisionFacts,type DecisionFacts } from '@xgc2/agent-runtime/clie
 import { request } from '../../api/http';
 import { createGroundStationNativeClient,nativeExperimentPath } from './groundStationAgentService';
 
-export type DecisionRule = {id:string; mode:'manual'|'auto'|'deny'; scope:DecisionFacts; issuedAt:string; expiresAt:string; remainingUses:number};
-export type DecisionPolicy = {id:string; revision:string; actor:{id:string; label?:string}; rules:DecisionRule[]};
-export type DecisionSource = {kind:'native'; sessionId:string; requestId:string} | {kind:'gcs'; interactionId:string};
+import type { DecisionPolicy,DecisionRule,DecisionSource } from './decisionPolicyTypes';
+
 const MAX_GCS_RULE_MS=300_000;
 const MAX_NATIVE_RULE_MS=3_600_000;
 function policyPath(experimentId:string) {

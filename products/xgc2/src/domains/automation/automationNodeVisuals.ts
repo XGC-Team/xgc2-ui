@@ -70,6 +70,7 @@ const NODE_KIND_ICONS: Record<string,LucideIcon> = {
   'robot.ensure-connected': Cable,
   'experiment.session.materialize-clock-policy': ClockCheck,
   'experiment.session.run-clock-guard': ShieldCheck,
+  'experiment.world-boundary.contains-planner': ScanLine,
   'experiment.panel.exists': PanelTopOpen,
   'calibration.commit': Save,
   'calibration.render-file': FileOutput,

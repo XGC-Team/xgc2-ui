@@ -1,0 +1,40 @@
+/* Layout for the developer instrument fixture surface only. Instrument styles
+   come from src/styles/robot.css unchanged; nothing here overrides card,
+   header, glyph, or battery paint. */
+
+.xgc-instrument-fixtures {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--color-bg-app);
+  color: var(--color-text-primary);
+}
+
+.xgc-instrument-fixtures-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-2xs) var(--space-sm);
+  font: var(--font-xs);
+  border-bottom: var(--stroke-thin) solid var(--color-border-muted);
+  background: var(--color-bg-chrome);
+}
+
+.xgc-instrument-fixtures-banner strong {
+  padding: 0 var(--space-2xs);
+  border: var(--stroke-thin) solid var(--color-warning);
+  border-radius: var(--radius-badge, 3px);
+  color: var(--color-warning);
+  letter-spacing: 0.04em;
+}
+
+.xgc-instrument-fixtures-banner code {
+  margin-left: auto;
+  font: var(--font-xs);
+  color: var(--color-text-secondary);
+}
+
+.xgc-instrument-fixtures > .robot-instruments-panel {
+  flex: 1;
+  min-height: 0;
+}

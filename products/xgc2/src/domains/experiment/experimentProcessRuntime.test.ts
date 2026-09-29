@@ -19,6 +19,23 @@ describe('Experiment workflow Process ownership',() => {
     expect(experimentProcessRuntimeProjection(runtime([]))).toBeDefined();
   });
 
+  it('decodes the optional selectedRunMode only as a string',() => {
+    expect(experimentProcessRuntimeProjection(runtime([]))?.selectedRunMode).toBeUndefined();
+    expect(experimentProcessRuntimeProjection({ ...runtime([]),selectedRunMode:'hybrid' })?.selectedRunMode)
+      .toBe('hybrid');
+    expect(experimentProcessRuntimeProjection({ ...runtime([]),selectedRunMode:3 })).toBeUndefined();
+  });
+
+  it('decodes the optional selectedPlacement only as centralized or per-robot',() => {
+    expect(experimentProcessRuntimeProjection(runtime([]))?.selectedPlacement).toBeUndefined();
+    expect(experimentProcessRuntimeProjection({ ...runtime([]),selectedPlacement:'per-robot' })?.selectedPlacement)
+      .toBe('per-robot');
+    expect(experimentProcessRuntimeProjection({ ...runtime([]),selectedPlacement:'centralized' })?.selectedPlacement)
+      .toBe('centralized');
+    expect(experimentProcessRuntimeProjection({ ...runtime([]),selectedPlacement:'simulation' as never }))
+      .toBeUndefined();
+  });
+
   it('includes explicit root and child owners while rejecting unrelated host processes',() => {
     const value = runtime([
       process('root-process','root-run'),

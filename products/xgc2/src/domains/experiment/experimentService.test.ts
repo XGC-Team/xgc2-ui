@@ -1,6 +1,6 @@
 import { beforeEach,describe,expect,it,vi } from 'vitest';
 import { request } from '../../api/http';
-import { getExperiment,getExperimentAtCommit,isExperimentCASConflict,listExperiments } from './experimentService';
+import { getExperiment,getExperimentAtCommit,isExperimentCASConflict,listExperiments,listScenes } from './experimentService';
 
 vi.mock('../../api/http', () => ({ request: vi.fn() }));
 
@@ -22,6 +22,13 @@ describe('experimentService', () => {
     expect(request).toHaveBeenCalledWith('/experiments/experiment%2Fa?commitId=commit%2Fone',{
       signal:controller.signal,
     });
+  });
+
+  it('lists sealed venue assets from Shared/Scenes', async () => {
+    const controller = new AbortController();
+    vi.mocked(request).mockResolvedValueOnce([]);
+    await expect(listScenes(controller.signal)).resolves.toEqual([]);
+    expect(request).toHaveBeenCalledWith('/scenes', { signal: controller.signal });
   });
 
   it('fails the catalog when any Experiment carries a retired field', async () => {
@@ -53,8 +60,9 @@ function document() {
       headVersion: 1,revision: 1,createdAt: timestamp,updatedAt: timestamp,
     },
     spec: {
-      schemaVersion: 15,name: 'Experiment',description: '',tags: [],
+      schemaVersion: 16,name: 'Experiment',description: '',tags: [],
       localizationOffset:{ x:0,y:0,z:0 },
+      worldBoundary:null,
       runModes: ['simulation','physical'],
       robots:[],workflowInstances:[],
       dashboards: [{ id: 'gcs',name: 'GCS',description: '',panels: [] }],

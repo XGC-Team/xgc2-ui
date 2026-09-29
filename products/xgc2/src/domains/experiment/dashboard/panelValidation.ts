@@ -1,5 +1,5 @@
 import type { AnyPanelPluginDefinition,PanelValueSchema } from '../../../panels/types';
-import type { PanelInstance,PanelPortBinding } from '../experimentModel';
+import { panelActionExecutionIssue,type PanelInstance,type PanelPortBinding } from '../experimentModel';
 import { aspectRatioRows,panelSizeConstraints } from './panelLayoutConstraints';
 
 export type PanelValidationResult = {
@@ -105,6 +105,8 @@ function validatePortBindings(
     && panelWorkflow.failurePolicy !== 'keep-experiment') {
     return 'A detached Panel Workflow cannot stop the Experiment.';
   }
+  const executionIssue = panelActionExecutionIssue(bindings);
+  if (executionIssue) return executionIssue;
   const declarations = [
     ...(plugin.actionPorts ?? []).map((port) => ({ ...port,kind:'action' as const })),
     ...(plugin.dataPorts ?? []).map((port) => ({ ...port,kind:'data' as const })),

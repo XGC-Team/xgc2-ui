@@ -1,6 +1,7 @@
 import type { ComponentType,ReactNode } from 'react';
 import type {
   AutomationDocument,
+  AutomationPanelActionSelector,
   AutomationExecutionHistoryEntry,
   AutomationNodeCatalogEntry,
   AutomationRun,
@@ -15,7 +16,7 @@ import type {
 } from '../domains/experiment/experimentPublic';
 import type { AutomationParameterSchema } from '../domains/automation/automationPublic';
 import type { WorkflowActionControl,WorkflowActionKind } from '../shared/generatedWorkflowControlContract';
-import type { ConfigRef } from '../shared/configResource';
+import type { ConfigRef,PinnedConfigRef } from '../shared/configResource';
 import type { LocalizedProductText } from '../shared/productWebComposition';
 
 export type PanelPluginCapability =
@@ -41,7 +42,7 @@ export type PanelDynamicActionPortsDefinition = {
 
 export type PanelDataPortDefinition = { id: string;label: string;localizedLabel?:LocalizedProductText;contract: string;required?: boolean };
 export type PanelAuthoringPortDefinition = {
-  id: string;label: string;localizedLabel?:LocalizedProductText;target: 'experiment.robots' | 'experiment.localizationOffset' | 'action-preset';required?: boolean;
+  id: string;label: string;localizedLabel?:LocalizedProductText;target: 'experiment.robots' | 'experiment.localizationOffset' | 'experiment.worldBoundary' | 'experiment.scene' | 'action-preset';required?: boolean;
 };
 export type PanelInteractionPortDefinition = { id: string;label: string;localizedLabel?:LocalizedProductText;contract: string;required?: boolean };
 
@@ -51,11 +52,31 @@ export type PanelActionInvocation = {
   revision: number;
 };
 
+/**
+ * Shared read-only view of one execution target's retained Run details.
+ * Components read one Run with usePanelExecutionRunDetail, which re-renders
+ * only when that Run's detail changes; commands still use invoke/control.
+ */
+export type PanelExecutionObserver = {
+  runDetail: (runId: string) => AutomationRunDetail | undefined;
+  subscribe: (listener: () => void) => () => void;
+  loadRunDetail: AutomationPanelContext['automation']['loadRunDetail'];
+  retainRunDetail: AutomationPanelContext['automation']['retainRunDetail'];
+  retainRunObservation: AutomationPanelContext['automation']['retainRunObservation'];
+};
+
 export type PanelActionPortRuntime = {
+  execution?: PanelExecutionObserver;
   id: string;
   label: string;
   connected: boolean;
   disabledReason: string;
+  executionMode?: 'standalone';
+  /** Current bound invocation identity, independent of authoring commit/revision. */
+  invocationScope?: {
+    targetId:string;experimentResourceId:string;experimentBranch:string;
+    panelId:string;portId:string;workflowInstanceId:string;presetId:string;
+  };
   action?: { id: string;label: string;kind: WorkflowActionKind;controls: readonly WorkflowActionControl[] };
   inputSchema?: AutomationParameterSchema;
   defaults: Record<string,unknown>;
@@ -131,15 +152,17 @@ export type AutomationPanelContext = {
     runBoundAutomation: (
       automationRef: ConfigRef,
       parameters?: Record<string,unknown>,reason?: string,throughNodeId?: string,actionId?: string,
-      options?: { experimentRef?: ConfigRef },
+      options?: { experimentRef?: ConfigRef;expectedAutomationRef?: PinnedConfigRef;panelAction?:AutomationPanelActionSelector },
     ) => Promise<AutomationRun>;
     stop: (run: AutomationRunControl, reason?: string) => Promise<AutomationRun>;
+    cancel: (run: AutomationRunControl, reason?: string) => Promise<AutomationRun>;
     stopRunSet: (
       anchor: AutomationRunControl,
       options: { includeAnchor: boolean;includeDetached: boolean;reason?: string },
     ) => Promise<AutomationStopRunSetResponse>;
     loadRunDetail: (runId: string,expectedRevision?:number) => Promise<AutomationRunDetail>;
     retainRunDetail: (runId:string) => () => void;
+    retainRunObservation: (runId:string) => () => void;
     refreshExecutionHistory: (automationResourceId: string) => Promise<AutomationExecutionHistoryEntry[]>;
   };
 };
@@ -148,7 +171,7 @@ export type AutomationPanelContext = {
 export type PanelWorkflowRuntimeProjection = Pick<
   AutomationPanelContext['automation'],
   'targetId' | 'documents' | 'catalog' | 'runSummaries' | 'runDetailsById' | 'loading' | 'error'
-> & { experimentResourceId: string };
+> & { experimentResourceId: string;loadRunDetail?:AutomationPanelContext['automation']['loadRunDetail'] };
 
 export type PanelPluginContext<_C extends readonly PanelPluginCapability[] = readonly PanelPluginCapability[]> =
   PanelBaseContext & { ports: PanelPortsContext };
@@ -182,6 +205,7 @@ export type PanelPluginOptionsEditorProps = {
 };
 
 export type PanelPluginActionDefaultsEditorProps = {
+  experimentWorldOffset?: { x: number; y: number; z: number };
   panel: PanelInstance;
   port: PanelActionPortDefinition;
   values: Record<string,unknown>;
@@ -248,7 +272,7 @@ export type PanelPluginDefinition<C extends readonly PanelPluginCapability[] = r
   name: string;
   /** Presentation-only built-in name. The canonical English `name` remains protocol/editor data. */
   localizedName?: LocalizedProductText;
-  category: 'Telemetry' | 'Fleet' | 'Control' | 'Automation' | 'Operations' | 'Log' | 'Custom';
+  category: 'Telemetry' | 'Swarm' | 'Control' | 'Automation' | 'Operations' | 'Log' | 'Custom';
   description: string;
   /** Presentation-only built-in description; never rewrites persisted panel titles. */
   localizedDescription?: LocalizedProductText;
@@ -267,8 +291,8 @@ export type PanelPluginDefinition<C extends readonly PanelPluginCapability[] = r
   fieldConfigSchema?: PanelValueSchema;
   executionTargetPolicy?: 'configurable' | 'dashboard' | 'local';
   configExposure?: PanelConfigExposure;
-  /** Use a page surface when this plugin occupies a dashboard by itself. */
-  standalonePresentation?: 'page';
+  /** Fill the dashboard when alone, using page or framed panel chrome. */
+  standalonePresentation?: 'page' | 'panel';
   layout?: PanelLayoutPolicy;
   /**
    * Declares that this plugin's selection-shaped state stays shared across every
@@ -281,6 +305,12 @@ export type PanelPluginDefinition<C extends readonly PanelPluginCapability[] = r
    */
   sharedStateScope?: 'experiment';
   maxInstancesPerDashboard?: number;
+  /**
+   * When true, operators cannot add this plugin from the Panel library and
+   * existing dashboard tiles of this plugin are not rendered. The definition
+   * stays registered so saved JSON does not fail codec checks.
+   */
+  hiddenFromOperatorLibrary?: boolean;
   /**
    * When true, the shared panel config drawer opens immediately after the panel
    * is added from the library. Configure + delete chrome itself is always owned
@@ -307,6 +337,13 @@ export type PanelPluginDefinition<C extends readonly PanelPluginCapability[] = r
    */
   interactiveWhileEditing?: boolean;
   /**
+   * When true, PanelFrame pins the body to the frame rectangle
+   * (min-height:0 / max-height:100% / overflow:hidden) so fixed-geometry
+   * content panels (control grids, video, chat) fill the tile instead of
+   * growing it. Content that should size the panel leaves this off.
+   */
+  fillBody?: boolean;
+  /**
    * Value-only inputs supplied when the shared Panel Workflow Run control is
    * invoked. The plugin owns this mapping; the dashboard and System Runner
    * remain neutral to robot kinds and other panel-specific state.
@@ -314,6 +351,8 @@ export type PanelPluginDefinition<C extends readonly PanelPluginCapability[] = r
   workflowRunInputOverrides?: (context:PanelWorkflowRunInputContext) => Record<string,unknown>;
   /** Optional panel-specific form body for the shared PanelConfigDrawer. */
   optionsEditor?: ComponentType<PanelPluginOptionsEditorProps>;
+  /** Action inputs authored by optionsEditor, omitted from the generic preset form. */
+  optionsEditorActionDefaults?: readonly string[];
   /** Typed task-level Action inputs; never a raw object/JSON fallback. */
   actionDefaultsEditor?: ComponentType<PanelPluginActionDefaultsEditorProps>;
   /**

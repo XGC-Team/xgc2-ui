@@ -194,7 +194,8 @@ export function useAutomationExecutionEventReconciliation({
       return;
     }
 
-    const knownDetailRun=Boolean(runDetailsByIdRef.current[runId]);
+    const detail=runDetailsByIdRef.current[runId];
+    const knownDetailRun=Boolean(detail?.snapshot || detail?.loading);
     const lifecycleEvent=isWorkflowRuntimeRunLifecycleEvent(event.type);
     const lifecycleApplication=lifecycleEvent ? applyRunLifecycleEvent(event) : 'unresolved';
     if (lifecycleApplication==='applied' && !knownDetailRun) return;

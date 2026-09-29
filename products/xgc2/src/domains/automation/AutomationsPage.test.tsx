@@ -922,7 +922,7 @@ function workspaceFixture(): ReturnType<typeof useAutomationWorkspace> {
     saveMCPConnection: vi.fn(),removeMCPConnection: vi.fn(),discoverMCPCatalog: vi.fn(),
     move,addNamespace,renameNamespace,archiveNamespace,
     start: vi.fn(),runDocument,runBoundAutomation: vi.fn(),stop,stopRunSet: vi.fn(),cancel: vi.fn(),
-    loadRunDetail: vi.fn(),retainRunDetail:vi.fn(() => vi.fn()),close: vi.fn(),
+    loadRunDetail: vi.fn(),retainRunDetail:vi.fn(() => vi.fn()),retainRunObservation:vi.fn(() => vi.fn()),close: vi.fn(),
   };
 }
 

@@ -15,6 +15,7 @@ export type CameraExtrinsicMarker = {
 };
 
 export type CameraExtrinsicPoint = {
+  sampleId?: string;
   marker: string;
   pixel: CameraExtrinsicPixel;
   world?: readonly [number,number,number];
@@ -23,13 +24,16 @@ export type CameraExtrinsicPoint = {
 };
 
 export type CameraExtrinsicProjection = {
+  sampleId?: string;
   marker: string;
   pixel: CameraExtrinsicPixel;
 };
 
 export type CameraExtrinsicResult = {
+  datasetRevision?: number;
   candidateId: string;
   saved: boolean;
+  application?: { status: 'pending' | 'applied' | 'conflict' | 'unavailable' };
   translation: readonly [number,number,number];
   quaternionXyzw: readonly [number,number,number,number];
   meanReprojectionErrorPx: number;
@@ -42,6 +46,10 @@ export type CameraExtrinsicResult = {
 };
 
 export type CameraExtrinsicState = {
+  samplingSessionId: string;
+  datasetRevision: number;
+  samples: readonly CameraExtrinsicSample[];
+  sampleLimits: { imageBytes:number;imagePixels:number;samples:number;pending:number;totalImageBytes:number;pendingSeconds:number };
   mode: 'live' | 'frozen';
   generation: number;
   outputFile?: string;
@@ -50,6 +58,7 @@ export type CameraExtrinsicState = {
   parentFrame: string;
   childFrame: string;
   source: {
+    sourceId: string;
     imageTopic: string;
     intrinsicFile: string;
     intrinsicSource?: string;
@@ -71,7 +80,26 @@ export type CameraExtrinsicState = {
   result?: CameraExtrinsicResult;
 };
 
-export type CameraExtrinsicSolvePoint = Pick<CameraExtrinsicPoint,'marker' | 'pixel'>;
+export type CameraExtrinsicDisplay = {
+  id:string;sourceId:string;sourceEpoch:string;width:number;height:number;
+  clockDomain:'browser-performance';presentedAtMs:number;timeOriginMs?:number;
+  mediaTimeSec?:number;presentedFrames?:number;captureTimeMs?:number;receiveTimeMs?:number;rtpTimestamp?:number;
+};
+
+export type CameraExtrinsicSample = CameraExtrinsicPoint & {
+  sampleId:string;world:readonly [number,number,number];sourceWorld:readonly [number,number,number];
+  display:CameraExtrinsicDisplay;
+  poseObservation:{ observationId:string;frameId:string;sourceStampSec:number;sourceClock:'ros';
+    receivedAtSec:number;receivedClock:'unix';receivedMonotonicSec:number };
+  cameraModelId:string;poseCoordinateId:string;
+  image:{ path:string;mimeType:'image/png'|'image/jpeg';sha256:string;width:number;height:number };
+};
+
+export type CameraExtrinsicDatasetRef = { samplingSessionId:string;expectedRevision:number };
+export type CameraExtrinsicSampleInput = CameraExtrinsicDatasetRef & {
+  requestId:string;marker:string;pixel:CameraExtrinsicPixel;display:CameraExtrinsicDisplay;replacesSampleId?:string;
+};
+export type CameraExtrinsicPendingSample = { sampleId:string;samplingSessionId:string;datasetRevision:number;expiresInSeconds:number };
 
 export async function loadCameraExtrinsicState(targetId: string, processInstanceId: string, signal?: AbortSignal) {
   const payload = await request<unknown>(
@@ -101,10 +129,10 @@ export async function resumeCameraExtrinsicLive(targetId: string, processInstanc
 export async function solveCameraExtrinsic(
   targetId: string,
   processInstanceId: string,
-  generation: number,
-  points: readonly CameraExtrinsicSolvePoint[],
+  dataset: CameraExtrinsicDatasetRef,
+  signal?: AbortSignal,
 ) {
-  const payload = await post(targetId, processInstanceId, 'solve', { generation,points });
+  const payload = await post(targetId, processInstanceId, 'solve', datasetBody(dataset),signal);
   return decodeCameraExtrinsicResult(payload);
 }
 
@@ -112,9 +140,64 @@ export async function saveCameraExtrinsicCandidate(
   targetId: string,
   processInstanceId: string,
   candidateId: string,
+  signal?: AbortSignal,
 ) {
-  const payload = await post(targetId, processInstanceId, 'save', { candidate_id:candidateId });
+  const payload = await post(targetId, processInstanceId, 'save', { candidate_id:candidateId },signal);
   return decodeCameraExtrinsicResult(payload);
+}
+
+export async function beginCameraExtrinsicSample(targetId:string,processInstanceId:string,input:CameraExtrinsicSampleInput,signal?:AbortSignal):Promise<CameraExtrinsicPendingSample> {
+  const display=input.display;
+  const value=record(await post(targetId,processInstanceId,'samples/begin',{
+    ...datasetBody(input),request_id:input.requestId,marker:input.marker,pixel:input.pixel,
+    ...(input.replacesSampleId ? { replaces_sample_id:input.replacesSampleId } : {}),
+    display:{ id:display.id,source_id:display.sourceId,source_epoch:display.sourceEpoch,width:display.width,height:display.height,
+      clock_domain:display.clockDomain,presented_at_ms:display.presentedAtMs,time_origin_ms:display.timeOriginMs,
+      media_time_sec:display.mediaTimeSec,presented_frames:display.presentedFrames,
+      capture_time_ms:display.captureTimeMs,receive_time_ms:display.receiveTimeMs,rtp_timestamp:display.rtpTimestamp },
+  },signal),'pending');
+  if (value.status!=='pending' && value.status!=='completed') invalid('pending.status is invalid');
+  const pending={ sampleId:sampleId(value.sample_id,'pending.sample_id'),
+    samplingSessionId:sampleId(value.sampling_session_id,'pending.sampling_session_id'),
+    datasetRevision:nonNegativeInteger(value.dataset_revision,'pending.dataset_revision'),
+    expiresInSeconds:nonNegativeInteger(value.expires_in_seconds ?? 0,'pending.expires_in_seconds') };
+  if (pending.samplingSessionId!==input.samplingSessionId) invalid('pending session does not match the selected calibration');
+  return pending;
+}
+
+export async function commitCameraExtrinsicSampleImage(targetId:string,processInstanceId:string,id:string,image:Blob,signal?:AbortSignal) {
+  sampleId(id,'sample_id');
+  if (!['image/png','image/jpeg'].includes(image.type) || image.size===0 || image.size>33_554_432) invalid('sample image must be a bounded PNG or JPEG');
+  return decodeCameraExtrinsicState(await request<unknown>(`${processPath(targetId,processInstanceId)}/samples/${id}/image`,{
+    method:'POST',cache:'no-store',headers:{ 'Content-Type':image.type },body:image,signal,
+  }));
+}
+
+export function loadCameraExtrinsicSampleImage(targetId:string,processInstanceId:string,id:string,signal?:AbortSignal) {
+  sampleId(id,'sample_id');
+  return requestBlob(`${processPath(targetId,processInstanceId)}/samples/${id}/image`,{
+    cache:'no-store',headers:{ Accept:'image/png, image/jpeg' },signal,
+  });
+}
+
+export async function cancelCameraExtrinsicSample(targetId:string,processInstanceId:string,samplingSessionId:string,id:string) {
+  await post(targetId,processInstanceId,'samples/cancel',{ sampling_session_id:samplingSessionId,sample_id:id });
+}
+
+export async function removeCameraExtrinsicSample(targetId:string,processInstanceId:string,dataset:CameraExtrinsicDatasetRef,id:string,signal?:AbortSignal) {
+  return decodeCameraExtrinsicState(await post(targetId,processInstanceId,'samples/remove',{ ...datasetBody(dataset),sample_id:id },signal));
+}
+
+export async function updateCameraExtrinsicSamplePixel(targetId:string,processInstanceId:string,dataset:CameraExtrinsicDatasetRef,id:string,pixel:CameraExtrinsicPixel,signal?:AbortSignal) {
+  return decodeCameraExtrinsicState(await post(targetId,processInstanceId,'samples/pixel',{ ...datasetBody(dataset),sample_id:id,pixel },signal));
+}
+
+export async function clearCameraExtrinsicSamples(targetId:string,processInstanceId:string,dataset:CameraExtrinsicDatasetRef,signal?:AbortSignal) {
+  return decodeCameraExtrinsicState(await post(targetId,processInstanceId,'samples/clear',datasetBody(dataset),signal));
+}
+
+function datasetBody(dataset:CameraExtrinsicDatasetRef) {
+  return { sampling_session_id:dataset.samplingSessionId,expected_revision:dataset.expectedRevision };
 }
 
 export function decodeCameraExtrinsicState(value: unknown): CameraExtrinsicState {
@@ -127,7 +210,16 @@ export function decodeCameraExtrinsicState(value: unknown): CameraExtrinsicState
   const result = root.result == null ? undefined : decodeCameraExtrinsicResult(root.result);
   const frozenModel = root.frame && typeof root.frame === 'object' ? (root.frame as Record<string, unknown>).camera_model : undefined;
   const model = frozenModel == null ? source : record(frozenModel, 'frame.camera_model');
+  const limits=record(root.sample_limits,'state.sample_limits');
+  const samples=array(root.samples,'state.samples').map((value,index) => decodeSample(value,`state.samples[${index}]`));
+  if (new Set(samples.map((sample) => sample.sampleId)).size!==samples.length) invalid('state.samples identities must be unique');
   return {
+    samplingSessionId:sampleId(root.sampling_session_id,'state.sampling_session_id'),
+    datasetRevision:nonNegativeInteger(root.dataset_revision,'state.dataset_revision'),
+    samples,
+    sampleLimits:{ imageBytes:positiveInteger(limits.image_bytes,'sample_limits.image_bytes'),imagePixels:positiveInteger(limits.image_pixels,'sample_limits.image_pixels'),
+      samples:positiveInteger(limits.samples,'sample_limits.samples'),pending:positiveInteger(limits.pending,'sample_limits.pending'),
+      totalImageBytes:positiveInteger(limits.total_image_bytes,'sample_limits.total_image_bytes'),pendingSeconds:positiveInteger(limits.pending_seconds,'sample_limits.pending_seconds') },
     mode: mode as CameraExtrinsicState['mode'],
     generation: integer(root.generation, 'state.generation'),
     outputFile: optionalString(root.output_file, 'state.output_file'),
@@ -137,6 +229,7 @@ export function decodeCameraExtrinsicState(value: unknown): CameraExtrinsicState
     parentFrame: string(root.parent_frame, 'state.parent_frame'),
     childFrame: string(root.child_frame, 'state.child_frame'),
     source: {
+      sourceId:string(source.source_id,'state.source.source_id'),
       imageTopic: string(source.image_topic, 'state.source.image_topic'),
       intrinsicFile: string(model.intrinsic_file ?? source.intrinsic_file, 'state.source.intrinsic_file'),
       intrinsicSource: optionalString(model.intrinsic_source, 'state.source.intrinsic_source'),
@@ -159,7 +252,17 @@ export function decodeCameraExtrinsicResult(value: unknown): CameraExtrinsicResu
   const saved = boolean(root.saved, 'result.saved');
   const outputFile = optionalString(root.output_file, 'result.output_file');
   if (saved && !outputFile) invalid('result.output_file is required when result.saved is true');
+  let application: CameraExtrinsicResult['application'];
+  if (root.application != null) {
+    const status = record(root.application, 'result.application').status;
+    if (status !== 'pending' && status !== 'applied' && status !== 'conflict' && status !== 'unavailable') {
+      return invalid('result.application.status is invalid');
+    }
+    application = { status };
+  }
   return {
+    application,
+    datasetRevision:root.dataset_revision==null ? undefined : nonNegativeInteger(root.dataset_revision,'result.dataset_revision'),
     candidateId: string(root.candidate_id, 'result.candidate_id'),
     saved,
     translation: tuple3(root.translation, 'result.translation'),
@@ -174,9 +277,13 @@ export function decodeCameraExtrinsicResult(value: unknown): CameraExtrinsicResu
   };
 }
 
-function post(targetId: string, processInstanceId: string, resource: string, body: unknown) {
-  return request<unknown>(`/visualization/targets/${encodeURIComponent(targetId)}/camera-calibration/${encodeURIComponent(processInstanceId)}/api/v1/${resource}`, {
-    method: 'POST',cache: 'no-store',body: JSON.stringify(body),
+function processPath(targetId:string,processInstanceId:string) {
+  return `/visualization/targets/${encodeURIComponent(targetId)}/camera-calibration/${encodeURIComponent(processInstanceId)}/api/v1`;
+}
+
+function post(targetId: string, processInstanceId: string, resource: string, body: unknown,signal?:AbortSignal) {
+  return request<unknown>(`${processPath(targetId,processInstanceId)}/${resource}`, {
+    method: 'POST',cache: 'no-store',body: JSON.stringify(body),...(signal ? { signal } : {}),
   });
 }
 
@@ -202,18 +309,56 @@ function decodeMarker(value: unknown, index: number): CameraExtrinsicMarker {
 function decodeProjection(value: unknown, index: number): CameraExtrinsicProjection {
   const path = `result.projections[${index}]`;
   const projection = record(value, path);
-  return { marker: string(projection.marker, `${path}.marker`),pixel: tuple2(projection.pixel, `${path}.pixel`) };
+  return { sampleId:projection.sample_id==null ? undefined : sampleId(projection.sample_id,`${path}.sample_id`),
+    marker: string(projection.marker, `${path}.marker`),pixel: tuple2(projection.pixel, `${path}.pixel`) };
 }
 
 function decodePoint(value: unknown, index: number): CameraExtrinsicPoint {
   const path = `result.points[${index}]`;
   const point = record(value, path);
   return {
+    sampleId:point.sample_id==null ? undefined : sampleId(point.sample_id,`${path}.sample_id`),
     marker: string(point.marker, `${path}.marker`),
     pixel: tuple2(point.pixel, `${path}.pixel`),
     world: point.world == null ? undefined : tuple3(point.world, `${path}.world`),
     inlier: point.inlier == null ? undefined : boolean(point.inlier, `${path}.inlier`),
     reprojectionErrorPx: optionalNumber(point.reprojection_error_px, `${path}.reprojection_error_px`),
+  };
+}
+
+function sampleId(value:unknown,path:string) {
+  const id=string(value,path);
+  if (!/^[a-f0-9]{32}$/.test(id)) invalid(`${path} must identify one calibration sample`);
+  return id;
+}
+
+function decodeSample(value:unknown,path:string):CameraExtrinsicSample {
+  const point=record(value,path),display=record(point.display,`${path}.display`),pose=record(point.pose_observation,`${path}.pose_observation`),image=record(point.image,`${path}.image`);
+  const id=sampleId(point.sample_id,`${path}.sample_id`);
+  const imagePath=string(image.path,`${path}.image.path`);
+  if (imagePath!==`api/v1/samples/${id}/image`) invalid(`${path}.image.path must match its sample`);
+  const mime=string(image.mime_type,`${path}.image.mime_type`);
+  if (mime!=='image/png' && mime!=='image/jpeg') invalid(`${path}.image.mime_type is invalid`);
+  if (display.clock_domain!=='browser-performance' || pose.source_clock!=='ros' || pose.received_clock!=='unix') invalid(`${path} has invalid observation clocks`);
+  const width=positiveInteger(image.width,`${path}.image.width`),height=positiveInteger(image.height,`${path}.image.height`);
+  if (width!==display.width || height!==display.height) invalid(`${path} image and display dimensions must match`);
+  const pixel=tuple2(point.pixel,`${path}.pixel`);
+  if (pixel[0]<0 || pixel[1]<0 || pixel[0]>=width || pixel[1]>=height) invalid(`${path}.pixel lies outside its image`);
+  const digest=string(image.sha256,`${path}.image.sha256`);
+  if (!/^[a-f0-9]{64}$/.test(digest)) invalid(`${path}.image.sha256 is invalid`);
+  return {
+    sampleId:id,marker:string(point.marker,`${path}.marker`),pixel,world:tuple3(point.world,`${path}.world`),sourceWorld:tuple3(point.source_world,`${path}.source_world`),
+    inlier:point.inlier==null ? undefined : boolean(point.inlier,`${path}.inlier`),reprojectionErrorPx:optionalNumber(point.reprojection_error_px,`${path}.reprojection_error_px`),
+    cameraModelId:string(point.camera_model_id,`${path}.camera_model_id`),poseCoordinateId:string(point.pose_coordinate_id,`${path}.pose_coordinate_id`),
+    display:{ id:string(display.id,`${path}.display.id`),sourceId:string(display.source_id,`${path}.display.source_id`),sourceEpoch:string(display.source_epoch,`${path}.display.source_epoch`),
+      width,height,clockDomain:'browser-performance',presentedAtMs:number(display.presented_at_ms,`${path}.display.presented_at_ms`),
+      timeOriginMs:optionalNumber(display.time_origin_ms,`${path}.display.time_origin_ms`),mediaTimeSec:optionalNumber(display.media_time_sec,`${path}.display.media_time_sec`),
+      presentedFrames:optionalNumber(display.presented_frames,`${path}.display.presented_frames`),captureTimeMs:optionalNumber(display.capture_time_ms,`${path}.display.capture_time_ms`),
+      receiveTimeMs:optionalNumber(display.receive_time_ms,`${path}.display.receive_time_ms`),rtpTimestamp:optionalNumber(display.rtp_timestamp,`${path}.display.rtp_timestamp`) },
+    poseObservation:{ observationId:string(pose.observation_id,`${path}.pose_observation.observation_id`),frameId:string(pose.frame_id,`${path}.pose_observation.frame_id`),
+      sourceStampSec:number(pose.source_stamp_sec,`${path}.pose_observation.source_stamp_sec`),sourceClock:'ros',receivedAtSec:number(pose.received_at_sec,`${path}.pose_observation.received_at_sec`),
+      receivedClock:'unix',receivedMonotonicSec:number(pose.received_monotonic_sec,`${path}.pose_observation.received_monotonic_sec`) },
+    image:{ path:imagePath,mimeType:mime as 'image/png'|'image/jpeg',sha256:digest,width,height },
   };
 }
 

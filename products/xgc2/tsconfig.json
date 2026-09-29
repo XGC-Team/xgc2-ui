@@ -21,6 +21,6 @@
     "noEmit": true,
     "jsx": "react-jsx"
   },
-  "include": ["src", "profiles", "test-fixtures"],
+  "include": ["src", "profiles", "test-fixtures", "visual-tests/fixtures"],
   "references": []
 }

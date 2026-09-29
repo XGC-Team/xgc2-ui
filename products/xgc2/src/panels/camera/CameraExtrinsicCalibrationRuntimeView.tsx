@@ -1,14 +1,15 @@
 import {
-  Camera,CheckCircle2,Crosshair,FileCode2,LoaderCircle,Pause,
-  RotateCcw,Save,Trash2,Undo2,
+  Camera,CheckCircle2,Crosshair,FileCode2,LoaderCircle,
+  RotateCcw,Save,Trash2,Undo2,ZoomIn,ZoomOut,
 } from 'lucide-react';
-import type { ReactNode,RefObject } from 'react';
+import { useRef,useState,type ReactNode,type RefObject } from 'react';
 import { ControlButton } from '../../components/controls/ControlButton';
 import { SelectControl } from '../../components/controls/SelectControl';
 import type {
-  CameraExtrinsicPixel,CameraExtrinsicPoint,CameraExtrinsicResult,CameraExtrinsicState,
+  CameraExtrinsicPixel,CameraExtrinsicSample,CameraExtrinsicResult,CameraExtrinsicState,
 } from '../../domains/execution/cameraCalibrationProcessPublic';
 import { CameraCalibrationRuntimeLayout } from './CameraCalibrationLayouts';
+import { CalibrationImagePlaceholder } from './CameraCalibrationReadonlyViews';
 import { localizeCameraMessage,useCameraText } from './cameraMessages';
 
 export type CameraExtrinsicCalibrationRuntimeViewProps = {
@@ -16,47 +17,88 @@ export type CameraExtrinsicCalibrationRuntimeViewProps = {
   serverState?: CameraExtrinsicState;
   imageUrl: string;
   liveStage?: ReactNode;
-  frameSize?: readonly [number,number];
-  points: readonly CameraExtrinsicPoint[];
-  projections: CameraExtrinsicResult['projections'];
+  points: readonly CameraExtrinsicSample[];
+  selectedSample?:CameraExtrinsicSample;
+  captureReady:boolean;
+  reviewImageIdentity:string;
+  reviewImageReady:boolean;
+  onReviewImageDecoded:(identity:string,width:number,height:number) => void;
+  onReviewImageError:(identity:string) => void;
   result?: CameraExtrinsicResult;
   availableMarkers: readonly string[];
   selectedMarker: string;
-  busyAction: 'freeze' | 'live' | 'solve' | 'save' | '';
+  busyAction: string;
   solvePreflightReason: string;
   stageRef: RefObject<HTMLDivElement | null>;
-  onImageSize: (size: readonly [number,number]) => void;
   onStageActivate: (clientX: number,clientY: number) => void;
   onSelectMarker: (marker: string) => void;
-  onFreeze: () => void;
+  onResample: () => void;
+  onReviewSample: (sampleId:string) => void;
   onLive: () => void;
+  onRefresh: () => void;
   onSolve: () => void;
   onSave: () => void;
-  onRemovePoint: (index: number) => void;
+  onRemovePoint: (sampleId: string) => void;
   onUndoPoint: () => void;
   onClearPoints: () => void;
 };
 
 export function CameraExtrinsicCalibrationRuntimeView(props: CameraExtrinsicCalibrationRuntimeViewProps) {
   const t = useCameraText();
-  const { processInstanceId,serverState,imageUrl,liveStage,frameSize,points,projections,result,availableMarkers,
-    selectedMarker,busyAction,solvePreflightReason,stageRef,onImageSize,onStageActivate,onSelectMarker,onFreeze,onLive,onSolve,onSave,
-    onRemovePoint,onUndoPoint,onClearPoints } = props;
-  const inputReady = Boolean(serverState?.source.imageReady
-    && serverState.source.intrinsicReady
-    && serverState.source.markerCount > 0);
-  const stageInteractive = serverState?.mode === 'frozen' && Boolean(selectedMarker) && !busyAction;
+  const { processInstanceId,serverState,imageUrl,liveStage,points,result,availableMarkers,selectedSample,captureReady,
+    selectedMarker,busyAction,solvePreflightReason,stageRef,onStageActivate,onSelectMarker,onResample,onReviewSample,onLive,onRefresh,onSolve,onSave,
+    onRemovePoint,onUndoPoint,onClearPoints,reviewImageIdentity,reviewImageReady,onReviewImageDecoded,onReviewImageError } = props;
+  const reviewImageRef=useRef<HTMLImageElement>(null);
+  const decodeAttemptRef=useRef(0);
+  const [magnification,setMagnification] = useState({ imageUrl:'',value:1 });
+  const zoom = selectedSample && magnification.imageUrl===imageUrl ? magnification.value : 1;
+  const changeZoom = (value:number) => setMagnification({ imageUrl,value });
+  const stageInteractive = !busyAction && (selectedSample ? reviewImageReady : captureReady && Boolean(selectedMarker));
+  const frameSize=selectedSample ? [selectedSample.image.width,selectedSample.image.height] : undefined;
+  const overlayPoints=selectedSample ? points.filter((point) => point.sampleId===selectedSample.sampleId) : [];
+  const projections=selectedSample ? result?.projections.filter((point) => point.sampleId===selectedSample.sampleId) ?? [] : [];
+
+  const decodeReviewImage=async (image:HTMLImageElement) => {
+    const attempt=++decodeAttemptRef.current;
+    try {
+      // load plus native dimensions is the fallback for older Image implementations.
+      // decode() additionally waits for the pixels that this exact element will draw.
+      if (typeof image.decode==='function') await image.decode();
+      if (reviewImageRef.current!==image || decodeAttemptRef.current!==attempt) return;
+      if (image.naturalWidth<1 || image.naturalHeight<1) throw new Error('Image has no decoded pixels');
+      onReviewImageDecoded(reviewImageIdentity,image.naturalWidth,image.naturalHeight);
+    } catch {
+      if (reviewImageRef.current===image && decodeAttemptRef.current===attempt) onReviewImageError(reviewImageIdentity);
+    }
+  };
 
   return <CameraCalibrationRuntimeLayout kind="extrinsic" processInstanceId={processInstanceId}
-    dataMode={serverState?.mode ?? 'loading'}
-    stage={<div ref={stageRef}
+    dataMode={selectedSample ? 'frozen' : serverState ? 'live' : 'loading'}
+    stage={<div className="panels-camera-extrinsic-zoom-layout">
+      <div className="panels-camera-extrinsic-zoom-tools">
+        <ControlButton dataXgcRole="camera-calibration-refresh" dataXgcId={processInstanceId}
+          disabled={Boolean(busyAction)} onClick={onRefresh}><RotateCcw size={14} />Refresh</ControlButton>
+        <ControlButton dataXgcRole="camera-extrinsic-zoom-out" dataXgcId={processInstanceId}
+          disabled={zoom===1} title={t('Zoom out')} onClick={() => changeZoom(Math.max(1,zoom/2))}>
+          <ZoomOut size={14} />{t('Zoom out')}
+        </ControlButton>
+        <ControlButton dataXgcRole="camera-extrinsic-zoom-in" dataXgcId={processInstanceId}
+          disabled={!selectedSample || !imageUrl || zoom===8} title={t('Zoom in')} onClick={() => changeZoom(Math.min(8,zoom*2))}>
+          <ZoomIn size={14} />{t('Zoom in')}
+        </ControlButton>
+        <ControlButton dataXgcRole="camera-extrinsic-zoom-fit" dataXgcId={processInstanceId}
+          disabled={zoom===1} onClick={() => changeZoom(1)}>{t('Fit image')}</ControlButton>
+      </div>
+      <div className="panels-camera-extrinsic-zoom-viewport">
+      <div className="panels-camera-extrinsic-zoom-scroll">
+      <div ref={stageRef} style={{ width:`${zoom*100}%`,height:`${zoom*100}%` }}
         className="panels-camera-calibration-stage panels-camera-extrinsic-stage"
         data-xgc-interactive={stageInteractive ? 'true' : undefined}
         data-xgc-role="camera-calibration-image" data-xgc-id={processInstanceId}
         role={stageInteractive ? 'button' : undefined}
         tabIndex={stageInteractive ? 0 : undefined}
         aria-label={stageInteractive
-          ? t('Calibration image: place {marker} at the selected image position', { marker:selectedMarker })
+          ? t('Calibration image: place {marker} at the selected image position', { marker:selectedSample?.marker ?? selectedMarker })
           : t('Calibration camera image')}
         onClick={(event) => onStageActivate(event.clientX,event.clientY)}
         onKeyDown={(event) => {
@@ -65,38 +107,33 @@ export function CameraExtrinsicCalibrationRuntimeView(props: CameraExtrinsicCali
           const bounds = event.currentTarget.getBoundingClientRect();
           onStageActivate(bounds.left + bounds.width / 2,bounds.top + bounds.height / 2);
         }}>
-        {serverState?.mode !== 'frozen' && liveStage ? liveStage
-          : imageUrl ? <img src={imageUrl} alt={t('Gazebo calibration camera')} draggable={false}
-          onLoad={(event) => onImageSize([event.currentTarget.naturalWidth,event.currentTarget.naturalHeight])} />
-          : <div className="panels-camera-calibration-image-placeholder">
-            <Camera size={28} aria-hidden="true" /><span>{t('Waiting for the camera stream')}</span>
-          </div>}
+        <div className="panels-camera-extrinsic-live" hidden={Boolean(selectedSample)}>{liveStage}</div>
+        {selectedSample && imageUrl ? <img key={reviewImageIdentity} ref={reviewImageRef} src={imageUrl} alt={t('Captured calibration image')} draggable={false}
+          onLoad={(event) => void decodeReviewImage(event.currentTarget)}
+          onError={() => { decodeAttemptRef.current++;onReviewImageError(reviewImageIdentity); }} />
+          : (selectedSample || !liveStage) && <CalibrationImagePlaceholder text={t('Waiting for the camera stream')} />}
         {frameSize && <svg className="panels-camera-extrinsic-overlay"
           viewBox={`0 0 ${frameSize[0]} ${frameSize[1]}`} preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-          {projections.map((projection) => <CalibrationPointOverlay key={`projection:${projection.marker}`}
+          {projections.map((projection) => <CalibrationPointOverlay key={`projection:${projection.sampleId}`}
             marker={projection.marker} pixel={projection.pixel} kind="projection" />)}
-          {points.map((point) => <CalibrationPointOverlay key={`point:${point.marker}`}
+          {overlayPoints.map((point) => <CalibrationPointOverlay key={`point:${point.sampleId}`}
             marker={point.marker} pixel={point.pixel} kind="selected" />)}
         </svg>}
-      </div>}
+      </div></div></div></div>}
     frameMetadata={<>
-        <span>{serverState?.frame
-          ? `${serverState.frame.width}×${serverState.frame.height} · ${serverState.frame.frameId}`
+        <span>{selectedSample
+          ? `${selectedSample.image.width}×${selectedSample.image.height} · ${selectedSample.marker}`
           : serverState?.source.imageReady ? t('Gazebo live camera') : t('Camera input pending')}</span>
-        {serverState?.mode === 'frozen'
-          && <span>{t('{count} static markers', { count:serverState.markers.length })}</span>}
       </>}>
       <div className="panels-camera-extrinsic-correspondence-control">
         <span className="panels-camera-extrinsic-step"><b>1</b>{t('Select a rigid body')}</span>
         <SelectControl value={selectedMarker}
           options={availableMarkers.map((name) => ({ value: name,label: name }))}
           onChange={onSelectMarker}
-          placeholder={serverState?.mode === 'frozen'
-            ? availableMarkers.length ? t('Select marker') : t('All markers selected')
-            : t('Freeze frame first')}
+          placeholder={t('Select marker')}
           icon={<Crosshair size={14} />} ariaLabel={t('Rigid body pose')} dataXgcRole="camera-calibration-marker"
           dataXgcId={processInstanceId} fill
-          disabled={Boolean(busyAction) || serverState?.mode !== 'frozen' || availableMarkers.length === 0} />
+          disabled={Boolean(busyAction) || Boolean(selectedSample) || availableMarkers.length === 0} />
         <span className="panels-camera-extrinsic-step"><b>2</b>{t('Click its coordinate origin in the image')}</span>
       </div>
 
@@ -111,33 +148,36 @@ export function CameraExtrinsicCalibrationRuntimeView(props: CameraExtrinsicCali
               disabled={Boolean(busyAction) || points.length === 0} onClick={onClearPoints}><Trash2 size={13} /></ControlButton>
           </div>
         </div>
-        {points.length ? <ol>{points.map((point,index) => <li key={point.marker}>
-          <span className="panels-camera-extrinsic-point-index">{index + 1}</span><strong>{point.marker}</strong>
+        {points.length ? <ol>{points.map((point,index) => <li key={point.sampleId}>
+          <span className="panels-camera-extrinsic-point-index">{index + 1}</span>
+          <ControlButton size="compact" aria-label={t('View sample {index}: {marker}',{ index:index+1,marker:point.marker })}
+            className="panels-camera-extrinsic-review-point"
+            dataXgcRole="camera-calibration-review-point" dataXgcId={`${processInstanceId}:${point.sampleId}`}
+            disabled={Boolean(busyAction)} onClick={() => onReviewSample(point.sampleId)}>{point.marker}</ControlButton>
           <span>{point.pixel[0].toFixed(1)}, {point.pixel[1].toFixed(1)}</span>
           <span className="panels-camera-extrinsic-point-error" data-xgc-outlier={point.inlier === false ? 'true' : undefined}>
             {point.reprojectionErrorPx == null ? '—' : `${point.reprojectionErrorPx.toFixed(2)} px`}
           </span>
-          <ControlButton iconOnly size="compact" aria-label={t('Remove {marker}', { marker:point.marker })}
+          <ControlButton iconOnly size="compact" aria-label={t('Remove sample {index}: {marker}', { index:index+1,marker:point.marker })}
             title={t('Remove {marker}', { marker:point.marker })}
-            dataXgcRole="camera-calibration-remove-point" dataXgcId={`${processInstanceId}:${point.marker}`}
-            disabled={Boolean(busyAction)} onClick={() => onRemovePoint(index)}><Trash2 size={11} /></ControlButton>
+            dataXgcRole="camera-calibration-remove-point" dataXgcId={`${processInstanceId}:${point.sampleId}`}
+            disabled={Boolean(busyAction)} onClick={() => onRemovePoint(point.sampleId)}><Trash2 size={11} /></ControlButton>
         </li>)}</ol> : <div className="panels-camera-extrinsic-points-empty">{t('No points selected')}</div>}
       </div>
 
       <div className="panels-camera-calibration-actions panels-camera-extrinsic-actions">
         <ControlButton tone="primary" className="panels-camera-extrinsic-primary-action"
-          dataXgcRole="camera-calibration-freeze" dataXgcId={processInstanceId}
-          disabled={Boolean(busyAction) || !inputReady || serverState?.mode === 'frozen'}
-          title={freezeDisabledReason(t,serverState)} onClick={onFreeze}>
-          {busyAction === 'freeze' ? <LoaderCircle className="spin" size={14} /> : <Pause size={14} />}{t('Freeze')}
+          dataXgcRole="camera-calibration-resample" dataXgcId={processInstanceId}
+          disabled={Boolean(busyAction) || !selectedSample} onClick={onResample}>
+          <Camera size={14} />{t('Resample')}
         </ControlButton>
         <ControlButton dataXgcRole="camera-calibration-live" dataXgcId={processInstanceId}
-          disabled={Boolean(busyAction) || serverState?.mode !== 'frozen'} onClick={onLive}>
-          {busyAction === 'live' ? <LoaderCircle className="spin" size={14} /> : <RotateCcw size={14} />}{t('Live')}
+          disabled={Boolean(busyAction) || !selectedSample} onClick={onLive}>
+          <RotateCcw size={14} />{t('Live')}
         </ControlButton>
         <ControlButton tone="primary" className="panels-camera-extrinsic-primary-action"
           dataXgcRole="camera-calibration-solve" dataXgcId={processInstanceId}
-          disabled={Boolean(busyAction) || serverState?.mode !== 'frozen' || points.length < 4}
+          disabled={Boolean(busyAction) || Boolean(solvePreflightReason)}
           title={solvePreflightReason
             ? localizeCameraMessage(t,solvePreflightReason) : t('Solve the camera transform candidate without saving.')}
           onClick={onSolve}>
@@ -145,10 +185,10 @@ export function CameraExtrinsicCalibrationRuntimeView(props: CameraExtrinsicCali
         </ControlButton>
         <ControlButton tone="primary" className="panels-camera-extrinsic-primary-action"
           dataXgcRole="camera-calibration-save" dataXgcId={processInstanceId}
-          disabled={Boolean(busyAction) || !result || result.saved}
-          title={result?.saved ? t('This candidate is already saved.') : t('Save the current solved candidate.')}
+          disabled={Boolean(busyAction) || !result || (result.saved && result.application?.status!=='unavailable')}
+          title={result?.application?.status==='conflict' ? 'A newer calibration was selected.' : result?.saved ? 'Calibration saved.' : t('Save the current solved candidate.')}
           onClick={onSave}>
-          {busyAction === 'save' ? <LoaderCircle className="spin" size={14} /> : <Save size={14} />}{t('Save result')}
+          {busyAction === 'save' ? <LoaderCircle className="spin" size={14} /> : <Save size={14} />}{result?.application?.status==='unavailable' ? 'Retry apply' : result?.application?.status==='applied' ? 'Applied' : result?.saved ? t('Saved') : t('Save')}
         </ControlButton>
       </div>
 
@@ -186,15 +226,6 @@ function CalibrationResult({ processInstanceId,state,result }: {
       <dt>q xyzw</dt><dd>{formatVector(result.quaternionXyzw)}</dd>
     </dl>{result.warnings.map((warning) => <span key={warning}>{localizeCameraMessage(t,warning)}</span>)}
   </div>;
-}
-
-function freezeDisabledReason(t: ReturnType<typeof useCameraText>,state?: CameraExtrinsicState) {
-  if (!state) return t('Waiting for the calibration backend.');
-  if (state.mode === 'frozen') return t('Return to live mode before freezing a new frame.');
-  if (!state.source.imageReady) return t('Waiting for a camera image.');
-  if (!state.source.intrinsicReady) return t('Waiting for the selected intrinsic file.');
-  if (!state.source.markerCount) return t('Waiting for rigid body poses.');
-  return t('Freeze one immutable image with the latest static marker poses.');
 }
 
 function formatVector(values: readonly number[]) { return `[${values.map((value) => value.toFixed(5)).join(', ')}]`; }

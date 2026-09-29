@@ -12,6 +12,8 @@ import {
 import { HostRuntimeShell } from './HostRuntimeShell';
 import { HostServicesShell } from './HostServicesShell';
 import { HostSettingsPanel } from './HostSettingsPanel';
+import { AgentLinkHealth } from './AgentLinkHealth';
+import type { AgentLinkStats } from '../managedHost/managedHostPublic';
 import {
   EMPTY_HOST_SYSTEM_COMPOSITION,
   type HostRuntimeProcessFocus,
@@ -42,6 +44,7 @@ export function HostSystemPage({
   runtimeProcessFocus,
   onInspectRuntimeProcess,
   onClearRuntimeProcessFocus,
+  agentLink,
 }: {
   activeTab: HostTab;
   targetCoreId?: string;
@@ -55,6 +58,8 @@ export function HostSystemPage({
   runtimeProcessFocus?: HostRuntimeProcessFocus;
   onInspectRuntimeProcess?: (request: HostRuntimeProcessRequest) => void;
   onClearRuntimeProcessFocus?: (requestId: number) => void;
+  /** AgentLink ops health of the selected remote Agent (D-116 M2). */
+  agentLink?: AgentLinkStats;
 }) {
   const isRemote = Boolean(managedHostId && managedHostId !== 'local');
   const profile = isRemote
@@ -99,6 +104,7 @@ export function HostSystemPage({
       groupedShellOwnsAvailability={groupedShellOwnsAvailability}
       leaves={leaves}
       leafContext={leafContext}
+      agentLink={agentLink}
     />
   );
 }
@@ -112,6 +118,7 @@ function HostSystemPageTabs({
   groupedShellOwnsAvailability,
   leaves,
   leafContext,
+  agentLink,
 }: {
   activeTab: HostTab;
   isRemote: boolean;
@@ -121,6 +128,7 @@ function HostSystemPageTabs({
   groupedShellOwnsAvailability: boolean;
   leaves: HostSystemComposition;
   leafContext: HostSystemLeafContext;
+  agentLink?: AgentLinkStats;
 }) {
   const { Overview, Files, Processes, Network, SSHService, Firewall } = leaves;
   const [visitedTabs, setVisitedTabs] = useState(() => new Set<ParkedHostSystemTab>(
@@ -186,6 +194,7 @@ function HostSystemPageTabs({
       {showBusyOverlay && surfaceVisible ? <WorkspaceBusyOverlay id="system-page" /> : null}
       {includeTab(visitedTabs, activeTab, 'overview') && Overview ? (
         <SystemTabSurface tab="overview" revealed={revealedTab === 'overview'} onReady={markReady}>
+          {isRemote ? <AgentLinkHealth link={agentLink} /> : null}
           {!requestsAllowed ? (
             <HostOfflineMembershipPanel
               feature="Overview"

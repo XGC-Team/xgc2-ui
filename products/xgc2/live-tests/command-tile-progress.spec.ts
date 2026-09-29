@@ -2,14 +2,14 @@ import { expect,test,type Locator } from '@playwright/test';
 
 const custom = '[data-xgc-role="panel-action-invoke"][data-xgc-id="custom1"]';
 const setMode = '[data-xgc-role="px4-set-mode-apply"][data-xgc-id="robot-control"]';
-const plotBag = '[data-xgc-role="panel-action-invoke"][data-xgc-id="replay-plot"]';
+const build = '[data-xgc-role="panel-action-invoke"][data-xgc-id="build"]';
 const progressSelector = '.xgc-workflow-status-card-progress';
 
 test('command tiles keep the same visible progress slot across consumers and states',async ({ page,browser },testInfo) => {
   await page.goto('/');
   await page.locator('[data-xgc-role="primary-nav-item"][data-xgc-id="experiment"]').click();
   await page.locator('[data-xgc-role="experiment-row-open"]')
-    .filter({ hasText:'5 PX4 multirotors + 2 Mecanum UGVs experiment' }).click();
+    .filter({ hasText:'SCE' }).click();
 
   // Navigation reads the real consumers. Commands are never clicked. State
   // coverage runs on detached markup in an offline context without callbacks.
@@ -17,7 +17,7 @@ test('command tiles keep the same visible progress slot across consumers and sta
   try {
     for (const { dashboard,selectors } of [
       { dashboard:'gcs',selectors:[custom,setMode] },
-      { dashboard:'algorithm',selectors:[plotBag] },
+      { dashboard:'algorithm',selectors:[build] },
     ]) {
       await page.locator(`[data-xgc-role="experiment-dashboard-tabs"] [role="tab"][data-xgc-id="${dashboard}"]`).click();
       for (const selector of selectors) {

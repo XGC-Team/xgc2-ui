@@ -1,5 +1,6 @@
 import { beforeEach,describe,expect,it,vi } from 'vitest';
 import { HTTPError,request,waitForTransportRetry } from '../../api/http';
+import type { PinnedConfigRef } from '../../shared/configResource';
 import { workflowRuntimeActions } from '../../shared/workflowRuntimeProtocol';
 import type { AutomationDocument } from './automationDefinitionContracts';
 import type {
@@ -24,9 +25,8 @@ import {
 import {
   AutomationStartOutcomeUnknownError,
   getAutomationExecutionRelations,
+  getAutomationRunDetail,
   getAutomationRunSnapshot,
-  listAutomationNodeExecutionSummaries,
-  listAutomationNodeInvocations,
   recoverAutomationStartOutcome,
   startAutomationRun,
   stopAutomationRun,
@@ -104,6 +104,15 @@ describe('automation endpoint services', () => {
     ]));
   });
 
+  it('reads a consumer binding from its declared branch and propagates cancellation',async () => {
+    const controller=new AbortController();
+    vi.mocked(request).mockResolvedValueOnce(documentFixture());
+    await getAutomationDocument('automation/a',{ branch:'review/calibration',signal:controller.signal });
+    expect(request).toHaveBeenCalledWith('/automations/automation%2Fa?branch=review%2Fcalibration',{
+      signal:controller.signal,
+    });
+  });
+
   it.each([null,undefined])('rejects a missing collection response instead of normalizing %s to an empty array', async (response) => {
     vi.mocked(request).mockResolvedValueOnce(response);
 
@@ -111,9 +120,9 @@ describe('automation endpoint services', () => {
   });
 
   it.each([null,undefined])('rejects a missing Run ledger instead of normalizing %s to an empty collection', async (response) => {
-    vi.mocked(request).mockResolvedValueOnce(response);
+    vi.mocked(request).mockResolvedValueOnce(detailResponse({ invocations:response }));
 
-    await expect(listAutomationNodeInvocations('agent/a', 'run/a'))
+    await expect(getAutomationRunDetail('agent/a', 'run/a'))
       .rejects.toThrow('must be an array');
   });
 
@@ -235,7 +244,33 @@ describe('automation endpoint services', () => {
     await expect(listAutomationNodeCatalog('local')).rejects.toThrow(message);
   });
 
-  it('reads the occurrence ledger through the run invocation endpoint and validates its identity', async () => {
+  it('reads the complete Run projection with one HTTP request', async () => {
+    const run = { ...runFixture(),id:'run/a',rootRunId:'run/a',correlationId:'run/a',targetId:'agent/a' };
+    const detail = { run,invocations:[],nodeSummaries:[],relations:emptyRelations(run.id) };
+    vi.mocked(request).mockResolvedValueOnce(detail);
+    await expect(getAutomationRunDetail('agent/a','run/a')).resolves.toEqual(detail);
+    expect(request).toHaveBeenCalledExactlyOnceWith(
+      '/execution-targets/agent%2Fa/orchestration-runs/run%2Fa/detail', { signal:undefined },
+    );
+  });
+
+  it.each(['run','target','relations'])('rejects a detail bundle with the wrong %s identity',async (field) => {
+    const run = runFixture();
+    vi.mocked(request).mockResolvedValueOnce({
+      run:{ ...run,...(field==='run' ? { id:'another-run',rootRunId:'another-run',correlationId:'another-run' } : {}),...(field==='target' ? { targetId:'another-target' } : {}) },
+      invocations:[],nodeSummaries:[],relations:emptyRelations(field==='relations' ? 'another-run' : run.id),
+    });
+    await expect(getAutomationRunDetail('local',run.id)).rejects.toThrow();
+    expect(request).toHaveBeenCalledOnce();
+  });
+
+  it('propagates an unavailable detail endpoint without retrying the retired fan-out',async () => {
+    vi.mocked(request).mockRejectedValueOnce(new HTTPError(404,'Not Found'));
+    await expect(getAutomationRunDetail('local','run-1')).rejects.toThrow('Not Found');
+    expect(request).toHaveBeenCalledOnce();
+  });
+
+  it('validates invocation identity inside the detail bundle', async () => {
     const invocation = {
       id: 'invocation-1',runId: 'run/a',nodeId: 'worker',kind: 'process.run-definition',
       status: 'running',compensationStatus: 'none',
@@ -248,16 +283,16 @@ describe('automation endpoint services', () => {
       }],
       inputRefs: [],outputRefs: [],
     };
-    vi.mocked(request).mockResolvedValueOnce([invocation]);
+    vi.mocked(request).mockResolvedValueOnce(detailResponse({ invocations:[invocation] }));
 
-    await expect(listAutomationNodeInvocations('agent/a', 'run/a')).resolves.toEqual([invocation]);
+    await expect(getAutomationRunDetail('agent/a', 'run/a')).resolves.toMatchObject({ invocations:[invocation] });
     expect(request).toHaveBeenCalledWith(
-      '/execution-targets/agent%2Fa/orchestration-runs/run%2Fa/invocations',
+      '/execution-targets/agent%2Fa/orchestration-runs/run%2Fa/detail',
       { signal: undefined },
     );
 
-    vi.mocked(request).mockResolvedValueOnce([{ ...invocation,attempts: [{ ...invocation.attempts[0],runId: 'other-run' }] }]);
-    await expect(listAutomationNodeInvocations('agent/a', 'run/a')).rejects.toThrow('identity does not match its invocation');
+    vi.mocked(request).mockResolvedValueOnce(detailResponse({ invocations:[{ ...invocation,attempts:[{ ...invocation.attempts[0],runId:'other-run' }] }] }));
+    await expect(getAutomationRunDetail('agent/a', 'run/a')).rejects.toThrow('identity does not match its invocation');
   });
 
   it('reads strict server-projected node summaries without interpreting runtime receipts', async () => {
@@ -274,20 +309,20 @@ describe('automation endpoint services', () => {
       output: projectedOutput,startedAt: '2026-07-19T00:00:00Z',finishedAt: '2026-07-19T00:00:01Z',
       updatedAt: '2026-07-19T00:00:01Z',revision: 2,
     };
-    vi.mocked(request).mockResolvedValueOnce([summary]);
+    vi.mocked(request).mockResolvedValueOnce(detailResponse({ nodeSummaries:[summary] }));
 
-    await expect(listAutomationNodeExecutionSummaries('agent/a', 'run/a')).resolves.toEqual([summary]);
+    await expect(getAutomationRunDetail('agent/a', 'run/a')).resolves.toMatchObject({ nodeSummaries:[summary] });
     expect(request).toHaveBeenCalledWith(
-      '/execution-targets/agent%2Fa/orchestration-runs/run%2Fa/node-summaries',
+      '/execution-targets/agent%2Fa/orchestration-runs/run%2Fa/detail',
       { signal: undefined },
     );
 
-    vi.mocked(request).mockResolvedValueOnce([{ ...summary,internalReceipt: { schemaVersion: 2 } }]);
-    await expect(listAutomationNodeExecutionSummaries('agent/a', 'run/a'))
+    vi.mocked(request).mockResolvedValueOnce(detailResponse({ nodeSummaries:[{ ...summary,internalReceipt:{ schemaVersion:2 } }] }));
+    await expect(getAutomationRunDetail('agent/a', 'run/a'))
       .rejects.toThrow('contains unknown property "internalReceipt"');
 
-    vi.mocked(request).mockResolvedValueOnce([{ ...summary,runId: 'another-run' }]);
-    await expect(listAutomationNodeExecutionSummaries('agent/a', 'run/a'))
+    vi.mocked(request).mockResolvedValueOnce(detailResponse({ nodeSummaries:[{ ...summary,runId:'another-run' }] }));
+    await expect(getAutomationRunDetail('agent/a', 'run/a'))
       .rejects.toThrow('contains summary for unexpected run "another-run"');
   });
 
@@ -594,6 +629,111 @@ describe('automation endpoint services', () => {
     expect(JSON.parse(String(init?.body))).not.toHaveProperty('keepalive');
   });
 
+  it('sends the exact standalone selector and preserves it across the same-intent retry',async () => {
+    const automationRef={ domain:'automation' as const,resourceId:'automation/a',branch:'candidate' };
+    const expectedAutomationRef={ ...automationRef,commitId:'commit-2',version:2,digest:'d'.repeat(64) };
+    const panelAction={ panelId:'controls',portId:'capture' };
+    const input={ actionId:'run',automationRef,expectedAutomationRef,panelAction,
+      experimentRef:{ domain:'experiment',resourceId:'experiment-a',branch:'main' },parameters:{ runMode:'simulation' } };
+    vi.mocked(request).mockRejectedValueOnce(new TypeError('connection lost')).mockResolvedValueOnce({ run:runFixture() });
+    await startAutomationRun('local',input);
+    expect(vi.mocked(request).mock.calls[1]).toEqual(vi.mocked(request).mock.calls[0]);
+    expect(JSON.parse(String(vi.mocked(request).mock.calls[0][1]?.body))).toMatchObject({ panelAction,parameters:input.parameters,expectedAutomationRef });
+    vi.mocked(request).mockClear();
+    await expect(startAutomationRun('local',{ ...input,expectedAutomationRef:undefined })).rejects.toThrow('expected Automation pin');
+    await expect(startAutomationRun('local',{ ...input,parameters:{} })).rejects.toThrow('runMode');
+    await expect(startAutomationRun('local',{ ...input,panelAction:{ ...panelAction,portId:' ' } })).rejects.toThrow('portId');
+    expect(request).not.toHaveBeenCalled();
+  });
+
+  it('sends the full expected source pin and preserves it across ambiguous start retries', async () => {
+    const run = runFixture();
+    const expectedAutomationRef: PinnedConfigRef = {
+      domain: 'automation',resourceId: 'automation/a',branch: 'candidate',componentId: 'render',
+      commitId: 'commit-pinned',version: 3,digest: 'a1'.repeat(32),
+    };
+    vi.mocked(request)
+      .mockRejectedValueOnce(new TypeError('connection lost'))
+      .mockResolvedValueOnce({ run,receipt: {} });
+    await expect(startAutomationRun('local', {
+      actionId: 'render',
+      automationRef: { domain: 'automation',resourceId: 'automation/a',branch: 'candidate',componentId: 'render' },
+      expectedAutomationRef,parameters: { bag: 'capture.bag' },
+      requestId: 'request-pinned',idempotencyKey: 'intent-pinned',
+    })).resolves.toEqual(run);
+
+    expect(request).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(request).mock.calls[1]).toEqual(vi.mocked(request).mock.calls[0]);
+    expect(JSON.parse(String(vi.mocked(request).mock.calls[0][1]?.body))).toEqual({
+      actionId: 'render',
+      automationRef: { domain: 'automation',resourceId: 'automation/a',branch: 'candidate',componentId: 'render' },
+      expectedAutomationRef,parameters: { bag: 'capture.bag' },
+      requestId: 'request-pinned',idempotencyKey: 'intent-pinned',reason: 'Start configuration run',
+    });
+  });
+
+  it.each<[string,Partial<PinnedConfigRef>]>([
+    ['domain', { domain: 'experiment' }],
+    ['resource', { resourceId: 'another-workflow' }],
+    ['branch', { branch: 'another-branch' }],
+    ['component', { componentId: 'another-component' }],
+    ['missing component', { componentId: undefined }],
+    ['missing commit', { commitId: undefined }],
+    ['empty commit', { commitId: '' }],
+    ['padded commit', { commitId: ' commit-pinned ' }],
+    ['missing version', { version: undefined }],
+    ['zero version', { version: 0 }],
+    ['negative version', { version: -1 }],
+    ['fractional version', { version: 1.5 }],
+    ['unsafe version', { version: Number.MAX_SAFE_INTEGER + 1 }],
+    ['missing digest', { digest: undefined }],
+    ['short digest', { digest: 'a'.repeat(63) }],
+    ['non-hex digest', { digest: 'g'.repeat(64) }],
+    ['uppercase digest', { digest: 'A'.repeat(64) }],
+  ])('rejects an invalid expected source %s before sending a start', async (_label, patch) => {
+    const expectedAutomationRef = {
+      domain: 'automation',resourceId: 'automation/a',branch: 'candidate',componentId: 'render',
+      commitId: 'commit-pinned',version: 3,digest: 'a'.repeat(64),...patch,
+    } as PinnedConfigRef;
+    await expect(startAutomationRun('local', {
+      actionId: 'render',
+      automationRef: { domain: 'automation',resourceId: 'automation/a',branch: 'candidate',componentId: 'render' },
+      expectedAutomationRef,
+    })).rejects.toThrow('expectedAutomationRef');
+    expect(request).not.toHaveBeenCalled();
+  });
+
+  it('matches the normalized live reference while preserving the reviewed pin identity', async () => {
+    const expectedAutomationRef: PinnedConfigRef = {
+      domain: 'automation',resourceId: 'automation/a',branch: 'main',componentId: '',
+      commitId: 'commit-pinned',version: 1,digest: 'a'.repeat(64),
+    };
+    vi.mocked(request).mockResolvedValueOnce({ run: runFixture(),receipt: {} });
+    await startAutomationRun('local', {
+      actionId: 'render',
+      automationRef: { domain: ' automation ',resourceId: ' automation/a ',branch: '' },
+      expectedAutomationRef,
+    });
+    expect(JSON.parse(String(vi.mocked(request).mock.calls[0][1]?.body))).toMatchObject({
+      automationRef: { domain: 'automation',resourceId: 'automation/a',branch: 'main' },
+      expectedAutomationRef,
+    });
+  });
+
+  it('surfaces a stale expected pin conflict without retrying or inventing a Run', async () => {
+    const conflict = new HTTPError(409, 'Conflict', { error: 'resolved Automation source no longer matches expectedAutomationRef' });
+    vi.mocked(request).mockRejectedValueOnce(conflict);
+    await expect(startAutomationRun('local', {
+      actionId: 'render',automationRef: { domain: 'automation',resourceId: 'automation/a',branch: 'main' },
+      expectedAutomationRef: {
+        domain: 'automation',resourceId: 'automation/a',branch: 'main',
+        commitId: 'commit-stale',version: 1,digest: 'd'.repeat(64),
+      },
+    })).rejects.toBe(conflict);
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(waitForTransportRetry).not.toHaveBeenCalled();
+  });
+
   it('recovers an ambiguous accepted start with the same idempotency identity', async () => {
     const run = runFixture();
     vi.mocked(request)
@@ -898,5 +1038,12 @@ function triggerIngressFixture(overrides: Record<string,unknown> = {}) {
     entrypointNodeId: 'trigger-a',triggerKind: 'trigger.webhook',runId: 'run-a',attemptCount: 1,
     occurredAt: '2026-07-14T00:00:00Z',receivedAt: '2026-07-14T00:00:00Z',
     ...overrides,
+  };
+}
+
+function detailResponse(overrides:Record<string,unknown>={}) {
+  return {
+    run:{ ...runFixture(),id:'run/a',rootRunId:'run/a',correlationId:'run/a',targetId:'agent/a' },
+    invocations:[],nodeSummaries:[],relations:emptyRelations('run/a'),...overrides,
   };
 }

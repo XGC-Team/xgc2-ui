@@ -46,15 +46,6 @@
   box-shadow: var(--shadow-selection-highlight-halo);
 }
 
-/* Chassis hold uses the same outer halo as selection, but danger-colored so
- * looking at a UGV instrument still reminds the operator that E-stop is latched. */
-.robot-instrument-card[data-xgc-chassis-hold="true"] {
-  border-color: var(--color-danger);
-  box-shadow:
-    0 0 10px var(--stroke-thin) color-mix(in srgb, var(--color-danger) 76%, transparent),
-    0 0 18px var(--stroke-thin) color-mix(in srgb, var(--color-danger) 42%, transparent);
-}
-
 .robot-instrument-card:focus-visible:not([aria-pressed="true"]) {
   border-color: var(--color-border-focus);
   box-shadow: var(--shadow-focus);
@@ -89,7 +80,7 @@
 .robot-instrument-detail-row dd {
   margin: 0;
   color: var(--color-text);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-variant-numeric: tabular-nums;
   text-align: end;
   white-space: nowrap;
@@ -97,7 +88,7 @@
 
 .robot-instrument-detail-diagnostic {
   color: var(--color-text-muted);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }

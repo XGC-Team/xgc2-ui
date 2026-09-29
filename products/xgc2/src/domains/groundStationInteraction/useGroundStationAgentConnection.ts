@@ -4,7 +4,7 @@ import { useGroundStationNativeAgentRegistry } from './GroundStationAgentProvide
 import type { GroundStationNativeBinding } from './groundStationAgentTypes';
 import { bindGroundStationWorkspace,getGroundStationNativeCapabilities,type GroundStationNativeCapabilities } from './groundStationAgentService';
 import { getNativeProviderSettings,refreshNativeProviderSettings } from './groundStationAgentSettingsService';
-import { isNativeCompanionUnavailable,operatorNativeErrorMessage } from './nativeCompanionAvailability';
+import { isNativeCompanionUnavailable,isNativeCompanionUnavailableMessage,operatorNativeErrorMessage } from './nativeCompanionAvailability';
 import { waitForAgentConversation } from './waitForAgentConversation';
 
 /** Owns reviewed connection options, experiment-surface attach, and recovery decisions. */
@@ -95,7 +95,13 @@ export function useGroundStationAgentConnection(experimentId: string,binding?: G
   useEffect(() => {
     if (error) initialization.resolve(error);
     else if (ready) initialization.resolve();
-    else if (capabilities && !capabilities.available) initialization.resolve(capabilities.detail || 'The local client is unavailable.');
+    else if (capabilities && !capabilities.available) {
+      initialization.resolve(
+        isNativeCompanionUnavailableMessage(capabilities.detail)
+          ? 'The local client is unavailable.'
+          : (capabilities.detail || 'The local client is unavailable.'),
+      );
+    }
   },[ready,error,capabilities,initialization]);
   useEffect(() => {
     initialization.mounted=true;
@@ -190,6 +196,7 @@ export function useGroundStationAgentConnection(experimentId: string,binding?: G
       setCapabilities(value => value ? {...value,workspaceBinding} : value);
     }),
     providers:providers.filter((item) => canConnect || item.id === selectedProfileId),
+    providersLoaded,
     reconnect: () => operate(async () => {
       if (!registry) throw new Error('The local client is unavailable.');
       return registry.reconnect(experimentId,controlled);

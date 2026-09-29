@@ -7,71 +7,50 @@
   flex-direction: column;
   overflow: hidden;
   color: var(--color-text);
-  font-size: var(--xgc-shell-ui-font-size, var(--font-base));
+  font-size: var(--type-body-size);
 }
 
-.experiment-robot-assets-panel-workspace[data-inspector-open='true'] {
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
-  align-items: start;
-}
-
-.experiment-robot-assets-panel-inspector {
-  min-width: 0;
-  padding-inline-start: var(--space-xl);
-}
-
-.experiment-robot-assets-panel-inspector[hidden] {
-  display: none;
-}
-
-.experiment-robot-assets-panel-inspector-heading {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-lg);
-  margin-block-end: var(--space-xl);
-}
-
-.experiment-robot-assets-panel-inspector-heading h2 {
-  min-width: 0;
-  margin: 0;
-  color: var(--color-text-heading);
-  font-size: var(--font-lg);
-  font-weight: var(--weight-regular);
-  line-height: var(--line-height-tight);
-  overflow-wrap: anywhere;
-}
-
-.experiment-robot-assets-panel-inspector .experiment-robot-assets-panel-field-grid,
-.experiment-robot-assets-panel-inspector .experiment-robot-assets-panel-pose-fields,
-.experiment-robot-assets-panel-inspector .experiment-robot-assets-panel-asset-parameters-grid {
-  grid-template-columns: minmax(0, 1fr);
-}
-
-@container experiment-robot-assets (max-width: 900px) {
-  .experiment-robot-assets-panel-workspace[data-inspector-open='true'] {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .experiment-robot-assets-panel-inspector {
-    padding-block-start: var(--space-xl);
-    padding-inline-start: 0;
-  }
-}
-
-/* One document, with the fleet as its centre. No nested panel scrollbars. */
+/* The gallery owns the single scroll flow; Robot parameters open in the
+   shared wide ConfigDrawer like every other panel settings surface. */
 .experiment-robot-assets-panel-workspace {
   min-width: 0;
   min-height: 0;
   flex: 1 1 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  align-content: start;
-  gap: var(--space-2xl);
-  padding: clamp(20px, 4cqi, 64px);
+  display: flex;
+  align-items: stretch;
+  overflow: hidden;
+}
+
+.experiment-robot-assets-panel-gallery {
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  padding: clamp(var(--space-xl), 4cqi, calc(var(--space-3xl) * 2));
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
+}
+
+.experiment-robot-assets-panel-robot-drawer-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  min-width: 0;
+}
+
+.experiment-robot-assets-panel-robot-drawer-mark {
+  flex: 0 0 auto;
+  width: 40px;
+  display: grid;
+  place-items: center;
+}
+
+.experiment-robot-assets-panel-asset-parameters-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  width: 100%;
 }
 
 .experiment-robot-assets-panel-pane {
@@ -102,24 +81,25 @@
 .experiment-robot-assets-panel-group-label {
   margin: 0;
   color: var(--color-text-heading);
-  font-size: var(--font-2xl);
-  font-weight: var(--weight-regular);
-  line-height: var(--line-height-tight);
+  font-size: var(--type-heading-size);
+  font-weight: var(--type-heading-weight);
+  line-height: var(--type-heading-line-height);
+  letter-spacing: var(--type-heading-tracking);
 }
 
 .experiment-robot-assets-panel-group-add {
   flex: 0 0 auto;
-  opacity: 0;
+  opacity: var(--opacity-hidden);
 }
 
 .experiment-robot-assets-panel-group:is(:hover,:focus-within) .experiment-robot-assets-panel-group-add,
 .experiment-robot-assets-panel-group-add:focus-visible {
-  opacity: 1;
+  opacity: var(--opacity-full);
 }
 
 @media (hover: none) {
   .experiment-robot-assets-panel-group-add {
-    opacity: 1;
+    opacity: var(--opacity-full);
   }
 }
 
@@ -149,24 +129,45 @@
 }
 
 .experiment-robot-assets-panel-robot-card {
+  position: relative;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
-  padding-block: 0 var(--space-sm);
+  border: var(--stroke-thin) solid var(--color-border-muted);
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(ellipse 96% 52% at 50% 30%, color-mix(in srgb, var(--color-text-heading) 5%, transparent), transparent 70%),
+    var(--color-bg-surface);
+  transition: border-color var(--duration-quick) var(--easing-standard), box-shadow var(--duration-quick) var(--easing-standard);
+}
+
+.experiment-robot-assets-panel-robot-card:is(:hover, :focus-within) {
+  border-color: var(--color-border-hover);
+}
+
+.experiment-robot-assets-panel-robot-card[data-selected='true'] {
+  border-color: var(--color-border-accent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--color-selection-glow) 38%, transparent);
+}
+
+.experiment-robot-assets-panel-robot-card[data-selected='true']:is(:hover, :focus-within) {
+  border-color: var(--color-border-accent);
+}
+
+.experiment-robot-assets-panel-robot-card:has(> .experiment-robot-assets-panel-robot-select:focus-visible) {
+  outline: var(--stroke-strong) solid var(--color-border-focus);
+  outline-offset: var(--space-xs);
 }
 
 .experiment-robot-assets-panel-robot-select {
-  --xgc-control-height: auto;
-  --xgc-control-button-padding-block: var(--space-xl);
-  --xgc-control-button-padding-inline: var(--space-lg);
   width: 100%;
   min-width: 0;
-  min-height: 220px;
+  min-height: 148px;
+  height: auto;
   appearance: none;
-  padding: 0;
+  margin: 0;
+  padding: var(--space-lg) var(--space-lg) var(--space-md);
   border: 0;
-  border-radius: var(--radius-lg);
   background: transparent;
   color: var(--color-text);
   font: inherit;
@@ -181,6 +182,11 @@
   white-space: normal;
 }
 
+/* The card shell owns the focus ring; the inner button stays quiet inside. */
+.experiment-robot-assets-panel-robot-select:focus-visible {
+  outline: 0;
+}
+
 .experiment-robot-assets-panel-robot-mark {
   display: grid;
   place-items: center;
@@ -188,20 +194,51 @@
   color: var(--color-text-muted);
 }
 
-.experiment-robot-assets-panel-slot-name {
-  font-size: var(--font-xs);
+/* Always-visible frozen/selected source line above the portrait; colour only
+   de-emphasises what is not yet determined, the words carry the meaning. */
+.experiment-robot-assets-panel-robot-source {
+  max-width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  column-gap: var(--space-xs);
+  color: var(--color-text);
+}
+
+.experiment-robot-assets-panel-robot-source[data-xgc-source='unknown'] {
   color: var(--color-text-muted);
-  letter-spacing: var(--tracking-label);
+}
+
+.experiment-robot-assets-panel-robot-source-next {
+  color: var(--color-text-muted);
 }
 
 .experiment-robot-assets-panel-robot-copy {
   min-width: 0;
+  max-width: 100%;
   display: grid;
+  justify-items: center;
   gap: var(--space-xs);
 }
 
-.experiment-robot-assets-panel-asset-name,
+.experiment-robot-assets-panel-robot-identity {
+  min-width: 0;
+  max-width: 100%;
+  display: flex;
+  flex-flow: row nowrap;
+  align-items: baseline;
+  justify-content: center;
+  column-gap: var(--space-md);
+}
+
+.experiment-robot-assets-panel-slot-name,
 .experiment-robot-assets-panel-assignment-name {
+  min-width: 0;
+  color: var(--color-text-heading);
+  white-space: nowrap;
+}
+
+.experiment-robot-assets-panel-asset-name {
   min-width: 0;
   color: var(--color-text-heading);
   font-size: var(--font-base);
@@ -211,21 +248,43 @@
   white-space: normal;
 }
 
-.experiment-robot-assets-panel-robot-copy > .experiment-robot-assets-panel-assignment-name {
+button.experiment-robot-assets-panel-robot-select,
+button.experiment-robot-assets-panel-robot-select :is(
+  .experiment-robot-assets-panel-robot-source,
+  .experiment-robot-assets-panel-robot-source-next,
+  .experiment-robot-assets-panel-assignment-name,
+  .experiment-robot-assets-panel-slot-name,
+  .experiment-robot-assets-panel-robot-note
+) {
+  font-family: var(--font-sans);
   font-size: var(--font-lg);
   font-weight: var(--weight-medium);
+  font-synthesis: none;
+  line-height: var(--line-height-tight);
 }
 
 .experiment-robot-assets-panel-robot-note {
   color: var(--color-text-muted);
-  font-size: var(--font-sm);
 }
 
+/* Structure actions read as one segmented strip: equal segments, hairline
+   dividers, shared ghost skin untouched. */
 .experiment-robot-assets-panel-robot-actions {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
-  gap: var(--space-xs);
+  gap: 0;
+  padding-block: 0;
+  border-top: var(--stroke-thin) solid var(--color-border-muted);
+}
+
+.experiment-robot-assets-panel-robot-actions > * {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.experiment-robot-assets-panel-robot-actions > * + * {
+  border-inline-start: var(--stroke-thin) solid var(--color-border-muted);
 }
 
 .experiment-robot-assets-panel-catalog {
@@ -255,9 +314,9 @@
   gap: var(--space-2xs);
   min-width: 0;
   color: var(--color-text-muted);
-  font-size: var(--font-xs);
-  font-weight: var(--weight-regular);
-  line-height: var(--line-height-normal);
+  font-size: var(--type-meta-size);
+  font-weight: var(--type-meta-weight);
+  line-height: var(--type-meta-line-height);
   overflow-wrap: anywhere;
 }
 
@@ -282,7 +341,7 @@
   align-items: center;
   overflow: hidden;
   color: var(--color-text-muted);
-  font-size: var(--font-xs);
+  font-size: var(--type-meta-size);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -315,9 +374,8 @@
 }
 
 .experiment-robot-assets-panel-robot-card[data-xgc-drop-target='true'] {
-  border-radius: var(--radius-lg);
-  outline: var(--stroke-thin) solid var(--color-border-accent);
-  background: color-mix(in srgb, var(--color-accent) 5%, transparent);
+  border-color: var(--color-border-accent);
+  background: color-mix(in srgb, var(--color-accent) 5%, var(--color-bg-surface));
 }
 
 .experiment-robot-assets-panel-asset-card[data-xgc-dragging='true'],
@@ -330,68 +388,6 @@
   cursor: grab;
 }
 
-.experiment-robot-assets-panel-fields {
-  display: grid;
-  align-content: start;
-  gap: var(--space-lg);
-  padding: 0;
-}
-
-.experiment-robot-assets-panel-settings-group {
-  min-width: 0;
-  display: grid;
-  gap: var(--space-md);
-}
-
-.experiment-robot-assets-panel-settings-group > header {
-  box-sizing: border-box;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-md);
-  padding: 0;
-}
-
-.experiment-robot-assets-panel-settings-group > header > strong {
-  color: var(--color-text-heading);
-  font-size: var(--font-base);
-  font-weight: var(--weight-semibold);
-  line-height: var(--line-height-tight);
-}
-
-.experiment-robot-assets-panel-asset-parameters-card {
-  min-width: 0;
-  display: grid;
-}
-
-.experiment-robot-assets-panel-asset-parameters-grid {
-  min-width: 0;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-lg) var(--space-xl);
-  margin: 0;
-  padding: 0;
-}
-
-.experiment-robot-assets-panel-asset-parameters-grid > div {
-  min-width: 0;
-  display: grid;
-  gap: var(--space-2xs);
-}
-
-/*
- * Starting pose: Position XYZ and authored orientation as two columns.
- * Mirrors gazebo-scene-panel-pose dual-column geometry; Vector3 cells stay
- * inside one column instead of spanning the form pane.
- */
-.experiment-robot-assets-panel-pose-fields {
-  min-width: 0;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-lg) var(--space-xl);
-  padding: 0;
-}
-
 .experiment-robot-assets-panel-pose-field,
 .experiment-robot-assets-panel-pose-field > :last-child,
 .experiment-robot-assets-panel-pose-control {
@@ -399,108 +395,62 @@
   min-width: 0;
 }
 
+/*
+ * Inside the shared wide drawer the FormSection body owns the dual-column
+ * grid; the unmarked wrappers only group JSX, deferring layout to the
+ * section body. The starting-pose wrapper stays a markable host, so it
+ * keeps a real box: it spans the full section row and mirrors the shared
+ * body grid (including its narrow-viewport collapse) for its own fields.
+ */
 .experiment-robot-assets-panel-field-grid,
-.experiment-robot-assets-panel-switches {
-  min-width: 0;
+.experiment-robot-assets-panel-switches,
+.experiment-robot-assets-panel-asset-parameters-grid {
+  display: contents;
+}
+.experiment-robot-assets-panel-pose-fields {
+  grid-column: 1 / -1;
   display: grid;
-  /* Same dual-column geometry as shared FormSection / Robot asset drawers. */
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-lg) var(--space-xl);
-  padding: 0;
+  gap: var(--space-layout-default) var(--space-layout-comfortable);
 }
-
-.experiment-robot-assets-panel-field,
-.experiment-robot-assets-panel-pose-field {
-  min-width: 0;
-  grid-template-columns: 1fr;
-  gap: var(--space-sm);
-  color: var(--color-text-muted);
-  font-size: var(--font-base);
-  font-weight: var(--weight-regular);
-  line-height: var(--line-height-tight);
-}
-
-.experiment-robot-assets-panel-field > label,
-.experiment-robot-assets-panel-pose-field > label,
-.experiment-robot-assets-panel-sensor-switch > label {
-  color: var(--color-text-muted);
-  font-size: var(--font-base);
-  font-weight: var(--weight-regular);
-  line-height: var(--line-height-tight);
-}
-
-.experiment-robot-assets-panel-switches {
-  align-items: start;
-}
-
-
-@container experiment-panel (max-width: 680px) {
-  .experiment-robot-assets-panel-workspace {
-    padding: var(--space-lg);
-  }
-  .experiment-robot-assets-panel-field-grid,
-  .experiment-robot-assets-panel-asset-parameters-grid,
-  .experiment-robot-assets-panel-switches,
+@media (max-width: 720px) {
   .experiment-robot-assets-panel-pose-fields {
     grid-template-columns: minmax(0, 1fr);
   }
 }
 
 .experiment-robot-assets-panel-collection .experiment-robot-assets-panel-item-list {
-  position: relative;
-  isolation: isolate;
-  row-gap: var(--space-xs);
   padding-block: var(--space-lg) var(--space-2xl);
   margin-block-end: var(--space-xl);
 }
-.experiment-robot-assets-panel-collection .experiment-robot-assets-panel-item-list::before {
-  content: '';
-  position: absolute;
-  z-index: -1;
-  inset: 40px 0 0;
-  background: radial-gradient(ellipse at 50% 58%, color-mix(in srgb, var(--color-text-heading) 5%, transparent), transparent 68%);
-  pointer-events: none;
-}
-.experiment-robot-assets-panel-robot-card[data-scene-depth='far'] {
-  padding-block-start: var(--space-sm);
-}
 .experiment-robot-assets-panel-robot-select > .experiment-robot-assets-panel-robot-mark {
-  width: min(100%, 210px);
-}
-.experiment-robot-assets-panel-robot-select:focus-visible {
-  outline: var(--stroke-strong) solid var(--color-border-focus);
-  outline-offset: var(--space-xs);
+  width: min(100%, 128px);
 }
 .experiment-robot-assets-panel-asset-card .experiment-robot-assets-panel-robot-mark {
   width: 80px;
+  padding: var(--space-xs);
+  border-radius: var(--radius-md);
+  background: radial-gradient(ellipse at 50% 60%, color-mix(in srgb, var(--color-text-heading) 6%, transparent), transparent 70%);
 }
 @container experiment-panel (max-width: 680px) {
-  .experiment-robot-assets-panel-robot-select > .experiment-robot-assets-panel-robot-mark { width: 170px; }
+  .experiment-robot-assets-panel-robot-select > .experiment-robot-assets-panel-robot-mark { width: 120px; }
 }
 
 @container experiment-panel (max-width: 440px) {
   .experiment-robot-assets-panel-collection .experiment-robot-assets-panel-item-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--space-xs) var(--space-md);
+    gap: var(--space-md);
     padding-block: var(--space-sm) var(--space-lg);
     margin-block-end: var(--space-lg);
   }
 
-  .experiment-robot-assets-panel-collection .experiment-robot-assets-panel-robot-card {
-    gap: var(--space-xs);
-    padding-block: var(--space-sm) var(--space-xs);
-  }
-
-  .experiment-robot-assets-panel-collection .experiment-robot-assets-panel-robot-card[data-scene-depth='far'] {
-    padding-block-start: var(--space-md);
-  }
-
   .experiment-robot-assets-panel-collection .experiment-robot-assets-panel-robot-select {
-    min-height: 160px;
+    min-height: 132px;
+    padding: var(--space-md) var(--space-sm) var(--space-sm);
   }
 
   .experiment-robot-assets-panel-collection .experiment-robot-assets-panel-robot-mark {
-    width: min(100%, 136px);
+    width: min(100%, 100px);
   }
 
 }
@@ -527,6 +477,6 @@
   }
 
   .experiment-robot-assets-picker-drawer .experiment-robot-assets-panel-asset-name {
-    font-size: var(--font-sm);
+    font-size: var(--type-meta-size);
   }
 }

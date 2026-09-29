@@ -2,7 +2,7 @@ import { describe,expect,it } from 'vitest';
 import { corePanelPlugins } from '../../../panels/builtinPanels';
 import { cameraStreamPanelDefaultRows } from '../../../shared/dashboardGeometry';
 import type { GridPos } from '../../../types/common';
-import fleetRecipes from '../../../../../local-fleet-lab/experiment-fixture-recipes.json';
+import swarmRecipes from '../../../../../local-swarm-lab/experiment-fixture-recipes.json';
 
 type RecipePanel = {
   pluginId: string;
@@ -61,11 +61,11 @@ describe('GCS default dashboard camera and chat space', () => {
   });
 
   it('moves ROS and raw camera to Calibration and gives the GCS right column to chat', () => {
-    const calibration = fleetDashboardPanels('calibration');
-    const gcs = fleetDashboardPanels('gcs');
+    const calibration = swarmDashboardPanels('calibration');
+    const gcs = swarmDashboardPanels('gcs');
     expect(calibration.map((panel) => ({ pluginId:panel.pluginId,grid:panel.grid }))).toEqual([
-      { pluginId:'gazebo-world-camera',grid:{ x:0,y:0,w:23,h:16 } },
-      { pluginId:'ros-basic-services-control',grid:{ x:23,y:0,w:7,h:5 } },
+      { pluginId:'gazebo-world-camera',grid:{ x:7,y:0,w:23,h:16 } },
+      { pluginId:'ros-basic-services-control',grid:{ x:0,y:0,w:7,h:5 } },
     ]);
     expect(gcs.map((panel) => ({ pluginId:panel.pluginId,grid:panel.grid }))).toEqual([
       { pluginId:'robot-instruments-grid',grid:{ x:0,y:0,w:7,h:11 } },
@@ -83,16 +83,18 @@ describe('GCS default dashboard camera and chat space', () => {
     }
   });
 
-  it('orders the fleet workspace as Config, Calibration, Algorithm, then GCS',() => {
-    const authoring = fleetRecipes.experimentFixtureAuthoring as {
+  it('orders the swarm workspace as Config, Calibration, Analysis, then GCS',() => {
+    const authoring = swarmRecipes.experimentFixtureAuthoring as {
       blueprints:Record<string,{ dashboards:Array<{ dashboard:string }> }>;
+      dashboardComponents:Record<string,{ id:string;name:string }>;
     };
-    expect(authoring.blueprints.fleet?.dashboards.map(({ dashboard }) => dashboard))
+    expect(authoring.blueprints.swarm?.dashboards.map(({ dashboard }) => dashboard))
       .toEqual(['calibration','algorithm','gcs']);
+    expect(authoring.dashboardComponents.algorithm?.name).toBe('Analysis');
   });
 
   it('hides VRPN and RViz controls from the intrinsic calibration dashboard', () => {
-    const authoring = fleetRecipes.experimentFixtureAuthoring as {
+    const authoring = swarmRecipes.experimentFixtureAuthoring as {
       blueprints: Record<string, {
         panelOptionOverrides?: Record<string,Record<string,unknown>>;
       }>;
@@ -110,12 +112,12 @@ function isCameraStreamPlugin(plugin: (typeof corePanelPlugins)[number]) {
   return (video && !calibration) || (calibration && !video && experimentRuntime);
 }
 
-function fleetDashboardPanels(dashboardId:string): RecipePanel[] {
-  return recipeDashboardPanels('fleet',dashboardId);
+function swarmDashboardPanels(dashboardId:string): RecipePanel[] {
+  return recipeDashboardPanels('swarm',dashboardId);
 }
 
 function recipeDashboardPanels(blueprint: string,dashboardId: string): RecipePanel[] {
-  const authoring = fleetRecipes.experimentFixtureAuthoring as {
+  const authoring = swarmRecipes.experimentFixtureAuthoring as {
     panelComponents: Record<string, { pluginId: string;grid: GridPos }>;
     blueprints: Record<string, { dashboards: Array<{ dashboard:string;panelComponents:string[] }> }>;
   };

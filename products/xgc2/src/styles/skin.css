@@ -6,6 +6,9 @@
  * Do not mirror shared values here or introduce compatibility aliases.
  */
 :root {
+  /* The arm-test activity marker stays white in every application skin. */
+  --color-preflight-test-activity: #ffffff;
+  --color-preflight-test-activity-surface: #343a43;
   /* Always-dark flight instruments are domain visuals, not application skin. */
   --color-robot-flight-accent: rgb(202, 198, 103);
   --color-robot-flight-sky: rgba(48, 100, 162, 0.9);

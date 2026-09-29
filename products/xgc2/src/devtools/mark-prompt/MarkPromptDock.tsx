@@ -19,6 +19,7 @@ import {
   findAnnotatableCandidates,
   isToolbarPosition,
   placeCaptionInViewport,
+  placeToolbarAroundDrawerChrome,
   readElementLabel,
   resolveToolbarPixelPosition,
   resolveAnnotationPosition,
@@ -93,9 +94,13 @@ export function MarkPromptDock({
     const update = () => setViewportTick((value) => value + 1);
     window.addEventListener('resize', update);
     window.addEventListener('scroll', update, true);
+    // Shared Drawer focuses its body on open and restores its trigger on close.
+    // Reuse that lifecycle signal instead of observing the whole document tree.
+    document.addEventListener('focusin', update);
     return () => {
       window.removeEventListener('resize', update);
       window.removeEventListener('scroll', update, true);
+      document.removeEventListener('focusin', update);
     };
   }, []);
 
@@ -176,15 +181,13 @@ export function MarkPromptDock({
   const pageAnnotations = annotations.filter((item) => item.page === page);
   const visibleAnnotations = enabled ? pageAnnotations : [];
   const viewport = currentViewportSize();
-  const toolbarSize = {
-    width: toolbarRef.current?.offsetWidth || toolbarFallbackSize.width,
-    height: toolbarRef.current?.offsetHeight || toolbarFallbackSize.height,
-  };
+  const toolbarSize = useMeasuredElementSize(toolbarRef,toolbarFallbackSize,String(dockVisible),viewportTick);
   const toolbarPixels = resolveToolbarPixelPosition(toolbarPos, viewport, toolbarSize);
-  const toolbarPlacement = clampFloatingBoxToViewport(
+  const toolbarPlacement = placeToolbarAroundDrawerChrome(
     { left: toolbarPixels.x,top: toolbarPixels.y },
     toolbarSize,
     viewport,
+    visibleDrawerChrome(),
     markerViewportMargin,
   );
   const generatedPrompt = buildMarkPrompt(annotations, page);
@@ -577,6 +580,15 @@ const markerViewportMargin = 8;
 const toolbarFallbackSize: FloatingSize = { width: 400,height: 38 };
 const hoverCaptionFallbackSize: FloatingSize = { width: 560,height: 22 };
 const annotationPinFallbackSize: FloatingSize = { width: 520,height: 30 };
+
+function visibleDrawerChrome(): BoundaryRect[] {
+  return [...document.querySelectorAll<HTMLElement>('.config-drawer > .xgc-drawer-header, .config-drawer > .xgc-drawer-footer')]
+    .filter((element) => !element.closest('[hidden],[inert]') && getComputedStyle(element).visibility !== 'hidden')
+    .flatMap((element) => {
+      const { left,top,width,height } = element.getBoundingClientRect();
+      return width > 0 && height > 0 ? [{ left,top,width,height }] : [];
+    });
+}
 
 function HoverTargetBoundary({
   boundary,

@@ -37,6 +37,7 @@ function orderTargetGroups(groups: Record<string,TerminalHost[]>): Array<[string
 }
 
 export function TerminalWorkspace({
+  embedded = false,
   visible,
   hosts,
   sessions,
@@ -55,6 +56,7 @@ export function TerminalWorkspace({
   onError,
   userScriptsRailStart,
 }: {
+  embedded?: boolean;
   visible: boolean;
   hosts: TerminalHost[];
   sessions: TerminalSession[];
@@ -76,6 +78,7 @@ export function TerminalWorkspace({
   const t = useTerminalText();
   const [collapsedHostGroups,setCollapsedHostGroups] = useState<string[]>([]);
   const showUserScriptsRail = Boolean(userScriptsRailStart);
+  const directHost = hosts.find((host) => isTerminalDirectShellHostId(host.id));
   // Local first, then Hosts, then robot kind groups (PX4 / Scout / …).
   const hostGroupEntries = useMemo(
     () => orderTargetGroups(groupBy(hosts,(host) => {
@@ -90,6 +93,7 @@ export function TerminalWorkspace({
     <section
       className="terminal-workspace"
       data-xgc-role="terminal-workspace" data-xgc-id="terminal-workspace"
+      data-xgc-embedded={embedded ? 'true' : undefined}
       aria-label={t('Terminal')}
       hidden={!visible}
     >
@@ -98,7 +102,7 @@ export function TerminalWorkspace({
         data-xgc-role="terminal-chrome" data-xgc-id="terminal-chrome"
         aria-label={t('Terminal chrome')}
       >
-        <h2 className="terminal-column-heading" data-xgc-role="terminal-targets-heading" data-xgc-id="targets">{t('Targets')}</h2>
+        {!embedded ? <h2 className="terminal-column-heading" data-xgc-role="terminal-targets-heading" data-xgc-id="targets">{t('Targets')}</h2> : null}
         <header
           className="terminal-toolbar"
           data-xgc-role="terminal-toolbar" data-xgc-id="terminal-toolbar"
@@ -119,6 +123,10 @@ export function TerminalWorkspace({
               prefix: sessionAttentionChrome(session),
             }))}
             minimumItems={0}
+            showCreate={embedded && Boolean(directHost)}
+            createLabel={t('New terminal session')}
+            createDataXgcRole="terminal-session-create"
+            onCreate={embedded && directHost ? () => onOpenHost(directHost) : undefined}
             onDelete={onCloseSession}
             onValueChange={onActivateSession}
             tabDataXgcRole="terminal-session-tab-select"
@@ -141,7 +149,7 @@ export function TerminalWorkspace({
         ) : null}
       </div>
       <div className="terminal-body-content" data-xgc-role="terminal-body" data-xgc-id="terminal-body">
-        <aside className="terminal-rail terminal-targets-rail" data-xgc-role="terminal-sidebar" data-xgc-id="terminal-sidebar" data-xgc-rail="targets">
+        {!embedded ? <aside className="terminal-rail terminal-targets-rail" data-xgc-role="terminal-sidebar" data-xgc-id="terminal-sidebar" data-xgc-rail="targets">
           <div className="terminal-rail-body terminal-host-tree" data-xgc-role="terminal-targets-list" data-xgc-id="terminal-targets-list">
             {hostGroupEntries.length === 0 && (
               <p className="terminal-rail-empty">{t('No login targets for the selected Core or Agent.')}</p>
@@ -180,7 +188,7 @@ export function TerminalWorkspace({
               </TerminalSidebarGroup>
             ))}
           </div>
-        </aside>
+        </aside> : null}
 
         <main className="terminal-console-card" data-xgc-role="terminal-console" data-xgc-id="terminal-console">
           <div className="terminal-console-stack" data-xgc-layout={layout} data-xgc-role="terminal-console-stack" data-xgc-id="terminal-console-stack">
@@ -190,7 +198,7 @@ export function TerminalWorkspace({
                 appearance="plain"
                 fill
                 title={t('No terminal session')}
-                description={t('Select Direct shell, loopback, a Host, or a robot on the left to open a session as the currently selected Core or Agent.')}
+                description={embedded ? undefined : t('Select Direct shell, loopback, a Host, or a robot on the left to open a session as the currently selected Core or Agent.')}
               />
             )}
             {sessions.map((session) => (

@@ -1,12 +1,28 @@
 // @vitest-environment jsdom
 
+import type * as LichtblickSceneResourcesModule from './lichtblickSceneResources';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { useState } from 'react';
 import { fireEvent,render,screen } from '@testing-library/react';
 import { beforeEach,describe,expect,it,vi } from 'vitest';
 import type { PanelInstance } from '../../domains/experiment/experimentPublic';
 import { LichtblickPanelOptionsEditor } from './LichtblickPanelOptionsEditor';
+import {
+  LICHTBLICK_LAYOUT_DEFAULTS,
+  validateLichtblickLayoutOptions,
+} from './lichtblickLayoutOptions';
+
+vi.mock('./lichtblickSceneResources',async (importOriginal) => {
+  const original=await importOriginal<typeof LichtblickSceneResourcesModule>();
+  return {
+    ...original,
+    loadLichtblickSceneResources:vi.fn(async () => [
+      { resourceId:'scene-paper',name:'Paper Leader Scene',namespace:'/xgc/scene' },
+    ]),
+  };
+});
 
 beforeEach(() => {
   const style = document.createElement('style');
@@ -79,6 +95,124 @@ describe('LichtblickPanelOptionsEditor layout cards', () => {
     expect(saved).not.toHaveProperty('cameraInfoTopic');
   });
 
+  it('does not expose a history window and keeps world axes on while authoring length', () => {
+    const workflowChange = vi.fn();
+    const onChange = vi.fn();
+    const { container } = render(<LichtblickPanelOptionsEditor panel={panelFixture()}
+      executionTargetId="" dashboardPanels={[]} options={{ axesVisible:false,historyWindowSec:60 }}
+      actionPresetAuthoring={{ 'workflow-parameters':{ values:{},onChange:workflowChange } }} onChange={onChange} />);
+    expect(screen.queryByRole('spinbutton',{ name:'History window' })).toBeNull();
+    expect(screen.queryByRole('switch',{ name:'Show world axes' })).toBeNull();
+    expect(container.querySelectorAll('[data-xgc-role="lichtblick-history-palette"]')).toHaveLength(3);
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ axesVisible:true }));
+    expect(onChange.mock.calls[0]![0]).not.toHaveProperty('historyWindowSec');
+    fireEvent.change(screen.getByRole('spinbutton',{ name:'World axis size' }),{ target:{ value:'2' } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ axesScale:2,axesVisible:true }));
+    expect(workflowChange).toHaveBeenCalledWith('axesVisible',true);
+    expect(workflowChange).toHaveBeenCalledWith('axesScale',2);
+    fireEvent.change(screen.getByRole('spinbutton',{ name:'Prediction line width' }),{ target:{ value:'0.03' } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ predictionLineWidth:0.03 }));
+    expect(workflowChange).toHaveBeenCalledWith('predictionLineWidth',0.03);
+    fireEvent.change(screen.getByRole('spinbutton',{ name:'Prediction axis size' }),{ target:{ value:'0.25' } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ predictionAxisScale:0.25 }));
+    expect(workflowChange).toHaveBeenCalledWith('predictionAxisScale',0.25);
+  });
+
+  it('keeps meter and pixel sizes across toggles and writes label controls to the Run preset', () => {
+    const workflowChange = vi.fn();
+    let saved: Record<string,unknown> = {};
+    function StatefulEditor() {
+      const [options,setOptions] = useState<Record<string,unknown>>({ markerColor:'#ffbf00' });
+      return <LichtblickPanelOptionsEditor panel={panelFixture()} executionTargetId="" dashboardPanels={[]}
+        options={options} actionPresetAuthoring={{ 'workflow-parameters':{ values:{},onChange:workflowChange } }}
+        onChange={(next) => { saved = next; setOptions(next); }} />;
+    }
+    const mounted = render(<StatefulEditor />);
+    const size = () => screen.getByRole('spinbutton',{ name:'Font size' });
+    const fixed = () => screen.getByRole('switch',{ name:'Fixed screen size' });
+    expect(size()).toHaveValue(0.24);
+    fireEvent.change(size(),{ target:{ value:'0.4' } });
+    fireEvent.click(fixed());
+    expect(size()).toHaveValue(16);
+    fireEvent.change(size(),{ target:{ value:'28' } });
+    fireEvent.click(fixed());
+    expect(size()).toHaveValue(0.4);
+    fireEvent.click(fixed());
+    expect(size()).toHaveValue(28);
+    fireEvent.change(screen.getByRole('spinbutton',{ name:'Opacity' }),{ target:{ value:'0' } });
+    fireEvent.change(screen.getByRole('spinbutton',{ name:'UAV vertical offset' }),{ target:{ value:'1.2' } });
+    fireEvent.change(screen.getByRole('spinbutton',{ name:'Scout vertical offset' }),{ target:{ value:'0' } });
+    fireEvent.change(screen.getByRole('spinbutton',{ name:'Mecanum vertical offset' }),{ target:{ value:'-0.4' } });
+    fireEvent.change(screen.getByRole('textbox',{ name:'Text color hex' }),{ target:{ value:'#123456' } });
+    fireEvent.blur(screen.getByRole('textbox',{ name:'Text color hex' }));
+    fireEvent.change(screen.getByRole('textbox',{ name:'Background color hex' }),{ target:{ value:'#1a2b3c' } });
+    fireEvent.blur(screen.getByRole('textbox',{ name:'Background color hex' }));
+    fireEvent.click(screen.getByRole('switch',{ name:'Show background' }));
+    expect(saved).toMatchObject({ labelScaleInvariant:true,labelFontSizeMeters:0.4,labelFontSizePixels:28,
+      markerOpacity:0,uavLabelOffset:1.2,scoutLabelOffset:0,mecanumLabelOffset:-0.4,markerColor:'#123456',
+      markerBackgroundColor:'#1a2b3c',markerBackgroundVisible:true });
+    for (const key of ['labelScaleInvariant','labelFontSizeMeters','labelFontSizePixels','markerOpacity','uavLabelOffset','scoutLabelOffset','mecanumLabelOffset','markerColor','markerBackgroundColor','markerBackgroundVisible']) {
+      expect(workflowChange).toHaveBeenCalledWith(key,saved[key]);
+    }
+    mounted.unmount();
+    renderEditor(saved);
+    expect(size()).toHaveValue(28);
+    expect(fixed()).toBeChecked();
+    expect(screen.getByRole('switch',{ name:'Show background' })).toBeChecked();
+  });
+
+  it('reads height projection from panel options, not the Run preset', () => {
+    const workflowChange = vi.fn();
+    const onChange = vi.fn();
+    const { container } = render(<LichtblickPanelOptionsEditor panel={panelFixture()}
+      executionTargetId="" dashboardPanels={[]} options={{ uavHeightProjection:true }}
+      actionPresetAuthoring={{ 'workflow-parameters':{ values:{ uavHeightProjection:false },onChange:workflowChange } }}
+      onChange={onChange} />);
+    expect(screen.getByRole('switch',{ name:'Height projection' })).toBeChecked();
+    const section = container.querySelector('[data-xgc-role="lichtblick-uav-projection-options"]')!;
+    expect(section.querySelectorAll('[role="switch"]')).toHaveLength(1);
+    fireEvent.click(screen.getByRole('switch',{ name:'Height projection' }));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ uavHeightProjection:false }));
+    expect(workflowChange).toHaveBeenCalledWith('uavHeightProjection',false);
+  });
+
+  it('defaults the world fence to boundary walls and writes the mode to the Run preset', async () => {
+    const workflowChange = vi.fn();
+    const onChange = vi.fn();
+    render(<LichtblickPanelOptionsEditor panel={panelFixture()}
+      executionTargetId="" dashboardPanels={[]} options={{}}
+      actionPresetAuthoring={{ 'workflow-parameters':{ values:{},onChange:workflowChange } }}
+      onChange={onChange} />);
+    const trigger = await screen.findByRole('button',{ name:'World fence display' });
+    expect(trigger).toHaveTextContent('Boundary walls (XYZ)');
+    fireEvent.click(trigger);
+    fireEvent.click(await screen.findByRole('option',{ name:'Ground outline' }));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ worldBoundaryMode:'ground' }));
+    expect(workflowChange).toHaveBeenCalledWith('worldBoundaryMode','ground');
+    fireEvent.click(screen.getByRole('button',{ name:'World fence display' }));
+    fireEvent.click(await screen.findByRole('option',{ name:'Hidden' }));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ worldBoundaryMode:'off' }));
+    expect(workflowChange).toHaveBeenCalledWith('worldBoundaryMode','off');
+  });
+
+  it('binds a scene resource namespace and treats no scene as legal', async () => {
+    const onChange = vi.fn();
+    const workflowChange = vi.fn();
+    render(<LichtblickPanelOptionsEditor panel={panelFixture()}
+      executionTargetId="" dashboardPanels={[]} options={{}}
+      actionPresetAuthoring={{ 'workflow-parameters':{ values:{},onChange:workflowChange } }}
+      onChange={onChange} />);
+    expect(screen.queryByRole('textbox',{ name:'Scene namespace' })).toBeNull();
+    const trigger = await screen.findByRole('button',{ name:'Obstacle scene' });
+    fireEvent.click(trigger);
+    fireEvent.click(await screen.findByRole('option',{ name:'Paper Leader Scene' }));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ sceneNamespace:'/xgc/scene' }));
+    expect(workflowChange).toHaveBeenCalledWith('sceneNamespace','/xgc/scene');
+    fireEvent.click(screen.getByRole('button',{ name:'Obstacle scene' }));
+    fireEvent.click(await screen.findByRole('option',{ name:'No obstacle scene' }));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ sceneNamespace:'' }));
+  });
+
   it('authors Plot series as message paths without inventing topics', () => {
     const onChange = vi.fn();
     const workflowChange = vi.fn();
@@ -100,6 +234,19 @@ describe('LichtblickPanelOptionsEditor layout cards', () => {
       plotPaths:['/topic.field','/other.value[1]'],
     }));
     expect(workflowChange).toHaveBeenCalledWith('plotPaths',['/topic.field','/other.value[1]']);
+  });
+
+  it('saves Scout history colors by filling the AR11 default text color', () => {
+    const onChange = vi.fn();
+    renderEditor({ dashboard: 'gcs' }, onChange);
+    fireEvent.change(screen.getByRole('textbox', { name: 'Scout 1 hex' }), { target: { value: '#123456' } });
+    fireEvent.blur(screen.getByRole('textbox', { name: 'Scout 1 hex' }));
+    const saved = onChange.mock.calls.at(-1)?.[0] as Record<string, unknown>;
+    expect(saved.scoutPalette).toEqual(['#123456', ...LICHTBLICK_LAYOUT_DEFAULTS.scoutPalette.slice(1)]);
+    expect(saved.markerColor).toBe(LICHTBLICK_LAYOUT_DEFAULTS.markerColor);
+    expect(saved.markerBackgroundColor).toBe(LICHTBLICK_LAYOUT_DEFAULTS.markerBackgroundColor);
+    expect(saved.markerBackgroundVisible).toBe(false);
+    expect(validateLichtblickLayoutOptions(saved)).toBe('');
   });
 });
 

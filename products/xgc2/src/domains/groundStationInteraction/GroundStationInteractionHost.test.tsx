@@ -2,6 +2,7 @@
 
 import { act,fireEvent,render,screen,waitFor,within } from '@testing-library/react';
 import { beforeEach,describe,expect,it,vi } from 'vitest';
+import { useGroundStationDecisionPresentation } from './groundStationDecisionClaims';
 import { GroundStationInteractionHost } from './GroundStationInteractionHost';
 import { GroundStationActivityPanel } from './GroundStationActivityPanel';
 import { GroundStationInteractionProvider } from './GroundStationInteractionProvider';
@@ -20,6 +21,14 @@ vi.mock('./useGroundStationInteractions', () => ({
   useGroundStationInteractions: () => interactionFeedMock.value,
 }));
 
+vi.mock('../operatorAccess/operatorAccessPublic', async (importOriginal) => ({
+  ...(await importOriginal() as object),
+  ensureOperatorControlSession: async () => true,
+  operatorControlSessionReady: () => true,
+  useOperatorControlSession: () => ({ phase: 'ready', ensuring: false, blocked: false, retry: vi.fn() }),
+  OperatorControlSessionNotice: () => null,
+}));
+
 describe('GroundStationInteractionHost', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -28,6 +37,17 @@ describe('GroundStationInteractionHost', () => {
     interactionFeedMock.dismiss.mockImplementation(async (interaction: GroundStationInteraction) => interaction);
     interactionFeedMock.respond.mockImplementation(async (interaction: GroundStationInteraction) => interaction);
     interactionFeedMock.value = interactionFeed();
+  });
+
+  it('uses a feature dialog for its run and restores fallback when it unmounts',async () => {
+    const decision = interaction({ id:'claimed',kind:'decision',presentation:'panel',responseMode:'decision',severity:'warning',title:'Confirm test',message:'Begin?',origin:{type:'automation',runId:'arm-run'},payload:{decision:{approveLabel:'Begin',rejectLabel:'Cancel',requireReason:false}},expiresAt:'2099-07-15T09:05:00Z' });
+    interactionFeedMock.value=interactionFeed({chatDecisions:[decision]});
+    function Claim(){useGroundStationDecisionPresentation('local','arm-run');return null;}
+    const view=render(<GroundStationInteractionProvider targetId="local"><Claim/><GroundStationInteractionHost targetId="local"/></GroundStationInteractionProvider>);
+    await waitFor(()=>expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
+    view.rerender(<GroundStationInteractionProvider targetId="local"><GroundStationInteractionHost targetId="local"/></GroundStationInteractionProvider>);
+    await waitFor(()=>expect(screen.getByRole('alertdialog')).toBeInTheDocument());
+    expect(interactionFeedMock.respond).not.toHaveBeenCalled();
   });
 
   it('keeps the application host non-blocking without synthesizing a chat fallback', () => {
@@ -143,6 +163,17 @@ describe('GroundStationInteractionHost', () => {
     expect(interactionFeedMock.dismissLocal).not.toHaveBeenCalled();
   });
 
+  it('keeps a raw configuration failure off the surface', () => {
+    publishLocalGroundStationNotification({
+      targetId: 'local',title: 'Experiment',
+      message: '400 Bad Request: configuration: invalid input: workflow instance "panel-paper-leader-ugv4-gallery" Action preset "render-video" names unknown Action "render-video"',
+      source: 'experiment-a',dedupeKey: 'experiment-workflow:action',
+    });
+    renderHost();
+    expect(document.querySelector('[data-xgc-role="ground-station-interaction-toast"]')).toBeNull();
+    expect(document.body).not.toHaveTextContent('configuration: invalid input');
+  });
+
   it('renders and dismisses local panel failures through the same global toast host', () => {
     const published = publishLocalGroundStationNotification({
       targetId: 'local',title: 'Robot instruments',message: 'panel state rejected',source: 'robot-panel',dedupeKey: 'host-test',
@@ -218,6 +249,8 @@ describe('GroundStationInteractionHost', () => {
     expect(response).toHaveTextContent('station-a');
     expect(response).toHaveTextContent('确认');
     expect(within(response).queryByRole('button')).toBeNull();
+    expect(document.querySelector('[data-xgc-role="ground-station-chat-decision-resolved"]')).toHaveTextContent('Unlock the selected aircraft?');
+    expect(document.querySelector('[data-xgc-role="ground-station-chat-decision-result"]')).toHaveTextContent('Awaiting execution receipt');
   });
 
   it('keeps a decision pending during submission and exposes a recoverable CAS error in the card', async () => {
@@ -234,6 +267,7 @@ describe('GroundStationInteractionHost', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
     expect(screen.getByRole('button', { name: 'Confirm' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Confirm' })).toHaveAttribute('aria-busy', 'true');
+    await waitFor(() => expect(interactionFeedMock.respond).toHaveBeenCalled());
     await act(async () => rejectResponse(new Error('This ground-station request changed before your response was applied.')));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('request changed');
@@ -255,6 +289,7 @@ describe('GroundStationInteractionHost', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Apply revision one' }));
     expect(screen.getByRole('button', { name: 'Apply revision one' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Apply revision one' })).toHaveAttribute('aria-busy', 'true');
+    await waitFor(() => expect(interactionFeedMock.respond).toHaveBeenCalled());
 
     const current = interaction({
       id: 'decision-revised',revision: 2,kind: 'decision',presentation: 'panel',responseMode: 'decision',severity: 'warning',

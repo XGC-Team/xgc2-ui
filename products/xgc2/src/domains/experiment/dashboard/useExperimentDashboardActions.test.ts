@@ -43,6 +43,20 @@ describe('useExperimentDashboardActions orchestration lifecycle',() => {
     );
   });
 
+  it('Total Stop remains available when occupancy is a leftover System Runner root',async () => {
+    const stopWorkflow = vi.fn(async () => stopSetResult('stop-all'));
+    const { result } = renderHook(() => useActions({
+      stopWorkflow,runtimeProjection:{ ...projection(),occupancyActive:true },
+    }));
+    expect(result.current.experimentIsRunning).toBe(true);
+    expect(result.current.activeRun).toBeUndefined();
+    expect(result.current.canStopExperiment).toBe(true);
+    await act(async () => { await result.current.stopExperiment(); });
+    expect(stopWorkflow).toHaveBeenCalledWith(
+      'local',expect.objectContaining({ head:expect.objectContaining({ resourceId:'experiment-a' }) }),
+    );
+  });
+
   it('supports Run -> Stop -> Run without retaining a stale controller',async () => {
     const startWorkflow = vi.fn(async () => experimentRun(`run-${startWorkflow.mock.calls.length}`));
     const stopWorkflow = vi.fn(async (_targetId:string,_experiment:ExperimentDocument) => stopSetResult('run-1'));
@@ -205,6 +219,21 @@ describe('useExperimentDashboardActions orchestration lifecycle',() => {
     expect(refresh).not.toHaveBeenCalled();
   });
 
+  it('refreshes Session projection when a live-Session Panel Action invoke fails',async () => {
+    const refresh = vi.fn(async () => undefined);
+    const invokePanelActionWorkflow = vi.fn(async ():Promise<ExperimentRunView> => {
+      throw new Error('workflow occupancy rejected');
+    });
+    const { result } = renderHook(() => useActions({
+      invokePanelActionWorkflow,
+      runtimeProjection:{ ...projection(),sessionActive:true,refresh },
+    }));
+    await act(async () => {
+      await expect(result.current.invokePanelAction('panel','run',{})).rejects.toThrow('workflow occupancy rejected');
+    });
+    expect(refresh).toHaveBeenCalled();
+  });
+
   it('projects stopping until the stop-set request completes',async () => {
     const active = experimentRun('run-1',4);
     const selected = { ...experimentRun('run-selected',2),actionId:'run-panel' };
@@ -257,6 +286,49 @@ describe('useExperimentDashboardActions orchestration lifecycle',() => {
     expect(result.current.experimentIsRunning).toBe(false);
   });
 
+  it('forwards placement on Run, Run Panel, and Restart and not on a Panel Action',async () => {
+    const startWorkflow = vi.fn(async () => experimentRun('run-1'));
+    const startPanelWorkflow = vi.fn(async () => experimentRun('panel-root'));
+    const restartWorkflow = vi.fn(async () => experimentRun('restart-root'));
+    const invokePanelActionWorkflow = vi.fn(async () => experimentRun('action-root'));
+    const { result } = renderHook(() => useActions({
+      startWorkflow,startPanelWorkflow,restartWorkflow,invokePanelActionWorkflow,placement:'per-robot',
+    }));
+    expect(result.current.placement).toBe('per-robot');
+    await act(async () => {
+      await result.current.startExperiment();
+      await result.current.startPanel('panel-a',{ speed:2 });
+      await result.current.restartExperiment();
+      await result.current.invokePanelAction('panel-a','capture',{ quality:'full' },'operator action');
+    });
+    const experimentArg = expect.objectContaining({ head:expect.objectContaining({ resourceId:'experiment-a' }) });
+    expect(startWorkflow).toHaveBeenCalledWith('local',experimentArg,'simulation','per-robot');
+    expect(startPanelWorkflow).toHaveBeenCalledWith('local',experimentArg,'simulation','panel-a',{ speed:2 },'per-robot');
+    expect(restartWorkflow).toHaveBeenCalledWith('local',experimentArg,'simulation','per-robot');
+    expect(invokePanelActionWorkflow).toHaveBeenCalledWith(
+      'local',experimentArg,'simulation','panel-a','capture',{ quality:'full' },'operator action',
+    );
+    expect(invokePanelActionWorkflow.mock.calls[0]).toHaveLength(7);
+  });
+
+  it('forwards an optional Panel preset without changing the unqualified call shape',async () => {
+    const startPanelWorkflow = vi.fn(async () => experimentRun('panel-root'));
+    const { result } = renderHook(() => useActions({ startPanelWorkflow }));
+    await act(async () => {
+      await result.current.startPanel('panel-default',{ speed:2 });
+      await result.current.startPanel('panel-archive',{ speed:3 },'archive');
+    });
+    const experimentArg=expect.objectContaining({ head:expect.objectContaining({ resourceId:'experiment-a' }) });
+    expect(startPanelWorkflow).toHaveBeenNthCalledWith(
+      1,'local',experimentArg,'simulation','panel-default',{ speed:2 },
+    );
+    expect(startPanelWorkflow.mock.calls[0]).toHaveLength(5);
+    expect(startPanelWorkflow).toHaveBeenNthCalledWith(
+      2,'local',experimentArg,'simulation','panel-archive',{ speed:3 },undefined,'archive',
+    );
+    expect(startPanelWorkflow.mock.calls[1]).toHaveLength(7);
+  });
+
   it('refuses Start when another Experiment occupies the station but retains this Run Stop',async () => {
     const startWorkflow = vi.fn(async () => experimentRun('run-1'));
     const active = experimentRun('run-current');
@@ -282,27 +354,33 @@ function useActions({
   startWorkflow=vi.fn(async () => experimentRun('run')),
   stopWorkflow=vi.fn(async (_targetId:string,_experiment:ExperimentDocument) => stopSetResult('run')),
   startPanelWorkflow,
+  restartWorkflow,
   invokePanelActionWorkflow,
+  placement,
   runtimeProjection=projection(),dashboardEditing=false,externalAdmissionDisabledReason='',
 }: {
-  startWorkflow?:(targetId:string,experiment:ExperimentDocument,runMode:string)=>Promise<ExperimentRunView>;
+  startWorkflow?:(targetId:string,experiment:ExperimentDocument,runMode:string,placement?:'centralized'|'per-robot')=>Promise<ExperimentRunView>;
   stopWorkflow?:(targetId:string,experiment:ExperimentDocument)=>Promise<AutomationStopRunSetResponse>;
   startPanelWorkflow?:(
     targetId:string,experiment:ExperimentDocument,runMode:string,panelId:string,
-    inputOverrides:Record<string,unknown>,
+    inputOverrides:Record<string,unknown>,placement?:'centralized'|'per-robot',presetId?:string,
+  )=>Promise<ExperimentRunView>;
+  restartWorkflow?:(
+    targetId:string,experiment:ExperimentDocument,runMode:string,placement?:'centralized'|'per-robot',
   )=>Promise<ExperimentRunView>;
   invokePanelActionWorkflow?:(
     targetId:string,experiment:ExperimentDocument,runMode:string,panelId:string,presetId:string,
     inputOverrides:Record<string,unknown>,reason?:string,
   )=>Promise<ExperimentRunView>;
+  placement?:'centralized'|'per-robot';
   runtimeProjection?:ExperimentRuntimeProjection;
   dashboardEditing?:boolean;
   externalAdmissionDisabledReason?:string;
 } = {}) {
   return useExperimentDashboardActions({
     visibleExperiment:experiment(),runtimeProjection,executionTargetId:'local',
-    startWorkflow,stopWorkflow,startPanelWorkflow,invokePanelActionWorkflow,dashboardEditing,
-    saveExperimentDraft:async (value) => value,runMode:'simulation',externalAdmissionDisabledReason,
+    startWorkflow,stopWorkflow,startPanelWorkflow,restartWorkflow,invokePanelActionWorkflow,dashboardEditing,
+    saveExperimentDraft:async (value) => value,runMode:'simulation',placement,externalAdmissionDisabledReason,
   });
 }
 

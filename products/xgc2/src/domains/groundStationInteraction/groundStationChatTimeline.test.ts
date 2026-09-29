@@ -25,7 +25,24 @@ describe('projectGroundStationDecisionTimeline', () => {
     expect(projectGroundStationDecisionTimeline([decision])).toMatchObject([
       { type: 'decision-request' },
       { type: 'operator-response',response: { action: 'approved',actor: 'station-a',reason: 'Area clear' } },
+      { type: 'decision-result' },
     ]);
+  });
+
+  it('updates the execution receipt without changing the operator record identity or time', () => {
+    const response = { action: 'approved', actor: 'station-a', at: '2026-07-15T09:01:00Z' };
+    const approved = fixture({ status: 'resolved', revision: 2, response });
+    const completed = fixture({ status: 'resolved', revision: 3, updatedAt: '2026-07-15T09:02:00Z',
+      response: { ...response, results: { invocationId: 'action-1', attempt: 1, state: 'completed',
+        succeeded: ['px4-01'], failed: ['px4-02'], at: '2026-07-15T09:02:00Z' } },
+    });
+    const before = projectGroundStationDecisionTimeline([approved]);
+    const after = projectGroundStationDecisionTimeline([completed]);
+    expect(after.map(item => item.id)).toEqual(before.map(item => item.id));
+    expect(after.find(item => item.type === 'operator-response')).toMatchObject({
+      at: response.at, response,
+    });
+    expect(after.find(item => item.type === 'decision-result')?.at).toBe('2026-07-15T09:02:00Z');
   });
 
   it('keeps expiry and cancellation on each original decision without synthetic messages or folding', () => {
@@ -38,10 +55,15 @@ describe('projectGroundStationDecisionTimeline', () => {
     const now = Date.parse('2026-07-15T09:01:00Z');
 
     const timeline = projectGroundStationDecisionTimeline([canceled,expired,locallyExpired], now);
-    expect(timeline).toHaveLength(3);
-    expect(timeline.every(item => item.type === 'decision-request')).toBe(true);
+    expect(timeline.filter((item) => item.interaction.id === 'decision-canceled').map((item) => item.type))
+      .toEqual(['decision-request','decision-result']);
+    expect(timeline.filter((item) => item.interaction.id === 'decision-expired').map((item) => item.type))
+      .toEqual(['decision-request','decision-result']);
+    expect(timeline.filter((item) => item.interaction.id === 'decision-local').map((item) => item.type))
+      .toEqual(['decision-request']);
+    expect(timeline.some((item) => item.type === 'operator-response')).toBe(false);
     const groups = collapseGroundStationChatTimeline(timeline, now);
-    expect(groups).toHaveLength(3);
+    expect(groups).toHaveLength(5);
     expect(groups.every(group => group.history.length === 0)).toBe(true);
     expect(isGroundStationDecisionLocallyExpired(locallyExpired, now)).toBe(true);
     expect(projectGroundStationDecisionTimeline([canceled], now).some((item) => item.type === 'operator-response')).toBe(false);

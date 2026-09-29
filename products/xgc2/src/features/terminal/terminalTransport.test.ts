@@ -54,6 +54,7 @@ describe('connectTerminalTransport', () => {
     const connection = await connectTerminalTransport({
       hostId: 'host-a',
       sessionId: 'session-a',
+      initialDirectory: '/workspace/ literal ; $name ',
       cols: 80,
       rows: 24,
       targetCoreId: 'core-a',
@@ -64,7 +65,7 @@ describe('connectTerminalTransport', () => {
 
     expect(openWebSocket).toHaveBeenCalledWith('/terminal/ws', {
       targetCoreId: 'core-a',
-      query: { hostId: 'host-a', sessionId: 'session-a', cols: 80, rows: 24, ticket: 'ticket-a' },
+      query: { hostId: 'host-a', sessionId: 'session-a', initialDirectory: '/workspace/ literal ; $name ', cols: 80, rows: 24, ticket: 'ticket-a' },
     });
 
     socket.onopen?.(new Event('open'));

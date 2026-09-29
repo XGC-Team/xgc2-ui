@@ -20,7 +20,7 @@
   justify-self: center;
 }
 
-[data-xgc-role="experiment-dashboard-surface"]:not([hidden]) {
+[data-xgc-role="experiment-dashboard-surface"] {
   min-width: 0;
   min-height: 0;
   width: 100%;
@@ -38,12 +38,12 @@
 }
 
 /*
- * Parked dashboard tabs stay mounted. The visible tab must be in the height
+ * Parked dashboard tabs stay mounted. Each tab must be in the height
  * chain for Config and GCS: otherwise the wrapper is content-sized, the grid
  * sees height 0 and never mounts, and switching to the experiment page shows
  * an empty surface.
  */
-[data-xgc-role="experiment-dashboard-surface"]:not([hidden]) [data-xgc-role="experiment-dashboard-tab-surface"]:not([hidden]) {
+[data-xgc-role="experiment-dashboard-surface"] [data-xgc-role="experiment-dashboard-tab-surface"] {
   min-width: 0;
   min-height: 0;
   width: 100%;
@@ -53,8 +53,25 @@
   grid-template-rows: minmax(0, 1fr);
 }
 
+[data-xgc-role="experiment-route-surface"],
+[data-xgc-role="experiment-dashboard-surface"],
+[data-xgc-role="experiment-dashboard-tab-surface"] {
+  position: relative;
+}
+
+/* Retained panels need measurable geometry. display:none feeds zero-size rows
+ * to virtualized controls and also resets their scroll state. Hidden surfaces
+ * leave the flow and paint tree; their visibility context suspends live work. */
+[data-xgc-role="experiment-route-surface"][hidden],
+[data-xgc-role="experiment-dashboard-surface"][hidden],
 [data-xgc-role="experiment-dashboard-tab-surface"][hidden] {
-  display: none;
+  display: grid;
+  position: absolute;
+  inset: 0;
+  /* visibility:hidden already removes the subtree from hit-testing; setting
+   * pointer-events:none on a markable role host is forbidden by V13. */
+  visibility: hidden;
+  overflow: clip;
 }
 
 .app-shell:not([data-xgc-mode="ground-station"]) [data-xgc-role="experiment-dashboard-canvas"],
@@ -62,6 +79,26 @@
 .app-shell:not([data-xgc-mode="ground-station"]) [data-xgc-role="experiment-dashboard-canvas"] .dashboard-layout {
   /* Workspace padding is zeroed for dashboard canvas — fill below shared chrome. */
   min-height: 100%;
+}
+
+/* Config standalone page (Robot assets) occupies the remaining workspace.
+ * Beat the Config min-height:100% scroll chain so the grid is the shell,
+ * not content-sized 16×39 rows with empty workspace below. Multi-panel
+ * Config tabs keep that scrollable chain. */
+.app-shell:not([data-xgc-mode="ground-station"]) [data-xgc-role="experiment-dashboard-canvas"][data-xgc-fill-remaining="true"],
+.app-shell:not([data-xgc-mode="ground-station"]) [data-xgc-role="experiment-dashboard-canvas"][data-xgc-fill-remaining="true"] > .dashboard-layout-shell,
+.app-shell:not([data-xgc-mode="ground-station"]) [data-xgc-role="experiment-dashboard-canvas"][data-xgc-fill-remaining="true"] .dashboard-layout {
+  height: 100%;
+  min-height: 0;
+}
+
+[data-xgc-role="experiment-dashboard-canvas"][data-xgc-fill-remaining="true"] {
+  overflow: hidden;
+}
+
+[data-xgc-role="experiment-dashboard-canvas"][data-xgc-fill-remaining="true"] .dashboard-layout-item > .xgc-panel-frame {
+  width: 100%;
+  height: 100%;
 }
 
 .dashboard-layout-shell,

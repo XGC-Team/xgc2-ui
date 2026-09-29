@@ -1,8 +1,10 @@
+import { downloadRecording,listRecordings } from '../../domains/recording/recordingPublic';
 // @vitest-environment jsdom
 
-import { fireEvent,render,screen,waitFor } from '@testing-library/react';
+import { act,fireEvent,render,screen,waitFor } from '@testing-library/react';
 import { describe,expect,it,vi } from 'vitest';
-import { newAutomationSpec,type AutomationDocument } from '../../domains/automation/automationPublic';
+import { StrictMode } from 'react';
+import { newAutomationSpec,newAutomationNode,type AutomationDocument,type AutomationRunDetail } from '../../domains/automation/automationPublic';
 import type { PanelInstance } from '../../domains/experiment/experimentPublic';
 import type { PanelActionPortRuntime,PanelPluginContext } from '../types';
 import { AutomationWorkflowAuditPanel,AutomationWorkflowControlPanel } from './AutomationWorkflowPanel';
@@ -12,13 +14,227 @@ import {
   AutomationWorkflowControlFrameProvider,
   AutomationWorkflowControlHeaderActions,
 } from './AutomationWorkflowPanelFrame';
+import { testPanelExecution,testRunDetails } from '../../test/panelExecutionTestSupport';
 
 vi.mock('../../domains/automation/automationPublic',async () => ({
   ...(await vi.importActual('../../domains/automation/automationPublic')),
   AutomationGraph: () => <div data-xgc-role="automation-graph" />,
 }));
 
+vi.mock('../../domains/recording/recordingPublic',async () => ({
+  ...(await vi.importActual('../../domains/recording/recordingPublic')),
+  listRecordings:(await import('../../domains/recording/recordingService')).listRecordings,
+  downloadRecording:(await import('../../domains/recording/recordingService')).downloadRecording,
+}));
+vi.mock('../../domains/recording/recordingService',async () => ({
+  ...(await vi.importActual('../../domains/recording/recordingService')),listRecordings:vi.fn(),downloadRecording:vi.fn(),
+}));
+
 describe('AutomationWorkflowPanel',() => {
+  it.each(['target','experiment','panel','port','owner','preset'] as const)(
+    'discards a late accepted receipt when the card changes %s identity without a Data port',async (changed) => {
+      const original=actionPort('capture','Old capture','worker');
+      original.executionMode='standalone';original.action!.kind='service';
+      original.trace={ automationResourceId:'worker',actionId:'run',workflowInstanceId:'owner-a',presetId:'preset-a' };
+      let resolveStart!:(value:{ id:string;status:'waiting';revision:number }) => void;
+      original.invoke=vi.fn(() => new Promise<{ id:string;status:'waiting';revision:number }>((resolve) => { resolveStart=resolve; }));
+      const detail=finalizedRecordingDetail();
+      const next=actionPort(changed==='port' ? 'next-capture' : 'capture','New capture','worker');
+      next.executionMode='standalone';next.action!.kind='service';
+      next.trace={ ...original.trace,
+        workflowInstanceId:changed==='owner' ? 'owner-b' : 'owner-a',
+        presetId:changed==='preset' ? 'preset-b' : 'preset-a' };
+      // The target-scoped store legitimately retains the previous binding's Run.
+      testRunDetails(next.execution)['old-root']=detail;
+      next.execution!.loadRunDetail=vi.fn(async () => detail);
+      vi.mocked(listRecordings).mockClear().mockResolvedValue([{ id:'old-file',name:'OLD_CAPTURE.mp4',size:1024,
+        experimentId:'experiment-a',workflowRunId:'old-root',targetId:'local',status:'finalized' } as Awaited<ReturnType<typeof listRecordings>>[number]]);
+      original.invocationScope={ targetId:'local',experimentResourceId:'experiment-a',experimentBranch:'main',
+        panelId:panel().id,portId:'capture',workflowInstanceId:'owner-a',presetId:'preset-a' };
+      next.invocationScope={ ...original.invocationScope,
+        targetId:changed==='target' ? 'another-target' : 'local',
+        experimentResourceId:changed==='experiment' ? 'experiment-b' : 'experiment-a',
+        panelId:changed==='panel' ? 'another-panel' : panel().id,portId:next.id,
+        workflowInstanceId:next.trace.workflowInstanceId!,presetId:next.trace.presetId! };
+      const { container,rerender }=render(<AutomationWorkflowControlPanel panel={panel()} context={context({ capture:original })} />);
+      fireEvent.click(container.querySelector('[data-xgc-role="panel-action-invoke"]')!);
+      expect(original.invoke).toHaveBeenCalledTimes(1);
+      rerender(<AutomationWorkflowControlPanel panel={{ ...panel(),...(changed==='panel' ? { id:'another-panel' } : {}) }}
+        context={context({ capture:next })} />);
+      const nextButton=container.querySelector('[data-xgc-role="panel-action-invoke"]')!;
+      expect(nextButton).toHaveAccessibleName('New capture');
+      expect(nextButton).toBeEnabled();
+      expect(nextButton).toHaveAttribute('data-xgc-status','stopped');
+      expect(container.querySelector('[data-xgc-role="panel-action-recording-result"]')).toBeNull();
+      await act(async () => { resolveStart({ id:'old-root',status:'waiting',revision:1 }); });
+      expect(nextButton).toBeEnabled();
+      expect(nextButton).not.toHaveAttribute('data-xgc-run-id');
+      expect(screen.queryByText('Saved: OLD_CAPTURE.mp4')).toBeNull();
+      expect(container.querySelector('[data-xgc-role="panel-action-recording-result"]')).toBeNull();
+      expect(next.execution!.loadRunDetail).not.toHaveBeenCalled();
+      expect(next.execution!.retainRunObservation).not.toHaveBeenCalled();
+      expect(listRecordings).not.toHaveBeenCalled();
+    },
+  );
+
+  it('discards the previous recording invocation on rebinding and ignores its late failure',async () => {
+    const original=actionPort('capture','Old capture','worker');
+    original.executionMode='standalone';original.action!.kind='service';
+    original.trace={ ...original.trace,workflowInstanceId:'owner',presetId:'old-preset' };
+    original.latestInvocation={ id:'old-root',status:'stopped',revision:3 };
+    testRunDetails(original.execution)['old-root']=finalizedRecordingDetail();
+    vi.mocked(listRecordings).mockClear().mockResolvedValue([{ id:'old-file',name:'OLD_CAPTURE.mp4',size:1024,
+      experimentId:'experiment-a',workflowRunId:'old-root',targetId:'local',status:'finalized' } as Awaited<ReturnType<typeof listRecordings>>[number]]);
+    let rejectStart!:(cause:Error) => void;
+    original.invoke=vi.fn(() => new Promise<never>((_,reject) => { rejectStart=reject; }));
+    const { container,rerender }=render(<AutomationWorkflowControlPanel panel={panel()} context={context({ capture:original })} />);
+    expect(container.querySelector('[data-xgc-role="panel-action-recording-result"]')).toBeNull();
+    fireEvent.click(container.querySelector('[data-xgc-role="panel-action-invoke"]')!);
+    const next=actionPort('capture','New capture','worker');
+    next.executionMode='standalone';next.action!.kind='service';
+    next.trace={ ...original.trace,presetId:'new-preset' };
+    rerender(<AutomationWorkflowControlPanel panel={panel()} context={context({ capture:next })} />);
+    const nextButton=container.querySelector('[data-xgc-role="panel-action-invoke"]')!;
+    expect(nextButton).toBeEnabled();
+    expect(screen.queryByText('Saved: OLD_CAPTURE.mp4')).toBeNull();
+    await act(async () => { rejectStart(new Error('OLD REQUEST FAILED')); });
+    expect(nextButton).not.toHaveAttribute('title','OLD REQUEST FAILED');
+    fireEvent.click(nextButton);
+    await waitFor(() => expect(next.execution!.retainRunObservation).toHaveBeenCalledWith('run-new'));
+    expect(next.invoke).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves accepted old-commit control across same-identity revisions under StrictMode',async () => {
+    const original=actionPort('capture','Capture','worker');
+    original.executionMode='standalone';original.action!.kind='service';
+    original.trace={ ...original.trace,workflowInstanceId:'owner',presetId:'capture-preset' };
+    let resolveStart!:(value:{ id:string;status:'waiting';revision:number }) => void;
+    original.invoke=vi.fn(() => new Promise<{ id:string;status:'waiting';revision:number }>((resolve) => { resolveStart=resolve; }));
+    const runtime={ ...runtimeValue(),experimentResourceId:'experiment-a' };
+    const { container,rerender }=render(<StrictMode><AutomationWorkflowControlPanel panel={panel()} context={context({ capture:original },runtime)} /></StrictMode>);
+    fireEvent.click(container.querySelector('[data-xgc-role="panel-action-invoke"]')!);
+    const next={ ...original,label:'Renamed capture',action:{ ...original.action!,label:'Renamed capture' } };
+    const nextRuntime={ ...runtime,documents:runtime.documents.map((document) => ({ ...document,
+      head:{ ...document.head,mainCommitId:'next-commit',revision:2 },
+      branch:{ ...document.branch,headCommitId:'next-commit',revision:2 } })) };
+    rerender(<StrictMode><AutomationWorkflowControlPanel panel={panel()} context={context({ capture:next },nextRuntime)} /></StrictMode>);
+    const button=container.querySelector('[data-xgc-role="panel-action-invoke"]')!;
+    expect(button).toBeDisabled();
+    await act(async () => { resolveStart({ id:'accepted-old-commit',status:'waiting',revision:7 }); });
+    expect(button).toHaveAttribute('data-xgc-run-id','accepted-old-commit');
+    expect(button).toBeEnabled();
+    fireEvent.click(button);
+    await waitFor(() => expect(next.control).toHaveBeenCalledWith(
+      { id:'accepted-old-commit',status:'waiting',revision:7 },'stop',expect.any(String),
+    ));
+    expect(original.invoke).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps recording controls in the unchanged action grid through Stop and finalization',async () => {
+    const port=actionPort('ordinary-capture','Capture','worker');port.executionMode='standalone';
+    port.action!.kind='service';port.action!.controls=['stop'];
+    const spec=newAutomationSpec('Worker');
+    spec.nodes=[{ ...newAutomationNode('process.run-bash',{ archiveOutput:{ category:'ScreenRecording',extension:'mp4' } }),id:'actual-producer' }];
+    const sourceRef={ domain:'experiment',resourceId:'frozen-experiment',branch:'main',commitId:'old',version:1,digest:'a'.repeat(64) };
+    const automationRef={ ...sourceRef,domain:'automation',resourceId:'worker' };
+    const detail={ run:{ id:'exact-root',rootRunId:'exact-root',targetId:'local',sourceKind:'experiment',sourceRef,automationRef,status:'waiting',revision:2 },
+      snapshot:{ runId:'exact-root',targetId:'local',sourceKind:'experiment',sourceRef,automationRef,automationSpec:spec },
+      invocations:[{ id:'real-occurrence',runId:'exact-root',nodeId:'actual-producer',kind:'process.run-bash',status:'waiting',compensationStatus:'none',attempts:[{ status:'waiting' }] }],
+      relations:{ runId:'exact-root',childRuns:[],childRunGroups:[],childRunGroupMembers:[],effects:[],runtimeGroups:[],runtimes:[],resources:[],
+        waits:[{ type:'job',subjectId:'exact-job',runId:'exact-root',invocationId:'real-occurrence',state:'pending' }] },
+      nodeSummaries:[],loading:false,error:'' } as unknown as AutomationRunDetail;
+    port.activeInvocation={ id:'exact-root',status:'waiting',revision:2 };
+    const load=vi.fn(async () => detail);
+    port.execution=testPanelExecution({ 'exact-root':detail },{ loadRunDetail:load,retainRunObservation:vi.fn(() => vi.fn()),retainRunDetail:vi.fn(() => vi.fn()) });
+    vi.mocked(listRecordings).mockClear().mockResolvedValue([{ id:'screen.record',name:'Experiment_simulation_capture.mp4',size:1024,
+      experimentId:'frozen-experiment',workflowRunId:'exact-root',targetId:'local',status:'finalized' } as Awaited<ReturnType<typeof listRecordings>>[number]]);
+    const view=() => <AutomationWorkflowControlPanel panel={panel()} context={context({ capture:port })} />;
+    const { container,rerender }=render(view());
+    await waitFor(() => expect(load).toHaveBeenCalled());
+    fireEvent.click(container.querySelector('[data-xgc-role="panel-action-invoke"]')!);
+    await waitFor(() => expect(port.control).toHaveBeenCalled());
+    expect(listRecordings).not.toHaveBeenCalled();
+    port.activeInvocation=undefined;port.latestInvocation={ id:'exact-root',status:'stopped',revision:3 };
+    detail.run={ ...detail.run!,status:'stopped',revision:3 };rerender(view());
+    expect(listRecordings).not.toHaveBeenCalled();
+    detail.invocations[0]!.status='canceled';detail.invocations[0]!.compensationStatus='succeeded';detail.invocations[0]!.attempts[0]!.status='canceled';
+    detail.relations!.waits[0]!.state='canceled';rerender(view());
+    const grid=container.querySelector('[data-xgc-role="automation-workflow-action-grid"]')!;
+    expect(grid.children).toHaveLength(1);
+    expect(grid.firstElementChild).toHaveAttribute('data-xgc-role','panel-action-invoke');
+    expect(grid.firstElementChild).toHaveAccessibleName('Capture');
+    expect(grid.firstElementChild).toHaveAttribute('data-xgc-status','stopped');
+    expect(grid.querySelector('[data-xgc-role="panel-action-recording-result"]')).toBeNull();
+    expect(grid.querySelector('[data-xgc-role="panel-action-recording-download"]')).toBeNull();
+    expect(grid.querySelector('[data-xgc-role="panel-action-recording-refresh"]')).toBeNull();
+    expect(listRecordings).not.toHaveBeenCalled();
+    expect(downloadRecording).not.toHaveBeenCalled();
+  });
+
+  it('uses the short Action label and stops its exact accepted Run through the same card',async () => {
+    const port=actionPort('capture','Capture','worker');
+    port.executionMode='standalone';port.action!.kind='service';port.action!.controls=['stop'];
+    port.activeInvocation={ id:'standalone-root',status:'waiting',revision:7 };
+    const { container }=render(<AutomationWorkflowControlPanel panel={panel()} context={context({ capture:port })} />);
+    const button=container.querySelector('[data-xgc-role="panel-action-invoke"][data-xgc-id="capture"]')!;
+    expect(button).toHaveAccessibleName('Capture');
+    fireEvent.click(button);
+    await waitFor(() => expect(port.control).toHaveBeenCalledWith(port.activeInvocation,'stop',expect.any(String)));
+    expect(port.invoke).not.toHaveBeenCalled();
+  });
+
+  it('invokes Reset and Stop with one click without displaying fixed preset inputs',async () => {
+    const ports=Object.fromEntries(['reset','stop'].map(id => {
+      const port=actionPort(id,id,'ugv');
+      port.action!.label=id;
+      port.inputSchema={ fields:[{ name:'commandGroup',label:'Vehicle command group',kind:'string',required:true,
+        string:{ default:'xgc.ugv-reset-stop',enum:['xgc.ugv-reset-stop'] } }] };
+      port.defaults={ commandGroup:'xgc.ugv-reset-stop' };
+      return [id,port];
+    }));
+    const { container }=render(<AutomationWorkflowControlPanel panel={panel()} context={context(ports)} />);
+    expect(screen.queryByText('Vehicle command group')).toBeNull();
+    expect(container.querySelector('input,select,textarea,form')).toBeNull();
+    for (const id of ['reset','stop']) {
+      fireEvent.click(container.querySelector(`[data-xgc-role="panel-action-invoke"][data-xgc-id="${id}"]`)!);
+      await waitFor(() => expect(ports[id]!.invoke).toHaveBeenCalledTimes(1));
+      expect(ports[id]!.invoke).toHaveBeenCalledWith({},expect.any(String));
+    }
+  });
+
+  it('preserves configured action order instead of alphabetizing protocol IDs',() => {
+    const ports=Object.fromEntries(['run','record','takeoff','start','stop','reset'].map(id => [id,actionPort(id,id,'formation')]));
+    render(<AutomationWorkflowControlPanel panel={panel()} context={context(ports)} />);
+    expect([...document.querySelectorAll('[data-xgc-role="panel-action-invoke"]')].map(el => el.getAttribute('data-xgc-id')))
+      .toEqual(['run','record','takeoff','start','stop','reset']);
+  });
+
+  it('puts the bag archive location on idle Record title, not the tile body',() => {
+    const record=actionPort('record','Record','formation');
+    record.action!.kind='service';
+    const run=actionPort('run','Algorithm','formation');
+    const view=() => <AutomationWorkflowControlPanel panel={panel()} context={context({ run,record })} />;
+    const { container,rerender }=render(view());
+    const recordButton=() => container.querySelector('[data-xgc-role="panel-action-invoke"][data-xgc-id="record"]')!;
+    const runButton=() => container.querySelector('[data-xgc-role="panel-action-invoke"][data-xgc-id="run"]')!;
+    expect(recordButton()).toHaveAccessibleName('Record');
+    expect(recordButton()).toHaveAttribute(
+      'title',
+      "Saves under this station's Documents/XGC/Data. After Stop, listed as a data file on Analysis plots.",
+    );
+    expect(recordButton()).not.toHaveTextContent(/Documents\/XGC\/Data/i);
+    expect(recordButton().querySelector('.xgc-workflow-status-card-heading em')).toBeNull();
+    expect(runButton()).not.toHaveAttribute('title');
+    record.disabledReason='Waiting for the current Session';
+    rerender(view());
+    expect(recordButton()).toHaveAttribute('title','Waiting for the current Session');
+    record.disabledReason='';
+    record.activeInvocation={ id:'rec-1',status:'running',revision:1 };
+    rerender(view());
+    expect(recordButton()).toHaveAttribute('title','Stop service');
+    expect(recordButton()).toHaveAccessibleName('Record');
+  });
+
   it('renders one stable Run action for every bound preset and re-enables it from runtime truth',async () => {
     const workflow=actionPort('workflow','workflow','formation');
     const fallback=actionPort('fallback','fallback','formation','run-2');
@@ -92,7 +308,7 @@ describe('AutomationWorkflowPanel',() => {
     const { rerender }=render(view());
     const button=() => document.querySelector('[data-xgc-role="panel-action-invoke"][data-xgc-id="build"]')!;
     expect(button().querySelector('.xgc-progress')).not.toHaveAttribute('data-xgc-progress-mode','indeterminate');
-    expect(button().querySelector('.xgc-progress-fill')).toHaveStyle({ '--xgc-progress-percent':'0%' });
+    expect(button().querySelector('.xgc-progress-fill')).toHaveStyle({ '--xgc-progress-percent':'100%' });
     build.serviceStatus={ state:'starting',ready:0,total:1 };
     rerender(view());
     expect(button().querySelector('.xgc-progress-fill')).toHaveStyle({ '--xgc-progress-percent':'0%' });
@@ -137,7 +353,7 @@ describe('AutomationWorkflowPanel',() => {
     const button=() => document.querySelector('[data-xgc-role="panel-action-invoke"][data-xgc-id="custom1"]')!;
     const progress=() => button().querySelector('.xgc-progress')!;
     expect(progress()).not.toHaveAttribute('data-xgc-progress-mode','indeterminate');
-    expect(button().querySelector('.xgc-progress-fill')).toHaveStyle({ '--xgc-progress-percent':'0%' });
+    expect(button().querySelector('.xgc-progress-fill')).toHaveStyle({ '--xgc-progress-percent':'100%' });
     action.serviceStatus={ state:'starting',ready:1,total:3 };
     rerender(view());
     expect(progress()).not.toHaveAttribute('data-xgc-progress-mode','indeterminate');
@@ -147,6 +363,60 @@ describe('AutomationWorkflowPanel',() => {
     expect(button()).toHaveAttribute('data-xgc-status','running');
     expect(button().querySelector('.xgc-progress-fill')).toHaveStyle({ '--xgc-progress-percent':'100%' });
     expect(progress()).toHaveStyle({ '--xgc-progress-fill':'var(--color-progress-measured)' });
+  });
+
+  it('keeps Algorithm run occupancy after stop then start in the same Session',() => {
+    const action=actionPort('run','Algorithm','paper-leader','run-1');
+    action.action!.kind='service';
+    action.serviceStatus={ state:'running',ready:2,total:2 };
+    const view=() => <AutomationWorkflowControlPanel panel={panel()} context={context({ action })} />;
+    const { rerender }=render(view());
+    const button=() => document.querySelector('[data-xgc-role="panel-action-invoke"][data-xgc-id="run"]')!;
+    expect(button().querySelector('.xgc-progress-fill')).toHaveStyle({ '--xgc-progress-percent':'100%' });
+    delete action.activeInvocation;
+    delete action.serviceStatus;
+    action.latestInvocation={ id:'run-1',status:'stopped',revision:2 };
+    rerender(view());
+    expect(button().querySelector('.xgc-progress-fill')).toHaveStyle({ '--xgc-progress-percent':'0%' });
+    action.activeInvocation={ id:'run-2',status:'waiting',revision:1 };
+    action.serviceStatus={ state:'running',ready:2,total:2 };
+    rerender(view());
+    expect(button()).toHaveAttribute('data-xgc-status','running');
+    expect(button().querySelector('.xgc-progress-fill')).toHaveStyle({ '--xgc-progress-percent':'100%' });
+    expect(button().querySelector('.xgc-progress')).toHaveStyle({ '--xgc-progress-fill':'var(--color-progress-measured)' });
+  });
+
+  it('retains the Algorithm invoke id and stays occupied before occupancy summaries arrive',async () => {
+    const action=actionPort('run','Algorithm','paper-leader');
+    action.action!.kind='service';
+    render(<AutomationWorkflowControlPanel panel={panel()} context={context({ action })} />);
+    const button=document.querySelector('[data-xgc-role="panel-action-invoke"][data-xgc-id="run"]')!;
+    fireEvent.click(button);
+    await waitFor(() => expect(action.execution?.retainRunObservation).toHaveBeenCalledWith('run-new'));
+    expect(action.invoke).toHaveBeenCalledTimes(1);
+    expect(action.execution?.loadRunDetail).toHaveBeenCalledWith('run-new');
+    expect(button).toHaveAttribute('data-xgc-status','waiting');
+    expect(button.querySelector('.xgc-progress-fill')).toHaveStyle({ '--xgc-progress-percent':'100%' });
+    fireEvent.click(button);
+    await waitFor(() => expect(action.control).toHaveBeenCalledWith(
+      expect.objectContaining({ id:'run-new',status:'waiting',revision:1 }),
+      'stop',
+      expect.any(String),
+    ));
+    expect(action.invoke).toHaveBeenCalledTimes(1);
+  });
+
+  it('surfaces Algorithm invoke occupancy rejection on the tile without a second start',async () => {
+    const action=actionPort('run','Algorithm','paper-leader');
+    action.action!.kind='service';
+    action.invoke=vi.fn(async () => { throw new Error('workflow occupancy rejected'); });
+    render(<AutomationWorkflowControlPanel panel={panel()} context={context({ action })} />);
+    const button=document.querySelector('[data-xgc-role="panel-action-invoke"][data-xgc-id="run"]')!;
+    fireEvent.click(button);
+    await waitFor(() => expect(action.invoke).toHaveBeenCalledTimes(1));
+    expect(button).toHaveAttribute('title','workflow occupancy rejected');
+    expect(button).toHaveAttribute('data-xgc-status','stopped');
+    expect(action.control).not.toHaveBeenCalled();
   });
 
   it('toggles a running service through its stop control without starting another run',async () => {
@@ -230,6 +500,17 @@ describe('AutomationWorkflowPanel',() => {
       .toHaveAccessibleName('Replay image');
     expect(container.querySelector('[data-xgc-role="panel-action-invoke"][data-xgc-id="replay-plot"]'))
       .toHaveAccessibleName('Plot bag');
+    const record = actionPort('screen-record', 'screen-record', 'recording');
+    record.action!.label = 'Screen record';
+    const recorded = render(
+      <AutomationWorkflowControlPanel panel={panel()} context={context({ record })} />,
+    );
+    const button = recorded.container.querySelector('[data-xgc-role="panel-action-invoke"][data-xgc-id="screen-record"]')!;
+    expect(button).toHaveAccessibleName('Screen record');
+    const strong = button.querySelector('.xgc-workflow-status-card-heading strong')!;
+    expect(strong.querySelector('br')).not.toBeNull();
+    expect(strong.childNodes[0]?.textContent).toBe('Screen');
+    expect(strong.childNodes[2]?.textContent).toBe('record');
   });
 
   it('calls custom1 Algorithm on every experiment tile',() => {
@@ -341,11 +622,29 @@ function context(actions: Record<string,PanelActionPortRuntime>,runtime?:unknown
 
 function actionPort(id:string,label:string,resourceId:string,activeId?:string):PanelActionPortRuntime {
   return { id,label,connected:true,disabledReason:'',action:{ id:'run',label,kind:'command',controls:['stop'] },inputSchema:{ fields:[] },defaults:{},
-    ...(activeId ? { activeInvocation:{ id:activeId,status:'running',revision:1 } } : {}),invoke:vi.fn(async () => ({ id:'run-new',status:'running' as const,revision:1 })),control:vi.fn(async () => undefined),
+    execution:testPanelExecution({},{
+      loadRunDetail:vi.fn(async () => ({ invocations:[],nodeSummaries:[],loading:false,error:'' })),
+      retainRunDetail:vi.fn(() => () => undefined),
+      retainRunObservation:vi.fn(() => () => undefined),
+    }),
+    ...(activeId ? { activeInvocation:{ id:activeId,status:'running',revision:1 } } : {}),invoke:vi.fn(async () => ({ id:'run-new',status:'waiting' as const,revision:1 })),control:vi.fn(async () => undefined),
     trace:{ automationResourceId:resourceId,actionId:'run' } };
 }
 
 function runtimeValue() {
   const document:AutomationDocument = { head:{ domain:'automation',resourceId:'formation',name:'Formation NMPC',tags:[],mainCommitId:'commit',currentVersion:1,digest:'d'.repeat(64),revision:1,createdAt:'2026-08-24T00:00:00Z',updatedAt:'2026-08-24T00:00:00Z' },branch:{ domain:'automation',resourceId:'formation',name:'main',headCommitId:'commit',headVersion:1,revision:1,createdAt:'2026-08-24T00:00:00Z',updatedAt:'2026-08-24T00:00:00Z' },spec:newAutomationSpec('Formation NMPC') };
   return { targetId:'local',documents:[document],catalog:[],runSummaries:[{ id:'run-1',targetId:'local',automationResourceId:'formation',actionId:'run',actionVersion:1,sourceKind:'automation',sourceRef:{ domain:'automation',resourceId:'formation',branch:'main',commitId:'commit',version:1,digest:'d'.repeat(64) },status:'succeeded',revision:1,createdAt:'2026-08-24T00:00:00Z',updatedAt:'2026-08-24T00:01:00Z' }],runDetailsById:{},loading:false,error:'' };
+}
+
+function finalizedRecordingDetail():AutomationRunDetail {
+  const spec=newAutomationSpec('Old producer');
+  spec.nodes=[{ ...newAutomationNode('process.run-bash',{ archiveOutput:{ category:'ScreenRecording',extension:'mp4' } }),id:'producer' }];
+  const sourceRef={ domain:'experiment',resourceId:'experiment-a',branch:'main',commitId:'old',version:1,digest:'a'.repeat(64) };
+  const automationRef={ ...sourceRef,domain:'automation',resourceId:'worker' };
+  return { run:{ id:'old-root',rootRunId:'old-root',targetId:'local',sourceKind:'experiment',sourceRef,automationRef,status:'stopped',revision:3 },
+    snapshot:{ runId:'old-root',targetId:'local',sourceKind:'experiment',sourceRef,automationRef,automationSpec:spec },
+    invocations:[{ id:'occ',runId:'old-root',nodeId:'producer',kind:'process.run-bash',status:'canceled',compensationStatus:'succeeded',attempts:[{ status:'canceled' }] }],
+    relations:{ runId:'old-root',childRuns:[],childRunGroups:[],childRunGroupMembers:[],effects:[],runtimeGroups:[],runtimes:[],resources:[],
+      waits:[{ type:'job',subjectId:'old-job',runId:'old-root',invocationId:'occ',state:'canceled' }] },
+    nodeSummaries:[],loading:false,error:'' } as unknown as AutomationRunDetail;
 }

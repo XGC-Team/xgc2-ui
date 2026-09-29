@@ -51,6 +51,12 @@ export {
 export { useRobotAssetStore } from './robotAssetStore';
 export { useRobotAssetReachability } from './useRobotAssetReachability';
 export type { RobotAssetReachabilityState } from './useRobotAssetReachability';
+export {
+  robotAssetConnectivityLevel,
+  robotAssetManagementReachabilitySupported,
+  robotReachabilityLabel,
+} from './robotAssetReachability';
+export { RobotAssetReachabilityButton } from './RobotAssetReachabilityButton';
 export { useRobotText } from './robotMessages';
 export { robotAssetDocumentHash,robotAssetListHash } from './robotAssetNavigation';
 export {

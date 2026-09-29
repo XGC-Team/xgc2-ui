@@ -508,8 +508,8 @@ describe('HostSystemPage capability gates', () => {
     expect(container.querySelector('[data-xgc-role="system-overview-identity"]')).toBeNull();
     for (const role of ['system-overview-cpu-table','system-overview-mem-table','system-overview-net-table']) {
       expect(container.querySelectorAll(`[data-xgc-role="${role}"] .xgc-host-overview-table-row`)).toHaveLength(3);
-      expect(container.querySelectorAll(`[data-xgc-role="${role}"] [data-xgc-role="system-overview-process-placeholder"]`)).toHaveLength(3);
-      expect(container.querySelector(`[data-xgc-role="${role}"] [data-xgc-role="system-overview-process-placeholder"][data-xgc-id="${role === 'system-overview-cpu-table' ? 'cpu' : role === 'system-overview-mem-table' ? 'mem' : 'net'}:0"]`)).not.toBeNull();
+      expect(container.querySelectorAll(`[data-xgc-role="${role}"] .xgc-host-overview-placeholder-row`)).toHaveLength(3);
+      expect(container.querySelector(`[data-xgc-role="${role}"] .xgc-host-overview-placeholder-row`)).toHaveAttribute('aria-hidden','true');
     }
     expect(container.querySelector('[data-xgc-role="system-overview-tops"]')).not.toBeNull();
     expect(container.querySelector('[data-xgc-role="system-overview-basic"]')).not.toHaveAttribute('data-fill');
@@ -769,7 +769,7 @@ describe('HostSystemPage capability gates', () => {
     expect(hotspot).toHaveAttribute('data-xgc-id','cpu:42');
     expect(hotspot).toHaveAttribute('data-xgc-action','inspect-runtime');
     const cpuTable = container.querySelector('[data-xgc-role="system-overview-cpu-table"]')!;
-    expect(cpuTable.querySelectorAll('[data-xgc-role="system-overview-process-placeholder"]')).toHaveLength(2);
+    expect(cpuTable.querySelectorAll('.xgc-host-overview-placeholder-row')).toHaveLength(2);
     expect(cpuTable.querySelectorAll('.xgc-host-overview-table-row')).toHaveLength(3);
     expect(container.querySelector('[data-xgc-role="system-overview-process-pagination"][data-xgc-id="cpu"]')).not.toBeNull();
 
@@ -799,7 +799,7 @@ describe('HostSystemPage capability gates', () => {
     expect(container.querySelectorAll('[data-xgc-role="system-overview-nic"]')).toHaveLength(6);
     expect(container.querySelector('[data-xgc-role="system-overview-nic-name"][data-xgc-id="eth0"]')).toHaveTextContent('eth0');
     expect(container.querySelector('[data-xgc-role="system-overview-nic-state"][data-xgc-id="eth0"]')).toHaveTextContent('up');
-    expect(container.querySelectorAll('[data-xgc-role="system-overview-nic-placeholder"]')).toHaveLength(0);
+    expect(container.querySelectorAll('[data-xgc-role="system-overview-network-card"] .xgc-host-overview-placeholder-row')).toHaveLength(0);
     expect(container.querySelector('[data-xgc-role="system-overview-nic"]')).toHaveTextContent('0 B/s · 1000 B');
     expect(container.querySelector('[data-xgc-role="system-overview-nic"]')).toHaveTextContent('0 B/s · 2.0 KB');
     const pagination = container.querySelector('[data-xgc-role="system-overview-nic-pagination"]');
@@ -815,7 +815,7 @@ describe('HostSystemPage capability gates', () => {
     expect(networkCard.lastElementChild).toBe(pagination);
     fireEvent.click(screen.getByRole('button',{ name: 'Next network interface page' }));
     expect(container.querySelectorAll('[data-xgc-role="system-overview-nic"]')).toHaveLength(1);
-    expect(container.querySelectorAll('[data-xgc-role="system-overview-nic-placeholder"]')).toHaveLength(5);
+    expect(container.querySelectorAll('[data-xgc-role="system-overview-network-card"] .xgc-host-overview-placeholder-row')).toHaveLength(5);
     expect(screen.getByLabelText('Page 2 of 2')).toBeInTheDocument();
     expect(screen.getByRole('button',{ name: 'Next network interface page' })).toBeDisabled();
   });
@@ -825,7 +825,7 @@ describe('HostSystemPage capability gates', () => {
     expect(await screen.findByText('host')).toBeInTheDocument();
     expect(container.querySelector('[data-xgc-role="system-overview-network-summary"]')).toBeNull();
     expect(container.querySelectorAll('[data-xgc-role="system-overview-nic"]')).toHaveLength(0);
-    expect(container.querySelectorAll('[data-xgc-role="system-overview-nic-placeholder"]')).toHaveLength(6);
+    expect(container.querySelectorAll('[data-xgc-role="system-overview-network-card"] .xgc-host-overview-placeholder-row')).toHaveLength(6);
     const pagination = container.querySelector('[data-xgc-role="system-overview-nic-pagination"]');
     expect(pagination).toBeInTheDocument();
     expect(container.querySelector('[data-xgc-role="system-overview-network-card"]')!.lastElementChild).toBe(pagination);
@@ -865,7 +865,7 @@ describe('HostSystemPage capability gates', () => {
     expect(cpuTable).not.toHaveTextContent('proc-3');
     fireEvent.click(screen.getByRole('button',{ name: 'Next CPU process page' }));
     expect(cpuTable.querySelectorAll('[data-xgc-role="system-overview-process-row"]')).toHaveLength(2);
-    expect(cpuTable.querySelectorAll('[data-xgc-role="system-overview-process-placeholder"]')).toHaveLength(1);
+    expect(cpuTable.querySelectorAll('.xgc-host-overview-placeholder-row')).toHaveLength(1);
     expect(cpuTable.querySelectorAll('.xgc-host-overview-table-row')).toHaveLength(3);
     expect(cpuTable).toHaveTextContent('proc-3');
     expect(cpuTable).not.toHaveTextContent('proc-0');

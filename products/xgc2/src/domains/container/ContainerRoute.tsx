@@ -6,10 +6,10 @@ import type { ContainerTab } from './containerNavigation';
 import './container.css';
 
 export function ContainerRoute() {
-  const nav = useNavigation();
+  const nav = useNavigation((state) => ({ managedHostId: state.managedHostId,containerSection: state.pageSection('containers') }));
   const { routedTargetCoreId,selectedTargetCore } = useTargetCore('containers');
   const targetId = selectedExecutionTargetId({ managedHostId: nav.managedHostId,selectedTargetCore });
-  const activeTab = (nav.pageSection('containers') || 'containers') as ContainerTab;
+  const activeTab = (nav.containerSection || 'containers') as ContainerTab;
   return (
     <ContainerPage
       activeTab={activeTab}

@@ -5,7 +5,7 @@ import { configurationListHash,configurationLocationFromHash,type ConfigurationL
 import { isAppLanguage,type AppLanguage } from '../shared/localization/languagePreference';
 import { LanguageProvider } from '../shared/localization/LanguageProvider';
 import { useProductWebComposition,type Page } from '../shared/productWebComposition';
-import { NavigationContext,type NavigationState } from './navigationContext';
+import { createNavigationStore,NavigationContext,type NavigationState } from './navigationContext';
 import { validPagesFor,validSectionsFor } from './navigation/navConfig';
 import { xgcSkinStorageOptions } from './skin';
 
@@ -222,8 +222,15 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     targetCoreId,
   ]);
 
+  // The first state seeds the store in the same render; later states publish
+  // after commit, before paint, to the consumers whose selection changed.
+  const [store] = useState(() => createNavigationStore(value));
+  useLayoutEffect(() => {
+    store.publish(value);
+  }, [store, value]);
+
   return (
-    <NavigationContext.Provider value={value}>
+    <NavigationContext.Provider value={store}>
       <LanguageProvider language={language}>{children}</LanguageProvider>
     </NavigationContext.Provider>
   );

@@ -212,7 +212,8 @@ function ConditionExpressionField({ nodeId,index,expression,readOnly,onChange }:
       <InputControl
         id={controlId}
         aria-label={`Condition ${index + 1} expression`}
-        className="automation-condition-expression"
+        className={`automation-condition-expression${dragActive ? ' automation-condition-expression-drag' : ''}`}
+        format="monospace"
         dataXgcRole="automation-condition-expression"
         dataXgcId={`${nodeId}:${index}`}
         value={draft}
@@ -220,7 +221,6 @@ function ConditionExpressionField({ nodeId,index,expression,readOnly,onChange }:
         maxLength={4_096}
         spellCheck={false}
         aria-invalid={!valid}
-        data-drag-active={dragActive ? 'true' : undefined}
         placeholder="{{ $input.field }}"
         onChange={(value) => {
           setDraft(value);

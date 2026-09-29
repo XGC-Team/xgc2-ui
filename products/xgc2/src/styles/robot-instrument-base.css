@@ -1,3 +1,4 @@
+/* xgc2-style-policy: fixed-geometry-typography — P24/P42 list geometry: the topbar line box sets the locked 20px band of the 87px row */
 .robot-instrument-card > header {
   min-width: 0;
   display: flex;
@@ -28,13 +29,6 @@
 .robot-instrument-card > header small {
   color: var(--color-text-muted);
   font-size: var(--font-sm);
-}
-
-.robot-status-text {
-  flex: 0 0 auto;
-  font-size: var(--font-sm);
-  font-weight: var(--weight-semibold);
-  text-transform: lowercase;
 }
 
 .robot-instrument-card dl {
@@ -74,7 +68,7 @@
 
 .robot-instrument-card dd {
   color: var(--color-text-heading);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--font-sm);
 }
 

@@ -1,3 +1,4 @@
+import type { ProcessROS1PoseSamples } from '../execution/executionPublic';
 import { request } from '../../api/http';
 import { configurationCollection,configurationMutationInit } from '../../shared/configurationTransport';
 import { queryString,segment } from '../../shared/url';
@@ -62,6 +63,39 @@ export function listExperiments(
     .then((documents) => documents.map((document) => (
       decodeExperimentDocument(document, robotKindComposition)
     )));
+}
+
+export type SceneReplayAssetKind = 'still' | 'loop' | 'obstacle';
+
+export type SceneSimulatorSupport = {
+  geometry: 'document' | 'native';
+  note?: string;
+};
+
+export type SceneReplayAsset = {
+  name: string;
+  path: string;
+  relativePath: string;
+  kind: SceneReplayAssetKind;
+  sceneModel?: 'obstacle';
+  preview?: { kind: 'still'; file: string; width?: number; height?: number };
+  origin?: 'platform' | 'user';
+  note?: string;
+  simulators?: Record<string, SceneSimulatorSupport>;
+  createdAt: string;
+  gazeboWorld?: {
+    file: string;
+    role?: string;
+    path?: string;
+  };
+  sceneDocument?: {
+    file: string;
+    path?: string;
+  };
+};
+
+export function listScenes(signal?: AbortSignal): Promise<SceneReplayAsset[]> {
+  return request<SceneReplayAsset[]>('/scenes', signal ? { signal } : {});
 }
 
 export function getExperiment(
@@ -177,4 +211,10 @@ export function isExperimentCASConflict(error: unknown): boolean {
   // Wrappers that translate a conflict into operator wording keep the original
   // rejection as `cause`, so conflict-ness stays detectable through the chain.
   return isExperimentCASConflict(error.cause);
+}
+
+export function getExperimentSessionROS1Poses(targetId:string,sessionId:string,signal?:AbortSignal) {
+  return request<{sessionId:string;experimentCommitId:string;sources:ProcessROS1PoseSamples[]}>(
+    `/execution-targets/${segment(targetId)}/experiment-sessions/${segment(sessionId)}/ros1-poses`,{signal},
+  );
 }

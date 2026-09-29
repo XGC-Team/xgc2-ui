@@ -1,5 +1,6 @@
-import { CodeBlock,EmptyState } from '@xgc2/ui-react';
-import { useEffect,useMemo,useState } from 'react';
+import { usePanelInvocationObservation } from '../usePanelInvocationObservation';
+import { Button,CodeBlock,EmptyState } from '@xgc2/ui-react';
+import { useEffect,useMemo,useRef,useState } from 'react';
 import {
   AutomationGraph,
   projectAutomationGraphRuntime,
@@ -8,7 +9,7 @@ import {
   type AutomationRunControl,
   type AutomationRunSummaryView,
 } from '../../domains/automation/automationPublic';
-import type { PanelActionPortRuntime,PanelPluginProps } from '../types';
+import type { PanelActionInvocation,PanelActionPortRuntime,PanelPluginProps } from '../types';
 import { ControlButton } from '../../components/controls/ControlButton';
 import { WorkflowStatusCard } from '../../components/WorkflowStatusCard';
 import { useAutomationExecutionText } from '../../domains/automation/automationPublic';
@@ -17,6 +18,7 @@ import { controlActionGridStyle } from '../../shared/controlActionGrid';
 import { workflowTileProgress } from '../../shared/measuredReadyProgress';
 import {
   activeAutomationRunsForDocument,
+  actionTileTitleLines,
   automationActionButtonLabel,
   automationWorkflowAuditView,
   automationWorkflowControlSwitcherView,
@@ -47,7 +49,7 @@ function AutomationWorkflowPanel({ panel,context,control }: PanelPluginProps<rea
     [runtimePort?.value,trace?.value],
   );
   const actionPorts = useMemo(
-    () => Object.values(context.ports.actions).sort((left,right) => left.id.localeCompare(right.id)),
+    () => Object.values(context.ports.actions),
     [context.ports.actions],
   );
   const configuredResourceIds = useMemo(
@@ -122,7 +124,9 @@ function AutomationWorkflowPanel({ panel,context,control }: PanelPluginProps<rea
       data-xgc-id={panel.id}
     >
       {view === 'controls' && control && (
-        <AutomationWorkflowControlsView panelId={panel.id} actionPorts={actionPorts} />
+        <AutomationWorkflowControlsView panelId={panel.id} actionPorts={actionPorts}
+          targetId={context.executionTargetId ?? runtime?.targetId ?? ''}
+          experimentResourceId={runtime?.experimentResourceId ?? ''} />
       )}
       {view === 'whiteboard' && control && (
         <AutomationWorkflowWorkflowView
@@ -162,7 +166,9 @@ function AutomationWorkflowPanel({ panel,context,control }: PanelPluginProps<rea
   );
 }
 
-function AutomationWorkflowControlsView({ panelId,actionPorts }: { panelId:string;actionPorts:PanelActionPortRuntime[] }) {
+function AutomationWorkflowControlsView({ panelId,actionPorts,targetId,experimentResourceId }: {
+  panelId:string;actionPorts:PanelActionPortRuntime[];targetId:string;experimentResourceId:string;
+}) {
   const t = useAutomationExecutionText();
   if (actionPorts.length === 0) {
     return <EmptyState appearance="plain" fill title={t('No Actions')} data-xgc-role="automation-workflow-controls-empty" data-xgc-id={panelId} />;
@@ -177,37 +183,84 @@ function AutomationWorkflowControlsView({ panelId,actionPorts }: { panelId:strin
         style={controlActionGridStyle({ itemCount:actionPorts.length })}
       >
         {actionPorts.map((port) => (
-          <AutomationWorkflowActionCard port={port} key={port.id} />
+          <AutomationWorkflowActionCard port={port} key={JSON.stringify([
+            port.invocationScope?.targetId ?? targetId,
+            port.invocationScope?.experimentResourceId ?? experimentResourceId,
+            port.invocationScope?.experimentBranch ?? '',
+            port.invocationScope?.panelId ?? panelId,port.invocationScope?.portId ?? port.id,
+            port.invocationScope?.workflowInstanceId ?? port.trace.workflowInstanceId,
+            port.invocationScope?.presetId ?? port.trace.presetId,
+            port.trace.automationResourceId,port.trace.actionId,port.executionMode ?? 'session',
+          ])} />
         ))}
       </div>
     </div>
   );
 }
 
+function ActionTileTitle({ label }: { label: string }) {
+  const lines = actionTileTitleLines(label);
+  if (lines.length < 2) return label;
+  return <>{lines[0]}<br />{lines[1]}</>;
+}
+
 function AutomationWorkflowActionCard({ port }: { port:PanelActionPortRuntime }) {
   const t = useAutomationExecutionText();
   const [busy,setBusy] = useState(false);
-  const label = automationActionButtonLabel(port);
+  const [pending,setPending] = useState<PanelActionInvocation|undefined>();
+  const [invokeError,setInvokeError] = useState('');
+  const lifetime=useRef(0);
+  useEffect(() => {
+    // StrictMode setup replay starts a new lifetime; old requests may finish,
+    // but cannot write state in a replacement card.
+    lifetime.current+=1;
+    return () => { lifetime.current+=1; };
+  },[]);
+  const label = t(automationActionButtonLabel(port));
   const receipt = port.latestInvocation;
-  const active = port.activeInvocation || (receipt && isAutomationExecutionRunActive(receipt) ? receipt : undefined);
+  const observed = port.activeInvocation || (receipt && isAutomationExecutionRunActive(receipt) ? receipt : undefined);
+  const observation=usePanelInvocationObservation(port,pending ?? observed ?? receipt,port.executionMode==='standalone');
+  const active=observation.invocation && isAutomationExecutionRunActive(observation.invocation) ? observation.invocation : undefined;
   const refusal = port.disabledReason || (!port.connected ? `Action port "${label}" is not connected.` : '');
   const canStop = Boolean(active && port.action?.kind === 'service' && port.action.controls.includes('stop'));
   const status = busy ? (active ? 'stopping' : 'starting')
     : active?.status === 'stopping' ? 'stopping'
       : active ? port.serviceStatus?.state || active.status : 'stopped';
   const failed = !busy && !active && (receipt?.status === 'failed' || receipt?.status === 'rejected');
-  const statusDescription = canStop ? t('Stop service') : (refusal || undefined);
+  const occupancy = port.serviceStatus && (port.serviceStatus.total > 0 || port.serviceStatus.state === 'degraded')
+    ? port.serviceStatus
+    : (active ? { state:'running' as const,ready:1,total:1 } : undefined);
+  const statusDescription = invokeError || (canStop
+    ? t('Stop service')
+    : refusal || (port.id === 'record'
+      ? t("Saves under this station's Documents/XGC/Data. After Stop, listed as a data file on Analysis plots.")
+      : undefined));
+
+  useEffect(() => {
+    if (!pending) return;
+    if (observed && observed.id === pending.id) setPending(undefined);
+    else if (receipt && receipt.id === pending.id && !isAutomationExecutionRunActive(receipt)) {
+      setPending(undefined);
+    }
+  },[observed,pending,receipt]);
 
   async function invoke() {
     if (busy || (active ? !canStop : refusal)) return;
+    const generation=lifetime.current;
     setBusy(true);
+    setInvokeError('');
     try {
-      if (active) await port.control(active,'stop',`Stop ${port.label} from its Automation panel port`);
-      else await port.invoke({},`Invoke ${port.label} from its Automation panel port`);
-    } catch {
-      return;
+      if (active) {
+        await port.control(active,'stop',`Stop ${port.label} from its Automation panel port`);
+        if (lifetime.current===generation) setPending(undefined);
+      } else {
+        const started = await port.invoke({},`Invoke ${port.label} from its Automation panel port`);
+        if (lifetime.current===generation && started?.id && port.action?.kind === 'service') setPending(started);
+      }
+    } catch (cause) {
+      if (lifetime.current===generation) setInvokeError(cause instanceof Error ? cause.message : String(cause));
     } finally {
-      setBusy(false);
+      if (lifetime.current===generation) setBusy(false);
     }
   }
 
@@ -215,7 +268,7 @@ function AutomationWorkflowActionCard({ port }: { port:PanelActionPortRuntime })
     <WorkflowStatusCard
       className="xgc-control-action-card automation-workflow-action-card"
       layout="tile"
-      title={label}
+      title={<ActionTileTitle label={label} />}
       status={failed ? 'failed' : status}
       tone="neutral"
       running={Boolean(active)}
@@ -225,7 +278,7 @@ function AutomationWorkflowActionCard({ port }: { port:PanelActionPortRuntime })
         active:Boolean(active),
         busy,
         failed,
-        occupancy:port.serviceStatus,
+        occupancy,
       })}
       dataXgcRole="panel-action-invoke"
       dataXgcId={port.id}
@@ -236,6 +289,7 @@ function AutomationWorkflowActionCard({ port }: { port:PanelActionPortRuntime })
       onClick={() => void invoke()}
     />
   );
+
 }
 
 function AutomationWorkflowWorkflowView({ panelId,runtime,document,detail }: {
@@ -348,7 +402,8 @@ function AutomationWorkflowHistoryList({ resourceId,entries,selectedEntry,select
       <aside className="automation-execution-list" aria-label={t('Execution history')} data-xgc-role="automation-execution-list" data-xgc-id={resourceId}>
         <header className="automation-workflow-history-header"><strong>{t('History')}</strong><span>{entries.length}</span></header>
         {entries.map((entry) => (
-          <button
+          <Button
+            appearance="ghost"
             className="automation-workflow-history-row"
             type="button"
             data-xgc-role="automation-execution-row"
@@ -359,7 +414,7 @@ function AutomationWorkflowHistoryList({ resourceId,entries,selectedEntry,select
           >
             <strong>{entry.runId}</strong>
             <span>{automationRunStatusText(t,entry.run?.status ?? entry.ingress?.status ?? 'unknown')}</span>
-          </button>
+          </Button>
         ))}
         {entries.length === 0 && <span className="automation-workflow-history-empty">{t('No history')}</span>}
       </aside>

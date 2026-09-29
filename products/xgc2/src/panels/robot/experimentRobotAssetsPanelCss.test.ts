@@ -9,17 +9,26 @@ const css = readFileSync(
 );
 
 describe('Experiment Robot assets Parameters visual contract', () => {
-  it('keeps assembly and Robot parameters in one scroll flow while hiding the inactive inspector', () => {
+  it('opens Robot parameters in the shared wide drawer while the gallery keeps the single scroll flow', () => {
     const workspace = css.match(/\.experiment-robot-assets-panel-workspace \{[^}]*\}/s)?.[0] ?? '';
-    const detail = css.match(/\.experiment-robot-assets-panel-inspector \{[^}]*\}/s)?.[0] ?? '';
-    const parked = css.match(/\.experiment-robot-assets-panel-inspector\[hidden\] \{[^}]*\}/s)?.[0] ?? '';
+    const gallery = css.match(/\.experiment-robot-assets-panel-gallery \{[^}]*\}/s)?.[0] ?? '';
     const nestedScroll = css.match(/\.experiment-robot-assets-panel-scroll \{[^}]*\}/s)?.[0] ?? '';
 
-    expect(workspace).toContain('grid-template-columns: minmax(0, 1fr);');
-    expect(workspace).toContain('overflow-y: auto;');
-    expect(detail).not.toContain('border-inline-start:');
-    expect(parked).toContain('display: none;');
+    expect(workspace).toContain('display: flex;');
+    expect(workspace).toContain('overflow: hidden;');
+    expect(gallery).toContain('overflow-y: auto;');
+    // No docked inspector rail: the shared wide ConfigDrawer owns the surface.
+    expect(css).not.toContain('.experiment-robot-assets-panel-inspector');
+    expect(css).not.toContain('.experiment-robot-assets-panel-inspector-heading');
     expect(nestedScroll).not.toMatch(/overflow(?:-y)?:\s*(?:auto|scroll);/);
+  });
+
+  it('keeps the Robot drawer title mark bounded beside the Robot name', () => {
+    const title = css.match(/\.experiment-robot-assets-panel-robot-drawer-title \{[^}]*\}/s)?.[0] ?? '';
+    const mark = css.match(/\.experiment-robot-assets-panel-robot-drawer-mark \{[^}]*\}/s)?.[0] ?? '';
+    expect(title).toContain('display: flex;');
+    expect(title).toContain('align-items: center;');
+    expect(mark).toContain('width: 40px;');
   });
 
   it('reserves the error feedback slot without changing the toolbar or list height', () => {
@@ -29,17 +38,9 @@ describe('Experiment Robot assets Parameters visual contract', () => {
     expect(result).toContain('white-space: nowrap;');
   });
 
-  it('keeps parameter groups as unframed content with aligned titles', () => {
-    const header = css.match(/\.experiment-robot-assets-panel-settings-group > header \{[^}]*\}/s)?.[0] ?? '';
-    const title = css.match(/\.experiment-robot-assets-panel-settings-group > header > strong \{[^}]*\}/s)?.[0] ?? '';
-
-    expect(header).toContain('padding: 0;');
-    expect(header).not.toContain('background:');
-    expect(header).not.toContain('border-bottom:');
-    expect(title).toContain('color: var(--color-text-heading);');
-    expect(title).toContain('font-size: var(--font-base);');
-    expect(title).toContain('font-weight: var(--weight-semibold);');
-    expect(title).toContain('line-height: var(--line-height-tight);');
+  it('lets the shared FormSection own Parameters group titles without local header chrome', () => {
+    expect(css).not.toContain('.experiment-robot-assets-panel-settings-group > header');
+    expect(css).not.toContain('.experiment-robot-assets-panel-settings-group-title');
     expect(css).not.toMatch(/settings-group[^}]*40px/);
     expect(css).not.toMatch(/:nth-(?:child|last-child|of-type)/);
     expect(css).not.toMatch(/data-xgc-id/);
@@ -57,7 +58,7 @@ describe('Experiment Robot assets Parameters visual contract', () => {
 
   it('reveals UAV and UGV Add robots on group hover or focus instead of a standing add tile', () => {
     const add = css.match(/^\.experiment-robot-assets-panel-group-add \{[^}]*\}/ms)?.[0] ?? '';
-    expect(add).toContain('opacity: 0;');
+    expect(add).toContain('opacity: var(--opacity-hidden);');
     expect(css).toContain('.experiment-robot-assets-panel-group:is(:hover,:focus-within) .experiment-robot-assets-panel-group-add');
     expect(css).toContain('.experiment-robot-assets-panel-group-add:focus-visible');
     expect(css).toContain('@media (hover: none)');
@@ -84,30 +85,53 @@ describe('Experiment Robot assets Parameters visual contract', () => {
     expect(search).toContain('max-width: var(--size-grid-column-wide);');
   });
 
-  it('keeps FormField and pose-field labels on one base typography rule', () => {
-    const labels = css.match(/\.experiment-robot-assets-panel-field,\s*\.experiment-robot-assets-panel-pose-field \{[^}]*\}/s)?.[0] ?? '';
-    const sharedLabels = css.match(/\.experiment-robot-assets-panel-field > label,\s*\.experiment-robot-assets-panel-pose-field > label,\s*\.experiment-robot-assets-panel-sensor-switch > label \{[^}]*\}/s)?.[0] ?? '';
-
-    expect(labels).toContain('font-size: var(--font-base);');
-    expect(labels).toContain('font-weight: var(--weight-regular);');
-    expect(labels).toContain('line-height: var(--line-height-tight);');
-    expect(sharedLabels).toContain('font-size: var(--font-base);');
-    expect(sharedLabels).toContain('font-weight: var(--weight-regular);');
-    expect(sharedLabels).toContain('line-height: var(--line-height-tight);');
+  it('leaves Parameters field label typography to the shared FormField skin', () => {
+    expect(css).not.toContain('.experiment-robot-assets-panel-field > label');
+    expect(css).not.toContain('.experiment-robot-assets-panel-pose-field > label');
+    expect(css).not.toContain('.experiment-robot-assets-panel-sensor-switch > label');
   });
 
-  it('keeps Robot starting-pose fields in two columns without restoring inline world-origin fields',() => {
-    const poseFields = css.match(/\.experiment-robot-assets-panel-pose-fields \{[^}]*\}/s)?.[0] ?? '';
+  it('keeps Robot starting-pose fields on the shared FormSection dual-column grid',() => {
+    const poseFields = css.match(/\.experiment-robot-assets-panel-pose-fields[^{]*\{[^}]*\}/s)?.[0] ?? '';
+    // The wrapper is a markable host, so it must keep a real box (no
+    // display:contents); it spans the full FormSection row and mirrors the
+    // shared body grid for its own fields.
+    expect(poseFields).not.toContain('display: contents;');
+    expect(poseFields).toContain('grid-column: 1 / -1;');
     expect(poseFields).toContain('grid-template-columns: repeat(2, minmax(0, 1fr));');
+    expect(poseFields).toContain('var(--space-layout-default) var(--space-layout-comfortable)');
+    const narrow = css.match(/@media \(max-width: 720px\) \{\s*\.experiment-robot-assets-panel-pose-fields \{[^}]*\}/s)?.[0] ?? '';
+    expect(narrow).toContain('grid-template-columns: minmax(0, 1fr);');
     expect(css).not.toContain('.experiment-robot-assets-panel-world-origin-fields');
   });
 
-  it('uses the editable field grid for asset parameters without making the whole group interactive',() => {
-    const assetGrid = css.match(/^\.experiment-robot-assets-panel-asset-parameters-grid \{[^}]*\}/ms)?.[0] ?? '';
-    expect(assetGrid).toContain('grid-template-columns: repeat(2, minmax(0, 1fr));');
-    expect(assetGrid).toContain('gap: var(--space-lg) var(--space-xl);');
-    expect(assetGrid).toContain('padding: 0;');
+  it('defers asset parameter layout to the shared FormSection grid',() => {
+    const assetGrid = css.match(/\.experiment-robot-assets-panel-asset-parameters-grid[^{]*\{[^}]*\}/s)?.[0] ?? '';
+    expect(assetGrid).toContain('display: contents;');
     expect(css).not.toContain('.experiment-robot-assets-panel-asset-parameters-card:is(:hover, :focus-visible)');
     expect(css).not.toContain('.experiment-robot-assets-panel-readonly-field > dd');
+  });
+
+  it('keeps the always-visible Robot source line inside the select flow above the portrait', () => {
+    const source = css.match(/^\.experiment-robot-assets-panel-robot-source \{[^}]*\}/ms)?.[0] ?? '';
+    const unknown = css.match(/\.experiment-robot-assets-panel-robot-source\[data-xgc-source='unknown'\] \{[^}]*\}/s)?.[0] ?? '';
+    const next = css.match(/\.experiment-robot-assets-panel-robot-source-next \{[^}]*\}/s)?.[0] ?? '';
+    expect(source).not.toContain('font-size:');
+    expect(source).not.toContain('font-weight:');
+    expect(source).not.toMatch(/position\s*:\s*absolute/);
+    expect(source).not.toContain('display: contents;');
+    // The words carry the meaning; unknown and next-start only de-emphasise.
+    expect(unknown).toContain('color: var(--color-text-muted);');
+    expect(next).toContain('color: var(--color-text-muted);');
+    expect(css).not.toMatch(/robot-source[^{]*:hover/);
+    const type = css.match(/button\.experiment-robot-assets-panel-robot-select,[\s\S]*?\{[^}]*\}/)?.[0] ?? '';
+    expect(type).toContain('.experiment-robot-assets-panel-robot-source');
+    expect(type).toContain('.experiment-robot-assets-panel-assignment-name');
+    expect(type).toContain('.experiment-robot-assets-panel-slot-name');
+    expect(type).toContain('font-family: var(--font-sans);');
+    expect(type).toContain('font-size: var(--font-lg);');
+    expect(type).toContain('font-weight: var(--weight-medium);');
+    expect(type.match(/font-size:/g)).toHaveLength(1);
+    expect(type.match(/font-weight:/g)).toHaveLength(1);
   });
 });

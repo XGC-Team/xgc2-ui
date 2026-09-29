@@ -13,10 +13,11 @@ import {
 } from '@xgc2/ui-react';
 import { ControlButton } from '../../components/controls/ControlButton';
 import { SelectControl } from '../../components/controls/SelectControl';
+import { SortableDataTable,type SortableDataTableProps } from '../../components/SortableDataTable';
 import { usePersistentState } from '../../hooks/usePersistentState';
 import type { SystemTrendPoint } from '../../shared/systemTrend';
 import type { HostNetworkIfaceStat,HostOverview as HostOverviewData,HostOverviewProcessStat } from './hostModel';
-import { formatByteRate,formatBytes } from './hostFormatting';
+import { formatByteRate,formatBytes,formatDateTime } from './hostFormatting';
 import {
   appendTrendPoint,
   hostLoadPercent,
@@ -42,6 +43,43 @@ import './HostOverview.css';
 const HOST_INFO_ROW_COUNT = 8;
 const NIC_PAGE_SIZE = HOST_INFO_ROW_COUNT - 2;
 const PROCESS_PAGE_SIZE = 3;
+
+type NicTableRow =
+  | { kind: 'iface';key: string;iface: HostNetworkIfaceStat }
+  | { kind: 'placeholder';key: string;index: number };
+
+const NIC_RX_TITLE = 'Current download rate · cumulative received data';
+const NIC_TX_TITLE = 'Current upload rate · cumulative sent data';
+
+const NIC_TABLE_COLUMNS: SortableDataTableProps<NicTableRow>['columns'] = [
+  { id: 'interface',header: 'Interface',cell: (row) => row.kind === 'iface'
+    ? <strong data-xgc-role="system-overview-nic-name" data-xgc-id={row.iface.name}>{row.iface.name}</strong>
+    : '—' },
+  { id: 'state',header: 'State',cell: (row) => row.kind === 'iface'
+    ? (
+      <em data-xgc-role="system-overview-nic-state" data-xgc-id={row.iface.name} data-xgc-up={row.iface.up ? 'true' : 'false'}>
+        {row.iface.up ? 'up' : 'down'}
+      </em>
+    )
+    : '—' },
+  { id: 'address',header: 'Address',cell: (row) => row.kind === 'iface'
+    ? <span data-xgc-role="system-overview-nic-address" data-xgc-id={row.iface.name}>{row.iface.address || '—'}</span>
+    : '—' },
+  { id: 'rx',header: 'Download ↓ · total',headerProps: { title: NIC_RX_TITLE },cell: (row) => row.kind === 'iface'
+    ? (
+      <span data-xgc-role="system-overview-nic-rx" data-xgc-id={row.iface.name} title={NIC_RX_TITLE}>
+        {formatByteRate(row.iface.rxRateBytesPerSecond || 0)} · {formatBytes(row.iface.rxBytes)}
+      </span>
+    )
+    : '—' },
+  { id: 'tx',header: 'Upload ↑ · total',headerProps: { title: NIC_TX_TITLE },cell: (row) => row.kind === 'iface'
+    ? (
+      <span data-xgc-role="system-overview-nic-tx" data-xgc-id={row.iface.name} title={NIC_TX_TITLE}>
+        {formatByteRate(row.iface.txRateBytesPerSecond || 0)} · {formatBytes(row.iface.txBytes)}
+      </span>
+    )
+    : '—' },
+];
 
 export function HostOverview({
   targetCoreId,
@@ -218,6 +256,13 @@ function HostOverviewContent({
     safeNicPage * NIC_PAGE_SIZE,
     (safeNicPage + 1) * NIC_PAGE_SIZE,
   );
+  const nicTableRows: NicTableRow[] = [
+    ...visibleNetworkInterfaces.map((iface) => ({ kind: 'iface' as const,key: iface.name,iface })),
+    ...Array.from(
+      { length: Math.max(0,NIC_PAGE_SIZE - visibleNetworkInterfaces.length) },
+      (_,index) => ({ kind: 'placeholder' as const,key: `nic-placeholder-${index}`,index }),
+    ),
+  ];
 
   return (
     <OperatorWorkspace className="xgc-host-overview-board" padding="none">
@@ -299,7 +344,7 @@ function HostOverviewContent({
               label="Network"
               value={`${ifaceCount} NIC${ifaceCount === 1 ? '' : 's'}`}
             />
-            <OverviewHostField id="collected-at" label="Collected at" value={new Date(overview.collectedAt).toLocaleString()} />
+            <OverviewHostField id="collected-at" label="Collected at" value={formatDateTime(overview.collectedAt)} />
           </DescriptionList>
         </Panel>
 
@@ -318,26 +363,18 @@ function HostOverviewContent({
             data-xgc-role="system-overview-network-card" data-xgc-id="system-overview-network-card"
             data-xgc-paginated="true"
           >
-            <div className="xgc-host-overview-table" data-xgc-role="system-overview-nics" data-xgc-id="system-overview-nics">
-              <div className="xgc-host-overview-table-head" aria-hidden="true">
-                <span>Interface</span><span>State</span><span>Address</span>
-                <span title="Current download rate · cumulative received data">Download ↓ · total</span>
-                <span title="Current upload rate · cumulative sent data">Upload ↑ · total</span>
-              </div>
-              {visibleNetworkInterfaces.map((iface) => (
-                <NetworkIfaceRow key={iface.name} iface={iface} />
-              ))}
-              {Array.from({ length: Math.max(0,NIC_PAGE_SIZE - visibleNetworkInterfaces.length) },(_,index) => (
-                <div
-                  className="xgc-host-overview-table-row xgc-host-overview-placeholder-row"
-                  data-xgc-role="system-overview-nic-placeholder" data-xgc-id={`nic:${index}`}
-                  key={`nic-placeholder-${index}`}
-                  aria-hidden="true"
-                >
-                  <span>—</span><span>—</span><span>—</span><span>—</span><span>—</span>
-                </div>
-              ))}
-            </div>
+            <SortableDataTable
+              data-xgc-role="system-overview-nics" data-xgc-id="system-overview-nics"
+              columns={NIC_TABLE_COLUMNS}
+              getRowProps={(row) => row.kind === 'iface'
+                ? { 'data-xgc-role': 'system-overview-nic','data-xgc-id': row.iface.name }
+                : {
+                  'aria-hidden': 'true',
+                  className: 'xgc-host-overview-placeholder-row',
+                }}
+              rowKey={(row) => row.key}
+              rows={nicTableRows}
+            />
             <OverviewTablePager
               always
               page={safeNicPage}
@@ -387,33 +424,6 @@ function HostOverviewContent({
         </Panel>
       </div>
     </OperatorWorkspace>
-  );
-}
-
-function NetworkIfaceRow({ iface }: { iface: HostNetworkIfaceStat }) {
-  const id = iface.name;
-  return (
-    <div className="xgc-host-overview-table-row" data-xgc-role="system-overview-nic" data-xgc-id={id}>
-      <strong data-xgc-role="system-overview-nic-name" data-xgc-id={id}>{iface.name}</strong>
-      <em data-xgc-role="system-overview-nic-state" data-xgc-id={id} data-xgc-up={iface.up ? 'true' : 'false'}>
-        {iface.up ? 'up' : 'down'}
-      </em>
-      <span data-xgc-role="system-overview-nic-address" data-xgc-id={id}>{iface.address || '—'}</span>
-      <span
-        data-xgc-role="system-overview-nic-rx"
-        data-xgc-id={id}
-        title="Current download rate · cumulative received data"
-      >
-        {formatByteRate(iface.rxRateBytesPerSecond || 0)} · {formatBytes(iface.rxBytes)}
-      </span>
-      <span
-        data-xgc-role="system-overview-nic-tx"
-        data-xgc-id={id}
-        title="Current upload rate · cumulative sent data"
-      >
-        {formatByteRate(iface.txRateBytesPerSecond || 0)} · {formatBytes(iface.txBytes)}
-      </span>
-    </div>
   );
 }
 
@@ -503,7 +513,6 @@ function ProcessStatTable({
         {Array.from({ length: emptySlots },(_,index) => (
           <div
             className="xgc-host-overview-table-row xgc-host-overview-placeholder-row"
-            data-xgc-role="system-overview-process-placeholder" data-xgc-id={`${metric}:${index}`}
             key={`${metric}-placeholder-${index}`}
             aria-hidden="true"
           >

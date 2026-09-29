@@ -398,6 +398,7 @@ function RuntimeDataView({ pane,mode,search,value,schema,inputSource }: {
           <div className="automation-runtime-table-layout">
             <SortableDataTable
               bodyScroll
+              virtualizeRows
               bodyScrollLabel={t('{pane} fields', { pane })}
               className="automation-runtime-table-wrap"
               columns={columns}

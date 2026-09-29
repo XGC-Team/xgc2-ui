@@ -1,5 +1,5 @@
 import { beforeEach,describe,expect,it,vi } from 'vitest';
-import { request,withTerminalAuth } from '../../api/http';
+import { request,requestBlob,uploadRequest,withTerminalAuth } from '../../api/http';
 import {
   compressHostFile,
   copyHostFile,
@@ -27,6 +27,8 @@ import {
 
 vi.mock('../../api/http', () => ({
   request: vi.fn(() => Promise.resolve({})),
+  requestBlob: vi.fn(),
+  uploadRequest: vi.fn(),
   withTerminalAuth: vi.fn((options?: object) => ({ ...options,auth: 'terminal' })),
 }));
 
@@ -62,25 +64,29 @@ describe('host leaf actions', () => {
     expect(request).toHaveBeenNthCalledWith(3, '/managed-hosts/agent-a/fs/write', { method: 'PUT', body: JSON.stringify({ path: '~/hello.txt', content: 'hello from agent-a' }) }, { managedHostId: 'agent-a',auth: 'terminal' });
   });
 
-  it('uses managed-host mkdir/write/read for agent create/download/upload', async () => {
-    vi.mocked(request)
-      .mockResolvedValueOnce({ path: '/srv/robot/a.txt' })
-      .mockResolvedValueOnce({ path: '/srv/robot/newdir' })
-      .mockResolvedValueOnce({ path: '/srv/robot/cfg.yaml', content: 'k: v', size: 4 })
-      .mockResolvedValueOnce({ path: '/srv/robot/up.txt' });
-
+  it('creates managed host files and folders through their existing operations', async () => {
     await createHostFile('/srv/robot/a.txt', false, '', { managedHostId: 'agent-a' });
     await createHostFile('/srv/robot/newdir', true, '', { managedHostId: 'agent-a' });
-    const blob = await downloadHostFile('/srv/robot/cfg.yaml', { managedHostId: 'agent-a' });
-    expect(await blob.text()).toBe('k: v');
-    await uploadHostFile('/srv/robot', new File(['hello'], 'up.txt', { type: 'text/plain' }), { managedHostId: 'agent-a' });
+    expect(request).toHaveBeenNthCalledWith(1, '/managed-hosts/agent-a/fs/write', { method: 'PUT',body: JSON.stringify({ path: '/srv/robot/a.txt',content: '' }) }, { managedHostId: 'agent-a',auth: 'terminal' });
+    expect(request).toHaveBeenNthCalledWith(2, '/managed-hosts/agent-a/fs/mkdir', { method: 'POST',body: JSON.stringify({ path: '/srv/robot/newdir' }) }, { managedHostId: 'agent-a',auth: 'terminal' });
+  });
 
-    expect(vi.mocked(request).mock.calls.map((call) => call[0])).toEqual([
-      '/managed-hosts/agent-a/fs/write',
-      '/managed-hosts/agent-a/fs/mkdir',
-      '/managed-hosts/agent-a/fs/read?path=%2Fsrv%2Frobot%2Fcfg.yaml',
-      '/managed-hosts/agent-a/fs/write',
-    ]);
+  it('keeps binary transfers out of the text editor path', async () => {
+    const bytes = new Uint8Array([0,255,128,192,10]);
+    const file = new File([bytes], 'algorithm.bin');
+    vi.mocked(requestBlob).mockResolvedValue(file);
+    vi.mocked(uploadRequest).mockResolvedValue({ path: '/srv/robot/algorithm.bin' });
+
+    const blob = await downloadHostFile('/srv/robot/algorithm.bin', { managedHostId: 'agent-a' });
+    expect(new Uint8Array(await blob.arrayBuffer())).toEqual(bytes);
+    await uploadHostFile('/srv/robot', file, { managedHostId: 'agent-a' });
+    const [route,form,options] = vi.mocked(uploadRequest).mock.calls[0];
+    expect(route).toBe('/managed-hosts/agent-a/fs/upload');
+    expect(form.get('path')).toBe('/srv/robot');
+    expect(new Uint8Array(await (form.get('file') as File).arrayBuffer())).toEqual(bytes);
+    expect(options).toEqual({ managedHostId: 'agent-a',auth: 'terminal' });
+    expect(requestBlob).toHaveBeenCalledWith('/managed-hosts/agent-a/fs/download?path=%2Fsrv%2Frobot%2Falgorithm.bin', undefined, options);
+    expect(request).not.toHaveBeenCalled();
   });
 
   it('keeps local Core delete recoverable while Agent delete stays permanent', async () => {

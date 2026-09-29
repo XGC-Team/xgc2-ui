@@ -1,3 +1,4 @@
+/* xgc2-style-policy: fixed-geometry-typography — P15/P88 PFD: labels are calibrated to the HUD rulers and the 62px footer */
 .robot-flight-instrument {
   /* Instrument labels are calibrated to the HUD rulers and 62px footer.
    * Application typography may grow without changing these measured tracks. */
@@ -8,6 +9,8 @@
   --robot-flight-status-pedestal-width: 132px;
   --robot-flight-status-pedestal-height: 20px;
   --robot-flight-panel-inline-inset: 2px;
+  /* P34 footer: left frequency / right status rows pack inline at 3px. */
+  --robot-flight-inline-gap: 3px;
   --robot-flight-accent: var(--color-robot-flight-accent);
   --robot-flight-sky: var(--color-robot-flight-sky);
   --robot-flight-ground: var(--color-robot-flight-ground);
@@ -51,12 +54,18 @@
   border-radius: 0;
 }
 
-.robot-flight-instrument[data-xgc-health="idle"] .robot-flight-sky,
-.robot-flight-instrument[data-xgc-health="idle"] .robot-flight-ground,
-.robot-flight-instrument[data-xgc-health="idle"] .robot-flight-yaw-compass,
-.robot-flight-instrument[data-xgc-connection="offline"] .robot-flight-sky,
-.robot-flight-instrument[data-xgc-connection="offline"] .robot-flight-ground,
-.robot-flight-instrument[data-xgc-connection="offline"] .robot-flight-yaw-compass {
+/* Sky/ground follow connection, not VRPN/IMU attitude. Unknown heading
+ * must not impersonate the disconnected HUD. */
+.robot-flight-instrument[data-xgc-connection="disconnected"] .robot-flight-sky,
+.robot-flight-instrument[data-xgc-connection="disconnected"] .robot-flight-ground,
+.robot-flight-instrument[data-xgc-connection="disconnected"] .robot-flight-yaw-compass {
+  opacity: var(--opacity-disabled);
+}
+.robot-flight-instrument[data-xgc-connection="recovering"] .robot-flight-sky,
+.robot-flight-instrument[data-xgc-connection="recovering"] .robot-flight-ground {
+  opacity: var(--opacity-deemphasized);
+}
+.robot-flight-instrument[data-xgc-attitude="unknown"] .robot-flight-yaw-compass {
   opacity: var(--opacity-disabled);
 }
 
@@ -376,7 +385,7 @@
   left: 8px;
   /* Shared label track sized to LPOS/VPOS, so LSP keeps the same left edge. */
   grid-template-columns: max-content minmax(0, auto);
-  column-gap: 3px;
+  column-gap: var(--robot-flight-inline-gap);
   justify-items: start;
 }
 
@@ -392,12 +401,13 @@
   min-width: 0;
 }
 
-.robot-flight-status-list span {
+.robot-flight-status-list > span {
   display: flex;
   align-items: baseline;
+  flex-wrap: nowrap;
   /* Tight pack: label immediately followed by reading (not space-between). */
   justify-content: flex-start;
-  gap: 3px;
+  gap: var(--robot-flight-inline-gap);
   min-width: 0;
 }
 
@@ -461,6 +471,14 @@
   flex: 0 0 auto;
 }
 
+/* Direct-child row flex must not reach the 1ch sign (block flex wraps the number). */
+.robot-flight-status-list .robot-flight-status-value > .robot-flight-status-sign {
+  display: inline-block;
+  width: 1ch;
+  flex-shrink: 0;
+  text-align: center;
+}
+
 .robot-flight-frequency-value[data-xgc-tone="danger"],
 .robot-flight-status-value[data-xgc-tone="danger"] {
   color: var(--color-robot-flight-frequency-danger);
@@ -496,10 +514,6 @@
 .robot-flight-hud-center small {
   color: var(--color-robot-flight-hint);
   font-size: var(--robot-flight-font-label);
-}
-
-.robot-flight-climb-readout {
-  white-space: pre;
 }
 
 .robot-flight-climb-direction {
@@ -606,4 +620,10 @@
   border-radius: var(--radius-xs);
   font-size: var(--robot-flight-font-label);
   transform: translateX(-50%);
+}
+
+/* HUD emphasis keeps the user-agent bold it was verified with (P15); the
+ * shared element default (emphasis weight) must not restyle the PFD. */
+.robot-flight-instrument :where(strong, b) {
+  font-weight: var(--weight-bold);
 }

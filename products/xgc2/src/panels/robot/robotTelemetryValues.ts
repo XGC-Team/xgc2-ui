@@ -53,14 +53,20 @@ export function unsignedZeroFixed(value: number, digits: number) {
 }
 
 export function normalizedQuaternion(value?: Record<string,unknown>): Quaternion {
-  const quaternion = {
-    x: numberValue(value?.x) ?? 0,
-    y: numberValue(value?.y) ?? 0,
-    z: numberValue(value?.z) ?? 0,
-    w: numberValue(value?.w) ?? 1,
-  };
+  return measuredQuaternion(value) ?? { x: 0,y: 0,z: 0,w: 1 };
+}
+
+/** Measured attitude only. Missing or degenerate samples are unknown, never identity. */
+export function measuredQuaternion(value?: Record<string,unknown>): Quaternion | null {
+  if (!value) return null;
+  const x = numberValue(value.x);
+  const y = numberValue(value.y);
+  const z = numberValue(value.z);
+  const w = numberValue(value.w);
+  if (x == null && y == null && z == null && w == null) return null;
+  const quaternion = { x: x ?? 0,y: y ?? 0,z: z ?? 0,w: w ?? 0 };
   const norm = Math.hypot(quaternion.x,quaternion.y,quaternion.z,quaternion.w);
-  if (norm < 1e-12) return { x: 0,y: 0,z: 0,w: 1 };
+  if (norm < 1e-12) return null;
   return { x: quaternion.x / norm,y: quaternion.y / norm,z: quaternion.z / norm,w: quaternion.w / norm };
 }
 
@@ -82,16 +88,43 @@ export function normalizeYaw(value: number) {
 }
 
 export function orientationYawDegrees(value: unknown) {
-  const orientation = objectValue(value);
-  if (!orientation || !['x','y','z','w'].some((axis) => numberValue(orientation[axis]) != null)) return null;
-  return normalizeYaw(quaternionYawDegrees(normalizedQuaternion(orientation)));
+  const quaternion = measuredQuaternion(objectValue(value));
+  return quaternion ? normalizeYaw(quaternionYawDegrees(quaternion)) : null;
+}
+
+// A stream-health sample is read for many rows on every instrument repaint
+// and replaced only when a new sample arrives, so each sample is indexed once.
+const streamHealthIndexes = new WeakMap<object,ReadonlyMap<string,Record<string,unknown>>>();
+
+function streamHealthIndex(channels: readonly unknown[]) {
+  let index = streamHealthIndexes.get(channels);
+  if (!index) {
+    const byChannel = new Map<string,Record<string,unknown>>();
+    channels.forEach((channel) => {
+      const item = objectValue(channel);
+      // The first row naming a channel wins, under either spelling.
+      [item?.channelId,item?.channel_id].forEach((id) => {
+        if (typeof id === 'string' && !byChannel.has(id)) byChannel.set(id, item!);
+      });
+    });
+    index = byChannel;
+    streamHealthIndexes.set(channels, index);
+  }
+  return index;
+}
+
+export function streamHealthChannel(health: Record<string,unknown> | undefined, channelId: string) {
+  return Array.isArray(health?.channels) ? streamHealthIndex(health.channels).get(channelId) : undefined;
+}
+
+/** Missing channel is not ready. A present row without stale is ready. */
+export function streamChannelReady(health: Record<string,unknown> | undefined, channelId: string) {
+  const channel = streamHealthChannel(health, channelId);
+  return Boolean(channel) && booleanValue(channel?.stale) !== true;
 }
 
 export function robotStreamRate(health: Record<string,unknown>, channelId: string) {
-  const channels = Array.isArray(health.channels) ? health.channels : [];
-  const channel = channels.map(objectValue).find((item) => (
-    item?.channelId === channelId || item?.channel_id === channelId
-  ));
+  const channel = streamHealthChannel(health, channelId);
   return numberValue(channel?.sourceRateHz) ?? numberValue(channel?.source_rate_hz) ?? 0;
 }
 

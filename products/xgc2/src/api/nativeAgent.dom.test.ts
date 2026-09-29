@@ -60,7 +60,7 @@ describe('Native Agent station transport', () => {
     '/api/experiments/exp-a/../native-agents/sessions',
   ])('rejects a path outside an exact local Experiment before transport: %s', async (path) => {
     const { fetchNativeAgent } = await import('./nativeAgent');
-    expect(() => fetchNativeAgent(path)).toThrow('current station and an exact Experiment');
+    expect(() => fetchNativeAgent(path)).toThrow('must stay on this station and use an exact Experiment');
     expect(fetch).not.toHaveBeenCalled();
   });
 

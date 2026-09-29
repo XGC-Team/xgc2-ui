@@ -36,6 +36,10 @@ export type AutomationTriggerInvocation = {
   sessionId?: string;
   occurredAt: string;
 };
+export type AutomationPanelActionSelector = { panelId:string;portId:string };
+export type AutomationPanelActionInvocation = AutomationPanelActionSelector & {
+  workflowInstanceId:string;presetId:string;executionMode:'standalone';runMode:string;
+};
 export type AutomationRun = {
   id: string;targetId: string;automationResourceId: string;definitionId: string;definitionVersion: number;
   actionId: string;actionVersion: number;
@@ -48,7 +52,7 @@ export type AutomationRun = {
   admissionMode: 'parallel' | 'limited';admissionScope: 'all' | 'root';admissionKey?: string;admissionLimit?: number;
   admissionOnConflict?: AutomationRunAdmissionConflict;replacesRunId?: string;
   rootRunId: string;callNodeId?: string;throughNodeId?: string;depth: number;correlationId: string;
-  triggerInvocation?: AutomationTriggerInvocation;result?: unknown;
+  triggerInvocation?: AutomationTriggerInvocation;panelAction?: AutomationPanelActionInvocation;result?: unknown;
   acceptedAt: string;createdAt: string;startedAt?: string;updatedAt: string;finishedAt?: string;
 };
 
@@ -77,6 +81,7 @@ export type AutomationRunRobotContext = {
   hybridSource: 'simulation' | 'physical';
   profileId: string;
   px4?: {
+    imageSimulationEnabled: boolean;
     mavSystemId: number;
     simulationMavSystemId: number;
     managementIp: string;

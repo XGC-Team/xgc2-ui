@@ -18,6 +18,10 @@ import {
 import { useCameraVideoMediaControl } from './useCameraVideoMediaControl';
 import '../../styles/multi-camera-monitor.css';
 import { localizeCameraMessage,useCameraText } from './cameraMessages';
+import { useExecutionTarget } from '../../domains/execution/executionPublic';
+import { usePanelInvocationObservation } from '../usePanelInvocationObservation';
+import { intrinsicWorkflowRuntime } from './cameraIntrinsicWorkspaceModel';
+import { cameraMediaOwnerCandidates,cameraMediaOwnerForSource } from './cameraMediaOwnerModel';
 
 type ManagedContext = PanelPluginProps<readonly ['visualization','experiment','execution','automation']>['context'];
 type ViewerIntent = 'auto' | 'connected' | 'disconnected';
@@ -27,6 +31,27 @@ export function ManagedCameraVideoPanel({ panel,context }: PanelPluginProps<read
   const frame = useCameraVideoFrame(panel.id);
   const panelOptions = cameraVideoPanelOptions(panel.options);
   const media = useCameraVideoMediaControl(context,panelOptions.mediaBindingId);
+  const port = context.ports.actions[panelOptions.mediaBindingId];
+  usePanelInvocationObservation(port,port?.activeInvocation,true);
+  const runtime = intrinsicWorkflowRuntime(context.ports.data.video?.value);
+  const targetId = context.executionTargetId || runtime?.targetId || 'local';
+  const execution = useExecutionTarget(targetId,false,Boolean(port?.activeInvocation));
+  const candidates = cameraMediaOwnerCandidates(execution.processInstances,runtime,media.control.runId);
+  const demands = [...new Set(candidates.map((instance) => instance.ownerId))].sort().map((id) => ({
+    id,revision:runtime?.runDetailsById[id]?.run?.revision
+      ?? runtime?.runSummaries.find((run) => run.id === id)?.revision,
+  }));
+  const demandKey = JSON.stringify(demands);
+  const load = runtime?.loadRunDetail;
+  const retain = port?.execution?.retainRunDetail;
+  useEffect(() => {
+    const values = JSON.parse(demandKey) as typeof demands;
+    const release = values.map(({ id,revision }) => {
+      if (load) void load(id,revision).catch(() => undefined);
+      return retain?.(id);
+    });
+    return () => release.forEach((stop) => stop?.());
+  },[demandKey,load,retain]);
   const streams = useMemo(
     () => configuredStreams(panel).filter((stream) => stream.enabled),
     [panel],
@@ -72,6 +97,7 @@ export function ManagedCameraVideoPanel({ panel,context }: PanelPluginProps<read
           parentPanel={panel} stream={stream} context={context}
           experimentRunning={media.control.running}
           mediaState={media.control.state} mediaRunning={media.control.running}
+          mediaEdgeProcess={{ targetId,instanceId:cameraMediaOwnerForSource(candidates,runtime,stream.sourceId)?.id ?? '' }}
           onViewerChange={setViewer} />)}
       </div>
     </section>
@@ -81,7 +107,7 @@ export function ManagedCameraVideoPanel({ panel,context }: PanelPluginProps<read
 }
 
 function ManagedCameraVideoTile({
-  parentPanel,stream,context,experimentRunning,mediaState,mediaRunning,onViewerChange,
+  parentPanel,stream,context,experimentRunning,mediaState,mediaRunning,onViewerChange,mediaEdgeProcess,
 }: {
   parentPanel: PanelInstance;
   stream: MultiCameraMonitorStream;
@@ -89,6 +115,7 @@ function ManagedCameraVideoTile({
   experimentRunning: boolean;
   mediaState: string;
   mediaRunning: boolean;
+  mediaEdgeProcess: { targetId:string;instanceId:string };
   onViewerChange: (streamId: string,viewer: CameraVideoViewerControl | null) => void;
 }) {
   const t = useCameraText();
@@ -128,6 +155,7 @@ function ManagedCameraVideoTile({
   const markId = `${parentPanel.id}:${stream.id}`;
   return <article className="multi-camera-monitor-tile" data-xgc-role="camera-video-tile" data-xgc-id={markId}>
     <CameraVideoPanel panel={streamPanel} context={context}
+      mediaEdgeProcess={mediaEdgeProcess}
       connectionEnabled={viewerRequested && mediaState!=='stopping'} connectionAttempt={viewerAttempt}
       automaticReconnectEnabled={mediaRunning && mediaState!=='stopping'}
       ownerLifecycle={mediaState==='stopping' ? 'stopping' : 'running'}

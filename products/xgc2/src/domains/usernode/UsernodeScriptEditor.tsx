@@ -250,11 +250,11 @@ function UsernodeHighlightedSourceEditor({ value,interpreter,readOnly,query,acti
   }, [activeMatch, matchStarts, needle, value]);
 
   return (
-    <div className="xgc-form-field usernode-source-field" data-xgc-role="usernode-source-field" data-xgc-id="usernode-source-field">
-      <label className="xgc-form-field-label" htmlFor={sourceId}>Script body</label>
+    <FormField label="Script body" className="usernode-source-field" dataXgcRole="usernode-source-field" dataXgcId="usernode-source-field">
       <span
-        className={controlClassNames('xgc-control', 'xgc-textarea-control', 'usernode-source-editor')}
+        className={controlClassNames('xgc-control', 'xgc-textarea-control', 'control-textarea', 'usernode-source-editor')}
         data-xgc-control="textarea"
+        data-xgc-format="monospace"
         data-xgc-role="usernode-source" data-xgc-id="usernode-source"
         data-disabled={readOnly || undefined}
       >
@@ -264,10 +264,13 @@ function UsernodeHighlightedSourceEditor({ value,interpreter,readOnly,query,acti
             {'\n'}
           </code>
         </pre>
+        {/* FormField labels the composite shell; the overlay textarea carries
+         * the field name itself so assistive tech lands on the real control. */}
         <Textarea
           ref={inputRef}
           id={sourceId}
           className="usernode-source-input"
+          aria-label="Script body"
           spellCheck={false}
           value={value}
           disabled={readOnly}
@@ -275,6 +278,6 @@ function UsernodeHighlightedSourceEditor({ value,interpreter,readOnly,query,acti
           onScroll={syncScroll}
         />
       </span>
-    </div>
+    </FormField>
   );
 }

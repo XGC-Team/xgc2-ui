@@ -13,7 +13,6 @@ import {
   InputActionControl,
   Pagination,
   Panel,
-  SortableDataTable,
   Toolbar,
   type DataTableColumn,
 } from '@xgc2/ui-react';
@@ -21,6 +20,7 @@ import { ConfigDrawer,ConfigDrawerDismissButton } from '../../components/ConfigD
 import { ControlButton } from '../../components/controls/ControlButton';
 import { InputControl,TextareaControl } from '../../components/controls/TextControls';
 import { FormField } from '../../components/FormPrimitives';
+import { SortableDataTable } from '../../components/SortableDataTable';
 import { AutomationPathPicker } from '../automation/automationPublic';
 import type { DockerImageInfo } from './containerModel';
 import {
@@ -169,6 +169,7 @@ export function ContainerImagesPanel({
       <div className="container-table-panel" data-xgc-role="container-image-table-panel" data-xgc-id="container-image-table-panel">
         <SortableDataTable
           className="container-data-table-shell"
+          data-xgc-id="container-images"
           columns={[
             sortableColumn('id','ID',(image) => {
               const name = imageRef(image);

@@ -2,6 +2,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import { Terminal as XTerm } from '@xterm/xterm';
 import { useEffect,useRef } from 'react';
 import { getThemeToken } from '../../theme';
+import { remeasureTerminalFontWhenReady,resolveTerminalFontFamily } from '../../shared/terminalFont';
 
 /**
  * Read-only xterm surface for container logs / command output.
@@ -19,13 +20,14 @@ export function ContainerTerminalLog({ content }: { content: string }) {
     const host = hostRef.current;
     if (!host) return;
 
+    const fontFamily = resolveTerminalFontFamily();
     const term = new XTerm({
       convertEol: true,
       disableStdin: true,
       cursorBlink: false,
       cursorStyle: 'bar',
       cursorInactiveStyle: 'none',
-      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace',
+      fontFamily,
       fontSize: 13,
       lineHeight: 1.35,
       scrollback: 20_000,
@@ -65,6 +67,7 @@ export function ContainerTerminalLog({ content }: { content: string }) {
       writeContent();
       window.requestAnimationFrame(resize);
     });
+    void remeasureTerminalFontWhenReady(term, fontFamily, 13, () => termRef.current === term, resize);
 
     return () => {
       observer.disconnect();

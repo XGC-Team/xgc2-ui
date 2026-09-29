@@ -1,13 +1,15 @@
+import { ExperimentWorldFenceDrawer } from './ExperimentWorldFenceDrawer';
+import { ExperimentSceneDrawer,type ExperimentScene,coordinateFieldNumber, coordinateFieldText, presentedExperimentWorldBoundary, type ExperimentWorldBoundary } from '../../domains/experiment/experimentPublic';
 import {
+  ArrowDown,
+  ArrowUp,
   Check,
-  ChevronDown,
-  ChevronUp,
   Plus,
   Settings,
   Trash2,
-  X,
 } from 'lucide-react';
 import {
+  memo,
   useEffect,
   useMemo,
   useRef,
@@ -15,7 +17,7 @@ import {
   type DragEvent as ReactDragEvent,
   Fragment,
 } from 'react';
-import { EmptyState,StatusText,Vector3Control } from '@xgc2/ui-react';
+import { Button,EmptyState,FormSection,StatusText,Vector3Control } from '@xgc2/ui-react';
 import { ControlButton,ControlLink } from '../../components/controls/ControlButton';
 import { ConfigDrawer } from '../../components/ConfigDrawer';
 import { SelectControl } from '../../components/controls/SelectControl';
@@ -33,12 +35,15 @@ import {
   normalizeExperimentRobotBindings,
   removeExperimentRobotAsset,
   reorderExperimentRobotAssets,
+  useExperimentRobotSources,
   validateExperimentRobotBindings,
   DEFAULT_EXPERIMENT_LOCALIZATION_OFFSET,
   type ExperimentDocument,
+  EXPERIMENT_LINK_PROFILES,
   type ExperimentHybridSource,
   type ExperimentLocalizationOffset,
   type ExperimentRobotBinding,
+  type ExperimentRobotSourceLabel,
 } from '../../domains/experiment/experimentPublic';
 import {
   robotAssetChassisClass,
@@ -81,20 +86,21 @@ const REORDER_ROBOTS_REASON = 'Reorder Experiment Robots from Config dashboard';
 const FILL_CURRENT_POSES_REASON = 'Set starting poses for the next Experiment';
 const UPDATE_WORLD_ORIGIN_OFFSET_REASON = 'Update Experiment world origin offset from Config dashboard';
 const ROBOT_RUNTIME_WORKFLOW_INSTANCE_ID = 'panel-robot-instruments';
-const FLEET_GROUPS = ['UAV', 'UGV'] as const;
+const SWARM_GROUPS = ['UAV', 'UGV'] as const;
+const UNKNOWN_ROBOT_SOURCE_LABEL: ExperimentRobotSourceLabel = { current: 'unknown' };
 
-function fleetGroupLabel(binding: ExperimentRobotBinding) {
+function swarmGroupLabel(binding: ExperimentRobotBinding) {
   return experimentRobotRoleLabel(binding).replace(/-\d+$/,'');
 }
 
-function fleetGroupOrder(bindings: readonly { binding: ExperimentRobotBinding }[]) {
+function swarmGroupOrder(bindings: readonly { binding: ExperimentRobotBinding }[]) {
   const extras: string[] = [];
   for (const { binding } of bindings) {
-    const label = fleetGroupLabel(binding);
+    const label = swarmGroupLabel(binding);
     if ((label === 'UAV' || label === 'UGV' || extras.includes(label))) continue;
     extras.push(label);
   }
-  return [...FLEET_GROUPS, ...extras];
+  return [...SWARM_GROUPS, ...extras];
 }
 
 type PendingRobotBindings = {
@@ -102,6 +108,15 @@ type PendingRobotBindings = {
   reason: string;
 };
 
+
+
+const LINK_PROFILE_LABELS: Record<(typeof EXPERIMENT_LINK_PROFILES)[number], string> = {
+  ideal: 'Ideal radio link',
+  'lab-wifi': 'Lab Wi-Fi',
+  weak: 'Weak radio link',
+  severe: 'Severe radio link',
+  intermittent: 'Intermittent radio link',
+};
 
 export function ExperimentRobotAssetsPanel({ panel,context }: PanelPluginProps<readonly ['experiment','automation']>) {
   const t = useRobotText();
@@ -122,7 +137,7 @@ export function ExperimentRobotAssetsPanel({ panel,context }: PanelPluginProps<r
   const [selectedIndex,setSelectedIndex] = useState<number | null>(null);
   const [robotSettingsOpen,setRobotSettingsOpen] = useState(false);
   const routeVisible = useProductRouteVisible();
-  const [coordinateView,setCoordinateView] = useState<'origin' | 'starting-poses' | null>(null);
+  const [coordinateView,setCoordinateView] = useState<'origin' | 'starting-poses' | 'world-fence' | 'scene' | null>(null);
   const coordinateBaseRef = useRef<CoordinateAuthoringBase | null>(null);
   const [addingRobots,setAddingRobots] = useState(false);
   const [assetSearch,setAssetSearch] = useState('');
@@ -134,6 +149,15 @@ export function ExperimentRobotAssetsPanel({ panel,context }: PanelPluginProps<r
   const draftRef = useRef(draft);
   const persistLockRef = useRef(false);
   const pendingBindingsRef = useRef<PendingRobotBindings | null>(null);
+  const worldFenceFillRef = useRef('');
+  const saveWorldFenceRef = useRef<(value: ExperimentWorldBoundary, expectedCommitId: string) => Promise<void>>(async () => {});
+  const robotSources = useExperimentRobotSources({
+    runtime: experimentRuntime,
+    targetId,
+    experimentResourceId: experiment?.head.resourceId ?? '',
+    bindings: draft.bindings,
+    composition: robotKindComposition,
+  });
   const configuration = context.ports.authoring['robots-editor'];
   const offsetAuthoring = context.ports.authoring['world-origin-offset-editor'];
   const hostRefusal = configuration?.disabledReason
@@ -326,13 +350,30 @@ export function ExperimentRobotAssetsPanel({ panel,context }: PanelPluginProps<r
     setSelectedIndex(toIndex);
   }
 
-  function openCoordinateView(view: 'origin' | 'starting-poses') {
+  function openCoordinateView(view: 'origin' | 'starting-poses' | 'world-fence' | 'scene') {
     if (coordinateView === view) return;
     coordinateBaseRef.current = coordinateAuthoringBase(draftRef.current);
     setAddingRobots(false);
     setDraggingAssetId('');
     setCoordinateView(view);
   }
+
+  async function saveExperimentSetting(port:string,value:unknown,expectedCommitId:string,reason:string) {
+    const current=draftRef.current;
+    if (!experiment || current.experimentResourceId!==experiment.head.resourceId || current.headCommitId!==expectedCommitId) throw new Error(t('The Experiment configuration changed. Reopen coordinate settings before saving.'));
+    if (persistLockRef.current || pendingBindingsRef.current) throw new Error(t('Wait for the current changes to finish saving.'));
+    const authoring=context.ports.authoring[port];
+    if (!authoring?.connected || authoring.disabledReason) throw new Error(authoring?.disabledReason || t('Experiment configuration is unavailable.'));
+    persistLockRef.current=true;
+    try {
+      const saved=await authoring.commit(value,expectedCommitId,reason);
+      writeDraft(applyPersistedDraft(draftRef.current,{},experimentDocument(saved),current));
+      setPersistError('');
+    } finally {persistLockRef.current=false;if(pendingBindingsRef.current) void flushPersist();}
+  }
+
+  const saveWorldBoundary = (value:ExperimentWorldBoundary,expectedCommitId:string) => saveExperimentSetting('world-boundary-editor',value,expectedCommitId,'Update Experiment world fence');
+  const saveScene = (value:ExperimentScene,expectedCommitId:string) => saveExperimentSetting('scene-editor',value,expectedCommitId,'Update Experiment scene');
 
   async function saveCoordinateChange(change: { offset: ExperimentLocalizationOffset } | { bindings: readonly ExperimentRobotBinding[] }) {
     const current = draftRef.current;
@@ -371,7 +412,12 @@ export function ExperimentRobotAssetsPanel({ panel,context }: PanelPluginProps<r
           return !candidate || candidate.id !== binding.id || candidate.namespace !== binding.namespace;
         })) throw new Error(t('The Robot selection changed. Reopen starting poses.'));
         const bindings = current.bindings.map((binding) => ({ ...binding,initialPose:{ ...poses.get(binding.ref.resourceId)!.initialPose } }));
-        if (JSON.stringify(bindings) === JSON.stringify(current.baseline)) return;
+        if (JSON.stringify(bindings) === JSON.stringify(current.baseline)) {
+          if (coordinateBaseRef.current === coordinateBase) {
+            coordinateBaseRef.current = coordinateAuthoringBase(current);
+          }
+          return;
+        }
         const saved = await authoring.commit(normalizeExperimentRobotBindings(bindings,robotKindComposition),current.headCommitId,FILL_CURRENT_POSES_REASON);
         if (draftRef.current.experimentResourceId !== current.experimentResourceId) return;
         // An input callback can queue another edit while the commit is awaited.
@@ -402,12 +448,34 @@ export function ExperimentRobotAssetsPanel({ panel,context }: PanelPluginProps<r
   const runtimeSession = experimentRuntime?.sessionViews?.find((view) => (
     view.session.targetId === targetId && view.session.experimentResourceId === experiment?.head.resourceId
     && (view.session.state === 'opening' || view.session.state === 'active')
-    && view.members.some((member) => member.ownerId === runtimeOwnerRunId)
   ));
+  const coordinateRobotRunIds = useMemo(() => runtimeSession?.members
+    .filter((member) => member.targetId === targetId && (member.kind === 'workflow_run' || member.kind === 'workflow_command'))
+    .map((member) => member.ownerId) ?? [],[runtimeSession,targetId]);
   const selectedAsset = selectedBinding
     ? robotAssetCatalog.assets.find((asset) => asset.head.resourceId === selectedBinding.ref.resourceId)
     : undefined;
-  const inspectorVisible = Boolean(routeVisible && robotSettingsOpen && selectedBinding && !addingRobots && !coordinateView);
+  // Robot parameters ride the shared wide ConfigDrawer like every other panel
+  // settings surface; the draft keeps live-persisting while the drawer is open.
+  const robotDrawerVisible = Boolean(routeVisible && robotSettingsOpen && selectedBinding && !addingRobots && !coordinateView);
+  const worldFence = useMemo(() => (
+    experiment
+      ? presentedExperimentWorldBoundary(experiment.spec.worldBoundary, experiment.spec.name) ?? experiment.spec.worldBoundary
+      : null
+  ), [experiment]);
+  saveWorldFenceRef.current = saveWorldBoundary;
+  useEffect(() => {
+    if (coordinateView !== 'world-fence' || !experiment || !worldFence) return;
+    if (JSON.stringify(worldFence) === JSON.stringify(experiment.spec.worldBoundary)) return;
+    const authoring = context.ports.authoring['world-boundary-editor'];
+    if (!authoring?.connected || authoring.disabledReason) return;
+    const token = `${experiment.head.resourceId}:${experiment.spec.name}:${JSON.stringify(worldFence)}`;
+    if (worldFenceFillRef.current === token) return;
+    worldFenceFillRef.current = token;
+    void saveWorldFenceRef.current(worldFence, draft.headCommitId).catch(() => {
+      if (worldFenceFillRef.current === token) worldFenceFillRef.current = '';
+    });
+  }, [coordinateView, experiment, worldFence, draft.headCommitId, context.ports.authoring]);
 
   if (!experiment) {
     return <EmptyState appearance="plain" fill title={t('Experiment unavailable')} description={t('Select an Experiment to manage its Robot assets.')} />;
@@ -415,59 +483,83 @@ export function ExperimentRobotAssetsPanel({ panel,context }: PanelPluginProps<r
 
   return (
     <section className="experiment-robot-assets-panel-root" data-xgc-role="experiment-robot-assets" data-xgc-id="experiment-robot-assets">
-      <div className="experiment-robot-assets-panel-workspace" data-inspector-open={inspectorVisible ? 'true' : 'false'}>
-        <ExperimentRobots
-          panelId={panel.id}
-          browseButtonRef={browseButtonRef}
-          robotButtonRefs={robotButtonRefs.current}
-          bindings={draft.bindings}
-          orderedBindings={orderedBindings}
-          assets={robotAssetCatalog.assets}
-          selectedIndex={selectedIndex}
-          disabled={Boolean(rosterLockedReason)}
-          disabledReason={rosterLockedReason}
-          draggingAssetId={draggingAssetId}
-          onSelect={selectRobot}
-          onBrowseAssets={() => { coordinateBaseRef.current = null;setCoordinateView(null);setAddingRobots(true); }}
-          browsingAssets={addingRobots}
-          onSelectWorldOrigin={() => openCoordinateView('origin')}
-          onRemove={removeRobot}
-          onMove={moveRobot}
-          onAssetDrop={addDraggedAsset}
-          onFillCurrentPoses={() => openCoordinateView('starting-poses')}
-          feedbackError={persistError || robotAssetCatalog.error}
-        />
-        <aside
-          hidden={!inspectorVisible}
-          className="experiment-robot-assets-panel-inspector"
-          data-xgc-role="experiment-robot-assets-robot-inspector"
-          data-xgc-id={selectedBinding?.ref.resourceId ?? 'selection'}
-          aria-label={t('Robot parameters')}
-        >
-          {selectedBinding && <div className="experiment-robot-assets-panel-inspector-heading" data-xgc-role="experiment-robot-assets-pane-header" data-xgc-id="parameters">
-            <h2 data-xgc-role="experiment-robot-assets-pane-title" data-xgc-id="parameters">
+      <div className="experiment-robot-assets-panel-workspace">
+        <div className="experiment-robot-assets-panel-gallery">
+          <ExperimentRobots
+            panelId={panel.id}
+            browseButtonRef={browseButtonRef}
+            robotButtonRefs={robotButtonRefs.current}
+            bindings={draft.bindings}
+            orderedBindings={orderedBindings}
+            sourceLabels={robotSources.labels}
+            assets={robotAssetCatalog.assets}
+            selectedIndex={selectedIndex}
+            disabled={Boolean(rosterLockedReason)}
+            disabledReason={rosterLockedReason}
+            draggingAssetId={draggingAssetId}
+            onSelect={selectRobot}
+            onBrowseAssets={() => { coordinateBaseRef.current = null;setCoordinateView(null);setAddingRobots(true); }}
+            browsingAssets={addingRobots}
+            scene={experiment.spec.scene}
+            onSelectScene={() => openCoordinateView('scene')}
+            onSelectWorldOrigin={() => openCoordinateView('origin')}
+            onSelectWorldFence={() => openCoordinateView('world-fence')}
+            onRemove={removeRobot}
+            onMove={moveRobot}
+            onAssetDrop={addDraggedAsset}
+            onFillCurrentPoses={() => openCoordinateView('starting-poses')}
+            feedbackError={persistError || robotAssetCatalog.error}
+          />
+        </div>
+      </div>
+      {robotSettingsOpen && selectedBinding && (
+        <ConfigDrawer
+          open={robotDrawerVisible}
+          ariaLabel={t('Robot parameters')}
+          title={(
+            <span
+              className="experiment-robot-assets-panel-robot-drawer-title"
+              data-xgc-role="experiment-robot-assets-pane-title"
+              data-xgc-id="parameters"
+            >
+              <span className="experiment-robot-assets-panel-robot-drawer-mark" aria-hidden="true">
+                <ExperimentRobotPortrait
+                  family={portraitFamily(selectedAsset ? robotAssetChassisClass(selectedAsset.spec,robotKindComposition) : undefined)}
+                  selected
+                  motion={routeVisible}
+                  variant={selectedIndex ?? 0}
+                />
+              </span>
               <span
                 data-xgc-role="experiment-robot-assets-panel-current-robot"
-                data-xgc-id={selectedBinding?.ref.resourceId ?? 'selection'}
+                data-xgc-id={selectedBinding.ref.resourceId}
               >{selectedAsset?.spec.name ?? t('Robot parameters')}</span>
-            </h2>
-            <ControlButton size="compact" iconOnly appearance="ghost"
-              aria-label={t('Close Robot parameters')} title={t('Close Robot parameters')}
-              data-xgc-role="experiment-robot-assets-robot-inspector-close"
-              data-xgc-id={selectedBinding?.ref.resourceId ?? 'selection'}
-              onClick={() => setRobotSettingsOpen(false)}
-            ><X size={16} aria-hidden="true" /></ControlButton>
-          </div>}
+            </span>
+          )}
+          className="config-drawer-wide experiment-robot-assets-robot-drawer"
+          dataXgcRole="experiment-robot-assets-robot-inspector"
+          dataXgcId={selectedBinding.ref.resourceId}
+          closeDataXgcRole="experiment-robot-assets-robot-inspector-close"
+          closeDataXgcId={selectedBinding.ref.resourceId}
+          closeLabel={t('Close Robot parameters')}
+          closeOnBackdrop
+          onClose={() => {
+            const resourceId = selectedBinding.ref.resourceId;
+            setRobotSettingsOpen(false);
+            robotButtonRefs.current.get(resourceId)?.focus();
+          }}
+        >
           <RobotForm
             binding={selectedBinding}
             index={selectedIndex}
             assets={robotAssetCatalog.assets}
+            scene={experiment.spec.scene}
             disabled={Boolean(readOnlyReason)}
             disabledReason={readOnlyReason}
             onChange={updateSelected}
           />
-        </aside>
-      </div>
+        </ConfigDrawer>
+      )}
       {addingRobots && (
         <ConfigDrawer
           open={routeVisible}
@@ -508,13 +600,28 @@ export function ExperimentRobotAssetsPanel({ panel,context }: PanelPluginProps<r
           />
         </ConfigDrawer>
       )}
-      {coordinateView && (
+      {coordinateView === 'scene' && (
+        <ExperimentSceneDrawer value={experiment.spec.scene} headCommitId={draft.headCommitId} visible={routeVisible}
+          disabledReason={configResourceDefinitionEditLocked(experiment.head,experiment.spec.tags) ? t('This Experiment is read only.') : context.ports.authoring['scene-editor']?.disabledReason || (!context.ports.authoring['scene-editor']?.connected ? t('Experiment configuration is unavailable.') : '')}
+          onSave={saveScene} onClose={() => { coordinateBaseRef.current = null;setCoordinateView(null); }} />
+      )}
+      {coordinateView === 'world-fence' && (
+        <ExperimentWorldFenceDrawer value={worldFence} headCommitId={draft.headCommitId}
+          visible={routeVisible} editing={context.editing}
+          disabledReason={configResourceDefinitionEditLocked(experiment.head,experiment.spec.tags) ? t('This Experiment is read only.') : context.ports.authoring['world-boundary-editor']?.disabledReason || (!context.ports.authoring['world-boundary-editor']?.connected ? t('Experiment configuration is unavailable.') : '')}
+          onSave={saveWorldBoundary} onClose={() => {coordinateBaseRef.current=null;setCoordinateView(null);}} />
+      )}
+      {(coordinateView === 'origin' || coordinateView === 'starting-poses') && (
         <ExperimentCoordinateDrawer
           key={coordinateView}
           view={coordinateView}
           visible={routeVisible}
           targetId={targetId}
-          runId={runtimeSession ? runtimeOwnerRunId : undefined}
+          runId={runtimeSession ? runtimeOwnerRunId ?? coordinateRobotRunIds[0] : undefined}
+          expectedCommitId={runtimeSession?.session.experimentCommitId ?? ''}
+          expectedDigest={runtimeSession?.session.experimentDigest ?? ''}
+          sessionId={runtimeSession?.session.id ?? ''}
+          robotRunIds={coordinateRobotRunIds}
           runMode={runtimeSession?.session.runMode ?? ''}
           experimentResourceId={experiment.head.resourceId}
           bindings={draft.bindings}
@@ -680,6 +787,7 @@ function ExperimentRobots({
   robotButtonRefs,
   bindings,
   orderedBindings,
+  sourceLabels,
   assets,
   selectedIndex,
   disabled,
@@ -688,7 +796,10 @@ function ExperimentRobots({
   onSelect,
   onBrowseAssets,
   browsingAssets,
+  onSelectScene,
+  scene,
   onSelectWorldOrigin,
+  onSelectWorldFence,
   onRemove,
   onMove,
   onAssetDrop,
@@ -700,6 +811,7 @@ function ExperimentRobots({
   robotButtonRefs: Map<string,HTMLButtonElement>;
   bindings: readonly ExperimentRobotBinding[];
   orderedBindings: readonly { binding: ExperimentRobotBinding; index: number }[];
+  sourceLabels: ReadonlyMap<string,ExperimentRobotSourceLabel>;
   assets: readonly RobotAssetDocument[];
   selectedIndex: number | null;
   disabled: boolean;
@@ -708,7 +820,10 @@ function ExperimentRobots({
   onSelect: (index: number) => void;
   onBrowseAssets: () => void;
   browsingAssets: boolean;
+  onSelectScene: () => void;
+  scene?: ExperimentScene;
   onSelectWorldOrigin: () => void;
+  onSelectWorldFence: () => void;
   onRemove: (index: number) => void;
   onMove: (fromIndex: number,toIndex: number) => void;
   onAssetDrop: (resourceId: string) => void;
@@ -716,7 +831,6 @@ function ExperimentRobots({
   feedbackError: string;
 }) {
   const t = useRobotText();
-  const robotKindComposition = useRobotAssetKindComposition();
   const motion = useProductRouteVisible();
   const [dropActive,setDropActive] = useState(false);
   const [draggingRobotAssetId,setDraggingRobotAssetId] = useState('');
@@ -738,6 +852,49 @@ function ExperimentRobots({
       setDropTargetIndex(null);
     }
   },[bindings,disabled,draggingRobotAssetId]);
+
+  // Roster lookups for this render in one pass over the roster and catalog;
+  // resolving them per robot card made each render O(robots^2).
+  const assetById = new Map<string,RobotAssetDocument>();
+  assets.forEach((asset) => {
+    if (!assetById.has(asset.head.resourceId)) assetById.set(asset.head.resourceId,asset);
+  });
+  const slotGroupIndexes = new Map<string,number[]>();
+  const slotGroupPositions = new Map<number,number>();
+  bindings.forEach((candidate,candidateIndex) => {
+    const group = experimentRobotSlotGroup(candidate);
+    const indexes = slotGroupIndexes.get(group) ?? [];
+    if (indexes.length === 0) slotGroupIndexes.set(group,indexes);
+    slotGroupPositions.set(candidateIndex,indexes.length);
+    indexes.push(candidateIndex);
+  });
+  const groupItemsByLabel = new Map<string,{ binding: ExperimentRobotBinding; index: number }[]>();
+  orderedBindings.forEach((item) => {
+    const label = swarmGroupLabel(item.binding);
+    const items = groupItemsByLabel.get(label) ?? [];
+    if (items.length === 0) groupItemsByLabel.set(label,items);
+    items.push(item);
+  });
+  const draggedBinding = bindings.find((candidate) => candidate.ref.resourceId === draggingRobotAssetId);
+  const draggedName = assetById.get(draggingRobotAssetId)?.spec.name;
+  // Cards call the roster's current handlers through stable delegates, so a
+  // roster render (an Experiment runtime change, another robot's edit) does
+  // not re-render every card; each card re-renders when its own data changes.
+  const latest = useRef({ bindings,draggingRobotAssetId,onSelect,onMove,onRemove,robotButtonRefs });
+  latest.current = { bindings,draggingRobotAssetId,onSelect,onMove,onRemove,robotButtonRefs };
+  const cardActions = useMemo<ExperimentRobotCardActions>(() => ({
+    select:(index) => latest.current.onSelect(index),
+    move:(fromIndex,toIndex) => latest.current.onMove(fromIndex,toIndex),
+    remove:(index) => latest.current.onRemove(index),
+    bindings:() => latest.current.bindings,
+    draggingRobotAssetId:() => latest.current.draggingRobotAssetId,
+    setDraggingRobotAssetId,
+    setDropTargetIndex,
+    registerButton:(id,button) => {
+      if (button) latest.current.robotButtonRefs.set(id,button);
+      else latest.current.robotButtonRefs.delete(id);
+    },
+  }),[]);
 
   function acceptAssetDrop(event: ReactDragEvent<HTMLElement>) {
     if (disabled
@@ -777,11 +934,11 @@ function ExperimentRobots({
           <strong>{dropActive ? t('Release to add') : t('Drop to add')}</strong>
         </div>
       )}
-      <ExperimentCoordinateScene onOpenOrigin={onSelectWorldOrigin} onOpenStartingPoses={onFillCurrentPoses} motion={motion} />
+      <ExperimentCoordinateScene scene={scene} onOpenScene={onSelectScene} onOpenOrigin={onSelectWorldOrigin} onOpenStartingPoses={onFillCurrentPoses} onOpenFence={onSelectWorldFence} motion={motion} />
       <div className="experiment-robot-assets-panel-scroll experiment-robot-assets-panel-item-list">
-        {fleetGroupOrder(orderedBindings).map((groupLabel) => {
+        {swarmGroupOrder(orderedBindings).map((groupLabel) => {
           const groupId = groupLabel.toLowerCase();
-          const groupItems = orderedBindings.filter(({ binding }) => fleetGroupLabel(binding) === groupLabel);
+          const groupItems = groupItemsByLabel.get(groupLabel) ?? [];
           return (
             <Fragment key={groupId}>
               <div
@@ -813,155 +970,37 @@ function ExperimentRobots({
                 </ControlButton>
               </div>
               {groupItems.map(({ binding,index }) => {
-          const asset = assets.find((item) => item.head.resourceId === binding.ref.resourceId);
-          const disabledReason = asset
-            ? experimentRobotAssetDisabledReason(asset, robotKindComposition)
-            : '';
-          const assetName = asset?.spec.name ?? t('Missing Robot asset');
-          const assignmentName = experimentRobotAssignmentLabel(binding,assetName);
+          const asset = assetById.get(binding.ref.resourceId);
           const slotGroup = experimentRobotSlotGroup(binding);
-          const slotGroupIndexes = bindings.flatMap((candidate,candidateIndex) => (
-            experimentRobotSlotGroup(candidate) === slotGroup ? [candidateIndex] : []
-          ));
-          const slotGroupPosition = slotGroupIndexes.indexOf(index);
-          const previousSlotIndex = slotGroupIndexes[slotGroupPosition - 1];
-          const nextSlotIndex = slotGroupIndexes[slotGroupPosition + 1];
-          const reorderable = !disabled && slotGroupIndexes.length > 1;
-          const reorderDisabledReason = disabled ? _disabledReason : '';
-          const draggedBinding = bindings.find((candidate) => candidate.ref.resourceId === draggingRobotAssetId);
+          const slotIndexes = slotGroupIndexes.get(slotGroup) ?? [];
+          const slotGroupPosition = slotGroupPositions.get(index) ?? -1;
           const targetSlot = draggedBinding && draggedBinding !== binding
             && experimentRobotSlotGroup(draggedBinding) === slotGroup
             ? experimentRobotRoleLabel(binding) : '';
-          const draggedName = assets.find((candidate) => candidate.head.resourceId === draggingRobotAssetId)?.spec.name;
+          const sourceLabel = sourceLabels.get(binding.id) ?? UNKNOWN_ROBOT_SOURCE_LABEL;
           return (
-              <article
-                key={binding.ref.resourceId}
-                className="experiment-robot-assets-panel-robot-card"
-                data-selected={selectedIndex === index ? 'true' : undefined}
-                data-xgc-dragging={draggingRobotAssetId === binding.ref.resourceId ? 'true' : undefined}
-                data-xgc-drop-target={dropTargetIndex === index ? 'true' : undefined}
-                title={targetSlot && draggedName ? t('Move {name} to {slot}',{ name:draggedName,slot:targetSlot }) : undefined}
-                data-xgc-role="experiment-robot-assets-panel-robot"
-                data-xgc-id={asset?.head.resourceId ?? binding.ref.resourceId}
-                data-xgc-state={disabledReason ? 'known-disabled' : undefined}
-                data-scene-depth={index % 2 === 0 ? 'near' : 'far'}
-                onDragOver={(event) => {
-                  const sourceId = event.dataTransfer.getData(ROBOT_ASSIGNMENT_DRAG_MIME)
-                    || draggingRobotAssetId;
-                  const source = bindings.find((candidate) => candidate.ref.resourceId === sourceId);
-                  if (!reorderable || !sourceId || sourceId === binding.ref.resourceId
-                    || !source || experimentRobotSlotGroup(source) !== slotGroup) return;
-                  event.preventDefault();
-                  event.stopPropagation();
-                  event.dataTransfer.dropEffect = 'move';
-                  setDropTargetIndex(index);
-                }}
-                onDragLeave={(event) => {
-                  if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
-                  if (dropTargetIndex === index) setDropTargetIndex(null);
-                }}
-                onDrop={(event) => {
-                  const sourceId = event.dataTransfer.getData(ROBOT_ASSIGNMENT_DRAG_MIME)
-                    || draggingRobotAssetId;
-                  const sourceIndex = bindings.findIndex((candidate) => candidate.ref.resourceId === sourceId);
-                  if (!reorderable || sourceIndex < 0 || sourceIndex === index
-                    || experimentRobotSlotGroup(bindings[sourceIndex]!) !== slotGroup) return;
-                  event.preventDefault();
-                  event.stopPropagation();
-                  setDraggingRobotAssetId('');
-                  setDropTargetIndex(null);
-                  onMove(sourceIndex,index);
-                }}
-              >
-                <button
-                  ref={(button) => {
-                    const id = asset?.head.resourceId ?? binding.ref.resourceId;
-                    if (button) robotButtonRefs.set(id,button);
-                    else robotButtonRefs.delete(id);
-                  }}
-                  className="experiment-robot-assets-panel-robot-select experiment-robot-portrait-host"
-                  type="button"
-                  data-xgc-role="experiment-robot-assets-panel-robot-select"
-                  data-xgc-id={asset?.head.resourceId ?? binding.ref.resourceId}
-                  aria-label={assignmentName}
-                  aria-pressed={selectedIndex === index}
-                  draggable={reorderable ? true : undefined}
-                  title={targetSlot && draggedName ? t('Move {name} to {slot}',{ name:draggedName,slot:targetSlot })
-                    : reorderable ? t('Drag {name} to another slot',{ name:assetName }) : undefined}
-                  onDragStart={(event) => {
-                    if (!reorderable) {
-                      event.preventDefault();
-                      return;
-                    }
-                    event.dataTransfer.effectAllowed = 'move';
-                    event.dataTransfer.setData(ROBOT_ASSIGNMENT_DRAG_MIME,binding.ref.resourceId);
-                    setDraggingRobotAssetId(binding.ref.resourceId);
-                    setDropTargetIndex(null);
-                  }}
-                  onDragEnd={() => {
-                    setDraggingRobotAssetId('');
-                    setDropTargetIndex(null);
-                  }}
-                  onClick={() => onSelect(index)}
-                >
-                  <span className="experiment-robot-assets-panel-robot-mark" aria-hidden="true">
-                    <ExperimentRobotPortrait family={portraitFamily(asset ? robotAssetChassisClass(asset.spec,robotKindComposition) : undefined)} selected={selectedIndex === index} variant={index} motion={motion} />
-                  </span>
-                  <span className="experiment-robot-assets-panel-robot-copy">
-                    <span className="experiment-robot-assets-panel-slot-name">{experimentRobotRoleLabel(binding)}</span>
-                    <strong className="experiment-robot-assets-panel-assignment-name">{assetName}</strong>
-                    {disabledReason && (
-                      <span className="experiment-robot-assets-panel-robot-note" title={t(disabledReason)}>
-                        {t('Not enabled for Experiments')}
-                      </span>
-                    )}
-                  </span>
-                </button>
-                <div className="experiment-robot-assets-panel-robot-actions">
-                  <ControlButton
-                    iconOnly
-                    size="compact"
-                    appearance="ghost"
-                    aria-label={t('Move {name} up',{ name:assetName })}
-                    title={reorderDisabledReason || t('Move up')}
-                    disabled={!reorderable || previousSlotIndex === undefined}
-                    dataXgcRole="experiment-robot-assets-panel-robot-move-up"
-                    dataXgcId={asset?.head.resourceId ?? binding.ref.resourceId}
-                    onClick={() => previousSlotIndex !== undefined && onMove(index,previousSlotIndex)}
-                  >
-                    <ChevronUp size={14} aria-hidden="true" />
-                  </ControlButton>
-                  <ControlButton
-                    iconOnly
-                    size="compact"
-                    appearance="ghost"
-                    aria-label={t('Move {name} down',{ name:assetName })}
-                    title={reorderDisabledReason || t('Move down')}
-                    disabled={!reorderable || nextSlotIndex === undefined}
-                    dataXgcRole="experiment-robot-assets-panel-robot-move-down"
-                    dataXgcId={asset?.head.resourceId ?? binding.ref.resourceId}
-                    onClick={() => nextSlotIndex !== undefined && onMove(index,nextSlotIndex)}
-                  >
-                    <ChevronDown size={14} aria-hidden="true" />
-                  </ControlButton>
-                  <ControlButton
-                    iconOnly
-                    size="compact"
-                    tone="danger"
-                    appearance="ghost"
-                    aria-label={t('Remove {name} from Experiment',{ name:assetName })}
-                    title={disabled ? _disabledReason : undefined}
-                    disabled={disabled}
-                    dataXgcRole="experiment-robot-assets-panel-robot-remove"
-                    dataXgcId={asset?.head.resourceId ?? binding.ref.resourceId}
-                    onClick={() => onRemove(index)}
-                  >
-                    <Trash2 size={14} aria-hidden="true" />
-                  </ControlButton>
-                </div>
-              </article>
+            <ExperimentRobotCard
+              key={binding.ref.resourceId}
+              binding={binding}
+              index={index}
+              asset={asset}
+              slotGroup={slotGroup}
+              reorderable={!disabled && slotIndexes.length > 1}
+              previousSlotIndex={slotIndexes[slotGroupPosition - 1]}
+              nextSlotIndex={slotIndexes[slotGroupPosition + 1]}
+              disabled={disabled}
+              disabledReason={_disabledReason}
+              moveTitle={targetSlot && draggedName ? t('Move {name} to {slot}',{ name:draggedName,slot:targetSlot }) : undefined}
+              sourceCurrent={sourceLabel.current}
+              sourceNext={sourceLabel.next}
+              selected={selectedIndex === index}
+              dragging={draggingRobotAssetId === binding.ref.resourceId}
+              dropTarget={dropTargetIndex === index}
+              motion={motion}
+              actions={cardActions}
+            />
           );
-              })}
+        })}
             </Fragment>
           );
         })}
@@ -977,10 +1016,220 @@ function ExperimentRobots({
   );
 }
 
+type ExperimentRobotCardActions = {
+  select: (index: number) => void;
+  move: (fromIndex: number,toIndex: number) => void;
+  remove: (index: number) => void;
+  bindings: () => readonly ExperimentRobotBinding[];
+  draggingRobotAssetId: () => string;
+  setDraggingRobotAssetId: (resourceId: string) => void;
+  setDropTargetIndex: (index: number | null) => void;
+  registerButton: (id: string,button: HTMLButtonElement | null) => void;
+};
+
+/**
+ * One roster card. Props are this robot's own binding, asset, slot, source
+ * and drag/selection state; commands are the roster's stable delegates.
+ */
+const ExperimentRobotCard = memo(function ExperimentRobotCard({
+  binding,
+  index,
+  asset,
+  slotGroup,
+  reorderable,
+  previousSlotIndex,
+  nextSlotIndex,
+  disabled,
+  disabledReason: _disabledReason,
+  moveTitle,
+  sourceCurrent,
+  sourceNext,
+  selected,
+  dragging,
+  dropTarget,
+  motion,
+  actions,
+}: {
+  binding: ExperimentRobotBinding;
+  index: number;
+  asset?: RobotAssetDocument;
+  slotGroup: string;
+  reorderable: boolean;
+  previousSlotIndex?: number;
+  nextSlotIndex?: number;
+  disabled: boolean;
+  disabledReason: string;
+  moveTitle?: string;
+  sourceCurrent: ExperimentRobotSourceLabel['current'];
+  sourceNext?: ExperimentRobotSourceLabel['next'];
+  selected: boolean;
+  dragging: boolean;
+  dropTarget: boolean;
+  motion: boolean;
+  actions: ExperimentRobotCardActions;
+}) {
+  const t = useRobotText();
+  const robotKindComposition = useRobotAssetKindComposition();
+  const disabledReason = asset
+    ? experimentRobotAssetDisabledReason(asset, robotKindComposition)
+    : '';
+  const assetName = asset?.spec.name ?? t('Missing Robot asset');
+  const assignmentName = experimentRobotAssignmentLabel(binding,assetName);
+  const reorderDisabledReason = disabled ? _disabledReason : '';
+  return (
+              <article
+                className="experiment-robot-assets-panel-robot-card"
+                data-selected={selected ? 'true' : undefined}
+                data-xgc-dragging={dragging ? 'true' : undefined}
+                data-xgc-drop-target={dropTarget ? 'true' : undefined}
+                title={moveTitle}
+                data-xgc-role="experiment-robot-assets-panel-robot"
+                data-xgc-id={asset?.head.resourceId ?? binding.ref.resourceId}
+                data-xgc-state={disabledReason ? 'known-disabled' : undefined}
+                onDragOver={(event) => {
+                  const sourceId = event.dataTransfer.getData(ROBOT_ASSIGNMENT_DRAG_MIME)
+                    || actions.draggingRobotAssetId();
+                  const source = actions.bindings().find((candidate) => candidate.ref.resourceId === sourceId);
+                  if (!reorderable || !sourceId || sourceId === binding.ref.resourceId
+                    || !source || experimentRobotSlotGroup(source) !== slotGroup) return;
+                  event.preventDefault();
+                  event.stopPropagation();
+                  event.dataTransfer.dropEffect = 'move';
+                  actions.setDropTargetIndex(index);
+                }}
+                onDragLeave={(event) => {
+                  if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+                  if (dropTarget) actions.setDropTargetIndex(null);
+                }}
+                onDrop={(event) => {
+                  const sourceId = event.dataTransfer.getData(ROBOT_ASSIGNMENT_DRAG_MIME)
+                    || actions.draggingRobotAssetId();
+                  const bindings = actions.bindings();
+                  const sourceIndex = bindings.findIndex((candidate) => candidate.ref.resourceId === sourceId);
+                  if (!reorderable || sourceIndex < 0 || sourceIndex === index
+                    || experimentRobotSlotGroup(bindings[sourceIndex]!) !== slotGroup) return;
+                  event.preventDefault();
+                  event.stopPropagation();
+                  actions.setDraggingRobotAssetId('');
+                  actions.setDropTargetIndex(null);
+                  actions.move(sourceIndex,index);
+                }}
+              >
+                <Button
+                  appearance="ghost"
+                  ref={(button) => actions.registerButton(asset?.head.resourceId ?? binding.ref.resourceId,button)}
+                  className="experiment-robot-assets-panel-robot-select experiment-robot-portrait-host"
+                  type="button"
+                  data-xgc-role="experiment-robot-assets-panel-robot-select"
+                  data-xgc-id={asset?.head.resourceId ?? binding.ref.resourceId}
+                  aria-label={assignmentName}
+                  aria-pressed={selected}
+                  draggable={reorderable ? true : undefined}
+                  title={moveTitle
+                    ?? (reorderable ? t('Drag {name} to another slot',{ name:assetName }) : undefined)}
+                  onDragStart={(event) => {
+                    if (!reorderable) {
+                      event.preventDefault();
+                      return;
+                    }
+                    event.dataTransfer.effectAllowed = 'move';
+                    event.dataTransfer.setData(ROBOT_ASSIGNMENT_DRAG_MIME,binding.ref.resourceId);
+                    actions.setDraggingRobotAssetId(binding.ref.resourceId);
+                    actions.setDropTargetIndex(null);
+                  }}
+                  onDragEnd={() => {
+                    actions.setDraggingRobotAssetId('');
+                    actions.setDropTargetIndex(null);
+                  }}
+                  onClick={() => actions.select(index)}
+                >
+                  <span
+                    className="experiment-robot-assets-panel-robot-source"
+                    data-xgc-role="experiment-robot-assets-panel-robot-source"
+                    data-xgc-id={asset?.head.resourceId ?? binding.ref.resourceId}
+                    data-xgc-source={sourceCurrent}
+                  >
+                    {sourceCurrent === 'unknown'
+                      ? t('Source undetermined')
+                      : t(sourceCurrent === 'simulation' ? 'Simulation' : 'Physical')}
+                    {sourceNext && (
+                      <span
+                        className="experiment-robot-assets-panel-robot-source-next"
+                        data-xgc-role="experiment-robot-assets-panel-robot-source-next"
+                        data-xgc-id={asset?.head.resourceId ?? binding.ref.resourceId}
+                      >
+                        {t('Next start: {source}',{
+                          source: t(sourceNext === 'simulation' ? 'Simulation' : 'Physical'),
+                        })}
+                      </span>
+                    )}
+                  </span>
+                  <span className="experiment-robot-assets-panel-robot-mark" aria-hidden="true">
+                    <ExperimentRobotPortrait family={portraitFamily(asset ? robotAssetChassisClass(asset.spec,robotKindComposition) : undefined)} selected={selected} variant={index} motion={motion} />
+                  </span>
+                  <span className="experiment-robot-assets-panel-robot-copy">
+                    <span className="experiment-robot-assets-panel-robot-identity">
+                      <span className="experiment-robot-assets-panel-assignment-name">{assetName}</span>
+                      <span className="experiment-robot-assets-panel-slot-name">{experimentRobotRoleLabel(binding)}</span>
+                    </span>
+                    {disabledReason && (
+                      <span className="experiment-robot-assets-panel-robot-note" title={t(disabledReason)}>
+                        {t('Not enabled for Experiments')}
+                      </span>
+                    )}
+                  </span>
+                </Button>
+                <div className="experiment-robot-assets-panel-robot-actions">
+                  <ControlButton
+                    iconOnly
+                    size="compact"
+                    appearance="ghost"
+                    aria-label={t('Move {name} up',{ name:assetName })}
+                    title={reorderDisabledReason || t('Move up')}
+                    disabled={!reorderable || previousSlotIndex === undefined}
+                    dataXgcRole="experiment-robot-assets-panel-robot-move-up"
+                    dataXgcId={asset?.head.resourceId ?? binding.ref.resourceId}
+                    onClick={() => previousSlotIndex !== undefined && actions.move(index,previousSlotIndex)}
+                  >
+                    <ArrowUp size={14} aria-hidden="true" />
+                  </ControlButton>
+                  <ControlButton
+                    iconOnly
+                    size="compact"
+                    appearance="ghost"
+                    aria-label={t('Move {name} down',{ name:assetName })}
+                    title={reorderDisabledReason || t('Move down')}
+                    disabled={!reorderable || nextSlotIndex === undefined}
+                    dataXgcRole="experiment-robot-assets-panel-robot-move-down"
+                    dataXgcId={asset?.head.resourceId ?? binding.ref.resourceId}
+                    onClick={() => nextSlotIndex !== undefined && actions.move(index,nextSlotIndex)}
+                  >
+                    <ArrowDown size={14} aria-hidden="true" />
+                  </ControlButton>
+                  <ControlButton
+                    iconOnly
+                    size="compact"
+                    tone="danger"
+                    appearance="ghost"
+                    aria-label={t('Remove {name} from Experiment',{ name:assetName })}
+                    title={disabled ? _disabledReason : undefined}
+                    disabled={disabled}
+                    dataXgcRole="experiment-robot-assets-panel-robot-remove"
+                    dataXgcId={asset?.head.resourceId ?? binding.ref.resourceId}
+                    onClick={() => actions.remove(index)}
+                  >
+                    <Trash2 size={14} aria-hidden="true" />
+                  </ControlButton>
+                </div>
+              </article>
+  );
+});
+
 function RobotForm({
   binding,
   index,
   assets,
+  scene,
   disabled,
   disabledReason,
   onChange,
@@ -988,6 +1237,7 @@ function RobotForm({
   binding?: ExperimentRobotBinding;
   index: number | null;
   assets: readonly RobotAssetDocument[];
+  scene?: ExperimentScene;
   disabled: boolean;
   disabledReason: string;
   onChange: (binding: ExperimentRobotBinding) => void;
@@ -1000,6 +1250,19 @@ function RobotForm({
   const experimentDisabledReason = currentAsset
     ? experimentRobotAssetDisabledReason(currentAsset, robotKindComposition)
     : '';
+  const showSimpleLidar = scene?.simulator === 'gazebo' && Boolean(binding && (
+    (binding.px4 !== undefined
+      && currentAsset?.spec.kind === 'px4_multirotor'
+      && currentAsset.spec.px4?.modelId === 'fs150')
+    || (binding.scout !== undefined && currentAsset?.spec.kind === 'scout_mini')
+    || (binding.mecanum !== undefined && currentAsset?.spec.kind === 'mecanum_ugv')
+  ));
+  const showFs150Sensors = Boolean(binding?.px4
+    && currentAsset?.spec.kind === 'px4_multirotor'
+    && currentAsset.spec.px4?.modelId === 'fs150'
+    && !experimentDisabledReason);
+  const showScoutSensors = Boolean(binding?.scout && !experimentDisabledReason);
+  const showSensorSection = showFs150Sensors || showScoutSensors || Boolean(showSimpleLidar && binding?.mecanum);
   const disabledRobotState = experimentDisabledReason && currentAsset ? (
     <EmptyState
       appearance="plain"
@@ -1020,22 +1283,13 @@ function RobotForm({
     <section className="experiment-robot-assets-panel-form"
       data-xgc-role="experiment-robot-assets-robot-parameters" data-xgc-id={binding.ref.resourceId}
     >
-      <div className="experiment-robot-assets-panel-scroll experiment-robot-assets-panel-fields">
+      <div className="xgc-config-form">
         {binding && !experimentDisabledReason && (
-        <section
-          className="experiment-robot-assets-panel-settings-group"
-          data-xgc-role="experiment-robot-assets-panel-settings-group"
-          data-xgc-id="starting-pose"
+        <FormSection
+          title={<span data-xgc-role="experiment-robot-assets-panel-settings-group-title" data-xgc-id="starting-pose">{t('Starting pose')}</span>}
+          dataXgcRole="experiment-robot-assets-panel-settings-group"
+          dataXgcId="starting-pose"
         >
-          <header
-            data-xgc-role="experiment-robot-assets-panel-settings-group-header"
-            data-xgc-id="starting-pose"
-          >
-            <strong
-              data-xgc-role="experiment-robot-assets-panel-settings-group-title"
-              data-xgc-id="starting-pose"
-            >{t('Starting pose')}</strong>
-          </header>
           {/*
             Dual-column pose: Vector3Control for authored XYZ, existing yaw in
             the orientation slot. ExperimentRobotBinding.initialPose has no
@@ -1072,8 +1326,8 @@ function RobotForm({
                 className="experiment-robot-assets-panel-pose-control"
                 type="number"
                 unit="rad"
-                step="any"
-                value={String(finiteNumberValue(binding.initialPose.yaw))}
+                step="0.01"
+                value={coordinateFieldText(binding.initialPose.yaw)}
                 disabled={disabled}
                 title={disabled ? disabledReason : undefined}
                 aria-label={t('Yaw')}
@@ -1083,29 +1337,20 @@ function RobotForm({
                   ...binding,
                   initialPose: {
                     ...binding.initialPose,
-                    yaw: next.trim() === '' ? Number.NaN : Number(next),
+                    yaw: coordinateFieldNumber(next),
                   },
                 })}
               />
             </FormField>
           </div>
-        </section>
+        </FormSection>
         )}
         {binding && !experimentDisabledReason && (
-        <section
-          className="experiment-robot-assets-panel-settings-group"
-          data-xgc-role="experiment-robot-assets-panel-settings-group"
-          data-xgc-id="experiment-setup"
+        <FormSection
+          title={<span data-xgc-role="experiment-robot-assets-panel-settings-group-title" data-xgc-id="experiment-setup">{t('Experiment setup')}</span>}
+          dataXgcRole="experiment-robot-assets-panel-settings-group"
+          dataXgcId="experiment-setup"
         >
-          <header
-            data-xgc-role="experiment-robot-assets-panel-settings-group-header"
-            data-xgc-id="experiment-setup"
-          >
-            <strong
-              data-xgc-role="experiment-robot-assets-panel-settings-group-title"
-              data-xgc-id="experiment-setup"
-            >{t('Experiment setup')}</strong>
-          </header>
           <div className="experiment-robot-assets-panel-field-grid">
             {!currentAsset && (
             <FormField
@@ -1180,34 +1425,71 @@ function RobotForm({
                 />
               </span>
             </FormField>
+            <FormField
+              className="experiment-robot-assets-panel-field"
+              label={t('Radio link')}
+              tooltip={t('Network station condition for this Robot\'s radio link (AgentLink, ROS/MAVLink to the station). The physics network is never degraded. Recorded in the startup plan and the Session.')}
+              dataXgcRole="experiment-robot-assets-panel-link-profile-field"
+              dataXgcId={binding.ref.resourceId}
+            >
+              <span title={disabled ? disabledReason : undefined}>
+                <SelectControl
+                  fill
+                  value={binding.linkProfile ?? 'ideal'}
+                  options={EXPERIMENT_LINK_PROFILES.map((profile) => ({
+                    value: profile,
+                    label: t(LINK_PROFILE_LABELS[profile]),
+                  }))}
+                  disabled={disabled}
+                  onChange={(linkProfile) => {
+                    const next = { ...binding };
+                    if (linkProfile === 'ideal') delete next.linkProfile;
+                    else next.linkProfile = linkProfile;
+                    onChange(next);
+                  }}
+                  ariaLabel={t('Radio link')}
+                  dataXgcRole="experiment-robot-assets-panel-link-profile"
+                  dataXgcId={binding.ref.resourceId}
+                />
+              </span>
+            </FormField>
           </div>
-        </section>
+        </FormSection>
         )}
         {/*
           PX4 transport identity (MAV system ID, physical and simulation ports)
           is owned entirely by the Robot asset. Experiment authoring keeps only
           higher-level, experiment-varying facts: role, namespace, Hybrid source, pose.
         */}
-        {binding?.scout && !experimentDisabledReason && (
-          <section
-            className="experiment-robot-assets-panel-settings-group"
-            data-xgc-role="experiment-robot-assets-panel-settings-group"
-            data-xgc-id="simulated-sensors"
+        {showSensorSection && binding && (
+          <FormSection
+            title={<span data-xgc-role="experiment-robot-assets-panel-settings-group-title" data-xgc-id="simulated-sensors">{t('Simulated sensors')}</span>}
+            dataXgcRole="experiment-robot-assets-panel-settings-group"
+            dataXgcId="simulated-sensors"
           >
-            <header
-              data-xgc-role="experiment-robot-assets-panel-settings-group-header"
-              data-xgc-id="simulated-sensors"
-            >
-              <strong
-                data-xgc-role="experiment-robot-assets-panel-settings-group-title"
-                data-xgc-id="simulated-sensors"
-              >{t('Simulated sensors')}</strong>
-            </header>
             <div className="experiment-robot-assets-panel-switches" title={disabled ? disabledReason : undefined}>
-              <SwitchControl className="experiment-robot-assets-panel-sensor-switch" checked={binding.scout.lidarSimulationEnabled} disabled={disabled} label={t('Simulate LiDAR')} onChange={(lidarSimulationEnabled) => onChange({ ...binding,scout: { ...binding.scout!,lidarSimulationEnabled } })} />
-              <SwitchControl className="experiment-robot-assets-panel-sensor-switch" checked={binding.scout.imageSimulationEnabled} disabled={disabled} label={t('Simulate camera and depth')} onChange={(imageSimulationEnabled) => onChange({ ...binding,scout: { ...binding.scout!,imageSimulationEnabled } })} />
+              {showFs150Sensors && binding.px4 && (
+                <SwitchControl className="experiment-robot-assets-panel-sensor-switch" checked={binding.px4.imageSimulationEnabled === true} disabled={disabled} label={t('Simulate front camera')} onChange={(imageSimulationEnabled) => onChange({ ...binding,px4: { imageSimulationEnabled } })} />
+              )}
+              {showScoutSensors && binding.scout && (
+                <Fragment>
+                  <SwitchControl className="experiment-robot-assets-panel-sensor-switch" checked={binding.scout.lidarSimulationEnabled} disabled={disabled} label={t('Simulate LiDAR')} onChange={(lidarSimulationEnabled) => onChange({ ...binding,scout: { ...binding.scout!,lidarSimulationEnabled } })} />
+                  <SwitchControl className="experiment-robot-assets-panel-sensor-switch" checked={binding.scout.imageSimulationEnabled} disabled={disabled} label={t('Simulate camera and depth')} onChange={(imageSimulationEnabled) => onChange({ ...binding,scout: { ...binding.scout!,imageSimulationEnabled } })} />
+                </Fragment>
+              )}
+              {showSimpleLidar && (
+                <SwitchControl
+                  className="experiment-robot-assets-panel-sensor-switch"
+                  checked={binding.simulationSensors?.simpleLidar === true}
+                  disabled={disabled}
+                  label={t('Simple lidar')}
+                  dataXgcRole="experiment-robot-assets-panel-simple-lidar"
+                  dataXgcId={binding.ref.resourceId}
+                  onChange={(simpleLidar) => onChange({ ...binding,simulationSensors:{ simpleLidar } })}
+                />
+              )}
             </div>
-          </section>
+          </FormSection>
         )}
         {currentAsset && !experimentDisabledReason && (
           <RobotAssetParametersCard asset={currentAsset} />
@@ -1246,8 +1528,8 @@ function PosePositionXyzField({
   const t = useRobotText();
   const axes = POSE_XYZ_KEYS.map((key) => ({
     label: key.toUpperCase(),
-    value: finiteNumberValue(values[key]),
-    step: 0.1,
+    value: coordinateFieldText(values[key]),
+    step: 0.01,
     ariaLabel: t(POSE_XYZ_ARIA[key]),
     dataXgcRole: `${axisRolePrefix}-${key}`,
     dataXgcId: `${fieldId}:${key}`,
@@ -1269,7 +1551,7 @@ function PosePositionXyzField({
         axes={[axes[0], axes[1], axes[2]]}
         onValueChange={(axis, next) => {
           const key = POSE_XYZ_KEYS[axis];
-          onAxisChange(key, next.trim() === '' ? Number.NaN : Number(next));
+          onAxisChange(key, coordinateFieldNumber(next));
         }}
       />
     </FormField>
@@ -1282,29 +1564,30 @@ function RobotAssetParametersCard({ asset }: { asset: RobotAssetDocument }) {
   const attributes = robotAssetOverviewAttributes(asset,robotKindComposition);
   const configureLabel = t('Configure {name} Robot asset',{ name:asset.spec.name });
   return (
-    <section
-      className="experiment-robot-assets-panel-settings-group experiment-robot-assets-panel-asset-parameters-card"
-      data-xgc-role="experiment-robot-assets-panel-asset-parameters"
-      data-xgc-id={asset.head.resourceId}
+    <FormSection
+      title={(
+        <span className="experiment-robot-assets-panel-asset-parameters-title">
+          <span
+            data-xgc-role="experiment-robot-assets-panel-settings-group-title"
+            data-xgc-id="asset-parameters"
+          >{t('Asset parameters')}</span>
+          <ControlLink
+            iconOnly
+            size="compact"
+            appearance="ghost"
+            href={robotAssetDocumentHash(asset.head.resourceId)}
+            aria-label={configureLabel}
+            title={configureLabel}
+            dataXgcRole="experiment-robot-assets-panel-asset-configure"
+            dataXgcId={asset.head.resourceId}
+          >
+            <Settings size={14} aria-hidden="true" />
+          </ControlLink>
+        </span>
+      )}
+      dataXgcRole="experiment-robot-assets-panel-asset-parameters"
+      dataXgcId={asset.head.resourceId}
     >
-      <header data-xgc-role="experiment-robot-assets-panel-settings-group-header" data-xgc-id="asset-parameters">
-        <strong
-          data-xgc-role="experiment-robot-assets-panel-settings-group-title"
-          data-xgc-id="asset-parameters"
-        >{t('Asset parameters')}</strong>
-        <ControlLink
-          iconOnly
-          size="compact"
-          appearance="ghost"
-          href={robotAssetDocumentHash(asset.head.resourceId)}
-          aria-label={configureLabel}
-          title={configureLabel}
-          dataXgcRole="experiment-robot-assets-panel-asset-configure"
-          dataXgcId={asset.head.resourceId}
-        >
-          <Settings size={14} aria-hidden="true" />
-        </ControlLink>
-      </header>
       <div className="experiment-robot-assets-panel-asset-parameters-grid">
         {attributes.map((attribute) => (
           <FormField
@@ -1323,7 +1606,7 @@ function RobotAssetParametersCard({ asset }: { asset: RobotAssetDocument }) {
           </FormField>
         ))}
       </div>
-    </section>
+    </FormSection>
   );
 }
 
@@ -1363,10 +1646,6 @@ function TextField({
       />
     </FormField>
   );
-}
-
-function finiteNumberValue(value: number) {
-  return Number.isFinite(value) ? value : '';
 }
 
 function applyPersistedDraft(

@@ -1,3 +1,4 @@
+import { cloneExecutionHostRef, validateExecutionHostRef } from './experimentDeployment';
 import { CONFIGURATION_MAIN_BRANCH } from '../../shared/configResource';
 import {
   normalizeRobotNamespace,
@@ -17,6 +18,7 @@ export function normalizeExperimentRobotBindings(
   if (!Array.isArray(bindings)) return [];
   return bindings.map((binding) => {
     const normalized: ExperimentRobotBinding = {
+      ...(binding.executionHost === undefined ? {} : { executionHost: cloneExecutionHostRef(binding.executionHost) }),
       id: binding.id.trim(),
       ref: normalizeRobotRef(binding.ref),
       namespace: normalizeRobotNamespace(binding.namespace),
@@ -24,8 +26,11 @@ export function normalizeExperimentRobotBindings(
       hybridSource: binding.hybridSource as ExperimentHybridSource,
       runtimeParameters: cloneStringMap(binding.runtimeParameters),
       initialPose: { ...binding.initialPose },
+      simulationSensors: {
+        simpleLidar: binding.simulationSensors?.simpleLidar === true,
+      },
       // Exactly one kind marker when present; never copy retired transport fields.
-      ...(binding.px4 ? { px4: {} as Record<string, never> } : {}),
+      ...(binding.px4 ? { px4: binding.px4.imageSimulationEnabled ? { imageSimulationEnabled: true } : {} } : {}),
       ...(binding.scout ? {
         scout: {
           lidarSimulationEnabled: Boolean(binding.scout.lidarSimulationEnabled),
@@ -52,6 +57,10 @@ export function validateExperimentRobotBindings(
   const namespaces = new Set<string>();
   for (const binding of bindings) {
     const id = binding.id.trim();
+    if (binding.executionHost !== undefined) {
+      const hostIssue = validateExecutionHostRef(binding.executionHost);
+      if (hostIssue) return `Experiment Robot "${id}" ${hostIssue}`;
+    }
     if (!/^[a-z][a-z0-9-]{0,63}$/.test(id)) {
       return `Experiment Robot "${id}" must start with a lowercase letter and use lowercase letters, numbers, or hyphens.`;
     }
@@ -86,8 +95,9 @@ export function validateExperimentRobotBindings(
     if (arms.length !== 1) {
       return `Experiment Robot "${id}" requires exactly one Robot kind settings arm.`;
     }
-    if (binding.px4 && Object.keys(binding.px4).length > 0) {
-      return `Experiment Robot "${id}" px4 overrides must be empty; Robot assets own transport identity.`;
+    if (binding.px4 && (Object.keys(binding.px4).some((key) => key !== 'imageSimulationEnabled')
+      || (Object.hasOwn(binding.px4, 'imageSimulationEnabled') && typeof binding.px4.imageSimulationEnabled !== 'boolean'))) {
+      return `Experiment Robot "${id}" px4 overrides may only set the camera simulation switch; Robot assets own transport identity.`;
     }
     if (binding.mecanum && Object.keys(binding.mecanum).length > 0) {
       return `Experiment Robot "${id}" mecanum overrides must be empty; Robot assets own transport identity.`;

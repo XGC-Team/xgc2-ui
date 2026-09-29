@@ -1,8 +1,4 @@
-import type { ExperimentSessionView } from './experimentWorkflowModel';
 import { waitForTransportRetry } from '../../api/http';
-import {
-  experimentSessionIsRunning,
-} from './experimentWorkflowService';
 
 const STOP_SESSION_CONVERGENCE_INTERVAL_MS=1_000;
 const STOP_SESSION_CONVERGENCE_TIMEOUT_MS=180_000;
@@ -14,17 +10,17 @@ const STOP_SESSION_CONVERGENCE_TIMEOUT_MS=180_000;
 export async function convergeStoppedExperimentSession({
   experimentResourceId,
   signal,
-  readSessions,
+  readOccupancy,
 }: {
   experimentResourceId:string;
   signal:AbortSignal;
-  readSessions:() => Promise<readonly ExperimentSessionView[]|undefined>;
+  readOccupancy:() => Promise<{ occupied:boolean }|undefined>;
 }) {
   const startedAt=Date.now();
   while (!signal.aborted) {
-    const sessions=await readSessions();
+    const occupancy=await readOccupancy();
     if (signal.aborted) return;
-    if (sessions && !experimentSessionIsRunning(sessions,experimentResourceId)) return;
+    if (occupancy && !occupancy.occupied) return;
     const remainingMs=STOP_SESSION_CONVERGENCE_TIMEOUT_MS-(Date.now()-startedAt);
     if (remainingMs<=0) {
       throw new Error(

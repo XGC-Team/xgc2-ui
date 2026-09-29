@@ -10,9 +10,11 @@ export type AppBreadcrumbState = { view: 'list' | 'detail'; name?: string };
 export type AppBreadcrumbNavigation = {
   automation: AppBreadcrumbState;
   experiment: AppBreadcrumbState;
+  venue: AppBreadcrumbState;
   showAutomationList: () => void;
   showExperimentList: () => void;
   showRobotList: () => void;
+  showVenueList: () => void;
 };
 
 export function useExperimentHashResourceId() {
@@ -33,6 +35,7 @@ export function useExperimentHashResourceId() {
 export function useAppBreadcrumbNavigation(_page: Page, navigatePage: (page: Page) => void): AppBreadcrumbNavigation {
   const [experiment] = useBreadcrumbState('xgc:experiment-breadcrumb');
   const [automation] = useBreadcrumbState('xgc:automation-breadcrumb');
+  const [venue] = useBreadcrumbState('xgc:venue-breadcrumb');
 
   const showExperimentList = useCallback(() => {
     navigatePage('experiment');
@@ -44,6 +47,10 @@ export function useAppBreadcrumbNavigation(_page: Page, navigatePage: (page: Pag
     window.location.hash = configurationListHash('robotAsset');
     window.dispatchEvent(new CustomEvent('xgc:robot-list'));
   }, [navigatePage]);
+  const showVenueList = useCallback(() => {
+    navigatePage('venueAssets');
+    window.dispatchEvent(new CustomEvent('xgc:venue-list'));
+  }, [navigatePage]);
   const showAutomationList = useCallback(() => {
     navigatePage('automations');
     window.dispatchEvent(new CustomEvent('xgc:automation-list'));
@@ -52,9 +59,11 @@ export function useAppBreadcrumbNavigation(_page: Page, navigatePage: (page: Pag
   return {
     automation,
     experiment,
+    venue,
     showAutomationList,
     showExperimentList,
     showRobotList,
+    showVenueList,
   };
 }
 

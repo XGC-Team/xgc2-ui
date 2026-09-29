@@ -176,6 +176,7 @@ export function AutomationJSONParameterField({ label,description,tooltip,value,r
       <TextareaControl
         id={controlId}
         key={JSON.stringify(value)}
+        data-xgc-format="monospace"
         defaultValue={JSON.stringify(value, null, 2)}
         readOnly={readOnly}
         spellCheck={false}
@@ -463,6 +464,8 @@ function AutomationExpressionParameterField({ nodeId,label,target,expression,rea
       <TextareaControl
         id={controlId}
         aria-label={`${label} expression`}
+        className={dragActive ? 'automation-expression-drag-active' : undefined}
+        data-xgc-format="monospace"
         data-drag-active={dragActive ? 'true' : undefined}
         value={expression}
         readOnly={readOnly}

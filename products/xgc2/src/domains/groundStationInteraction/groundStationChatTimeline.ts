@@ -20,9 +20,17 @@ export type GroundStationOperatorResponseTimelineItem = {
   response: GroundStationDecisionResponse;
 };
 
+export type GroundStationDecisionResultTimelineItem = {
+  id: string;
+  type: 'decision-result';
+  at: string;
+  interaction: GroundStationDecisionInteraction;
+};
+
 export type GroundStationDecisionTimelineItem =
   | GroundStationDecisionRequestTimelineItem
-  | GroundStationOperatorResponseTimelineItem;
+  | GroundStationOperatorResponseTimelineItem
+  | GroundStationDecisionResultTimelineItem;
 
 export function projectGroundStationDecisionTimeline(
   interactions: GroundStationDecisionInteraction[],
@@ -35,19 +43,22 @@ export function projectGroundStationDecisionTimeline(
       at: interaction.createdAt,
       interaction,
     }];
-    // Lifecycle termination updates the original card, not a synthetic chat
-    // message or an operator response.
-    if (interaction.status === 'canceled') return projected;
-    if (interaction.response) {
+    if (interaction.status === 'open') return projected;
+    if (interaction.response && interaction.status !== 'canceled') {
       projected.push({
-        id: `${interaction.id}:response:${interaction.revision}`,
+        id: `${interaction.id}:response`,
         type: 'operator-response',
         at: interaction.response.at || interaction.updatedAt,
         interaction,
         response: interaction.response,
       });
-      return projected;
     }
+    projected.push({
+      id: `${interaction.id}:result`,
+      type: 'decision-result',
+      at: interaction.response?.results?.at || interaction.response?.at || interaction.updatedAt,
+      interaction,
+    });
     return projected;
   });
   return items.sort(compareTimelineItems);
@@ -85,8 +96,7 @@ export type GroundStationChatTimelineGroup = {
  *  - a consecutive run of entries with the same origin and the same timeline
  *    kind collapses to its newest entry.
  *
- * Decisions and operator responses retain their individual identities. Their
- * terminal state does not turn distinct operations into repeated updates.
+ * Decisions, operator responses, and execution results retain their identities.
  */
 export function collapseGroundStationChatTimeline(
   items: GroundStationChatTimelineItem[],

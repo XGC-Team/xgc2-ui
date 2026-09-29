@@ -45,6 +45,47 @@ describe('NavigationProvider', () => {
     expect(document.documentElement.lang).toBe('zh-CN');
   });
 
+  it('re-renders a selecting consumer only when its selected facts change', () => {
+    const renders = { page: 0,sidebar: 0 };
+    function SelectedPage() {
+      renders.page += 1;
+      const page = useNavigation((state) => state.page);
+      return <span data-testid="selected-page">{page}</span>;
+    }
+    function SelectedSidebar() {
+      renders.sidebar += 1;
+      const nav = useNavigation((state) => ({
+        collapsed: state.sidebarCollapsed,toggle: state.setSidebarCollapsed,navigatePage: state.navigatePage,
+      }));
+      return <>
+        <button type="button" data-testid="selected-toggle" onClick={() => nav.toggle((current) => !current)} />
+        <button type="button" data-testid="selected-terminal" onClick={() => nav.navigatePage('terminal')} />
+        <span data-testid="selected-collapsed">{String(nav.collapsed)}</span>
+      </>;
+    }
+    renderWithComposition(
+      <NavigationProvider>
+        <SelectedPage />
+        <SelectedSidebar />
+      </NavigationProvider>,
+    );
+    const initial = { ...renders };
+
+    act(() => screen.getByTestId('selected-toggle').click());
+
+    expect(screen.getByTestId('selected-collapsed')).toHaveTextContent('true');
+    expect(renders.sidebar).toBe(initial.sidebar + 1);
+    // A sidebar toggle is not a page change: the page consumer stays put.
+    expect(renders.page).toBe(initial.page);
+
+    act(() => screen.getByTestId('selected-terminal').click());
+
+    expect(screen.getByTestId('selected-page')).toHaveTextContent('terminal');
+    expect(renders.page).toBe(initial.page + 1);
+    // The sidebar selection (including its stable commands) did not change.
+    expect(renders.sidebar).toBe(initial.sidebar + 1);
+  });
+
   it('restores the canonical persisted language value', () => {
     window.localStorage.setItem('xgc-language', JSON.stringify('zh-CN'));
 
@@ -58,7 +99,7 @@ describe('NavigationProvider', () => {
     expect(document.documentElement.lang).toBe('zh-CN');
   });
 
-  it.each(['toolbox','unknownPage'])(
+  it.each(['toolbox','unknownPage','home'])(
     'rejects retired xgc.nav.page value %s instead of keeping a compatibility migration',
     async (retiredPage) => {
       window.localStorage.setItem('xgc.nav.page', JSON.stringify(retiredPage));
@@ -69,9 +110,9 @@ describe('NavigationProvider', () => {
         </NavigationProvider>,
       );
 
-      expect(screen.getByTestId('page')).toHaveTextContent('home');
+      expect(screen.getByTestId('page')).toHaveTextContent('experiment');
       expect(screen.getByTestId('host-tab')).toHaveTextContent('overview');
-      await waitFor(() => expect(window.localStorage.getItem('xgc.nav.page')).toBe('"home"'));
+      await waitFor(() => expect(window.localStorage.getItem('xgc.nav.page')).toBe('"experiment"'));
       expect(window.localStorage.getItem('xgc.nav.hostTab')).toBeNull();
       expect(window.localStorage.getItem('xgc.nav.section.system')).toBe('"overview"');
     },
@@ -232,7 +273,7 @@ describe('NavigationProvider', () => {
       </NavigationProvider>,
     );
 
-    expect(screen.getByTestId('page')).toHaveTextContent('home');
+    expect(screen.getByTestId('page')).toHaveTextContent('experiment');
     act(() => screen.getByTestId('go-robot-assets').click());
     expect(screen.getByTestId('page')).toHaveTextContent('robotAssets');
   });
@@ -285,7 +326,7 @@ describe('NavigationProvider', () => {
   });
 
   it('restores an experiment detail location before paint and clears it when leaving Experiments', () => {
-    window.localStorage.setItem('xgc.nav.page', JSON.stringify('home'));
+    window.localStorage.setItem('xgc.nav.page', JSON.stringify('robotAssets'));
     window.location.hash = '#/experiments/experiment%2Ffield';
 
     renderWithComposition(
@@ -303,7 +344,7 @@ describe('NavigationProvider', () => {
   it.each([
     ['#/assets/robots/robot-a', 'robotAssets'],
   ])('restores asset detail location %s into its own page', (hash, page) => {
-    window.localStorage.setItem('xgc.nav.page', JSON.stringify('home'));
+    window.localStorage.setItem('xgc.nav.page', JSON.stringify('automations'));
     window.location.hash = hash;
 
     renderWithComposition(
@@ -324,7 +365,7 @@ describe('NavigationProvider', () => {
       </NavigationProvider>,
     );
 
-    expect(screen.getByTestId('page')).toHaveTextContent('home');
+    expect(screen.getByTestId('page')).toHaveTextContent('experiment');
     expect(window.location.hash).toBe('');
   });
 

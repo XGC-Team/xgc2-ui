@@ -2,6 +2,18 @@
   grid-template-rows: minmax(0, 1fr);
 }
 
+.ground-station-pending-decisions {
+  display: grid;
+  gap: var(--space-xs);
+}
+
+.ground-station-pending-decisions-queue {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--type-meta-size);
+  text-align: center;
+}
+
 .ground-station-conversation-header-leading,
 .ground-station-conversation-header-actions {
   display: flex;
@@ -25,12 +37,17 @@
 }
 
 .ground-station-remote-message {
+  display: grid;
+  gap: var(--space-xs);
   min-width: 0;
-  --remote-message-height: calc(5 * var(--size-control-compact) + 2 * var(--space-xs) + 4 * var(--space-sm) + 2 * var(--stroke-thin));
+  /* Reserve the dock frame while its native view is reparented into chat. */
+  --remote-message-height: 12rem;
 }
 .ground-station-remote-message [data-xgc-role='ground-station-remote-dock'] {
   box-sizing: border-box;
   width: min(16rem, 100%);
+  max-width: 100%;
+  min-width: 0;
   height: var(--remote-message-height);
 }
 .ground-station-remote-message [data-xgc-role='ground-station-remote-dock']:empty {
@@ -38,6 +55,7 @@
 }
 .ground-station-remote-message .robot-remote-window-docked {
   width: 100%;
+  max-width: 100%;
   height: 100%;
   grid-template-rows: var(--size-control-compact) var(--size-control-compact) auto;
 }
@@ -45,12 +63,16 @@
   display: flex;
   align-items: baseline;
   gap: var(--space-sm);
-  margin-bottom: var(--space-xs);
   color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line-height);
 }
-.ground-station-remote-message-closed {
+.ground-station-remote-message-source span {
+  font-weight: var(--type-emphasis-weight);
+}
+.ground-station-remote-message-copy {
   color: var(--color-text);
-  font-size: var(--font-size-sm);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line-height);
   overflow-wrap: anywhere;
 }

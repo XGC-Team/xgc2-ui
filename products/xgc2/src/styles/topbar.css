@@ -72,26 +72,12 @@
   margin: 0;
   overflow: hidden;
   font-family: var(--font-sans);
-  font-size: var(--xgc-shell-ui-font-size, var(--font-base));
-  font-weight: var(--weight-regular);
-  line-height: var(--line-height-control);
+  font-size: var(--type-chrome-size);
+  font-weight: var(--type-chrome-weight);
+  line-height: var(--type-chrome-line-height);
   color: var(--color-text-muted);
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.topbar-catalog-title {
-  margin: 0;
-  padding: 0;
-  border: 0;
-  color: inherit;
-  background: transparent;
-  font: inherit;
-  cursor: pointer;
-}
-
-.topbar-catalog-title:hover {
-  color: var(--color-accent);
 }
 
 .topbar-catalog-trail {
@@ -102,9 +88,9 @@
 
 [data-xgc-role="product-breadcrumbs"] {
   font-family: var(--font-sans);
-  font-size: var(--xgc-shell-ui-font-size, var(--font-base));
-  font-weight: var(--weight-regular);
-  line-height: var(--line-height-control);
+  font-size: var(--type-chrome-size);
+  font-weight: var(--type-chrome-weight);
+  line-height: var(--type-chrome-line-height);
   color: var(--color-text-muted);
 }
 
@@ -123,6 +109,16 @@
   letter-spacing: inherit;
   text-transform: none;
   color: inherit;
+}
+
+/*
+ * Dashboard tab rename uses control-hover fill on the editor. The Experiments
+ * catalog title is navigation back to the list, not a renameable tab.
+ */
+[data-xgc-role="product-breadcrumbs"][data-xgc-id="experiment"] [data-xgc-role="page-title-back"]:hover,
+[data-xgc-role="product-breadcrumbs"][data-xgc-id="experiment"] [data-xgc-role="page-title-back"]:focus-visible {
+  color: var(--color-text-heading);
+  background: transparent;
 }
 
 .topbar > :has(> .experiment-topbar-slot, > .page-topbar-actions) {
@@ -188,9 +184,9 @@
   height: auto;
   flex: 0 1 auto;
   font-family: var(--font-sans);
-  font-size: var(--xgc-shell-ui-font-size, var(--font-base));
-  font-weight: var(--weight-regular);
-  line-height: var(--line-height-control);
+  font-size: var(--type-chrome-size);
+  font-weight: var(--type-chrome-weight);
+  line-height: var(--type-chrome-line-height);
   color: var(--color-text-muted);
   /* No strip chrome / left rule — tabs sit flat in the topbar. */
   border: 0;
@@ -226,14 +222,14 @@
   line-height: var(--line-height-control);
 }
 
-[data-xgc-role="experiment-dashboard-tab"] {
+.experiment-topbar-context [data-xgc-role="experiment-dashboard-tab"] {
   min-width: 0;
   min-height: var(--size-control-default);
   height: auto;
 }
 
 /* Equal columns follow the longest 12-character name; do not use the 190px input token. */
-[data-xgc-role="experiment-dashboard-tab-control"] {
+.experiment-topbar-context [data-xgc-role="experiment-dashboard-tab-control"] {
   box-sizing: border-box;
   flex: 1 1 auto;
   justify-content: center;
@@ -281,9 +277,9 @@
 [data-xgc-role="experiment-run-mode-select"],
 [data-xgc-role="experiment-gcs-mode"] {
   font-family: var(--font-sans);
-  font-size: var(--xgc-shell-ui-font-size, var(--font-base));
-  font-weight: var(--weight-regular);
-  line-height: var(--line-height-control);
+  font-size: var(--type-chrome-size);
+  font-weight: var(--type-chrome-weight);
+  line-height: var(--type-chrome-line-height);
 }
 
 [data-xgc-role="experiment-run-mode"] {
@@ -310,9 +306,9 @@
 }
 
 /* The live Session is frozen in a run mode the Experiment no longer declares.
-   The control keeps showing the Session's real mode and says so loudly. */
+   The control keeps showing the Session's real mode; the state is named in the
+   title and the text tint only — the control frame stays neutral. */
 .experiment-run-mode-control[data-xgc-state="undeclared"] .experiment-run-mode-select {
-  border-color: var(--color-danger);
   color: var(--color-danger);
 }
 

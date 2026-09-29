@@ -1,7 +1,7 @@
 .automation-run-parameter-empty {
   margin: 0;
   color: var(--color-text-muted);
-  font-size: var(--font-sm);
+  font-size: var(--type-meta-size);
   line-height: var(--line-height-relaxed);
 }
 [data-xgc-role="automation-run-parameter-error"] {
@@ -44,8 +44,8 @@
 .automation-call-parameters > section > header > h3 {
   margin: 0;
   color: var(--color-text-heading);
-  font-size: var(--font-sm);
-  font-weight: var(--weight-semibold);
+  font-size: var(--type-emphasis-size);
+  font-weight: var(--type-emphasis-weight);
 }
 .automation-call-parameters > section > header {
   display: flex;
@@ -55,12 +55,12 @@
 }
 .automation-call-parameters > section > header small {
   color: var(--color-text-muted);
-  font-size: var(--font-sm);
+  font-size: var(--type-meta-size);
 }
 .automation-call-parameters > section > p {
   margin: 0;
   color: var(--color-text-muted);
-  font-size: var(--font-sm);
+  font-size: var(--type-meta-size);
   line-height: var(--line-height-relaxed);
 }
 .automation-call-input-fields {
@@ -95,8 +95,8 @@
   align-items: center;
   color: var(--color-text-muted);
   cursor: pointer;
-  font-size: var(--font-sm);
-  font-weight: var(--weight-medium);
+  font-size: var(--type-control-size);
+  font-weight: var(--type-control-weight);
   text-decoration: none;
 }
 .automation-call-advanced > div {
@@ -126,13 +126,13 @@
 }
 .automation-parameter-group > summary span {
   margin-right: auto;
-  font-size: var(--font-base);
-  font-weight: var(--weight-semibold);
+  font-size: var(--type-emphasis-size);
+  font-weight: var(--type-emphasis-weight);
 }
 .automation-parameter-group > summary small {
   color: var(--color-text-muted);
-  font-size: var(--font-sm);
-  font-weight: var(--weight-regular);
+  font-size: var(--type-meta-size);
+  font-weight: var(--type-meta-weight);
 }
 .automation-parameter-group[open] > summary {
   border-bottom: var(--stroke-thin) solid var(--color-border);
@@ -193,31 +193,25 @@
 .automation-boolean-field[data-disabled="true"] {
   cursor: default;
 }
-.automation-parameter-expression > .xgc-textarea-control {
+.automation-parameter-expression > .control-textarea {
   min-height: 72px;
 }
-.automation-parameter-expression > .xgc-textarea-control textarea {
-  font-family: var(--font-mono);
-  font-size: var(--font-sm);
-  line-height: var(--line-height-relaxed);
-}
-.automation-json-terminal-template > .xgc-textarea-control {
+.automation-json-terminal-template > .control-textarea {
   min-height: 220px;
   background: var(--color-bg-code);
 }
-.automation-json-terminal-template > .xgc-textarea-control textarea {
+.automation-json-terminal-template > .control-textarea textarea {
   min-height: 218px;
-  font-family: var(--font-mono);
-  font-size: var(--font-sm);
-  line-height: var(--line-height-relaxed);
   tab-size: 2;
 }
-.automation-parameter-expression > .xgc-textarea-control:has(textarea[data-drag-active="true"]) {
+/* Drag state rides the consumer class on the TextareaControl shell, not a
+ * selector reaching inside the shared control. */
+.automation-parameter-expression > .control-textarea.automation-expression-drag-active {
   border-color: var(--color-accent);
   box-shadow: var(--shadow-ring-accent-soft);
 }
 [data-xgc-role="automation-call-wait"] {
-  font-size: var(--font-sm);
+  font-size: var(--type-meta-size);
 }
 .automation-parameter-fields > p {
   margin: 0;
@@ -225,12 +219,12 @@
   color: var(--color-text-muted);
   border: var(--stroke-thin) dashed var(--color-border-strong);
   border-radius: var(--radius-control);
-  font-size: var(--font-sm);
+  font-size: var(--type-meta-size);
   line-height: var(--line-height-relaxed);
 }
 .automation-trigger-schedule > p {
   margin: 0;
   color: var(--color-text-muted);
-  font-size: var(--font-sm);
+  font-size: var(--type-meta-size);
   line-height: var(--line-height-relaxed);
 }

@@ -9,7 +9,7 @@ import {
   useConfirmationDialog,
 } from '@xgc2/ui-react';
 import { RefreshCw,ShieldCheck,Trash2 } from 'lucide-react';
-import { useMemo,type ReactNode } from 'react';
+import { useMemo } from 'react';
 import { useDeferRouteReady } from '../../shared/routeReady';
 import type { ApiTargetOptions } from '../../api/http';
 import { ControlButton } from '../../components/controls/ControlButton';
@@ -41,7 +41,6 @@ export function ToolboxPage({
   maintenanceEnabled = true,
   requestsAllowed = true,
   managementConnection = 'ready',
-  performanceControl,
 }: {
   activeTab: ToolboxTab;
   targetId: string;
@@ -56,8 +55,6 @@ export function ToolboxPage({
   /** Automatic/remote actions only when idle/ready. */
   requestsAllowed?: boolean;
   managementConnection?: HostManagementConnection;
-  /** Host policy control supplied by the System route; cleanup owns its placement only. */
-  performanceControl?: ReactNode;
 }) {
   const confirmation = useConfirmationDialog();
   const isRemote = Boolean(managedHostId);
@@ -117,7 +114,6 @@ export function ToolboxPage({
   if (isRemote && !maintenanceEnabled) {
     return (
       <OperatorWorkspace className="toolbox-page xgc-workspace-full-span" padding="none" data-xgc-role="toolbox-page" data-xgc-id={targetId} data-xgc-remote="true" data-xgc-maintenance="disabled">
-        {performanceControl ? <Toolbar className="toolbox-toolbar">{performanceControl}</Toolbar> : null}
         <EmptyState
           density="compact"
           title={copy.maintenanceUnavailable}
@@ -158,7 +154,6 @@ export function ToolboxPage({
         >
           <Stack className="toolbox-cleanup-layout" gap="none">
             <Toolbar className="toolbox-toolbar">
-              {performanceControl}
               {(cleanableItems.length > 0 || apply) && (
                 <p className="toolbox-summary" data-xgc-role="cleanup-summary" data-xgc-id="cleanup-summary">
                   {cleanableItems.length > 0 && (

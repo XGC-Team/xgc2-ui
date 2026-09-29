@@ -16,8 +16,8 @@
 
 /*
  * Local sidebar destinations stay mounted. The wrapper is a real box (V13);
- * [hidden] must win over the grid display or a parked ListPage still owns a
- * workspace row and pushes the active page below the viewport.
+ * Parked ListPages must not own a workspace row. Experiments preserve measured
+ * panel geometry outside the flow; their hiding rule lives in dashboard.css.
  */
 [data-xgc-role="product-route-surface"],
 [data-xgc-role="experiment-route-surface"] {
@@ -30,24 +30,8 @@
   grid-template-rows: minmax(0, 1fr);
 }
 
-[data-xgc-role="product-route-surface"][hidden],
-[data-xgc-role="experiment-route-surface"][hidden] {
+[data-xgc-role="product-route-surface"][hidden] {
   display: none;
-}
-
-.xgc-workspace-boot-placeholder {
-  min-height: 100%;
-  display: grid;
-  place-items: center;
-  color: var(--color-text-muted);
-  font-size: var(--font-lg);
-}
-
-.xgc-workspace-boot-placeholder span {
-  padding: var(--space-md) var(--space-lg);
-  background: var(--color-bg-control);
-  border: var(--stroke-thin) solid var(--color-border);
-  border-radius: var(--radius-control);
 }
 
 .xgc-workspace-full-span {

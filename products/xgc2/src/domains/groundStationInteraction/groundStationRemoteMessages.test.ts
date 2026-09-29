@@ -25,6 +25,15 @@ describe('ground station remote message lifecycle',() => {
     store.syncGroundStationRemoteMessages('experiment','panel',[]);
     expect(store.isGroundStationRemoteMessageClosed('experiment','other')).toBe(false);
   });
+  it('keeps an Agent controller in its original conversation when another conversation receives it',async () => {
+    const store=await import('./groundStationRemoteMessages');
+    store.syncGroundStationRemoteMessages('experiment','panel',[
+      {id:'global-controller',conversationId:'original',robots:[{name:'scout-01'}]},
+    ],'currently-visible');
+    const records=JSON.parse(localStorage.getItem('xgc.experiment.experiment.remote-messages.v1')!);
+    expect(store.remoteMessagesForConversation(records,'currently-visible')).toEqual([]);
+    expect(store.remoteMessagesForConversation(records,'original').map(item=>item.id)).toEqual(['global-controller']);
+  });
   it('isolates conversations without reassigning old controllers when selection changes',async () => {
     const store = await import('./groundStationRemoteMessages');
     const old = {id:'old',robots:[{name:'scout-01'}]};
@@ -56,6 +65,19 @@ describe('ground station remote message lifecycle',() => {
     expect(store.remoteMessagesForConversation(records,'session-a').map(item => item.id)).toEqual(['first']);
     expect(store.remoteMessagesForConversation(records,next).map(item => item.id)).toEqual(['second']);
     expect(store.remoteMessagesForConversation(records,draft)).toEqual([]);
+  });
+
+  it('lists robots as wrapping chat copy rather than a pad title',async () => {
+    const store = await import('./groundStationRemoteMessages');
+    const names = ['px4-01','px4-02','px4-03','px4-04','px4-05','mecanum-01','mecanum-02'];
+    expect(store.remoteControllerChatCopy(names,false,'en'))
+      .toBe('Remote controller for px4-01, px4-02, px4-03, px4-04, px4-05, mecanum-01, mecanum-02');
+    expect(store.remoteControllerChatCopy(names,true,'en'))
+      .toBe('Remote controller for px4-01, px4-02, px4-03, px4-04, px4-05, mecanum-01, mecanum-02 closed');
+    expect(store.remoteControllerChatCopy(names,false,'zh-CN'))
+      .toBe('px4-01、px4-02、px4-03、px4-04、px4-05、mecanum-01、mecanum-02 的遥控器');
+    expect(store.remoteControllerChatCopy(names,true,'zh-CN'))
+      .toBe('px4-01、px4-02、px4-03、px4-04、px4-05、mecanum-01、mecanum-02 的遥控器关闭');
   });
 
 });

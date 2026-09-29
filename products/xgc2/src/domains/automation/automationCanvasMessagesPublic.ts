@@ -1,0 +1,1 @@
+export { automationCanvasZhMessages } from './automationCanvasMessages';

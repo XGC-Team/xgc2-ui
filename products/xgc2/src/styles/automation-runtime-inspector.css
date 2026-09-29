@@ -8,7 +8,8 @@
 .automation-inspector h4 {
   margin: 0 0 var(--space-lg);
   color: var(--color-text-heading);
-  font-size: var(--font-base);
+  font-size: var(--type-emphasis-size);
+  font-weight: var(--type-emphasis-weight);
 }
 .automation-inspector > div > header {
   display: flex;
@@ -23,16 +24,12 @@
 .automation-inspector > div > header > span:not(.automation-node-pane-title) {
   display: block;
   color: var(--color-text-muted);
-  font-size: var(--font-xs);
+  font-size: var(--type-meta-size);
 }
 .automation-inspector > div > header > strong {
   margin-top: var(--space-2xs);
-  font-size: var(--font-base);
-}
-.automation-inspector textarea {
-  min-height: 90px;
-  font-family: var(--font-mono);
-  font-size: var(--font-sm);
+  font-size: var(--type-emphasis-size);
+  font-weight: var(--type-emphasis-weight);
 }
 .automation-runtime-panel-header {
   min-height: 40px;
@@ -111,7 +108,7 @@
 }
 .automation-runtime-table {
   table-layout: fixed;
-  font-size: var(--font-xs);
+  font-size: var(--type-meta-size);
 }
 .automation-runtime-table td {
   overflow: hidden;
@@ -134,12 +131,12 @@
 }
 .automation-runtime-table td code {
   color: var(--color-accent);
-  font-size: var(--font-xs);
+  font-size: var(--type-code-size);
 }
 .automation-runtime-truncated {
   display: block;
   padding: var(--space-md);
   color: var(--color-text-muted);
   border-top: var(--stroke-thin) solid var(--color-border);
-  font-size: var(--font-xs);
+  font-size: var(--type-caption-size);
 }

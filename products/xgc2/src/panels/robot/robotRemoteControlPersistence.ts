@@ -6,6 +6,7 @@ export type PersistedRemoteController = {
   id: string;
   sessionId?: string;
   interactionId?: string;
+  conversationId?: string;
   robots: Array<{ id: string; name: string }>;
   gear: RemoteControlGear;
   pressed: RemoteControlDirection[];
@@ -16,6 +17,7 @@ export type RemoteControllerIdentity = {
   id: string;
   sessionId?: string;
   interactionId?: string;
+  conversationId?: string;
   robots: ReadonlyArray<{ id: string; name: string }>;
 };
 
@@ -66,8 +68,8 @@ export function syncPersistedRemoteControllers(
     const stored = previous.get(identity.id);
     const robots = identity.robots.map((robot) => ({ id: robot.id, name: robot.name }));
     return stored
-      ? { ...stored, sessionId: identity.sessionId, interactionId: identity.interactionId, robots }
-      : { id: identity.id, sessionId: identity.sessionId, interactionId: identity.interactionId, robots, gear: 1, pressed: [], origin: null };
+      ? { ...stored, sessionId: identity.sessionId, interactionId: identity.interactionId, conversationId: identity.conversationId, robots }
+      : { id: identity.id, sessionId: identity.sessionId, interactionId: identity.interactionId, conversationId: identity.conversationId, robots, gear: 1, pressed: [], origin: null };
   }));
 }
 
@@ -149,6 +151,7 @@ function parseController(value: unknown): PersistedRemoteController | undefined 
   return {
     id: item.id,
     interactionId: typeof item.interactionId === 'string' ? item.interactionId : undefined,
+    conversationId: typeof item.conversationId === 'string' ? item.conversationId : undefined,
     sessionId: typeof item.sessionId === 'string' ? item.sessionId : undefined,
     robots,
     gear: item.gear,

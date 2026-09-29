@@ -122,6 +122,7 @@ function UnsupportedParameterField({ roleId,field,value }: {
       <TextareaControl
         id={controlId}
         key={JSON.stringify(value ?? null)}
+        data-xgc-format="monospace"
         defaultValue={JSON.stringify(value ?? null, null, 2)}
         readOnly
         spellCheck={false}

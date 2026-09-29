@@ -16,6 +16,8 @@ export function RobotInstrumentProjection({ robot,projection,healthTone }: {
       telemetry={{
         presentation: projection.flightPresentation,
         online: projection.status.online,
+        connectionState: robot.connectionState,
+        connectionDetail: robot.connectionDetail,
         linkFresh: Boolean(
           projection.telemetryChannelIds.link
           && projection.channels[projection.telemetryChannelIds.link]
@@ -25,6 +27,7 @@ export function RobotInstrumentProjection({ robot,projection,healthTone }: {
         mocapState: !projection.mocap ? 'missing' : projection.mocap.stale ? 'stale' : 'fresh',
         healthTone,
         flight: projection.flightState,
+        controller: projection.controller,
         pose: projection.pose,
         mocapPose: projection.mocap?.value ?? {},
         imu: projection.imu,
@@ -38,6 +41,7 @@ export function RobotInstrumentProjection({ robot,projection,healthTone }: {
         health: projection.health,
         streamHealth: projection.streamHealth,
         fcuLink: projection.fcuLink,
+        flightChannelStale: projection.channels['state.flight']?.stale === true,
       }}
     />;
   }
@@ -62,6 +66,7 @@ export function RobotInstrumentProjection({ robot,projection,healthTone }: {
       online: projection.status.online,
       operationalReady: projection.status.operationalReady,
       connectionState: robot.connectionState,
+      connectionDetail: robot.connectionDetail,
       poseFresh: Boolean(projection.poseChannel && !projection.poseChannel.stale),
       healthTone,
       pose: projection.pose,
@@ -71,10 +76,12 @@ export function RobotInstrumentProjection({ robot,projection,healthTone }: {
       power: projection.power,
       imu: projection.imu,
       chassis: projection.chassis,
+      controller: projection.controller,
       health: projection.health,
       streamHealth: projection.streamHealth,
       powerStale: projection.channels['state.power']?.stale,
       chassisStale: projection.channels['state.chassis']?.stale,
+      controllerStale: projection.channels['state.controller']?.stale,
       commandSequence: projection.commandVelocityChannel?.sequence,
       velocitySequence: projection.channels['vrpn.velocity']?.sequence,
       speedSequence: projection.channels['vrpn.speed']?.sequence,

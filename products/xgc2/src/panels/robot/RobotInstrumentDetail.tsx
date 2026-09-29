@@ -1,4 +1,9 @@
+import { Terminal } from 'lucide-react';
 import { ControlButton } from '../../components/controls/ControlButton';
+import {
+  RobotAssetReachabilityButton,
+  type RobotAssetReachabilityState,
+} from '../../domains/robot/robotAssetPublic';
 import { useRobotText } from '../../domains/robot/robotPublic';
 import {
   formatInstrumentPingDiagnostic,
@@ -21,7 +26,7 @@ export function RobotInstrumentDetail({
   robot: RobotPanelItem;
   projection: RobotProjectionChannels;
   assetSpec?: object;
-  ping?: { status: string; result?: { reachable: boolean; latencyMs: number } };
+  ping?: RobotAssetReachabilityState;
   onPing?: () => void;
   onSsh?: () => void;
 }) {
@@ -42,7 +47,6 @@ export function RobotInstrumentDetail({
     managementAddress: address,
     pingDiagnostic: formatInstrumentPingDiagnostic(ping),
   });
-  const pingBusy = ping?.status === 'checking';
   return (
     <>
       <dl
@@ -74,24 +78,24 @@ export function RobotInstrumentDetail({
         data-xgc-role="robot-instrument-detail-actions"
         data-xgc-id={robotId}
       >
-        <ControlButton
-          size="compact"
+        <RobotAssetReachabilityButton
           dataXgcRole="robot-instrument-detail-ping"
           dataXgcId={robotId}
-          disabled={!robot.robotAssetId || pingBusy}
-          aria-busy={pingBusy || undefined}
+          state={ping}
+          disabled={!robot.robotAssetId}
           onClick={() => onPing?.()}
-        >
-          {t('Ping')}
-        </ControlButton>
+        />
         <ControlButton
+          iconOnly
           size="compact"
           dataXgcRole="robot-instrument-detail-ssh"
           dataXgcId={robotId}
           disabled={!robot.robotAssetId || !address}
+          aria-label={t('SSH')}
+          title={t('SSH')}
           onClick={() => onSsh?.()}
         >
-          {t('SSH')}
+          <Terminal size={15} />
         </ControlButton>
       </div>
     </>

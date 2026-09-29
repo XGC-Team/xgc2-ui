@@ -416,12 +416,6 @@
  * Logs / inspect: use shared .config-drawer-extra-wide for width.
  * Title size: shell header is chrome-scale; log panels lead with container name.
  */
-.container-output-drawer.config-drawer > header strong {
-  font-size: var(--font-xl);
-  font-weight: var(--weight-semibold);
-  line-height: var(--line-height-tight);
-}
-
 /* No subtitle row under the title for this drawer family. */
 .container-output-drawer.config-drawer > header > div:first-child > span {
   display: none;
@@ -601,7 +595,7 @@
 .container-inspect-fact {
   min-height: 36px;
   display: grid;
-  grid-template-columns: minmax(110px, 0.35fr) minmax(0, 1fr);
+  grid-template-columns: minmax(112px, 0.35fr) minmax(0, 1fr);
   align-items: start;
   gap: var(--space-lg);
   padding: var(--space-md) 0;
@@ -700,6 +694,7 @@
 .container-network-endpoints > strong {
   color: var(--color-text-heading);
   font-size: var(--font-base);
+  font-weight: var(--weight-semibold);
 }
 
 .container-network-endpoints-empty {
@@ -749,6 +744,7 @@
 .container-network-connect > strong {
   color: var(--color-text-heading);
   font-size: var(--font-base);
+  font-weight: var(--weight-semibold);
 }
 
 .container-network-connect-form {

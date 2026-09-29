@@ -20,6 +20,21 @@ describe('GazeboScenePanel Action ports',() => {
     expect(screen.getByRole('button',{ name:/Place/ })).toBeDisabled();
     expect(screen.getByRole('button',{ name:/Move/ })).toBeDisabled();
   });
+  it('disables every gesture with the replay scene lock reason on the button title',async () => {
+    const reason = 'Scene is frozen by the replay asset for this Run.';
+    const spawn = { ...action('spawn'),disabledReason:reason };
+    const move = { ...action('move'),disabledReason:reason };
+    const clear = { ...action('clear'),disabledReason:reason };
+    render(<GazeboScenePanel panel={panel()} context={context({ spawn,move,clear })} />);
+    for (const name of ['Place','Move','Clear all']) {
+      const button = screen.getByRole('button',{ name });
+      expect(button).toBeDisabled();
+      expect(button).toHaveAttribute('title',reason);
+    }
+    fireEvent.click(screen.getByRole('button',{ name:'Place' }));
+    await waitFor(() => expect(screen.getByRole('button',{ name:'Place' })).toBeDisabled());
+    expect(spawn.invoke).not.toHaveBeenCalled();
+  });
 });
 
 function panel():PanelInstance {

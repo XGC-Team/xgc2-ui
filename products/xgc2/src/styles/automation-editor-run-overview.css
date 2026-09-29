@@ -7,7 +7,7 @@
   overflow: hidden;
   background: var(--color-bg-surface);
   border: 0;
-  border-right: var(--stroke-thin) solid var(--color-border-strong);
+  border-right: var(--stroke-thin) solid var(--color-border-muted);
 }
 .automation-editor-run-pane[data-xgc-density="full"] {
   flex: 1 1 auto;
@@ -41,12 +41,6 @@
 .automation-editor-run-data-state {
   flex: none;
 }
-.automation-editor-run-data-state[data-xgc-tone="warning"] {
-  color: var(--color-warning);
-}
-.automation-editor-run-data-state[data-xgc-tone="danger"] {
-  color: var(--color-danger);
-}
 .automation-editor-run-primary strong,
 .automation-editor-run-primary span {
   overflow: hidden;
@@ -55,11 +49,12 @@
 }
 .automation-editor-run-primary strong {
   color: var(--color-text-heading);
-  font-size: var(--font-sm);
+  font-size: var(--type-emphasis-size);
+  font-weight: var(--type-emphasis-weight);
 }
 .automation-editor-run-primary span {
   color: var(--color-text-muted);
-  font-size: var(--font-xs);
+  font-size: var(--type-meta-size);
 }
 .automation-editor-run-meta {
   min-width: 0;
@@ -68,21 +63,17 @@
   gap: var(--space-xl);
   overflow: hidden;
   color: var(--color-text-muted);
-  font-size: var(--font-xs);
+  font-size: var(--type-meta-size);
   white-space: nowrap;
 }
 .automation-editor-run-meta strong {
   margin-left: var(--space-xs);
   color: var(--color-text-heading);
-  font-weight: var(--weight-semibold);
+  font-weight: var(--type-emphasis-weight);
 }
-.automation-editor-run-meta [data-xgc-tone="danger"],
-.automation-editor-run-meta [data-xgc-tone="danger"] strong {
-  color: var(--color-danger);
-}
-.automation-editor-run-meta [data-xgc-tone="warning"],
-.automation-editor-run-meta [data-xgc-tone="warning"] strong {
-  color: var(--color-warning);
+.automation-editor-run-meta [data-tone] strong {
+  color: inherit;
+  font-weight: var(--type-emphasis-weight);
 }
 .automation-editor-run-logs-button {
   --xgc-control-height: var(--size-control-navigation);
@@ -92,7 +83,7 @@
   flex: none;
   gap: var(--space-sm);
 }
-@container automation-editor-logs (max-width: 900px) {
+@container automation-editor-logs (max-width: 960px) {
   .automation-editor-run-pane[data-xgc-density="compact"] {
     width: clamp(190px, 28%, 230px);
     flex-basis: clamp(190px, 28%, 230px);

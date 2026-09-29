@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
 
 import { act,fireEvent,render,screen,waitFor } from '@testing-library/react';
-import { describe,expect,it,vi } from 'vitest';
+import { beforeEach,describe,expect,it,vi } from 'vitest';
 import {
   newExperimentSpec,
   type ExperimentDocument,
   type ExperimentRobotBinding,
+  type ExperimentScene,
   type PanelInstance,
 } from '../../domains/experiment/experimentPublic';
 import {
@@ -25,6 +26,16 @@ const runningLock = 'Experiment Robots cannot be changed while the Experiment is
 const rosterEditLock = 'Enter Edit mode to add or remove Robots.';
 const staleCoordinateDraft = 'The Experiment configuration changed. Reopen coordinate settings before saving.';
 const inactiveContributedKind = defineContributedRobotAssetKind('inactive-kind');
+
+const { getExperimentAtCommit,listScenes } = vi.hoisted(() => ({
+  getExperimentAtCommit: vi.fn(),
+  listScenes: vi.fn(),
+}));
+vi.mock('../../domains/experiment/experimentService', async (importOriginal) => ({
+  ...(await importOriginal() as Record<string,unknown>),
+  getExperimentAtCommit,
+  listScenes,
+}));
 describe('ExperimentRobotAssetsPanel Panel v2',() => {
   it('starts with a Robot assembly stage and opens catalog data only in the picker',() => {
     renderPanel(context(experiment()));
@@ -56,6 +67,77 @@ describe('ExperimentRobotAssetsPanel Panel v2',() => {
     expect(commit).not.toHaveBeenCalled();
   });
 
+  it('opens the first Scene card and commits its selection through the Scene authoring port',async () => {
+    const original = experiment([px4Binding(),scoutBinding()]);
+    const originalRobots = structuredClone(original.spec.robots);
+    const robotCommit = vi.fn(async () => original);
+    let committed: ExperimentDocument | undefined;
+    const sceneCommit = vi.fn(async (scene:unknown) => {
+      committed = savedExperiment(original,{ scene:scene as ExperimentScene },'commit-2',2);
+      return committed;
+    });
+    listScenes.mockReset().mockResolvedValue([{
+      name:'gazebo-world',path:'/scenes/gazebo-world',relativePath:'gazebo-world',kind:'obstacle',createdAt:'',
+      simulators:{ gazebo:{ geometry:'document' } },
+    }]);
+    const { container } = renderPanel(context(original,{
+      assets:[px4Asset(),scoutAsset()],commit:robotCommit,sceneCommit,
+    }));
+
+    const entries = Array.from(container.querySelectorAll<HTMLButtonElement>(
+      '[data-xgc-role="experiment-robot-assets-coordinate-scene"] > button',
+    ));
+    expect(entries.map((entry) => entry.getAttribute('data-xgc-role'))).toEqual([
+      'experiment-scene-entry',
+      'experiment-robot-assets-world-origin',
+      'experiment-robot-assets-starting-poses-entry',
+      'experiment-robot-assets-world-fence',
+    ]);
+    fireEvent.click(entries[0]!);
+    await screen.findByRole('button',{ name:'Simulator' });
+    const sceneSelect = document.querySelector<HTMLButtonElement>('[data-xgc-role="experiment-scene-select-trigger"]');
+    if (!sceneSelect) throw new Error('Scene selector trigger missing');
+    fireEvent.click(sceneSelect);
+    fireEvent.click(await screen.findByRole('option',{ name:'gazebo-world' }));
+    const backendSelect = document.querySelector<HTMLButtonElement>('[data-xgc-role="experiment-backend-select-trigger"]');
+    if (!backendSelect) throw new Error('Simulator selector trigger missing');
+    fireEvent.click(backendSelect);
+    fireEvent.click(await screen.findByRole('option',{ name:'Gazebo' }));
+    const save = document.querySelector<HTMLButtonElement>('[data-xgc-role="experiment-scene-save"][data-xgc-id="scene"]');
+    if (!save) throw new Error('Scene save button missing');
+    await waitFor(() => expect(save).toBeEnabled());
+    fireEvent.click(save);
+
+    await waitFor(() => expect(sceneCommit).toHaveBeenCalledOnce());
+    expect(sceneCommit).toHaveBeenCalledWith(
+      { asset:'gazebo-world',simulator:'gazebo',parameters:{} },
+      'commit-1',
+      'Update Experiment scene',
+    );
+    expect(robotCommit).not.toHaveBeenCalled();
+    expect(committed?.spec.robots).toEqual(originalRobots);
+    expect(committed?.spec.localizationOffset).toEqual(original.spec.localizationOffset);
+    expect(original.spec.robots).toEqual(originalRobots);
+    expect(robotSelection('uav-01')).toBeVisible();
+    expect(robotSelection('scout-1')).toBeVisible();
+  });
+
+  it('keeps Scene saving disabled and does not call the authoring port when its binding is absent',async () => {
+    const sceneCommit = vi.fn(async () => experiment());
+    listScenes.mockReset().mockResolvedValue([{
+      name:'gazebo-world',path:'/scenes/gazebo-world',relativePath:'gazebo-world',kind:'obstacle',createdAt:'',
+      simulators:{ gazebo:{ geometry:'document' } },
+    }]);
+    renderPanel(context(experiment(),{ sceneCommit,sceneConnected:false }));
+
+    fireEvent.click(screen.getByRole('button',{ name:'Scene' }));
+    expect(await screen.findByText('Authoring port "Scene" is not connected.')).toBeVisible();
+    const save = document.querySelector<HTMLButtonElement>('[data-xgc-role="experiment-scene-save"][data-xgc-id="scene"]');
+    expect(save).toBeDisabled();
+    fireEvent.click(save!);
+    expect(sceneCommit).not.toHaveBeenCalled();
+  });
+
   it('shows air and ground portraits from the public chassis metadata in the roster and picker',() => {
     renderPanel(context(experiment([px4Binding(),scoutBinding()]),{ assets:[px4Asset(),scoutAsset()] }));
     expect(robotSelection('uav-01').querySelector('.experiment-robot-portrait')).toHaveAttribute('data-family','air');
@@ -84,9 +166,10 @@ describe('ExperimentRobotAssetsPanel Panel v2',() => {
     const saved = (commit.mock.calls[0]?.[0] as ExperimentRobotBinding[])[0]!;
     expect(saved).toMatchObject({ namespace:'/uav1',initialPose:{ x:3,y:-4,z:0,yaw:0.5 } });
     expect(commit.mock.calls[0]?.[2]).toBe('Set starting poses for the next Experiment');
-    expect(namespace).toBeDisabled();
-    await waitFor(() => expect(poseAxis(container,'experiment-robot-assets-panel-pose-x')).toHaveValue(3));
+    // The parameters drawer remounts after the coordinate drawer closes.
     fireEvent.click(screen.getByRole('button',{ name:'Close drawer' }));
+    expect(screen.getByRole('textbox',{ name:'ROS namespace' })).toBeDisabled();
+    await waitFor(() => expect(poseAxis(container,'experiment-robot-assets-panel-pose-x')).toHaveValue(3));
     expect(poseAxis(container,'experiment-robot-assets-panel-pose-y')).toHaveValue(-4);
     fireEvent.click(screen.getByRole('button',{ name:'Simulation starting poses' }));
     expect(coordinateAxis('px4-01','x')).toHaveValue(3);
@@ -94,38 +177,50 @@ describe('ExperimentRobotAssetsPanel Panel v2',() => {
     expect(screen.getByRole('spinbutton',{ name:'Heading' })).toHaveValue(0.5);
   });
 
-  it('rebases queued Robot edits over a coordinate save without losing saved or subsequently edited pose axes',async () => {
+  it('queues Robot edits behind a pending commit and blocks the coordinate save until they land',async () => {
     const document = experiment([px4Binding()]);
     let resolveFirst!: (saved: ExperimentDocument) => void;
     const commit = vi.fn()
       .mockImplementationOnce(() => new Promise<ExperimentDocument>((resolve) => { resolveFirst = resolve; }))
-      .mockImplementationOnce(async (bindings: ExperimentRobotBinding[]) => savedExperiment(document,{ robots:bindings },'commit-3',3));
+      .mockImplementationOnce(async (bindings: ExperimentRobotBinding[]) => savedExperiment(document,{ robots:bindings },'commit-3',3))
+      .mockImplementationOnce(async (bindings: ExperimentRobotBinding[]) => savedExperiment(document,{ robots:bindings },'commit-4',4));
     const { container } = renderPanel(context(document,{ assets:[px4Asset()],commit }));
     selectRobot('uav-01');
     const namespace = screen.getByRole('textbox',{ name:'ROS namespace' });
+    fireEvent.change(namespace,{ target:{ value:'/uav9' } });
+    await waitFor(() => expect(commit).toHaveBeenCalledOnce());
+    fireEvent.change(poseAxis(container,'experiment-robot-assets-panel-pose-y'),{ target:{ value:'5' } });
+    expect(commit).toHaveBeenCalledOnce();
     fireEvent.click(screen.getByRole('button',{ name:'Simulation starting poses' }));
     fireEvent.change(coordinateAxis('px4-01','x'),{ target:{ value:'3' } });
     saveCoordinates('starting-poses');
-    await waitFor(() => expect(commit).toHaveBeenCalledOnce());
-    fireEvent.change(namespace,{ target:{ value:'/uav9' } });
-    fireEvent.change(poseAxis(container,'experiment-robot-assets-panel-pose-y'),{ target:{ value:'5' } });
-    expect(commit).toHaveBeenCalledOnce();
+    await waitFor(() => expect(coordinateDrawer('starting-poses')).toHaveTextContent('Wait for the current changes to finish saving.'));
     await act(async () => resolveFirst(savedExperiment(document,{
       robots:commit.mock.calls[0][0] as ExperimentRobotBinding[],
     },'commit-2',2)));
     await waitFor(() => expect(commit).toHaveBeenCalledTimes(2));
     expect(commit.mock.calls[1]).toEqual([
-      [expect.objectContaining({ namespace:'/uav9',initialPose:{ x:3,y:5,z:0,yaw:0 } })],
+      [expect.objectContaining({ namespace:'/uav9',initialPose:{ x:0,y:5,z:0,yaw:0 } })],
       'commit-2','Update Experiment Robots from Config dashboard',
     ]);
-    expect(namespace).toHaveValue('/uav9');
-    expect(poseAxis(container,'experiment-robot-assets-panel-pose-x')).toHaveValue(3);
-    expect(poseAxis(container,'experiment-robot-assets-panel-pose-y')).toHaveValue(5);
-    await waitFor(() => expect(container.ownerDocument.querySelector('[data-xgc-role="experiment-coordinate-save"][data-xgc-id="starting-poses"]')).toBeEnabled());
-    fireEvent.change(coordinateAxis('px4-01','x'),{ target:{ value:'4' } });
     saveCoordinates('starting-poses');
     await waitFor(() => expect(coordinateDrawer('starting-poses')).toHaveTextContent(staleCoordinateDraft));
     expect(commit).toHaveBeenCalledTimes(2);
+    fireEvent.click(screen.getByRole('button',{ name:'Close drawer' }));
+    fireEvent.click(await screen.findByRole('button',{ name:'Discard changes' }));
+    await waitFor(() => expect(globalThis.document.querySelector('[data-xgc-role="experiment-coordinate-drawer"]')).toBeNull());
+    fireEvent.click(screen.getByRole('button',{ name:'Simulation starting poses' }));
+    fireEvent.change(coordinateAxis('px4-01','x'),{ target:{ value:'3' } });
+    saveCoordinates('starting-poses');
+    await waitFor(() => expect(commit).toHaveBeenCalledTimes(3));
+    expect(commit.mock.calls[2]).toEqual([
+      [expect.objectContaining({ namespace:'/uav9',initialPose:{ x:3,y:5,z:0,yaw:0 } })],
+      'commit-3','Set starting poses for the next Experiment',
+    ]);
+    fireEvent.click(screen.getByRole('button',{ name:'Close drawer' }));
+    expect(screen.getByRole('textbox',{ name:'ROS namespace' })).toHaveValue('/uav9');
+    expect(poseAxis(container,'experiment-robot-assets-panel-pose-x')).toHaveValue(3);
+    expect(poseAxis(container,'experiment-robot-assets-panel-pose-y')).toHaveValue(5);
   });
 
   it.each([
@@ -183,8 +278,9 @@ describe('ExperimentRobotAssetsPanel Panel v2',() => {
     openWorldOrigin();
     fireEvent.change(coordinateAxis('origin','x'),{ target:{ value:'1' } });
     saveCoordinates('origin');
-    await waitFor(() => expect(document.querySelector('[data-xgc-role="experiment-coordinate-save-receipt"][data-xgc-id="origin"]'))
-      .toHaveTextContent('Saved for the next experiment start.'));
+    await waitFor(() => expect(offsetCommit).toHaveBeenCalledTimes(1));
+    expect(document.querySelector('[data-xgc-role="experiment-coordinate-save-receipt"]')).toBeNull();
+    expect(document.querySelector('[data-xgc-role="experiment-coordinate-save"][data-xgc-id="origin"]')?.closest('.xgc-drawer-header')).not.toBeNull();
     fireEvent.change(coordinateAxis('origin','x'),{ target:{ value:'2' } });
     saveCoordinates('origin');
     await waitFor(() => expect(offsetCommit).toHaveBeenNthCalledWith(2,
@@ -196,11 +292,17 @@ describe('ExperimentRobotAssetsPanel Panel v2',() => {
   it('does not create a commit when explicitly saved starting poses already match',async () => {
     const { commit } = renderPanel(context(experiment([px4Binding()]),{ assets:[px4Asset()] }));
     fireEvent.click(screen.getByRole('button',{ name:'Simulation starting poses' }));
+    const save = document.querySelector<HTMLButtonElement>('[data-xgc-role="experiment-coordinate-save"][data-xgc-id="starting-poses"]');
+    expect(save).toBeEnabled();
+    expect(save?.closest('.xgc-drawer-header')).not.toBeNull();
     saveCoordinates('starting-poses');
-    await waitFor(() => expect(document.querySelector(
-      '[data-xgc-role="experiment-coordinate-save-receipt"][data-xgc-id="starting-poses"]',
-    )).toHaveTextContent('Saved for the next experiment start.'));
+    await waitFor(() => {
+      expect(document.querySelector('[data-xgc-role="experiment-coordinate-error"]')).toBeNull();
+      expect(save).toBeEnabled();
+    });
     expect(commit).not.toHaveBeenCalled();
+    expect(document.querySelector('[data-xgc-role="experiment-coordinate-save-receipt"]')).toBeNull();
+    expect(document.querySelector('.xgc-drawer-footer')).toBeNull();
   });
 
   it('places physical origin and simulation starting poses in distinct illustrated entries',() => {
@@ -210,17 +312,64 @@ describe('ExperimentRobotAssetsPanel Panel v2',() => {
     const scene = container.querySelector('[data-xgc-role="experiment-robot-assets-coordinate-scene"][data-xgc-id="experiment"]');
     expect(scene).toContainElement(starting);
     expect(scene).toContainElement(origin);
+    const fence = screen.getByRole('button',{ name:'World fence' });
+    expect(scene).toContainElement(fence);
+    expect(fence).toHaveTextContent('World fence');
+    expect(fence.querySelector('img.experiment-coordinate-scene-art-image')).not.toBeNull();
     expect(starting).toHaveTextContent('Starting poses');
-    expect(origin).toHaveTextContent('VRPN');
+    expect(starting).toHaveTextContent('Physical tracking is unchanged.');
+    expect(origin).toHaveTextContent('One shared reference for physical tracking.');
+    expect(origin).not.toHaveTextContent('VRPN');
+    expect(scene?.querySelector('[data-xgc-role="experiment-robot-assets-coordinate-kind"]')).toBeNull();
     const gallery = robotSelection('uav-01').closest('.experiment-robot-assets-panel-item-list');
     expect(scene?.compareDocumentPosition(gallery!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(starting.querySelector('svg')).not.toBeNull();
     expect(origin.querySelector('svg')).not.toBeNull();
     expect(container.querySelector('[data-xgc-role="experiment-robot-assets-list-toolbar"]')).toBeNull();
+    fireEvent.click(fence);
+    const fenceDrawer = document.querySelector('[data-xgc-role="experiment-world-fence-drawer"]');
+    expect(fenceDrawer).not.toBeNull();
+    expect(fenceDrawer).not.toHaveTextContent('All six endpoints are meters');
+    expect(fenceDrawer).not.toHaveTextContent('No site defaults are supplied');
+    expect(fenceDrawer).not.toHaveTextContent('Authoring port');
+    expect(fenceDrawer).not.toHaveTextContent('Control fence · world');
+    expect(fenceDrawer).not.toHaveTextContent('Leave unknown ground height blank');
+    expect(fenceDrawer).not.toHaveTextContent('Actual ground height');
+    expect(fenceDrawer).not.toHaveTextContent('Ground reference');
+    expect(screen.getByRole('spinbutton',{ name:'X Minimum (m)' })).toHaveValue(null);
+    expect(screen.getByRole('spinbutton',{ name:'Ground (m)' })).toHaveValue(null);
     fireEvent.click(origin);
     expect(coordinateDrawer('origin')).toHaveAccessibleName('World origin');
     expect(commit).not.toHaveBeenCalled();
     expect(offsetCommit).not.toHaveBeenCalled();
+  });
+
+  it('fills a blank world fence from the robot experiment and stores ground at zero', async () => {
+    const document = experiment([px4Binding()]);
+    document.spec.name = 'TASE-4UGVs';
+    document.head.name = 'TASE-4UGVs';
+    const fenceCommit = vi.fn(async (value: unknown) => ({
+      ...document,
+      spec: { ...document.spec, worldBoundary: value },
+      branch: { ...document.branch, headCommitId: 'commit-fence', headVersion: 2 },
+    }));
+    renderPanel(context(document, { fenceCommit }));
+    fireEvent.click(screen.getByRole('button', { name: 'World fence' }));
+    expect(screen.getByRole('spinbutton', { name: 'X Minimum (m)' })).toHaveValue(-12);
+    expect(screen.getByRole('spinbutton', { name: 'X Maximum (m)' })).toHaveValue(12);
+    expect(screen.getByRole('spinbutton', { name: 'Y Minimum (m)' })).toHaveValue(-7);
+    expect(screen.getByRole('spinbutton', { name: 'Y Maximum (m)' })).toHaveValue(7);
+    expect(screen.getByRole('spinbutton', { name: 'Z Minimum (m)' })).toHaveValue(-1);
+    expect(screen.getByRole('spinbutton', { name: 'Z Maximum (m)' })).toHaveValue(1);
+    expect(screen.getByRole('spinbutton', { name: 'Ground (m)' })).toHaveValue(0);
+    const xMinimum = screen.getByRole('spinbutton', { name: 'X Minimum (m)' });
+    expect(xMinimum).toBeEnabled();
+    expect(xMinimum.closest('fieldset')).not.toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Save for next start' })).not.toHaveAttribute('title', expect.stringMatching(/not connected/));
+    await waitFor(() => expect(fenceCommit).toHaveBeenCalledWith(expect.objectContaining({
+      groundZ: 0,
+      controlBounds: { xMin: -12, xMax: 12, yMin: -7, yMax: 7, zMin: -1, zMax: 1 },
+    }), 'commit-1', 'Update Experiment world fence'));
   });
 
   it('keeps starting poses available without runtime so the operator can define them directly',() => {
@@ -229,7 +378,8 @@ describe('ExperimentRobotAssetsPanel Panel v2',() => {
     expect(entry).toBeEnabled();
     expect(entry).not.toHaveAttribute('title',rosterEditLock);
     fireEvent.click(entry);
-    expect(document.querySelector('[data-xgc-role="experiment-coordinate-source"][data-xgc-id="custom"]'))
+    expect(document.querySelector('[data-xgc-role="experiment-coordinate-source-switcher"]')).toBeNull();
+    expect(document.querySelector('[data-xgc-role="experiment-coordinate-manual-robot"][data-xgc-id="px4-01"]'))
       .toHaveAttribute('aria-pressed','true');
     expect(coordinateAxis('px4-01','x')).toBeEnabled();
     expect(commit).not.toHaveBeenCalled();
@@ -289,12 +439,12 @@ describe('ExperimentRobotAssetsPanel Panel v2',() => {
     expect(added).toHaveAttribute('aria-current','true');
     expect(added.querySelector('.experiment-robot-assets-panel-asset-check')).toBeTruthy();
     expect([...container.querySelectorAll('.experiment-robot-assets-panel-asset-card')]).toEqual(rows);
-    expect(screen.getByDisplayValue('/ugv1')).not.toBeVisible();
+    expect(screen.queryByDisplayValue('/ugv1')).toBeNull();
     expect(screen.getByRole('dialog',{ name:'Add robots' })).toBeVisible();
     added.focus();
     fireEvent.click(added);
     expect(screen.getByDisplayValue('/ugv1')).toBeVisible();
-    expect(robotSelection('scout-1')).toHaveFocus();
+    expect(screen.getByRole('dialog',{ name:'Robot parameters' }).contains(document.activeElement)).toBe(true);
     expect(screen.queryByRole('dialog',{ name:'Add robots' })).toBeNull();
     expect(commit).toHaveBeenCalledOnce();
     expect(document.querySelector('[data-xgc-role="experiment-robot-assets-panel-save"]')).toBeNull();
@@ -332,7 +482,7 @@ describe('ExperimentRobotAssetsPanel Panel v2',() => {
     expect(commit).toHaveBeenCalledTimes(2);
   });
 
-  it('returns picker focus to the selected Robot while legacy queries no longer hide the roster',() => {
+  it('moves picker focus into the Robot parameters drawer and back to the selected Robot card',() => {
     const { container,commit } = renderPanel(context(experiment([px4Binding(),scoutBinding()]),{
       assets:[px4Asset(),scoutAsset()],
     }),'/uav1');
@@ -340,8 +490,12 @@ describe('ExperimentRobotAssetsPanel Panel v2',() => {
     const added = screen.getByRole('button',{ name:'Open Scout Mini settings' });
     added.focus();
     fireEvent.click(added);
-    expect(robotSelection('scout-1')).toHaveFocus();
+    const drawer = screen.getByRole('dialog',{ name:'Robot parameters' });
+    expect(drawer).toHaveAttribute('data-xgc-id','scout-1');
+    expect(drawer.contains(document.activeElement)).toBe(true);
     expect(container.querySelector('[data-xgc-role="experiment-robot-assets-panel-current-robot"]')).toHaveTextContent('Scout Mini');
+    fireEvent.click(screen.getByRole('button',{ name:'Close Robot parameters' }));
+    expect(robotSelection('scout-1')).toHaveFocus();
     expect(commit).not.toHaveBeenCalled();
   });
 
@@ -393,30 +547,30 @@ describe('ExperimentRobotAssetsPanel Panel v2',() => {
     expect(screen.queryByText('Unable to load Robot assets')).toBeNull();
   });
 
-  it('parks an invalid Robot draft through the picker and restores the same input and selection',async () => {
+  it('parks an invalid Robot draft through the picker and restores the draft value and selection',async () => {
     const { container,commit } = renderPanel(context(experiment([px4Binding()]),{ assets:[px4Asset(),scoutAsset()] }));
     selectRobot('uav-01');
     const namespace = screen.getByRole('textbox',{ name:'ROS namespace' });
     fireEvent.change(namespace,{ target:{ value:'' } });
     expect(commit).not.toHaveBeenCalled();
     browseAssets();
-    expect(namespace).not.toBeVisible();
+    expect(screen.queryByRole('dialog',{ name:'Robot parameters' })).toBeNull();
     expect(robotSelection('uav-01')).toHaveAttribute('aria-pressed','true');
     expect(pickerSearch(container)).toHaveFocus();
     fireEvent.change(pickerSearch(container),{ target:{ value:'Scout' } });
     backToSettings();
-    expect(document.activeElement).toHaveAttribute('data-xgc-role','experiment-robot-assets-browse');
-    expect(screen.getByRole('textbox',{ name:'ROS namespace' })).toBe(namespace);
-    expect(namespace).toHaveValue('');
-    expect(namespace).toBeVisible();
+    expect(screen.getByRole('dialog',{ name:'Robot parameters' }).contains(document.activeElement)).toBe(true);
+    const restored = screen.getByRole('textbox',{ name:'ROS namespace' });
+    expect(restored).toHaveValue('');
+    expect(restored).toBeVisible();
     expect(robotSelection('uav-01')).toHaveAttribute('aria-pressed','true');
     expect(commit).not.toHaveBeenCalled();
-    fireEvent.change(namespace,{ target:{ value:'/uav9' } });
+    fireEvent.change(restored,{ target:{ value:'/uav9' } });
     await waitFor(() => expect(commit).toHaveBeenCalledTimes(1));
     browseAssets();
     expect(pickerSearch(container)).toHaveValue('Scout');
     backToSettings();
-    expect(namespace).toHaveValue('/uav9');
+    expect(screen.getByRole('textbox',{ name:'ROS namespace' })).toHaveValue('/uav9');
     expect(commit).toHaveBeenCalledTimes(1);
   });
 
@@ -460,9 +614,9 @@ describe('ExperimentRobotAssetsPanel Panel v2',() => {
     ));
     await waitFor(() => expect(screen.getByRole('button',{ name:'Close drawer' })).toBeEnabled());
     fireEvent.click(screen.getByRole('button',{ name:'Close drawer' }));
-    expect(screen.getByRole('textbox',{ name:'ROS namespace' })).toBe(namespace);
-    expect(namespace).toHaveValue('/uav9');
-    expect(namespace).toBeVisible();
+    const restored = screen.getByRole('textbox',{ name:'ROS namespace' });
+    expect(restored).toHaveValue('/uav9');
+    expect(restored).toBeVisible();
     expect(commit).toHaveBeenCalledTimes(1);
   });
 
@@ -483,8 +637,8 @@ describe('ExperimentRobotAssetsPanel Panel v2',() => {
     expect(add).toBeDisabled();
     fireEvent.click(add);
     backToSettings();
-    expect(screen.getByRole('textbox',{ name:'ROS namespace' })).toBe(namespace);
-    expect(namespace).toBeVisible();
+    expect(screen.getByRole('textbox',{ name:'ROS namespace' })).toHaveValue('/uav1');
+    expect(screen.getByRole('textbox',{ name:'ROS namespace' })).toBeVisible();
     expect(commit).not.toHaveBeenCalled();
   });
 
@@ -529,6 +683,10 @@ describe('ExperimentRobotAssetsPanel Panel v2',() => {
     await waitFor(() => expect(commit).toHaveBeenCalledOnce());
     const submitted = commit.mock.calls[0]?.[0] as ExperimentRobotBinding[];
     expect(submitted.map(({ id }) => id)).toEqual(['px4-01','scout-01']);
+    expect(submitted.map(({ simulationSensors }) => simulationSensors)).toEqual([
+      { simpleLidar:false },
+      { simpleLidar:false },
+    ]);
     expect([...container.querySelectorAll('[data-xgc-role="experiment-robot-assets-panel-robot"]')]
       .map((row) => row.getAttribute('data-xgc-id'))).toEqual(['uav-01','scout-1']);
   });
@@ -613,7 +771,7 @@ describe('ExperimentRobotAssetsPanel Panel v2',() => {
     expect([...assetParameters!.querySelectorAll('input')]).not.toHaveLength(0);
     expect([...assetParameters!.querySelectorAll('input')].every((input) => input.disabled)).toBe(true);
     expect(document.querySelector('[data-xgc-role="experiment-robot-assets-panel-selected-asset"]')).toBeNull();
-    expect(screen.getByRole('button',{ name:'UAV-01 — FS150-01' })).toBeInTheDocument();
+    expect(screen.getByRole('button',{ name:'FS150-01 — UAV-01' })).toBeInTheDocument();
     expect(screen.getByLabelText('Experiment slot')).toHaveValue('UAV-01');
     expect(screen.getByLabelText('Experiment slot')).toBeDisabled();
     expect(screen.getByDisplayValue('/uav1')).not.toBeDisabled();
@@ -631,14 +789,14 @@ describe('ExperimentRobotAssetsPanel Panel v2',() => {
 
     browseAssets();
     const add = screen.getByRole('button',{ name:'Add Scout Mini to Experiment' });
-    const namespace = screen.getByDisplayValue('/uav1');
-    const assetParameters = container.querySelector(
-      '[data-xgc-role="experiment-robot-assets-panel-asset-parameters"][data-xgc-id="uav-01"]',
-    );
     expect(add).toBeDisabled();
     expect(add).toHaveAttribute('title',runningLock);
     fireEvent.click(add);
     selectRobot('uav-01');
+    const namespace = screen.getByDisplayValue('/uav1');
+    const assetParameters = container.querySelector(
+      '[data-xgc-role="experiment-robot-assets-panel-asset-parameters"][data-xgc-id="uav-01"]',
+    );
     expect(namespace).toBeVisible();
     expect(namespace).toBeDisabled();
     expect(namespace).toHaveAttribute('title',runningLock);
@@ -764,10 +922,10 @@ describe('ExperimentRobotAssetsPanel Panel v2',() => {
     fireEvent.click(container.querySelector('[data-xgc-role="experiment-robot-assets-panel-robot-move-down"][data-xgc-id="uav-01"]')!);
     await waitFor(() => expect(commit).toHaveBeenCalledOnce());
     rerenderPanel(context(accepted,{ assets,commit,editing:true }));
-    expect(robotSelection('uav-01')).toHaveAccessibleName('UAV-02 — FS150-01');
+    expect(robotSelection('uav-01')).toHaveAccessibleName('FS150-01 — UAV-02');
     rerenderPanel(context(original,{ assets,commit,editing:false }));
-    expect(robotSelection('uav-01')).toHaveAccessibleName('UAV-01 — FS150-01');
-    expect(robotSelection('uav-02')).toHaveAccessibleName('UAV-02 — FS150-02');
+    expect(robotSelection('uav-01')).toHaveAccessibleName('FS150-01 — UAV-01');
+    expect(robotSelection('uav-02')).toHaveAccessibleName('FS150-02 — UAV-02');
     expect(commit).toHaveBeenCalledOnce();
   });
 
@@ -779,14 +937,25 @@ describe('ExperimentRobotAssetsPanel Panel v2',() => {
     expect(labels.map((label) => [label.getAttribute('data-xgc-id'),label.textContent])).toEqual([
       ['uav','UAV'],['ugv','UGV'],
     ]);
-    const fleet=robotSelection('uav-01').closest('.experiment-robot-assets-panel-item-list')!;
-    expect([...fleet.children].map((child) => child.getAttribute('data-xgc-id'))).toEqual([
+    const swarm=robotSelection('uav-01').closest('.experiment-robot-assets-panel-item-list')!;
+    expect([...swarm.children].map((child) => child.getAttribute('data-xgc-id'))).toEqual([
       'uav','uav-01','uav-02','ugv','scout-1',
     ]);
     expect(screen.getAllByRole('button',{ name:'Add robots' })).toHaveLength(2);
     expect(container.querySelector('[data-xgc-role="experiment-robot-assets-browse"][data-xgc-id="uav"]')).toBeTruthy();
     expect(container.querySelector('[data-xgc-role="experiment-robot-assets-browse"][data-xgc-id="ugv"]')).toBeTruthy();
     expect(container.querySelector('[data-xgc-role="experiment-robot-assets-pane-title"][data-xgc-id="experiment"]')).toBeNull();
+    const scout = robotSelection('scout-1');
+    const assetName = scout.querySelector('.experiment-robot-assets-panel-assignment-name');
+    const slotName = scout.querySelector('.experiment-robot-assets-panel-slot-name');
+    const identity = scout.querySelector('.experiment-robot-assets-panel-robot-identity');
+    expect(assetName).toHaveTextContent('Scout Mini');
+    expect(assetName?.tagName).toBe('SPAN');
+    expect(slotName?.tagName).toBe('SPAN');
+    expect(slotName).toHaveTextContent('UGV-01');
+    expect(identity?.firstElementChild).toBe(assetName);
+    expect(assetName?.nextElementSibling).toBe(slotName);
+    expect(scout).toHaveAccessibleName('Scout Mini — UGV-01');
   });
 
   it('rejects a physical UAV drop onto a UGV slot even when both groups are reorderable',() => {
@@ -809,7 +978,7 @@ describe('ExperimentRobotAssetsPanel Panel v2',() => {
     expect(ugv.closest('article')).not.toHaveAttribute('data-xgc-drop-target');
     fireEvent.drop(ugv,{ dataTransfer });
     expect(commit).not.toHaveBeenCalled();
-    expect(robotSelection('uav-01')).toHaveAccessibleName('UAV-01 — FS150-01');
+    expect(robotSelection('uav-01')).toHaveAccessibleName('FS150-01 — UAV-01');
   });
 
   it.each([
@@ -969,7 +1138,7 @@ describe('ExperimentRobotAssetsPanel Panel v2',() => {
     expect(document.activeElement).toHaveAttribute('data-xgc-role','experiment-robot-assets-browse');
   });
 
-  it('uses a compact fleet group label and names the selected Robot without adding nested workspace chrome', () => {
+  it('uses a compact swarm group label and names the selected Robot without adding nested workspace chrome', () => {
     const { container } = renderPanel(context(experiment([px4Binding()]),{ assets:[px4Asset(),scoutAsset()] }));
     expect(container.querySelector('[data-xgc-role="experiment-robot-assets-pane-header"][data-xgc-id="experiment"]')).toBeNull();
     expect(container.querySelector('[data-xgc-role="experiment-robot-assets-pane-header"][data-xgc-id="parameters"]')).toBeNull();
@@ -977,14 +1146,16 @@ describe('ExperimentRobotAssetsPanel Panel v2',() => {
     expect(root?.querySelector('.xgc-workspace-panel')).toBeNull();
     expect(root?.querySelector('[data-chrome]')).toBeNull();
     selectRobot('uav-01');
-    expect(screen.getByRole('heading',{ name:'FS150-01' })).toBeVisible();
-    expect(container.querySelector('[data-xgc-role="experiment-robot-assets-pane-header"][data-xgc-id="parameters"] h2'))
+    const parametersDrawer = screen.getByRole('dialog',{ name:'Robot parameters' });
+    expect(parametersDrawer).toBeVisible();
+    expect(parametersDrawer.querySelectorAll('[data-xgc-role="experiment-robot-assets-pane-title"][data-xgc-id="parameters"]')).toHaveLength(1);
+    expect(parametersDrawer.querySelector('[data-xgc-role="experiment-robot-assets-panel-current-robot"]'))
       .toHaveTextContent('FS150-01');
     browseAssets();
     const picker = screen.getByRole('dialog',{ name:'Add robots' });
     expect(picker.querySelectorAll('[data-xgc-role="experiment-robot-assets-pane-title"][data-xgc-id="assets"]')).toHaveLength(1);
     expect(picker.querySelector('[data-xgc-role="experiment-robot-assets-pane-header"][data-xgc-id="assets"]')).toBeNull();
-    expect(screen.queryByRole('heading',{ name:'FS150-01' })).toBeNull();
+    expect(screen.queryByRole('dialog',{ name:'Robot parameters' })).toBeNull();
     openWorldOrigin();
     expect(coordinateDrawer('origin')).toBeVisible();
     expect(picker).not.toBeInTheDocument();
@@ -996,7 +1167,7 @@ describe('ExperimentRobotAssetsPanel Panel v2',() => {
     expect(robotSelection('uav-01')).toBeVisible();
     expect(robotSelection('scout-1')).toBeVisible();
     expect(screen.getByLabelText('ROS namespace')).toHaveValue('/uav1');
-    expect(container.querySelector('[data-xgc-role="experiment-robot-assets-panel-asset-parameters"]')).toBeVisible();
+    expect(container.querySelector('[data-xgc-role="experiment-robot-assets-panel-asset-parameters"][data-xgc-id="uav-01"]')).toBeVisible();
     browseAssets();
     const picker = pickerSearch(container);
     fireEvent.change(picker,{ target:{ value:'Scout' } });
@@ -1010,7 +1181,7 @@ describe('ExperimentRobotAssetsPanel Panel v2',() => {
     expect(screen.queryByText('No matching assets')).toBeNull();
     backToSettings();
     expect(screen.getByLabelText('ROS namespace')).toHaveValue('/uav1');
-    expect(container.querySelector('[data-xgc-role="experiment-robot-assets-panel-asset-parameters"]')).toBeVisible();
+    expect(container.querySelector('[data-xgc-role="experiment-robot-assets-panel-asset-parameters"][data-xgc-id="uav-01"]')).toBeVisible();
     expect(commit).not.toHaveBeenCalled();
   });
 
@@ -1081,13 +1252,79 @@ describe('ExperimentRobotAssetsPanel Panel v2',() => {
     expect(commit.mock.calls.at(-1)?.[2]).toBe('Update Experiment Robots from Config dashboard');
   });
 
+  it('shows starting pose axes with at most two decimal places', () => {
+    const precise = px4Binding();
+    precise.initialPose = { x: 12.345678, y: -0.004, z: 0.181, yaw: 0.987654 };
+    const { container } = renderPanel(context(experiment([precise]), { assets: [px4Asset()] }));
+    fireEvent.click(container.querySelector('[data-xgc-role="experiment-robot-assets-panel-robot-select"][data-xgc-id="uav-01"]')!);
+    expect(poseAxis(container, 'experiment-robot-assets-panel-pose-x')).toHaveValue(12.35);
+    expect(poseAxis(container, 'experiment-robot-assets-panel-pose-y')).toHaveValue(0);
+    expect(poseAxis(container, 'experiment-robot-assets-panel-pose-z')).toHaveValue(0.18);
+    expect(poseAxis(container, 'experiment-robot-assets-panel-pose-yaw')).toHaveValue(0.99);
+  });
+
+  it('persists the FS150 front camera switch in the Experiment binding', async () => {
+    const { commit } = renderPanel(context(experiment([px4Binding()]),{ assets:[px4Asset()] }));
+    selectRobot('uav-01');
+    const toggle = screen.getByRole('switch',{ name:'Simulate front camera' });
+    expect(toggle).not.toBeChecked();
+    fireEvent.click(toggle);
+    await waitFor(() => expect(commit.mock.calls.at(-1)?.[0]).toEqual([
+      expect.objectContaining({ px4:{ imageSimulationEnabled:true } }),
+    ]));
+    fireEvent.click(toggle);
+    await waitFor(() => expect(commit.mock.calls.at(-1)?.[0]).toEqual([
+      expect.objectContaining({ px4:{} }),
+    ]));
+  });
+
+  it.each(simpleLidarRobotCases())('saves the Simple lidar switch for $label in both states',async ({ binding,asset }) => {
+    const { container,commit } = renderPanel(context(
+      experiment([binding],{ asset:'gazebo-world',simulator:'gazebo' }),
+      { assets:[asset] },
+    ));
+    selectRobot(binding.ref.resourceId);
+    const toggle = screen.getByRole('switch',{ name:'Simple lidar' });
+    expect(toggle).not.toBeChecked();
+    const markableSwitch = container.querySelector(
+      `[data-xgc-role="experiment-robot-assets-panel-simple-lidar"][data-xgc-id="${binding.ref.resourceId}"]`,
+    );
+    expect(markableSwitch).toContainElement(toggle);
+
+    fireEvent.click(toggle);
+    await waitFor(() => expect((commit.mock.calls.at(-1)?.[0] as ExperimentRobotBinding[])[0]?.simulationSensors)
+      .toEqual({ simpleLidar:true }));
+    expect(toggle).toBeChecked();
+
+    fireEvent.click(toggle);
+    await waitFor(() => expect((commit.mock.calls.at(-1)?.[0] as ExperimentRobotBinding[])[0]?.simulationSensors)
+      .toEqual({ simpleLidar:false }));
+    expect(toggle).not.toBeChecked();
+  });
+
+  it.each(simpleLidarRobotCases())('hides Simple lidar for $label without a Gazebo scene',({ binding,asset }) => {
+    const noScene = renderPanel(context(experiment([binding]),{ assets:[asset] }));
+    selectRobot(binding.ref.resourceId);
+    expect(screen.queryByRole('switch',{ name:'Simple lidar' })).toBeNull();
+    noScene.unmount();
+
+    const lightweight = renderPanel(context(
+      experiment([binding],{ asset:'lightweight-world',simulator:'lightweight' }),
+      { assets:[asset] },
+    ));
+    selectRobot(binding.ref.resourceId);
+    expect(screen.queryByRole('switch',{ name:'Simple lidar' })).toBeNull();
+    lightweight.unmount();
+  });
+
   it('keeps all Parameters settings groups and field labels on the shared panel family',() => {
     const { container } = renderPanel(context(experiment([scoutBinding()]),{ assets:[scoutAsset()] }));
     selectRobot('scout-1');
 
-    const panelRoot = container.querySelector('[data-xgc-role="experiment-robot-assets-pane-header"][data-xgc-id="parameters"]')?.parentElement;
+    const panelRoot = container.querySelector('[data-xgc-role="experiment-robot-assets-robot-inspector"]');
+    expect(panelRoot).toHaveClass('config-drawer-wide');
     const groupHeaders = [...panelRoot?.querySelectorAll(
-      '.experiment-robot-assets-panel-settings-group > [data-xgc-role="experiment-robot-assets-panel-settings-group-header"]',
+      '[data-xgc-role="experiment-robot-assets-panel-settings-group-title"]',
     ) ?? []];
     expect(groupHeaders.map((header) => header.textContent?.trim())).toEqual([
       'Starting pose',
@@ -1106,6 +1343,7 @@ describe('ExperimentRobotAssetsPanel Panel v2',() => {
       'Experiment slot',
       'ROS namespace',
       'Hybrid source',
+      'Radio link',
       'Remote IP',
       'Connector',
       'Telemetry',
@@ -1127,7 +1365,7 @@ describe('ExperimentRobotAssetsPanel Panel v2',() => {
     selectRobot('uav-01');
 
     const labels = [...container.querySelectorAll(
-      '.experiment-robot-assets-panel-fields .xgc-form-field-label',
+      '[data-xgc-role="experiment-robot-assets-robot-inspector"] .xgc-form-field-label',
     )];
     expect(labels.length).toBeGreaterThan(0);
     for (const label of labels) {
@@ -1180,8 +1418,8 @@ describe('ExperimentRobotAssetsPanel Panel v2',() => {
       { x:-1.25,y:2,z:-0.5 },'commit-1','Update Experiment world origin offset from Config dashboard',
     ));
     expect(commit).not.toHaveBeenCalled();
-    await waitFor(() => expect(document.querySelector('[data-xgc-role="experiment-coordinate-save-receipt"][data-xgc-id="origin"]'))
-      .toHaveTextContent('Saved for the next experiment start.'));
+    expect(document.querySelector('[data-xgc-role="experiment-coordinate-save-receipt"]')).toBeNull();
+    expect(document.querySelector('[data-xgc-role="experiment-coordinate-save"][data-xgc-id="origin"]')?.closest('.xgc-drawer-header')).not.toBeNull();
     fireEvent.click(screen.getByRole('button',{ name:'Close drawer' }));
     openWorldOrigin();
     expect(coordinateAxis('origin','x')).toHaveValue(1.25);
@@ -1189,40 +1427,42 @@ describe('ExperimentRobotAssetsPanel Panel v2',() => {
     expect(coordinateAxis('origin','z')).toHaveValue(0.5);
   });
 
-  it('keeps the Robot starting-pose form mounted behind the independent origin drawer',() => {
+  it('suspends the Robot parameters drawer behind the independent origin drawer and restores its draft',() => {
     const { container } = renderPanel(context(experiment([px4Binding()]),{ assets:[px4Asset()] }));
     selectRobot('uav-01');
-    const pose = container.querySelector('[data-xgc-role="experiment-robot-assets-panel-pose-fields"][data-xgc-id="starting-pose"]');
-    const namespace = screen.getByRole('textbox',{ name:'ROS namespace' });
-    expect(pose).toBeVisible();
+    const parametersDrawer = () => screen.queryByRole('dialog',{ name:'Robot parameters' });
+    const pose = () => container.querySelector('[data-xgc-role="experiment-robot-assets-panel-pose-fields"][data-xgc-id="starting-pose"]');
+    expect(parametersDrawer()).toBeVisible();
+    expect(pose()).toBeVisible();
     expect(document.querySelector('[data-xgc-role="experiment-coordinate-drawer"]')).toBeNull();
     openWorldOrigin();
     expect(coordinateDrawer('origin')).toBeVisible();
-    expect(pose).not.toBeVisible();
-    expect(namespace).toBeInTheDocument();
+    expect(parametersDrawer()).toBeNull();
+    expect(pose()).toBeNull();
     fireEvent.click(screen.getByRole('button',{ name:'Close drawer' }));
-    expect(screen.getByRole('textbox',{ name:'ROS namespace' })).toBe(namespace);
-    expect(pose).toBeVisible();
+    expect(parametersDrawer()).toBeVisible();
+    expect(screen.getByRole('textbox',{ name:'ROS namespace' })).toHaveValue('/uav1');
+    expect(pose()).toBeVisible();
     expect(document.querySelector('[data-xgc-role="experiment-coordinate-drawer"]')).toBeNull();
   });
 
-  it('uses one nonmodal Robot inspector while the roster remains available to select another Robot',() => {
-    const { container } = renderPanel(context(experiment([px4Binding(),scoutBinding()]),{ assets:[px4Asset(),scoutAsset()] }));
+  it('opens Robot parameters in the shared wide drawer that follows the selected Robot',() => {
+    renderPanel(context(experiment([px4Binding(),scoutBinding()]),{ assets:[px4Asset(),scoutAsset()] }));
     selectRobot('uav-01');
-    const inspector = container.querySelector('[data-xgc-role="experiment-robot-assets-robot-inspector"]')!;
-    expect(inspector.tagName).toBe('ASIDE');
+    const inspector = screen.getByRole('dialog',{ name:'Robot parameters' });
     expect(inspector).toBeVisible();
+    expect(inspector).toHaveClass('config-drawer-wide');
     expect(inspector).toHaveAttribute('data-xgc-id','uav-01');
-    expect(screen.queryByRole('dialog')).toBeNull();
     expect(robotSelection('scout-1')).toBeEnabled();
     selectRobot('scout-1');
-    expect(container.querySelectorAll('[data-xgc-role="experiment-robot-assets-robot-inspector"]')).toHaveLength(1);
-    expect(inspector).toHaveAttribute('data-xgc-id','scout-1');
+    expect(screen.getAllByRole('dialog',{ name:'Robot parameters' })).toHaveLength(1);
+    expect(screen.getByRole('dialog',{ name:'Robot parameters' })).toHaveAttribute('data-xgc-id','scout-1');
     expect(screen.getByRole('textbox',{ name:'ROS namespace' })).toHaveValue('/ugv1');
     expect(inspector.querySelector('[data-xgc-role="experiment-robot-assets-robot-parameters"] > header')).toBeNull();
     fireEvent.click(screen.getByRole('button',{ name:'Close Robot parameters' }));
-    expect(inspector).not.toBeVisible();
+    expect(screen.queryByRole('dialog',{ name:'Robot parameters' })).toBeNull();
     expect(robotSelection('scout-1')).toBeEnabled();
+    expect(document.activeElement).toBe(robotSelection('scout-1'));
   });
 
   it('hides drawers while the Experiment route is parked and restores coordinate drafts and candidate search',() => {
@@ -1232,20 +1472,20 @@ describe('ExperimentRobotAssetsPanel Panel v2',() => {
     </ProductRouteVisibilityProvider>;
     const { container,rerender } = render(tree(true));
     selectRobot('uav-01');
-    const inspector = container.querySelector('[data-xgc-role="experiment-robot-assets-robot-inspector"]');
-    const namespace = screen.getByRole('textbox',{ name:'ROS namespace' });
+    const parametersDrawer = () => screen.queryByRole('dialog',{ name:'Robot parameters' });
+    expect(parametersDrawer()).toBeVisible();
     rerender(tree(false));
-    expect(inspector).not.toBeVisible();
+    expect(parametersDrawer()).toBeNull();
     rerender(tree(true));
-    expect(inspector).toBeVisible();
-    expect(screen.getByRole('textbox',{ name:'ROS namespace' })).toBe(namespace);
+    expect(parametersDrawer()).toBeVisible();
+    expect(screen.getByRole('textbox',{ name:'ROS namespace' })).toHaveValue('/uav1');
     openWorldOrigin();
-    expect(inspector).not.toBeVisible();
+    expect(parametersDrawer()).toBeNull();
     expect(coordinateDrawer('origin')).toBeVisible();
     fireEvent.change(coordinateAxis('origin','x'),{ target:{ value:'12.5' } });
     rerender(tree(false));
     expect(document.querySelector('[data-xgc-role="experiment-coordinate-drawer"]')).toBeNull();
-    expect(inspector).not.toBeVisible();
+    expect(parametersDrawer()).toBeNull();
     rerender(tree(true));
     expect(coordinateAxis('origin','x')).toHaveValue(12.5);
     browseAssets();
@@ -1258,6 +1498,94 @@ describe('ExperimentRobotAssetsPanel Panel v2',() => {
   });
 
 });
+
+describe('ExperimentRobotAssetsPanel Robot source labels',() => {
+  beforeEach(() => {
+    getExperimentAtCommit.mockReset();
+    getExperimentAtCommit.mockRejectedValue(new Error('Experiment commits unavailable'));
+  });
+
+  it('shows the selected pure mode above every portrait without hover, ignoring authored hybridSource',() => {
+    renderPanel(context(experiment([px4Binding(),scoutBinding()]),{
+      assets:[px4Asset(),scoutAsset()],selectedRunMode:'simulation',
+    }));
+    // px4Binding authors a physical hybridSource; the pure selected mode covers it.
+    const uav = robotSourceLabel('uav-01');
+    expect(uav).toHaveTextContent('Simulation');
+    expect(uav).not.toHaveTextContent('source');
+    expect(uav).toHaveAttribute('data-xgc-source','simulation');
+    expect(uav.querySelector('[data-xgc-role="experiment-robot-assets-panel-robot-source-next"]')).toBeNull();
+    expect(robotSourceLabel('scout-1')).toHaveTextContent('Simulation');
+    expect(robotSourceLabel('scout-1')).not.toHaveTextContent('source');
+    const select = robotSelection('uav-01');
+    expect(select.firstElementChild).toBe(uav);
+    expect(uav.nextElementSibling).toHaveClass('experiment-robot-assets-panel-robot-mark');
+  });
+
+  it('shows per-slot draft sources when the selected mode is hybrid',() => {
+    renderPanel(context(experiment([px4Binding(),scoutBinding()]),{
+      assets:[px4Asset(),scoutAsset()],selectedRunMode:'hybrid',
+    }));
+    expect(robotSourceLabel('uav-01')).toHaveTextContent('Physical');
+    expect(robotSourceLabel('uav-01')).not.toHaveTextContent('source');
+    expect(robotSourceLabel('uav-01')).toHaveAttribute('data-xgc-source','physical');
+    expect(robotSourceLabel('scout-1')).toHaveTextContent('Simulation');
+  });
+
+  it('marks the source undetermined when the host offers no mode evidence',() => {
+    renderPanel(context(experiment([px4Binding()]),{ assets:[px4Asset()] }));
+    expect(robotSourceLabel('uav-01')).toHaveTextContent('Source undetermined');
+    expect(robotSourceLabel('uav-01')).toHaveAttribute('data-xgc-source','unknown');
+  });
+
+  it('reads the running Session frozen commit and only flags a real draft difference',async () => {
+    getExperimentAtCommit.mockResolvedValue(experiment([{ ...px4Binding(),hybridSource:'simulation' }]));
+    renderPanel(context(experiment([px4Binding()]),{
+      assets:[px4Asset()],
+      runningSession:{ runMode:'hybrid',commitId:'commit-0',digest:'d'.repeat(64) },
+    }));
+    const label = robotSourceLabel('uav-01');
+    expect(label).toHaveTextContent('Source undetermined');
+    await waitFor(() => expect(label).toHaveTextContent('Simulation'));
+    expect(label).toHaveAttribute('data-xgc-source','simulation');
+    expect(getExperimentAtCommit).toHaveBeenCalledWith(
+      'experiment-a','commit-0',expect.any(AbortSignal),expect.anything(),
+    );
+    const next = label.querySelector('[data-xgc-role="experiment-robot-assets-panel-robot-source-next"]');
+    expect(next).toHaveTextContent('Next start: Physical');
+  });
+
+  it('keeps a replaced asset unknown instead of inheriting the frozen slot source',async () => {
+    getExperimentAtCommit.mockResolvedValue(experiment([{
+      ...px4Binding(),ref:{ domain:'robot',resourceId:'uav-02',branch:'main' },
+    }]));
+    renderPanel(context(experiment([px4Binding()]),{
+      assets:[px4Asset()],
+      runningSession:{ runMode:'hybrid',commitId:'commit-0',digest:'d'.repeat(64) },
+    }));
+    const label = robotSourceLabel('uav-01');
+    await waitFor(() => expect(getExperimentAtCommit).toHaveBeenCalledOnce());
+    await waitFor(() => expect(label).toHaveAttribute('data-xgc-source','unknown'));
+    expect(label).toHaveTextContent('Source undetermined');
+    expect(label).toHaveTextContent('Next start: Physical');
+  });
+
+  it('keeps card selection working with the source line present',() => {
+    renderPanel(context(experiment([px4Binding()]),{ assets:[px4Asset()],selectedRunMode:'physical' }));
+    expect(robotSourceLabel('uav-01')).toHaveTextContent('Physical');
+    selectRobot('uav-01');
+    expect(screen.getByRole('textbox',{ name:'ROS namespace' })).toBeEnabled();
+    expect(robotSelection('uav-01')).toHaveAttribute('aria-pressed','true');
+  });
+});
+
+function robotSourceLabel(resourceId: string): HTMLElement {
+  const element = document.querySelector<HTMLElement>(
+    `[data-xgc-role="experiment-robot-assets-panel-robot-source"][data-xgc-id="${resourceId}"]`,
+  );
+  if (!element) throw new Error(`Robot source ${resourceId} missing`);
+  return element;
+}
 
 function robotSelection(resourceId: string): HTMLButtonElement {
   const button = document.querySelector<HTMLButtonElement>(
@@ -1357,9 +1685,14 @@ function context(document?:ExperimentDocument, extras:{
   assetError?:string;
   disabledReason?:string;
   runtimeActive?:boolean;
+  selectedRunMode?:string;
+  runningSession?:{ runMode:string; commitId:string; digest:string };
   editing?:boolean;
   commit?: (value:unknown,expectedCommitId:string,reason?:string) => Promise<unknown>;
   offsetCommit?: (value:unknown,expectedCommitId:string,reason?:string) => Promise<unknown>;
+  fenceCommit?: (value:unknown,expectedCommitId:string,reason?:string) => Promise<unknown>;
+  sceneCommit?: (value:unknown,expectedCommitId:string,reason?:string) => Promise<unknown>;
+  sceneConnected?: boolean;
 } = {}):PanelPluginContext<readonly ['experiment','automation']> {
   const commit = extras.commit ?? vi.fn(async (bindings:unknown,_expectedCommitId:string,_reason?:string) => {
     if (!document) return document;
@@ -1385,6 +1718,24 @@ function context(document?:ExperimentDocument, extras:{
       },
     };
   });
+  const runtimeValue = extras.runtimeActive || extras.selectedRunMode !== undefined || extras.runningSession ? {
+    targetId:'local',activeRuns:[],processInstances:[],documents:[],catalog:[],runSummaries:[],runDetailsById:{},loading:false,error:'',
+    ...(extras.selectedRunMode !== undefined ? { selectedRunMode:extras.selectedRunMode } : {}),
+    sessionViews:extras.runningSession ? [{
+      session:{
+        id:'session-1',targetId:'local',experimentResourceId:document?.head.resourceId ?? '',
+        experimentCommitId:extras.runningSession.commitId,experimentDigest:extras.runningSession.digest,
+        state:'active',mode:'full',runMode:extras.runningSession.runMode,revision:1,
+      },
+      members:[{
+        id:'member-1',targetId:'local',sessionId:'session-1',bindingId:'panel-robot-instruments',kind:'workflow_run',
+        ownerId:'robot-runtime-run',status:'running',revision:1,
+      }],
+    }] : extras.runtimeActive ? [{ session:{ id:'session-1',targetId:'local',state:'active' },members:[{
+      id:'member-1',targetId:'local',sessionId:'session-1',bindingId:'panel-robot-instruments',kind:'workflow_run',
+      ownerId:'robot-runtime-run',status:'running',revision:1,
+    }] }] : [],
+  } : undefined;
   return { editing:extras.editing === true,ports:{
     actions:{},
     data:{
@@ -1394,14 +1745,8 @@ function context(document?:ExperimentDocument, extras:{
         value:{ assets:extras.assets ?? [],loading:extras.assetLoading ?? false,error:extras.assetError ?? '' },trace:{},
       },
       'robot-runtime':{
-        id:'robot-runtime',label:'Experiment runtime',contract:'experiment.runtime.v1',connected:Boolean(extras.runtimeActive),
-        value:extras.runtimeActive ? {
-          targetId:'local',activeRuns:[],processInstances:[],documents:[],catalog:[],runSummaries:[],runDetailsById:{},loading:false,error:'',
-          sessionViews:[{ session:{ id:'session-1',targetId:'local',state:'active' },members:[{
-            id:'member-1',targetId:'local',sessionId:'session-1',bindingId:'panel-robot-instruments',kind:'workflow_run',
-            ownerId:'robot-runtime-run',status:'running',revision:1,
-          }] }],
-        } : undefined,
+        id:'robot-runtime',label:'Experiment runtime',contract:'experiment.runtime.v1',connected:Boolean(runtimeValue),
+        value:runtimeValue,
         trace:{ projection:'experiment.runtime.v1' },
       },
     },
@@ -1420,6 +1765,22 @@ function context(document?:ExperimentDocument, extras:{
         commit:offsetCommit,
         trace:{ target:'experiment.localizationOffset' },
       },
+      'scene-editor':{
+        id:'scene-editor',label:'Scene',connected:extras.sceneConnected ?? Boolean(extras.sceneCommit),
+        disabledReason:(extras.sceneConnected ?? Boolean(extras.sceneCommit)) ? '' : 'Authoring port "Scene" is not connected.',
+        value:document?.spec.scene,
+        commit:extras.sceneCommit ?? vi.fn(async () => undefined),
+        trace:{ target:'experiment.scene' },
+      },
+      ...(extras.fenceCommit ? {
+        'world-boundary-editor':{
+          id:'world-boundary-editor',label:'World fence',connected:true,
+          disabledReason:extras.disabledReason ?? '',
+          value:document?.spec.worldBoundary,
+          commit:extras.fenceCommit,
+          trace:{ target:'experiment.worldBoundary' },
+        },
+      } : {}),
     },interactions:{},
   },executionTargetId:'local' };
 }
@@ -1428,12 +1789,12 @@ function panel():PanelInstance {
   return { id:'robot-assets',pluginId:EXPERIMENT_ROBOT_ASSETS_PANEL_ID,title:'Robot assets',gridPos:{ x:0,y:0,w:30,h:16 },query:{},options:{ dashboard:'config',gridColumns:30 },fieldConfig:{},portBindings:[] };
 }
 
-function experiment(robots:ExperimentRobotBinding[] = []):ExperimentDocument {
+function experiment(robots:ExperimentRobotBinding[] = [],scene?:ExperimentScene):ExperimentDocument {
   const now='2026-01-01T00:00:00Z';
   return {
     head:{ domain:'experiment',resourceId:'experiment-a',name:'Experiment',tags:[],mainCommitId:'commit-1',currentVersion:1,digest:'d'.repeat(64),revision:1,createdAt:now,updatedAt:now },
     branch:{ domain:'experiment',resourceId:'experiment-a',name:'main',headCommitId:'commit-1',headVersion:1,revision:1,createdAt:now,updatedAt:now },
-    spec:newExperimentSpec({ name:'Experiment',robots }),
+    spec:newExperimentSpec({ name:'Experiment',robots,...(scene ? { scene } : {}) }),
   };
 }
 
@@ -1459,6 +1820,7 @@ function px4Binding(sequence = 1):ExperimentRobotBinding {
     hybridSource:'physical',
     runtimeParameters:{},
     initialPose:{ x:0,y:0,z:0,yaw:0 },
+    simulationSensors:{ simpleLidar:false },
     px4:{},
   };
 }
@@ -1471,8 +1833,30 @@ function scoutBinding():ExperimentRobotBinding {
     hybridSource:'simulation',
     runtimeParameters:{ controller:'leader' },
     initialPose:{ x:2,y:3,z:0.181,yaw:0.5 },
+    simulationSensors:{ simpleLidar:false },
     scout:{ lidarSimulationEnabled:true,imageSimulationEnabled:false },
   };
+}
+
+function mecanumBinding():ExperimentRobotBinding {
+  return {
+    id:'mecanum-01',
+    ref:{ domain:'robot',resourceId:'mecanum-1',branch:'main' },
+    namespace:'/ugv2',
+    hybridSource:'physical',
+    runtimeParameters:{},
+    initialPose:{ x:0,y:0,z:0.28,yaw:0 },
+    simulationSensors:{ simpleLidar:false },
+    mecanum:{},
+  };
+}
+
+function simpleLidarRobotCases() {
+  return [
+    { label:'FS150',binding:px4Binding(),asset:px4Asset() },
+    { label:'Scout',binding:scoutBinding(),asset:scoutAsset() },
+    { label:'Mecanum',binding:mecanumBinding(),asset:mecanumAsset() },
+  ];
 }
 
 function px4Asset(sequence = 1):RobotAssetDocument {
@@ -1516,6 +1900,27 @@ function scoutAsset():RobotAssetDocument {
         sshUsername:'wheeltec',sshPassword:'dongguan',
         telemetryRemotePort:3001,controlLocalPort:3001,mocapRigidBodyName:'scout-1',
         simulation:{ productId:'scout',launchPackage:'scout',launchFile:'spawn.launch' },
+      },
+    },
+  };
+}
+
+function mecanumAsset():RobotAssetDocument {
+  return {
+    head:{
+      domain:'robot',resourceId:'mecanum-1',name:'Mecanum',tags:[],mainCommitId:'mecanum-1-commit',
+      currentVersion:1,digest:'mecanum-1',revision:1,createdAt:'',updatedAt:'',
+    },
+    branch:{
+      domain:'robot',resourceId:'mecanum-1',name:'main',headCommitId:'mecanum-1-commit',
+      headVersion:1,revision:1,createdAt:'',updatedAt:'',
+    },
+    spec:{
+      kind:'mecanum_ugv',name:'Mecanum',description:'',tags:['ugv'],profileId:'mecanum-ugv.ros1.v3',
+      mecanum:{
+        managementAddress:'192.0.2.20',connector:'swarm_ros_bridge',sshUsername:'wheeltec',sshPassword:'secret',
+        telemetryRemotePort:3001,controlLocalPort:3002,mocapRigidBodyName:'mecanum-1',
+        simulation:{ productId:'mecanum-sim',launchPackage:'mecanum_sim',launchFile:'spawn.launch' },
       },
     },
   };

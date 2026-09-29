@@ -25,5 +25,6 @@ describe('Lichtblick panel CSS contract',() => {
     expect(css).toContain('.lichtblick-workspace[data-xgc-parked="true"]');
     expect(css).toContain('content-visibility: hidden;');
     expect(css).not.toMatch(/about:blank/);
+    expect(css).not.toMatch(/workflow-startup-pipeline-send/);
   });
 });

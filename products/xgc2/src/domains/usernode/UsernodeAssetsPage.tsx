@@ -1,3 +1,4 @@
+import { formatOperatorDateTime } from '../../shared/operatorTime';
 import { ScrollText,Settings,Trash2 } from 'lucide-react';
 import { useEffect,useMemo,useState } from 'react';
 import { ControlButton } from '../../components/controls/ControlButton';
@@ -384,6 +385,5 @@ export function UsernodeAssetsPage({
 }
 
 function formatTimestamp(value: string) {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+  return formatOperatorDateTime(value);
 }

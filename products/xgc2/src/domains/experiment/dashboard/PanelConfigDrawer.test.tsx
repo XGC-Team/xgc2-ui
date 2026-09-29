@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import type * as LichtblickSceneResourcesModule from '../../../panels/visualization/lichtblickSceneResources';
 import { fireEvent,render,screen,waitFor,within } from '@testing-library/react';
 import { describe,expect,it,vi } from 'vitest';
 
@@ -14,10 +15,15 @@ vi.mock('../../automation/automationTargetService',() => ({
     }],
   })),
 }));
+vi.mock('../../../panels/visualization/lichtblickSceneResources',async (importOriginal) => {
+  const original=await importOriginal<typeof LichtblickSceneResourcesModule>();
+  return { ...original,loadLichtblickSceneResources:vi.fn(async () => []) };
+});
 import { newAutomationSpec,type AutomationDocument } from '../../automation/automationPublic';
 import { newExperimentSpec,type ExperimentDocument,type PanelInstance } from '../experimentModel';
 import { DEFAULT_LOCAL_MEDIA_EDGE_URL } from '../../../config/urls';
 import { GAZEBO_WORLD_CAMERA_DEFAULTS } from '../../../panels/camera/gazeboWorldCameraPanelModel';
+import { LICHTBLICK_LAYOUT_DEFAULTS } from '../../../panels/visualization/lichtblickLayoutOptions';
 import { PanelConfigDrawer } from './PanelConfigDrawer';
 
 describe('PanelConfigDrawer Connections',() => {
@@ -38,6 +44,46 @@ describe('PanelConfigDrawer Connections',() => {
     }),expect.any(Array));
   });
 
+  it('edits routing for all aliases of a preset and omits the default again when returning to Session',() => {
+    const onSave = vi.fn(),value = panel(),configured = experiment();
+    configured.spec.workflowInstances[0]!.actionPresets.push({ id:'archive',actionId:'run',inputs:{},parameterBindings:[] });
+    value.portBindings.push(
+      { portId:'panel-workflow',kind:'workflow',workflowInstanceId:'worker',presetId:'default',managed:true,relation:'supervised',failurePolicy:'keep-experiment' },
+      { portId:'primary',kind:'action',presetId:'default' },
+      { portId:'archive-a',kind:'action',presetId:'archive' },
+      { portId:'archive-b',kind:'action',presetId:'archive' },
+    );
+    const view = render(<PanelConfigDrawer panel={value} coreNodes={[]} executionTargetId="local"
+      automationDocuments={[worker()]} experiment={configured} onClose={vi.fn()} onSave={onSave} />);
+    const control = (id:string) => within(document.querySelector(`[data-xgc-role="panel-action-execution-mode"][data-xgc-id="${id}"]`) as HTMLElement).getByRole('button');
+    expect(control('primary')).toBeDisabled();
+    fireEvent.click(control('archive-a'));fireEvent.click(screen.getByRole('option',{ name:'Independently' }));
+    expect(control('archive-b')).toHaveTextContent('Independently');
+    fireEvent.click(screen.getByRole('button',{ name:'Save' }));
+    const saved = onSave.mock.calls[0]![0] as PanelInstance;
+    expect(saved.portBindings.filter((binding) => binding.kind === 'action' && binding.presetId === 'archive')).toEqual([
+      { portId:'archive-a',kind:'action',presetId:'archive',executionMode:'standalone' },
+      { portId:'archive-b',kind:'action',presetId:'archive',executionMode:'standalone' },
+    ]);
+    view.unmount();onSave.mockClear();
+    render(<PanelConfigDrawer panel={saved} coreNodes={[]} executionTargetId="local"
+      automationDocuments={[worker()]} experiment={configured} onClose={vi.fn()} onSave={onSave} />);
+    fireEvent.click(control('archive-b'));fireEvent.click(screen.getByRole('option',{ name:'With Experiment' }));
+    fireEvent.click(screen.getByRole('button',{ name:'Save' }));
+    expect((onSave.mock.calls[0]![0] as PanelInstance).portBindings.filter((binding) => binding.kind === 'action' && binding.presetId === 'archive'))
+      .toEqual([{ portId:'archive-a',kind:'action',presetId:'archive' },{ portId:'archive-b',kind:'action',presetId:'archive' }]);
+    fireEvent.click(control('archive-a'));fireEvent.click(screen.getByRole('option',{ name:'Independently' }));
+    fireEvent.click(screen.getByRole('button',{ name:'Panel workflow' }));
+    fireEvent.click(screen.getByRole('option',{ name:/worker \/ archive/ }));
+    // Changing the primary must not trap an invalid standalone binding behind
+    // a disabled control; the operator can explicitly return it to Session.
+    expect(control('archive-a')).not.toBeDisabled();
+    fireEvent.click(control('archive-a'));
+    expect(screen.getByRole('option',{ name:'Independently' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('option',{ name:'With Experiment' }));
+    expect(control('archive-a')).toBeDisabled();
+
+  });
   it('shows only fixed workflow Action inputs without leaking Automation value-source controls',() => {
     const onSave = vi.fn();
     const value = panel();
@@ -87,6 +133,56 @@ describe('PanelConfigDrawer Connections',() => {
     expect(within(drawer).queryByText('Panel command')).toBeNull();
     expect(within(drawer).queryByText('Robot IDs')).toBeNull();
     expect(within(drawer).queryByText('Flight mode')).toBeNull();
+  });
+
+  it('authors scene controls once and saves their Run preset with independent label size units',() => {
+    const onSave=vi.fn();
+    const configuredExperiment=experiment();
+    configuredExperiment.spec.workflowInstances[0]!.actionPresets[0]!.inputs={ ...LICHTBLICK_LAYOUT_DEFAULTS,labelFontSizeMeters:0.5,labelFontSizePixels:24 };
+    const value:PanelInstance={ ...panel(),id:'lichtblick',pluginId:'xgc2-lichtblick',options:{
+      ...LICHTBLICK_LAYOUT_DEFAULTS,labelFontSizeMeters:0.5,labelFontSizePixels:24,
+    },portBindings:[
+      { portId:'visualization',kind:'data',projection:'process.runtime.v1' },
+      { portId:'panel-workflow',kind:'workflow',workflowInstanceId:'worker',presetId:'default',managed:true,relation:'supervised',failurePolicy:'keep-experiment' },
+      { portId:'lichtblick',kind:'action',presetId:'default' },
+      { portId:'workflow-parameters',kind:'authoring',target:'action-preset',presetId:'default' },
+    ] };
+    const workflow=worker();
+    workflow.spec.actions[0]!.inputSchema.fields=[
+      { name:'uavHeightProjection',label:'UAV height projection',kind:'boolean',boolean:{ default:true } },
+      { name:'labelScaleInvariant',label:'Fixed screen size',kind:'boolean',boolean:{ default:false } },
+      { name:'labelFontSizeMeters',label:'Font size in meters',kind:'number',number:{ default:0.24 } },
+      { name:'labelFontSizePixels',label:'Font size in pixels',kind:'number',number:{ default:16 } },
+      { name:'markerColor',label:'Robot label color',kind:'string',string:{ default:'#00a2ff' } },
+      { name:'markerOpacity',label:'Text opacity',kind:'number',number:{ default:1 } },
+      { name:'uavLabelOffset',label:'UAV vertical offset',kind:'number',number:{ default:0.55 } },
+      { name:'scoutLabelOffset',label:'Scout vertical offset',kind:'number',number:{ default:0.65 } },
+      { name:'mecanumLabelOffset',label:'Mecanum vertical offset',kind:'number',number:{ default:0.32 } },
+      { name:'commandJson',label:'Scene command JSON',kind:'string',string:{ default:'{"operation":"get"}' } },
+      { name:'rosMasterUri',label:'ROS master',kind:'string',string:{ default:'' } },
+    ];
+    value.portBindings.push({ portId:'scene-command',kind:'action',presetId:'default' });
+    const { container }=render(<PanelConfigDrawer panel={value} coreNodes={[]} executionTargetId="local"
+      automationDocuments={[workflow]} experiment={configuredExperiment} onClose={vi.fn()} onSave={onSave} />);
+    expect(screen.queryByRole('spinbutton',{ name:'Font size in meters' })).toBeNull();
+    expect(screen.queryByRole('spinbutton',{ name:'Font size in pixels' })).toBeNull();
+    expect(screen.queryByText('Scene command JSON')).toBeNull();
+    expect(screen.queryByText('ROS master')).toBeNull();
+    expect(screen.getAllByRole('switch',{ name:'Fixed screen size' })).toHaveLength(1);
+    expect(screen.getAllByRole('switch',{ name:/height projection/i })).toHaveLength(1);
+    expect(screen.getByRole('switch',{ name:'Height projection' })).toBeChecked();
+    fireEvent.click(screen.getByRole('switch',{ name:'Height projection' }));
+    expect(screen.getByRole('spinbutton',{ name:'Font size' })).toHaveValue(0.5);
+    fireEvent.click(screen.getByRole('switch',{ name:'Fixed screen size' }));
+    expect(screen.getByRole('spinbutton',{ name:'Font size' })).toHaveValue(24);
+    fireEvent.change(screen.getByRole('spinbutton',{ name:'Font size' }),{ target:{ value:'28' } });
+    fireEvent.change(screen.getByRole('spinbutton',{ name:'Opacity' }),{ target:{ value:'0' } });
+    fireEvent.change(screen.getByRole('spinbutton',{ name:'Mecanum vertical offset' }),{ target:{ value:'-0.4' } });
+    fireEvent.click(container.querySelector('[data-xgc-role="panel-config-save"]')!);
+    expect(onSave).toHaveBeenCalled();
+    expect(onSave.mock.calls[0]?.[1][0].actionPresets[0].inputs).toMatchObject({
+      uavHeightProjection:false,labelScaleInvariant:true,labelFontSizeMeters:0.5,labelFontSizePixels:28,markerOpacity:0,mecanumLabelOffset:-0.4,
+    });
   });
 
   it('routes ROS automatic startup through its declared workflow-parameter authoring port',() => {
@@ -240,7 +336,11 @@ describe('PanelConfigDrawer Connections',() => {
     expect(shared).toBeInTheDocument();
     expect(within(shared).getByRole('button',{ name:'Simulation camera intrinsics' })).toBeInTheDocument();
     expect(within(shared).getByRole('button',{ name:'Physical camera intrinsics' })).toBeInTheDocument();
-    expect(within(shared).queryByRole('button',{ name:'Simulation camera pose source' })).toBeNull();
+    // The single pose-source selector became one camera-position choice per
+    // run mode (fdea20fb); a hand-set legacy pose keeps its fields below.
+    expect(within(shared).getByRole('button',{ name:'Simulation camera position' })).toBeInTheDocument();
+    expect(within(shared).getByRole('button',{ name:'Physical camera position' })).toBeInTheDocument();
+    expect(within(shared).queryByRole('button',{ name:'Simulation camera extrinsics' })).toBeNull();
     expect(drawer.querySelector('[data-xgc-role="panel-action-port-defaults"]')).toBeNull();
     expect(drawer.querySelector('[data-xgc-role="panel-config-connections"]')).toBeNull();
     expect(drawer.querySelector('[data-xgc-role="automation-parameter-schema-form"]')).toBeNull();

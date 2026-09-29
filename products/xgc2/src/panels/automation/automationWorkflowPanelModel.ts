@@ -46,9 +46,17 @@ export function configuredAutomationResourceIds(options: Record<string,unknown>)
 const algorithmActionTileLabels: Record<string,string> = {
   build: 'Build',
   custom1: 'Algorithm',
+  record: 'Record',
   'replay-3d': 'Replay 3D',
   'replay-image': 'Replay image',
 };
+
+/** Two-word tile names break between the words. One word stays one line. */
+export function actionTileTitleLines(label: string): readonly [string] | readonly [string, string] {
+  const words = label.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 2) return [words[0]!, words[1]!];
+  return [label];
+}
 
 export function automationActionButtonLabel(port: {
   id: string;

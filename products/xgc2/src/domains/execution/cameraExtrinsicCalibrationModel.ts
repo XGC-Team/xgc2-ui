@@ -2,15 +2,14 @@ import type { CameraExtrinsicPoint,CameraExtrinsicState } from './cameraExtrinsi
 
 export function cameraExtrinsicSolvePreflight(
   state: CameraExtrinsicState | undefined,
-  points: readonly CameraExtrinsicPoint[],
+  points: readonly CameraExtrinsicPoint[] = state?.samples ?? [],
 ) {
-  if (state?.mode !== 'frozen') return 'Freeze a camera frame before solving.';
-  if (points.length < 4) return `Select ${4 - points.length} more marker${points.length === 3 ? '' : 's'}.`;
-  const markers = new Map(state.markers.map((marker) => [marker.name,marker.position]));
-  const positions = points.map((point) => markers.get(point.marker));
-  if (positions.some((position) => !position)) return 'One or more selected robot poses are no longer available.';
+  if (!state) return 'Waiting for the calibration backend.';
+  if (points.length < 4) return 'Capture at least four positions.';
+  const positions = points.map((point) => point.world);
+  if (positions.some((position) => !position || !position.every(Number.isFinite))) return 'A captured pose is unavailable.';
   if (spansPlane(positions as ReadonlyArray<readonly [number,number,number]>)) return '';
-  return 'The selected robot poses are collinear. Choose markers that span more than one row.';
+  return 'The captured positions are collinear. Capture positions spanning an area.';
 }
 
 function spansPlane(points: ReadonlyArray<readonly [number,number,number]>) {

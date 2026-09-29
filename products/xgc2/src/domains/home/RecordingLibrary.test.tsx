@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { fireEvent,render,screen } from '@testing-library/react';
-import { describe,expect,it,vi } from 'vitest';
+import { fireEvent,render,screen,waitFor,within } from '@testing-library/react';
+import { beforeEach,describe,expect,it,vi } from 'vitest';
 import type { RecordingFile } from '../recording/recordingPublic';
 import { RouteReadyProvider } from '../../shared/routeReady';
 import {
@@ -8,6 +8,11 @@ import {
   type RecordingLibraryActionContribution,
 } from './RecordingLibrary';
 import type { RecordingLibrary as RecordingLibraryState } from './useRecordingLibrary';
+
+const thumbnails = vi.hoisted(() => ({ fetch: vi.fn() }));
+vi.mock('../recording/recordingPublic', () => ({
+  fetchRecordingThumbnail: thumbnails.fetch,
+}));
 
 function file(id: string, extra: Partial<RecordingFile> = {}): RecordingFile {
   return { id, name: id, size: 2048, createdAt: '2026-07-18T02:14:00.000Z', ...extra };
@@ -36,15 +41,15 @@ function library(overrides: Partial<RecordingLibraryState> = {}): RecordingLibra
   };
 }
 
-const openFolderAction: RecordingLibraryActionContribution = {
-  id: 'recording-open-folder',
+const extraPlayerAction: RecordingLibraryActionContribution = {
+  id: 'recording-extra',
   component: () => (
     <button
       type="button"
-      data-xgc-role="recording-open-folder"
-      data-xgc-id="recording-open-folder"
+      data-xgc-role="recording-extra"
+      data-xgc-id="recording-extra"
     >
-      Open folder
+      Extra
     </button>
   ),
 };
@@ -61,6 +66,52 @@ function renderLibrary(
 }
 
 describe('RecordingLibrary', () => {
+  beforeEach(() => {
+    thumbnails.fetch.mockReset();
+    thumbnails.fetch.mockRejectedValue(new Error('thumbnail fetch should be skipped'));
+  });
+  it('embeds into Figures without a nested Panel heading or route-ready gate', () => {
+    const onReady = vi.fn();
+    const { container } = render(
+      <RouteReadyProvider onReady={onReady}>
+        <RecordingLibrary
+          embedded
+          library={library({ loading: true, recordings: [], filtered: [] })}
+          runtime={runtime}
+        />
+      </RouteReadyProvider>,
+    );
+    const root = container.querySelector('[data-xgc-role="recording-library"][data-xgc-id="recording-library"]');
+    expect(root).toHaveClass('scientific-gallery-recordings');
+    expect(root).not.toHaveClass('xgc-panel', 'home-gallery-card');
+    expect(screen.queryByRole('heading', { level: 2, name: 'Screen recordings' })).toBeNull();
+    expect(container.querySelector('[data-xgc-role="recording-library-header"]')).toBeNull();
+    expect(container.querySelector('[data-xgc-role="recording-search"]')).toBeNull();
+    expect(container.querySelector('.scientific-gallery-recordings-toolbar')).toBeNull();
+    expect(onReady).toHaveBeenCalled();
+  });
+
+  it('gives an embedded player host the Stop and Delete actions instead of keeping them under the video', () => {
+    const onProvidePlayback = vi.fn();
+    const selected = file('screen.webm');
+    const { container } = render(
+      <RecordingLibrary
+        embedded
+        library={library({ selectedId: selected.id, selected, playbackUrl: 'blob:playback' })}
+        runtime={runtime}
+        onProvidePlayback={onProvidePlayback}
+      />,
+    );
+    expect(container.querySelector('[data-xgc-role="recording-stop"]')).toBeNull();
+    expect(container.querySelector('[data-xgc-role="recording-remove"]')).toBeNull();
+    expect(container.querySelector('[data-xgc-role="recording-video"]')).toHaveAttribute('src', 'blob:playback');
+    expect(onProvidePlayback).toHaveBeenCalledWith(expect.objectContaining({
+      recordingId: 'screen.webm',
+      stopLabel: 'Stop',
+      removeLabel: 'Delete',
+    }));
+  });
+
   it('defers the first screen to the workspace loading owner until recordings settle', () => {
     const onReady = vi.fn();
     const view = (loading: boolean) => (
@@ -82,7 +133,7 @@ describe('RecordingLibrary', () => {
   });
 
   it('retains loaded rows while refreshing and preserves a real initial error with Retry', () => {
-    const recordings = [file('xgc-screen-refresh.webm')];
+    const recordings = [file('xgc-screen-refresh.webm', { name: 'flight.mp4', relativePath: 'Experiments/TASE-4UGVs/Runs/2026-09-20_simulation/ScreenRecording/flight.mp4' })];
     const initial = library({ recordings,filtered:recordings });
     const { container,rerender } = renderLibrary(initial);
     const row = container.querySelector('[data-xgc-role="recording-row"]');
@@ -132,79 +183,46 @@ describe('RecordingLibrary', () => {
       .toHaveTextContent('This library displays previously saved videos.');
   });
 
-  it('lists recordings in System and XGC folders and selects one on click', () => {
-    const system = file('xscreen-2026-08-19.mp4');
-    const xgc = file('xgc-screen-flight.webm');
-    const recordings = [system, xgc];
-    const state = library({ recordings, filtered: recordings });
-    const { container } = renderLibrary(state);
-    expect(container.querySelector('[data-xgc-role="recording-folder"][data-xgc-id="system"]')).toBeInTheDocument();
-    expect(container.querySelector('[data-xgc-role="recording-folder"][data-xgc-id="xgc"]')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /System recordings/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /XGC recordings/ })).toBeInTheDocument();
-    expect(container.querySelector('[data-xgc-role="recording-row"][data-xgc-id="xscreen-2026-08-19.mp4"]')).toBeNull();
-    const xgcFolder = container.querySelector('[data-xgc-role="recording-folder"][data-xgc-id="xgc"]');
-    const xgcList = xgcFolder?.querySelector('ul');
-    const xgcRow = xgcFolder?.querySelector('[data-xgc-role="recording-row"][data-xgc-id="xgc-screen-flight.webm"]');
-    if (!(xgcList instanceof HTMLUListElement) || !(xgcRow instanceof HTMLElement)) {
-      throw new Error('expected a semantic list and recording row under the XGC folder');
-    }
-    expect(xgcRow.closest('li')).not.toBeNull();
-    expect(xgcList.contains(xgcRow)).toBe(true);
-    expect(xgcRow.querySelector('.home-recording-name')).toHaveTextContent('xgc-screen-flight.webm');
-    expect(xgcRow.querySelector('[data-xgc-role="recording-row-name"][data-xgc-id="xgc-screen-flight.webm"]'))
-      .toHaveTextContent('xgc-screen-flight.webm');
-    expect(xgcRow.querySelector('[data-xgc-role="recording-row-meta"][data-xgc-id="xgc-screen-flight.webm"]'))
-      .toBeInTheDocument();
-    expect(container.querySelector('[data-xgc-role="recording-folder-title"][data-xgc-id="xgc"]'))
-      .toHaveTextContent('XGC recordings');
-    expect(container.querySelector('[data-xgc-role="recording-folder-count"][data-xgc-id="xgc"]'))
-      .toHaveTextContent('1');
-    expect(container.querySelector('[data-xgc-role="recording-list"]')).toHaveAttribute('aria-label', 'Recording folders');
-    expect(container.querySelector('.home-recording-icon')).toBeNull();
-    fireEvent.click(xgcRow);
-    expect(state.select).toHaveBeenCalledWith('xgc-screen-flight.webm');
-  });
-
-  it('uses one folder-header geometry and gives long filenames the row width', () => {
-    const longName = 'xscreen-2026-08-19-ground-station-flight-recording-with-a-long-name.mp4';
-    const recordings = [file(longName), file('xgc-screen-flight.webm')];
-    const { container } = renderLibrary(library({ recordings, filtered: recordings }));
-    const toggles = [...container.querySelectorAll<HTMLButtonElement>('[data-xgc-role="recording-folder-toggle"]')];
-
-    expect(toggles).toHaveLength(2);
-    expect(toggles.map((toggle) => toggle.className)).toEqual([
-      'xgc-list-folder-title',
-      'xgc-list-folder-title',
-    ]);
-    expect(toggles.map((toggle) => toggle.closest('[data-xgc-role="recording-folder"]')?.getAttribute('data-xgc-id')))
-      .toEqual(['system', 'xgc']);
-
-    fireEvent.click(screen.getByRole('button', { name: /System recordings/ }));
-    const name = screen.getByText(longName);
-    const row = name.closest('[data-xgc-role="recording-row"]');
-    expect(row).toBe(container.querySelector(
-      `[data-xgc-role="recording-row"][data-xgc-id="${longName}"]`,
-    ));
-    expect(row).toBeInTheDocument();
-    expect(row).toHaveClass('home-recording-row');
-    expect(row?.querySelector('.home-recording-main')).toContainElement(name);
-    expect(row?.querySelector('.home-recording-main')).toHaveClass('home-recording-main');
-    expect(row?.querySelector('.home-recording-name')).toBe(name);
-    expect(row?.querySelector('.home-recording-meta')).toBeInTheDocument();
-    expect(row?.querySelector('.home-recording-meta')?.parentElement).toBe(row?.querySelector('.home-recording-main'));
-  });
-
-  it('starts System collapsed so both folder headers stay visible', () => {
-    const recordings = [file('xscreen-a.mp4'), file('xgc-screen-b.webm')];
-    const { container } = renderLibrary(library({ recordings, filtered: recordings }));
-    expect(container.querySelector('[data-xgc-role="recording-folder"][data-xgc-id="system"]')).toHaveAttribute('data-xgc-collapsed', 'true');
-    expect(container.querySelector('[data-xgc-role="recording-row"][data-xgc-id="xscreen-a.mp4"]')).toBeNull();
-    expect(container.querySelector('[data-xgc-role="recording-row"][data-xgc-id="xgc-screen-b.webm"]')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /System recordings/ }));
-    expect(container.querySelector('[data-xgc-role="recording-folder"][data-xgc-id="system"]')).not.toHaveAttribute('data-xgc-collapsed');
-    expect(container.querySelector('[data-xgc-role="recording-row"][data-xgc-id="xscreen-a.mp4"]')).toBeInTheDocument();
+  it('shows the real archive ancestry, folds runs, and selects by issued file ID', () => {
+    const recordings = [file('issued-1', { name: 'flight.mp4', relativePath: 'Experiments/TASE-4UGVs/Runs/2026-09-20_simulation/ScreenRecording/flight.mp4' })];
+    const state = library({ recordings });
+    const { container,rerender } = renderLibrary(state);
+    const runId = 'Experiments/TASE-4UGVs/Runs/2026-09-20_simulation';
+    const toggle = container.querySelector(`[data-xgc-role="recording-folder-toggle"][data-xgc-id="${runId}"]`)!;
+    const row = () => container.querySelector('[data-xgc-role="recording-row"][data-xgc-id="issued-1"]');
+    expect(container.querySelector('[data-xgc-role="recording-folder-title"][data-xgc-id="Experiments"]')).toHaveTextContent('Experiments');
+    expect(container.querySelector('[data-xgc-role="recording-folder-title"][data-xgc-id="Experiments/TASE-4UGVs"]')).toHaveTextContent('TASE-4UGVs');
+    expect(row()?.closest('li')).not.toBeNull();
+    expect(row()?.querySelector('[data-xgc-role="recording-row-name"]')).toHaveTextContent('flight.mp4');
+    expect(row()?.querySelector('[data-xgc-role="recording-row-meta"]')).toBeInTheDocument();
+    fireEvent.click(row()!);
+    expect(state.select).toHaveBeenCalledWith('issued-1');
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(row()).toBeNull();
+    // Search reveals a match under a folded directory, preserving fold state afterwards.
+    rerender(<RecordingLibrary library={{ ...state, query:'TASE', filtered:[recordings[0]!] }} runtime={runtime} />);
+    expect(row()).toBeInTheDocument();
+    rerender(<RecordingLibrary library={state} runtime={runtime} />);
+    expect(row()).toBeNull();
+    fireEvent.click(toggle);
+    expect(row()).toBeInTheDocument();
     expect(container.querySelector('.home-recording-list .xgc-list-folder')).not.toHaveClass('xgc-panel');
+  });
+
+  it('does not keep unmanaged files in a second home folder', () => {
+    const recordings = [file('xscreen-2026-08-19-ground-station-flight-recording-with-a-long-name.mp4'), file('xgc-screen-flight.webm')];
+    const { container } = renderLibrary(library({ recordings }));
+    expect(container.querySelector('[data-xgc-role="recording-folder"]')).toBeNull();
+    expect(container.querySelector('[data-xgc-role="recording-row"]')).toBeNull();
+    expect(screen.getByText('No matching recordings')).toBeInTheDocument();
+  });
+
+  it('shows an empty search without discarding the selected video', () => {
+    const selected = file('selected.mp4');
+    renderLibrary(library({ query:'missing', filtered:[], selectedId:selected.id, selected, playbackUrl:'blob:current' }));
+    expect(screen.getByText('No matching recordings')).toBeInTheDocument();
+    expect(document.querySelector('[data-xgc-role="recording-video"]')).toHaveAttribute('src', 'blob:current');
   });
 
   it('asks the operator to select a recording with two centered lines and no film icon', () => {
@@ -221,6 +239,59 @@ describe('RecordingLibrary', () => {
       .toHaveTextContent('Select a recording on the left to play it here.');
   });
 
+  it('shows a recent nine-cell grid of archived recordings when none is selected', async () => {
+    const recordings = [
+      ...Array.from({ length: 10 }, (_, index) => file(`issued-${index}`, {
+        name: `clip-${index}.mp4`,
+        relativePath: `Experiments/TASE-4UGVs/Runs/2026-09-20_simulation/ScreenRecording/clip-${index}.mp4`,
+      })),
+      file('loose.webm'),
+    ];
+    const state = library({ recordings });
+    const { container } = renderLibrary(state);
+    const player = container.querySelector('[data-xgc-role="recording-player"][data-xgc-id="recording-player"]');
+    const tiles = [...container.querySelectorAll('[data-xgc-role="recording-recent-tile"]')];
+    expect(player?.querySelector('[data-xgc-role="recording-recent-grid"][data-xgc-id="recording-player"]')).toBeInTheDocument();
+    expect(player?.querySelector('[data-xgc-role="recording-player-title"]')).toBeNull();
+    expect(player).not.toHaveTextContent('Recent recordings');
+    expect(tiles).toHaveLength(9);
+    expect(tiles.map((tile) => tile.getAttribute('data-xgc-id'))).toEqual(
+      Array.from({ length: 9 }, (_, index) => `issued-${index}`),
+    );
+    expect(tiles[0]?.querySelector('[data-xgc-role="recording-recent-tile-name"][data-xgc-id="issued-0"]'))
+      .toHaveTextContent('clip-0.mp4');
+    expect(player?.querySelector('svg')).toBeNull();
+    expect(screen.queryByText('No recording selected')).not.toBeInTheDocument();
+    fireEvent.click(tiles[0]!);
+    expect(state.select).toHaveBeenCalledWith('issued-0');
+    await waitFor(() => expect(thumbnails.fetch).toHaveBeenCalledTimes(9));
+  });
+
+  it('loads issued JPEG posters into recent tiles without fetching the MP4', async () => {
+    Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: vi.fn(() => 'blob:poster') });
+    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: vi.fn() });
+    thumbnails.fetch.mockResolvedValue(new Blob([new Uint8Array([0xff, 0xd8, 0xff, 0xd9])], { type: 'image/jpeg' }));
+    const recordings = [
+      file('issued-0', {
+        name: 'clip-0.mp4',
+        relativePath: 'Experiments/TASE-4UGVs/Runs/2026-09-20_simulation/ScreenRecording/clip-0.mp4',
+        hasPoster: true,
+      }),
+      file('issued-1', {
+        name: 'clip-1.mp4',
+        relativePath: 'Experiments/TASE-4UGVs/Runs/2026-09-20_simulation/ScreenRecording/clip-1.mp4',
+      }),
+    ];
+    const { container } = renderLibrary(library({ recordings }));
+    await waitFor(() => {
+      expect(container.querySelector('.home-player-recent-poster-image')).toHaveAttribute('src', 'blob:poster');
+    });
+    await waitFor(() => expect(thumbnails.fetch).toHaveBeenCalledTimes(2));
+    expect(thumbnails.fetch).toHaveBeenCalledWith('issued-0');
+    expect(thumbnails.fetch).toHaveBeenCalledWith('issued-1');
+    expect(container.querySelectorAll('.home-player-recent-poster-image')).toHaveLength(2);
+  });
+
   it('forwards search input to the library query', () => {
     const state = library();
     renderLibrary(state);
@@ -228,17 +299,18 @@ describe('RecordingLibrary', () => {
     expect(state.setQuery).toHaveBeenCalledWith('flight');
   });
 
-  it('plays, stops, renders contributed open-folder action, and deletes a selected recording', () => {
+  it('plays, stops, and deletes a selected recording through the shared confirmation dialog', async () => {
     const selected = file('a.webm', { durationMs: 134_000, width: 1920, height: 1080 });
     const state = library({ selectedId: 'a.webm', selected, playbackUrl: 'blob:playback' });
-    const { container } = renderLibrary(state, [openFolderAction]);
+    const { container } = renderLibrary(state);
 
     const video = container.querySelector('[data-xgc-role="recording-video"]');
     expect(video).toHaveAttribute('src', 'blob:playback');
+    expect(video).toHaveAttribute('controls');
     expect(container.querySelector('[data-xgc-role="recording-download"]')).toBeNull();
     expect(container.querySelector('[data-xgc-role="recording-actions"]')).toBeInTheDocument();
-    expect(container.querySelector('[data-xgc-role="recording-open-folder"][data-xgc-id="recording-open-folder"]')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Open folder' })).toBeInTheDocument();
+    expect(container.querySelector('[data-xgc-role="recording-open-folder"]')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Open folder' })).not.toBeInTheDocument();
     expect(screen.queryByText('Recorded')).not.toBeInTheDocument();
     expect(screen.queryByText('Duration')).not.toBeInTheDocument();
     expect(screen.queryByText('Size')).not.toBeInTheDocument();
@@ -248,28 +320,24 @@ describe('RecordingLibrary', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Stop' }));
     expect(state.stopPlayback).toHaveBeenCalledOnce();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm delete' }));
-    expect(state.remove).toHaveBeenCalledWith('a.webm');
+    const remove = container.querySelector('[data-xgc-role="recording-remove"][data-xgc-id="a.webm"]')!;
+    expect(remove).toHaveTextContent('Delete');
+    fireEvent.click(remove);
+    const dialog = screen.getByRole('alertdialog', { name: 'Delete recording' });
+    expect(dialog).toHaveTextContent('Delete a.webm?');
+    expect(remove).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
+    await waitFor(() => expect(state.remove).toHaveBeenCalledWith('a.webm'));
   });
 
-  it('keeps a selected recording usable when no actions are contributed', () => {
+  it('still renders contributed player actions next to Stop and Delete', () => {
     const selected = file('a.webm');
     const state = library({ selectedId: 'a.webm', selected, playbackUrl: 'blob:playback' });
-    const { container } = renderLibrary(state, []);
+    const { container } = renderLibrary(state, [extraPlayerAction]);
 
-    expect(container.querySelector('[data-xgc-role="recording-library"]')).toBeInTheDocument();
     expect(container.querySelector('[data-xgc-role="recording-video"]')).toHaveAttribute('src', 'blob:playback');
-    expect(container.querySelector('[data-xgc-role="recording-actions"]')).toBeInTheDocument();
+    expect(container.querySelector('[data-xgc-role="recording-extra"][data-xgc-id="recording-extra"]')).toBeInTheDocument();
     expect(container.querySelector('[data-xgc-role="recording-open-folder"]')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Open folder' })).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Stop' }));
-    expect(state.stopPlayback).toHaveBeenCalledOnce();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm delete' }));
-    expect(state.remove).toHaveBeenCalledWith('a.webm');
   });
 
   it('keeps playback loading wordless inside the existing stage and retains its actions', () => {
@@ -299,7 +367,7 @@ describe('RecordingLibrary', () => {
     expect(screen.getByText('Could not load this recording.')).toBeInTheDocument();
   });
 
-  it('gives the retry and confirm-cancel buttons markable identities', () => {
+  it('gives retry a markable identity and keeps Delete after cancelling the shared dialog', () => {
     const error = library({ error: 'boom', recordings: [], filtered: [] });
     const { container, rerender } = renderLibrary(error);
     expect(container.querySelector('[data-xgc-role="recording-retry"][data-xgc-id="recording-retry"]')).toBeInTheDocument();
@@ -307,11 +375,13 @@ describe('RecordingLibrary', () => {
 
     const selected = file('a.webm');
     const state = library({ selectedId: 'a.webm', selected });
-    rerender(<RecordingLibrary library={state} runtime={runtime} actions={[]} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
-    const cancel = container.querySelector('[data-xgc-role="recording-remove-cancel"][data-xgc-id="a.webm"]');
-    expect(cancel).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-    expect(container.querySelector('[data-xgc-role="recording-remove-cancel"]')).toBeNull();
+    rerender(<RecordingLibrary library={state} runtime={runtime} />);
+    const remove = container.querySelector('[data-xgc-role="recording-remove"][data-xgc-id="a.webm"]')!;
+    fireEvent.click(remove);
+    const dialog = screen.getByRole('alertdialog', { name: 'Delete recording' });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(container.querySelector('[data-xgc-role="recording-remove"][data-xgc-id="a.webm"]')).toBe(remove);
+    expect(state.remove).not.toHaveBeenCalled();
   });
 });

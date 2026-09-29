@@ -1,6 +1,8 @@
 .xgc-ground-station-toast {
   overflow: hidden;
   animation-name: xgc-ground-station-toast-lifetime;
+  /* 默认生命周期原裸值 4s；fallback 取 220ms * 18 = 3.96s（policy 0.16.16 禁裸时长）。 */
+  animation-duration: var(--gsi-toast-duration, calc(var(--duration-deliberate) * 18));
   animation-timing-function: var(--easing-standard);
   animation-fill-mode: forwards;
 }
@@ -29,15 +31,15 @@
 
 .xgc-ground-station-toast-copy > p {
   color: var(--color-text);
-  font-size: var(--font-base);
-  line-height: var(--line-height-normal);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line-height);
   white-space: pre-wrap;
 }
 
 .xgc-ground-station-toast-copy > small {
   color: var(--color-text-muted);
-  font-family: var(--font-mono);
-  font-size: var(--font-xs);
+  font-family: var(--font-sans);
+  font-size: var(--type-meta-size);
   line-height: var(--line-height-tight);
 }
 
@@ -65,6 +67,10 @@
 @media (prefers-reduced-motion: reduce) {
   .xgc-ground-station-toast {
     animation-timing-function: linear;
+    /* kit 地板在 @layer vendor 里带 !important，层内 !important 恒赢无层 !important，
+       任何时长声明都无效；地板的 animation-duration 改为吃豁免变量，
+       产品在这里设置它即可保住「动画即计时器」的时长语义。 */
+    --xgc-reduced-motion-animation-duration: var(--gsi-toast-duration, calc(var(--duration-deliberate) * 18));
   }
 
   @keyframes xgc-ground-station-toast-lifetime {

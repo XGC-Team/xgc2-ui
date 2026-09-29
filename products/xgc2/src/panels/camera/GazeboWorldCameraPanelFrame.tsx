@@ -80,6 +80,7 @@ export function GazeboWorldCameraHeaderActions({
       dataXgcRole="gazebo-world-camera-pose-mode" dataXgcId={panel.id}
       data-xgc-available={pose?.canOpen ? 'true' : 'false'}
       title={poseReason ? `${posePurpose} ${poseReason}` : posePurpose}
+      disabled={!pose?.canOpen}
       onClick={(event) => {
         event.stopPropagation();
         frame.setPoseOpen(!frame.poseOpen);

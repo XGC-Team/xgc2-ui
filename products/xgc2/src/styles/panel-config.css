@@ -1,8 +1,5 @@
 .panel-config-drawer textarea {
   min-height: 92px;
-  font-family: var(--font-mono);
-  font-size: var(--font-base);
-  line-height: var(--line-height-relaxed);
 }
 
 .panel-config-drawer .config-drawer-actions-pair {
@@ -19,19 +16,6 @@
 .panel-workflow-binding-select {
   min-width: 0;
   max-width: 100%;
-}
-
-.panel-workflow-binding-select > button,
-.panel-workflow-binding-select > button > span {
-  min-width: 0;
-  max-width: 100%;
-}
-
-.panel-workflow-binding-select > button > span {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 [data-xgc-role="select-option"][data-xgc-id^="camera-intrinsic-calibration:"],
@@ -104,6 +88,7 @@
 .panel-library-item strong {
   color: var(--color-text-heading);
   font-size: var(--xgc-shell-ui-font-size, var(--font-base));
+  font-weight: var(--weight-semibold);
 }
 
 .panel-library-item small {

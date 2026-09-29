@@ -1,34 +1,3 @@
-/* Lock the Home workspace to the visible content box. Masonry row-spans plus
- * row-gap used to grow past the viewport and force page scroll. */
-.xgc-workspace-content:has(> .home-page.xgc-workspace-full-span),
-.xgc-workspace-content:has(> [data-xgc-route-page="home"]:not([hidden])) {
-  overflow: hidden;
-}
-
-.home-page {
-  box-sizing: border-box;
-  width: 100%;
-  height: 100%;
-  min-height: 0;
-  max-height: 100%;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.home-gallery {
-  flex: 1 1 0;
-  min-height: 0;
-  height: 100%;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
-  grid-template-rows: minmax(0, 1fr);
-  grid-auto-flow: dense;
-  align-items: stretch;
-  column-gap: var(--space-xl);
-  row-gap: var(--space-md);
-}
-
 /* Home cards are shared Panels; this class now carries only grid placement.
  * Chrome (surface, border, radius, shadow, header) comes from Panel. */
 .home-gallery-card {
@@ -85,8 +54,6 @@
 .home-recording-list {
   --xgc-list-folder-gap: var(--space-xs);
   --xgc-list-folder-item-gap: var(--space-xs);
-  /* One nest step under the folder title; do not generalize to ListFolder. */
-  --home-recording-row-indent: var(--space-lg);
   min-width: 0;
   min-height: 0;
   margin: 0;
@@ -107,6 +74,7 @@
 }
 
 .home-recording-list [data-xgc-role="recording-folder-toggle"] {
+  justify-content: flex-start;
   gap: var(--space-sm);
   padding: var(--space-2xs) var(--space-sm);
   border-radius: var(--radius-control);
@@ -117,7 +85,21 @@
   background: var(--color-bg-surface-hover);
 }
 
+.home-recording-folder-children {
+  min-width: 0;
+  padding-inline-start: var(--space-sm);
+}
+
+.home-recording-folder-count {
+  margin-inline-start: auto;
+  color: var(--color-text-muted);
+}
+
 .home-recording-folder-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--color-text-heading);
   font-family: var(--font-sans);
   font-size: var(--font-base);
@@ -139,8 +121,7 @@
 
 .home-recording-row {
   box-sizing: border-box;
-  width: calc(100% - var(--home-recording-row-indent));
-  margin-inline-start: var(--home-recording-row-indent);
+  width: 100%;
   min-width: 0;
   height: auto;
   min-height: var(--size-control-compact);
@@ -235,6 +216,94 @@
   font-size: var(--font-base);
 }
 
+.home-player--recent {
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: var(--space-sm);
+}
+
+.home-player-recent-grid {
+  flex: 1 1 0;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(3, minmax(0, 1fr));
+  gap: var(--space-xs);
+  overflow: hidden;
+}
+
+.home-player-recent-grid .home-player-recent-tile {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: var(--space-2xs);
+  padding: var(--space-2xs);
+  text-align: left;
+  cursor: pointer;
+  background: transparent;
+  border: var(--stroke-thin) solid transparent;
+  border-radius: var(--radius-control);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: var(--font-base);
+  font-weight: var(--weight-regular);
+  line-height: var(--line-height-tight);
+  transition: border-color var(--duration-fast) var(--easing-standard), background var(--duration-fast) var(--easing-standard);
+}
+
+.home-player-recent-grid .home-player-recent-tile:hover {
+  background: var(--color-bg-surface-hover);
+}
+
+.home-player-recent-grid .home-player-recent-tile:focus-visible {
+  outline: var(--stroke-strong) solid var(--color-border-focus);
+  outline-offset: 0;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.home-player-recent-poster {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--color-bg-canvas);
+  border-radius: var(--radius-control);
+}
+
+.home-player-recent-poster-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.home-player-recent-name {
+  flex: 0 0 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-player-recent-meta {
+  flex: 0 0 auto;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: var(--space-sm);
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+}
+
 .home-player-stage {
   position: relative;
   flex: 1 1 0;
@@ -250,6 +319,10 @@
 .home-player-video {
   width: 100%;
   height: 100%;
+  min-width: 0;
+  min-height: 0;
+  max-width: 100%;
+  max-height: 100%;
   object-fit: contain;
   background: var(--color-bg-canvas);
 }
@@ -261,58 +334,31 @@
   font-size: var(--font-base);
 }
 
-.home-player-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-md);
-}
-
-.home-player-confirm {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-md);
-}
-
-.home-bag-plot {
-  gap: var(--space-sm);
-}
-
-.home-bag-fields {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-xs);
+.home-player-footer {
+  flex: 0 0 auto;
   min-width: 0;
-}
-
-.home-bag-field {
   max-width: 100%;
-  border: var(--stroke-thin) solid transparent;
+  padding-bottom: var(--space-panel-padding);
 }
 
-.home-bag-field[aria-pressed="true"] {
-  background: var(--color-bg-selected);
-  border-color: var(--color-border-primary);
-}
-
-.home-bag-chart {
-  flex: 1 1 0;
+.home-player-actions {
+  display: inline-grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  align-items: stretch;
+  width: max-content;
   min-width: 0;
-  min-height: 0;
-  overflow: hidden;
+  max-width: 100%;
+  gap: var(--space-md);
 }
 
-.home-bag-chart svg {
-  display: block;
+.home-player-actions [data-xgc-role="recording-stop"],
+.home-player-actions [data-xgc-role="recording-remove"] {
   width: 100%;
-  height: 100%;
+  justify-content: center;
 }
 
 @container xgc-workspace (max-width: 760px) {
-  .home-gallery {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .home-gallery-card[data-xgc-columns="wide"],
   .home-gallery-card[data-xgc-columns="full"] {
     grid-column: auto;

@@ -2,14 +2,16 @@ import { useEffect,useMemo,useRef,useState } from 'react';
 import { Check,RefreshCw } from 'lucide-react';
 import { Button,EmptyState,Notice,Vector3Control } from '@xgc2/ui-react';
 import { ConfigDrawer } from '../../components/ConfigDrawer';
+import { ControlButton } from '../../components/controls/ControlButton';
 import { InputControl } from '../../components/controls/TextControls';
 import { robotAssetChassisClass,useRobotAssetKindComposition,useRobotText,type RobotAssetDocument } from '../../domains/robot/robotAssetPublic';
 import {
   loadExperimentCoordinateSamples,
-  computeExperimentWorldOrigin,
   computeExperimentSimulationInitialPoses,
   type ExperimentRobotBinding,
   type ExperimentLocalizationOffset,
+  coordinateFieldNumber,
+  coordinateFieldText,
 } from '../../domains/experiment/experimentPublic';
 import { ExperimentRobotPortrait } from './ExperimentRobotPortrait';
 import './experiment-coordinate-drawer.css';
@@ -19,7 +21,7 @@ type Samples = Awaited<ReturnType<typeof loadExperimentCoordinateSamples>>;
 const AXES = ['x','y','z'] as const;
 
 export function ExperimentCoordinateDrawer({
-  view,targetId,runId,runMode,experimentResourceId,bindings,assets,offset,disabledReason = '',editing = false,visible = true,
+  view,targetId,runId,runMode,experimentResourceId,expectedCommitId,expectedDigest,sessionId,robotRunIds,bindings,assets,offset,disabledReason = '',editing = false,visible = true,
   onSaveOrigin,onSavePoses,onClose,
 }: {
   view: CoordinateView;
@@ -27,6 +29,10 @@ export function ExperimentCoordinateDrawer({
   runId?: string;
   runMode: string;
   experimentResourceId: string;
+  expectedCommitId: string;
+  expectedDigest: string;
+  sessionId: string;
+  robotRunIds: readonly string[];
   bindings: readonly ExperimentRobotBinding[];
   assets: readonly RobotAssetDocument[];
   offset: ExperimentLocalizationOffset;
@@ -39,7 +45,8 @@ export function ExperimentCoordinateDrawer({
 }) {
   const t = useRobotText();
   const composition = useRobotAssetKindComposition();
-  const [mode,setMode] = useState<'sample' | 'custom'>(runId ? 'sample' : 'custom');
+  const ownerIdentity = JSON.stringify(robotRunIds);
+  const owners = useMemo(() => JSON.parse(ownerIdentity) as string[],[ownerIdentity]);
   const [samples,setSamples] = useState<Samples>();
   const [selected,setSelected] = useState<string[]>([]);
   const [manualRobot,setManualRobot] = useState(bindings[0]?.id ?? '');
@@ -49,7 +56,6 @@ export function ExperimentCoordinateDrawer({
   const [loading,setLoading] = useState(false);
   const [saving,setSaving] = useState(false);
   const [error,setError] = useState('');
-  const [receipt,setReceipt] = useState('');
   const [dirty,setDirty] = useState(false);
   const saveController = useRef<AbortController | null>(null);
 
@@ -67,7 +73,7 @@ export function ExperimentCoordinateDrawer({
     setLoading(true);
     setSamples(undefined);
     void loadExperimentCoordinateSamples({
-      targetId,runId,runMode,experimentResourceId,bindings,composition,signal:controller.signal,
+      targetId,runId,runMode,experimentResourceId,expectedCommitId,expectedDigest,sessionId,robotRunIds:owners,bindings,composition,signal:controller.signal,
     }).then((value) => {
       if (controller.signal.aborted) return;
       setSamples(value);
@@ -77,29 +83,20 @@ export function ExperimentCoordinateDrawer({
       if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : String(cause));
     }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  },[targetId,runId,runMode,experimentResourceId,bindings,composition,refresh,visible]);
+  },[targetId,runId,runMode,experimentResourceId,expectedCommitId,expectedDigest,sessionId,owners,bindings,composition,refresh,visible]);
 
-  const candidates = (samples?.samples ?? []).filter((sample) => view !== 'origin' || sample.rawPosition);
-  const preview = useMemo(() => {
-    try {
-      if (mode === 'custom') return { origin,poses,error:'' };
-      if (!samples || selected.length === 0) return { error:'' };
-      return view === 'origin'
-        ? { origin:computeExperimentWorldOrigin(samples.samples,selected,samples.capturedAt).rawOrigin,error:'' }
-        : { poses:computeExperimentSimulationInitialPoses(bindings,samples.samples,selected,samples.capturedAt),error:'' };
-    } catch (cause) {
-      return { error:cause instanceof Error ? cause.message : String(cause) };
-    }
-  },[mode,origin,poses,samples,selected,view,bindings]);
+  const candidates = (samples?.samples ?? []).filter((sample) => sample.physical && sample.rawPosition);
   const selectedPose = poses.find((binding) => binding.id === manualRobot);
   const valid = view === 'origin'
-    ? preview.origin && AXES.every((axis) => Number.isFinite(preview.origin?.[axis]))
-    : mode === 'sample' ? selected.length > 0 && !preview.error
-      : poses.length > 0 && poses.every((binding) => Object.values(binding.initialPose).every(Number.isFinite));
+    ? AXES.every((axis) => Number.isFinite(origin[axis]))
+    : poses.length > 0 && poses.every((binding) => Object.values(binding.initialPose).every(Number.isFinite));
 
-  function edited() { setDirty(true);setReceipt('');setError(''); }
-  function toggle(id: string) {
-    setSelected((ids) => ids.includes(id) ? ids.filter((value) => value !== id) : [...ids,id]);
+  function edited() { setDirty(true);setError(''); }
+  function fillOrigin(sample: Samples['samples'][number]) {
+    const position = sample.rawPosition;
+    if (!position) return;
+    setSelected([sample.bindingId]);
+    setOrigin({ x:position.x,y:position.y,z:position.z });
     edited();
   }
   function updatePose(axis: 'x' | 'y' | 'z' | 'yaw',value: number) {
@@ -107,33 +104,39 @@ export function ExperimentCoordinateDrawer({
       ? { ...binding,initialPose:{ ...binding.initialPose,[axis]:value } } : binding));
     edited();
   }
+  function selectStartingRobot(bindingId: string) {
+    setManualRobot(bindingId);
+    const binding = poses.find((item) => item.id === bindingId);
+    const live = binding && samples ? samples.samples.filter((sample) => sample.bindingId === bindingId
+      && binding.ref.resourceId === sample.robotAssetId && binding.namespace === sample.namespace) : [];
+    if (live.length !== 1 || !samples) return;
+    try {
+      const next = computeExperimentSimulationInitialPoses(poses,samples.samples,[bindingId],offset);
+      setPoses(next.map((item) => ({ ...item,initialPose:{ ...item.initialPose } })));
+      edited();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    }
+  }
   async function save() {
-    if (!valid || disabledReason || saving || (mode === 'sample' && (!runId || loading))) return;
+    if (!valid || disabledReason || saving) return;
     const controller = new AbortController();
     saveController.current = controller;
-    setSaving(true);setError('');setReceipt('');
+    setSaving(true);setError('');
     try {
-      const currentSamples = mode === 'sample'
-        ? await loadExperimentCoordinateSamples({ targetId,runId:runId!,runMode,experimentResourceId,bindings,composition,signal:controller.signal })
-        : undefined;
-      controller.signal.throwIfAborted();
-      if (currentSamples) setSamples(currentSamples);
       if (view === 'origin') {
-        const value = mode === 'sample'
-          ? computeExperimentWorldOrigin(currentSamples!.samples,selected).offset
-          : { x:-origin.x,y:-origin.y,z:-origin.z };
+        const value = { x:-origin.x,y:-origin.y,z:-origin.z };
         await onSaveOrigin(value);
         setOrigin({ x:-value.x,y:-value.y,z:-value.z });
       } else {
-        const value = mode === 'sample'
-          ? computeExperimentSimulationInitialPoses(bindings,currentSamples!.samples,selected)
-          : poses;
-        await onSavePoses(value);
-        setPoses(value.map((binding) => ({ ...binding,initialPose:{ ...binding.initialPose } })));
+        await onSavePoses(poses);
+        setPoses(poses.map((binding) => ({ ...binding,initialPose:{ ...binding.initialPose } })));
       }
       setDirty(false);
-      setReceipt(t(editing ? 'Added to the Edit draft. Save the Experiment to use it next time.' : 'Saved for the next experiment start.'));
-    } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
+    } catch (cause) {
+      if (controller.signal.aborted) return;
+      setError(cause instanceof Error ? cause.message : String(cause));
+    }
     finally { if (saveController.current === controller) saveController.current = null;setSaving(false); }
   }
 
@@ -149,97 +152,84 @@ export function ExperimentCoordinateDrawer({
       dismissible={!saving}
       onClose={onClose}
       closeOnBackdrop
-      footer={(
-        <div className="experiment-coordinate-save">
-          <div className="experiment-coordinate-receipt" role="status" data-xgc-role="experiment-coordinate-save-receipt" data-xgc-id={view}>
-            {receipt}
-          </div>
-          <Button appearance="solid" disabled={!valid || Boolean(disabledReason) || saving || (mode === 'sample' && (!runId || loading))} aria-busy={saving}
-            title={disabledReason || undefined} onClick={() => void save()}
-            data-xgc-role="experiment-coordinate-save" data-xgc-id={view}
-          >{t(editing ? 'Use in Edit draft' : 'Save for next start')}</Button>
-        </div>
+      actions={(
+        <ControlButton size="compact" tone="primary"
+          disabled={!valid || Boolean(disabledReason) || saving}
+          aria-busy={saving} title={disabledReason || undefined} onClick={() => void save()}
+          dataXgcRole="experiment-coordinate-save" dataXgcId={view}
+        >{t(editing ? 'Use in Edit draft' : 'Save for next start')}</ControlButton>
       )}
     >
       <div inert={saving}>
-      <div className="experiment-coordinate-source-row">
-      <div className="experiment-coordinate-modes" aria-label={t('Coordinate source')}>
-        {(['sample','custom'] as const).map((source) => (
-          <button type="button" key={source} aria-pressed={mode === source}
-            data-xgc-role="experiment-coordinate-source" data-xgc-id={source}
-            onClick={() => { setMode(source);setError('');setReceipt(''); }}
-          >{t(source === 'sample' ? 'Robots' : 'Custom')}</button>
-        ))}
-      </div>
-      {mode === 'sample' && <Button appearance="ghost" iconOnly disabled={!runId || loading || saving} aria-busy={loading}
-        aria-label={t('Refresh positions')} title={t('Refresh positions')}
-        data-xgc-role={view === 'starting-poses' ? 'experiment-robot-assets-fill-current-pose' : 'experiment-coordinate-refresh'}
-        data-xgc-id={view === 'starting-poses' ? 'experiment' : view} onClick={() => setRefresh((value) => value + 1)}
-      ><RefreshCw size={14} aria-hidden="true" /></Button>}
-      </div>
-      {mode === 'sample' ? (
+      {view === 'origin' ? (
         <>
-          <div className="experiment-coordinate-candidates" aria-busy={loading}>
+          <CoordinateInputs value={origin} id="origin"
+            onChange={(axis,value) => { setOrigin((current) => ({ ...current,[axis]:value }));edited(); }} />
+          {runId && <div className="experiment-coordinate-source-row">
+            <Button appearance="ghost" iconOnly disabled={loading || saving} aria-busy={loading}
+              aria-label={t('Refresh positions')} title={t('Refresh positions')}
+              data-xgc-role="experiment-coordinate-refresh" data-xgc-id={view}
+              onClick={() => setRefresh((value) => value + 1)}
+            ><RefreshCw size={14} aria-hidden="true" /></Button>
+          </div>}
+          {candidates.length > 0 && <div className="experiment-coordinate-candidates" aria-busy={loading}>
             {candidates.map((sample,index) => {
               const asset = assets.find((item) => item.head.resourceId === sample.robotAssetId);
-              const chosen = selected.includes(sample.bindingId);
               const chassis = asset ? robotAssetChassisClass(asset.spec,composition) : undefined;
               return (
-                <button type="button" className="experiment-coordinate-candidate experiment-robot-portrait-host" key={sample.bindingId}
-                  aria-pressed={chosen} disabled={saving} onClick={() => toggle(sample.bindingId)}
-                  title={formatPosition(view === 'origin' ? sample.rawPosition! : sample.pose)}
+                <Button appearance="ghost" type="button" className="experiment-coordinate-candidate experiment-robot-portrait-host" key={sample.bindingId}
+                  aria-pressed={selected[0] === sample.bindingId} disabled={saving} onClick={() => fillOrigin(sample)}
+                  title={formatPosition(sample.rawPosition!)}
                   data-xgc-role="experiment-coordinate-robot" data-xgc-id={sample.bindingId}
                 >
-                  <ExperimentRobotPortrait family={chassis === 'multirotor' ? 'air' : chassis === 'mecanum' ? 'mecanum' : chassis === 'unicycle' ? 'ground' : 'generic'} selected={chosen} variant={index} />
+                  <ExperimentRobotPortrait family={chassis === 'multirotor' ? 'air' : chassis === 'mecanum' ? 'mecanum' : chassis === 'unicycle' ? 'ground' : 'generic'} selected={selected[0] === sample.bindingId} variant={index} />
                   <strong>{asset?.spec.name ?? sample.name}</strong>
-                  <span className="experiment-coordinate-choice" aria-hidden="true">{chosen && <Check size={14} />}</span>
-                </button>
+                  <span className="experiment-coordinate-choice" aria-hidden="true">{selected[0] === sample.bindingId && <Check size={14} />}</span>
+                </Button>
               );
             })}
-            {!loading && candidates.length === 0 && (
-              <EmptyState appearance="plain" title={t('No tracked Robots')} />
-            )}
-          </div>
-          {samples?.originUnavailableReason && view === 'origin' && <Notice density="compact" tone="warning">{samples.originUnavailableReason}</Notice>}
+          </div>}
+          {samples?.originUnavailableReason && <Notice density="compact" tone="warning">{samples.originUnavailableReason}</Notice>}
         </>
-      ) : (
+      ) : bindings.length > 0 ? (
         <>
-          {view === 'origin' ? (
-            <CoordinateInputs value={origin} id="origin"
-              onChange={(axis,value) => { setOrigin((current) => ({ ...current,[axis]:value }));edited(); }} />
-          ) : bindings.length > 0 ? (
-            <>
-              <div className="experiment-coordinate-robot-tabs">
-                {bindings.map((binding,index) => {
-                  const asset = assets.find((item) => item.head.resourceId === binding.ref.resourceId);
-                  const chassis = asset ? robotAssetChassisClass(asset.spec,composition) : undefined;
-                  return <button type="button" key={binding.id} className="experiment-robot-portrait-host"
-                    aria-pressed={manualRobot === binding.id} onClick={() => setManualRobot(binding.id)}
-                    data-xgc-role="experiment-coordinate-manual-robot" data-xgc-id={binding.id}
-                  ><ExperimentRobotPortrait family={chassis === 'multirotor' ? 'air' : chassis === 'mecanum' ? 'mecanum' : chassis === 'unicycle' ? 'ground' : 'generic'}
-                    selected={manualRobot === binding.id} variant={index} motion={false} />
-                    <span>{asset?.spec.name ?? binding.id}</span>
-                  </button>;
-                })}
-              </div>
-              {selectedPose && <>
-                <CoordinateInputs value={selectedPose.initialPose} id={manualRobot} onChange={updatePose} />
-                <label className="experiment-coordinate-heading">{t('Heading')}
-                  <InputControl type="number" step="any" unit="rad" value={String(selectedPose.initialPose.yaw)}
-                    aria-label={t('Heading')} dataXgcRole="experiment-coordinate-yaw" dataXgcId={manualRobot}
-                    onChange={(value) => updatePose('yaw',parseInput(value))} />
-                </label>
-              </>}
-            </>
-          ) : <EmptyState appearance="plain" title={t('Add Robots before defining starting poses.')} />}
+          {runId && <div className="experiment-coordinate-source-row">
+            <Button appearance="ghost" iconOnly disabled={loading || saving} aria-busy={loading}
+              aria-label={t('Refresh positions')} title={t('Refresh positions')}
+              data-xgc-role="experiment-robot-assets-fill-current-pose" data-xgc-id="experiment"
+              onClick={() => setRefresh((value) => value + 1)}
+            ><RefreshCw size={14} aria-hidden="true" /></Button>
+          </div>}
+          <div className="experiment-coordinate-robot-tabs">
+            {bindings.map((binding,index) => {
+              const asset = assets.find((item) => item.head.resourceId === binding.ref.resourceId);
+              const chassis = asset ? robotAssetChassisClass(asset.spec,composition) : undefined;
+              const pressed = manualRobot === binding.id;
+              const name = asset?.spec.name ?? binding.id;
+              return <Button appearance="ghost" type="button" key={binding.id} className="experiment-robot-portrait-host"
+                aria-pressed={pressed} disabled={saving} onClick={() => selectStartingRobot(binding.id)}
+                data-xgc-role="experiment-coordinate-manual-robot" data-xgc-id={binding.id}
+              ><ExperimentRobotPortrait family={chassis === 'multirotor' ? 'air' : chassis === 'mecanum' ? 'mecanum' : chassis === 'unicycle' ? 'ground' : 'generic'}
+                selected={pressed} variant={index} motion={false} />
+                <span>{name}</span>
+                <span className="experiment-coordinate-choice" aria-hidden="true">{pressed && <Check size={14} />}</span>
+              </Button>;
+            })}
+          </div>
+          {selectedPose && <>
+            <p className="experiment-coordinate-selected-robot" data-xgc-role="experiment-coordinate-selected-robot" data-xgc-id={manualRobot}>
+              {assets.find((item) => item.head.resourceId === selectedPose.ref.resourceId)?.spec.name ?? manualRobot}
+            </p>
+            <CoordinateInputs value={selectedPose.initialPose} id={manualRobot} onChange={updatePose} />
+            <label className="experiment-coordinate-heading">{t('Heading')}
+              <InputControl type="number" step="0.01" unit="rad" value={coordinateFieldText(selectedPose.initialPose.yaw)}
+                aria-label={t('Heading')} dataXgcRole="experiment-coordinate-yaw" dataXgcId={manualRobot}
+                onChange={(value) => updatePose('yaw',coordinateFieldNumber(value))} />
+            </label>
+          </>}
         </>
-      )}
-      {view === 'origin' && mode === 'sample' && preview.origin && valid && (
-        <section className="experiment-coordinate-preview" data-xgc-role="experiment-coordinate-preview" data-xgc-id={view}>
-          <span>{t('Geometric centre')}</span><strong>{formatPosition(preview.origin)}</strong>
-        </section>
-      )}
-      {(error || preview.error) && <Notice density="compact" tone="danger" data-xgc-role="experiment-coordinate-error" data-xgc-id={view}>{error || preview.error}</Notice>}
+      ) : <EmptyState appearance="plain" title={t('Add Robots before defining starting poses.')} />}
+      {error && <Notice density="compact" tone="danger" data-xgc-role="experiment-coordinate-error" data-xgc-id={view}>{error}</Notice>}
       </div>
     </ConfigDrawer>
   );
@@ -251,11 +241,10 @@ function CoordinateInputs({ value,id,onChange }: {
 }) {
   return <div className="experiment-coordinate-inputs"><Vector3Control unit="m"
     dataXgcRole="experiment-coordinate-position" dataXgcId={id}
-    axes={AXES.map((axis) => ({ value:Number.isFinite(value[axis]) ? String(value[axis]) : '',label:axis.toUpperCase(),ariaLabel:axis.toUpperCase(),step:0.1,dataXgcRole:'experiment-coordinate-axis',dataXgcId:`${id}:${axis}` })) as [
+    axes={AXES.map((axis) => ({ value:coordinateFieldText(value[axis]),label:axis.toUpperCase(),ariaLabel:axis.toUpperCase(),step:0.01,dataXgcRole:'experiment-coordinate-axis',dataXgcId:`${id}:${axis}` })) as [
       {value:string;label:string;ariaLabel:string;step:number;dataXgcRole:string;dataXgcId:string}, {value:string;label:string;ariaLabel:string;step:number;dataXgcRole:string;dataXgcId:string}, {value:string;label:string;ariaLabel:string;step:number;dataXgcRole:string;dataXgcId:string}
     ]}
-    onValueChange={(index,next) => onChange(AXES[index],parseInput(next))}
+    onValueChange={(index,next) => onChange(AXES[index],coordinateFieldNumber(next))}
   /></div>;
 }
-function parseInput(value:string) { return value.trim() === '' ? Number.NaN : Number(value); }
 function formatPosition(value:ExperimentLocalizationOffset) { return `${value.x.toFixed(3)} · ${value.y.toFixed(3)} · ${value.z.toFixed(3)} m`; }

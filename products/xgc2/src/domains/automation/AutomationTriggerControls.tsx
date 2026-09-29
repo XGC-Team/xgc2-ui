@@ -1,6 +1,8 @@
+import { formatOperatorDateTime } from '../../shared/operatorTime';
 import { useEffect, useState } from 'react';
 import { Notice,StatusText } from '@xgc2/ui-react';
 import { ControlButton } from '../../components/controls/ControlButton';
+import { SwitchControl } from '../../components/FormPrimitives';
 import { TextareaControl } from '../../components/controls/TextControls';
 import { useDelayedTask } from '../../hooks/useDelayedTask';
 import { useLatestAsyncRequest } from '../../hooks/useLatestAsyncRequest';
@@ -71,6 +73,7 @@ export function AutomationTriggerControls({
   const listenerStatus = effectiveListenerStatus(listener, expiredListenerId);
   const listenerReady = listenerStatus === 'listening' && Boolean(listenerSession?.credential?.token);
   const activationDesired = activation?.desiredState === 'active';
+  const targetStartup = triggerKind === 'trigger.target-startup';
   const activationNeedsUpdate = activationDesired
     && (draftDiffersFromActivation || activation?.observedState === 'error');
 
@@ -192,7 +195,16 @@ export function AutomationTriggerControls({
                 ? t('Updating…')
                 : t(draftDiffersFromActivation ? 'Update activation' : 'Retry activation')}</ControlButton>
           )}
-          {interaction.activatable && (activationDesired ? (
+          {interaction.activatable && targetStartup ? (
+            <SwitchControl
+              checked={activationDesired}
+              onChange={(checked) => void runControlAction(checked ? onActivate : onDeactivate)}
+              label={t('Start when Agent starts')}
+              disabled={disabled || Boolean(busy)}
+              dataXgcRole="automation-trigger-autostart"
+              dataXgcId={entrypointNodeId}
+            />
+          ) : interaction.activatable && (activationDesired ? (
             <ControlButton
               size="compact"
               type="button"
@@ -325,6 +337,7 @@ export function AutomationTriggerControls({
           <TextareaControl
             id={`automation-test-payload-${entrypointNodeId}`}
             className="automation-trigger-controls-payload"
+            data-xgc-format="monospace"
             rows={3}
             value={payloadText}
             spellCheck={false}
@@ -411,6 +424,5 @@ function clampTTL(value: number) {
 }
 
 function formatTimestamp(value: string) {
-  const timestamp = Date.parse(value);
-  return Number.isFinite(timestamp) ? new Date(timestamp).toLocaleString() : value;
+  return formatOperatorDateTime(value);
 }

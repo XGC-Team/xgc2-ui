@@ -7,12 +7,21 @@ import {
   isAutomationExecutionRunActive,
   isFailedWorkflowRunStatus,
 } from '../../domains/automation/automationPublic';
-import type { ExperimentDocument } from '../../domains/experiment/experimentPublic';
+import {
+  experimentSessionIsRunning,
+  useExperimentStationOccupancy,
+  type ExperimentDocument,
+} from '../../domains/experiment/experimentPublic';
 import { useGroundStationErrorNotification } from '../../domains/groundStationInteraction/groundStationInteractionPublic';
+import {
+  ensureOperatorControlSession,
+  OperatorControlSessionNotice,
+  useOperatorControlSession,
+} from '../../domains/operatorAccess/operatorAccessPublic';
 import { postUgvChassisHold,useRobotSelection,useRobotText,useUgvChassisHold } from '../../domains/robot/robotPublic';
 import { workflowTileProgress } from '../../shared/measuredReadyProgress';
 import { panelDashboardId } from '../../shared/panelDashboard';
-import type { PanelActionPortRuntime,PanelPluginProps } from '../types';
+import type { PanelActionInvocation,PanelActionPortRuntime,PanelPluginProps } from '../types';
 import {
   PX4_SET_MODE_DEFAULT,
   PX4_SET_MODE_OPTIONS,
@@ -22,6 +31,7 @@ import {
 } from './px4RotorControlPanelModel';
 import { PREFLIGHT_ARM_TEST_WORKFLOW_SLOT } from './preflightStatusPanelModel';
 import { useRobotControlFrame } from './robotPanelFrameContext';
+import { PreflightArmTestDialog } from './PreflightArmTestDialog';
 import { RobotRemoteControlManager } from './RobotRemoteControlManager';
 
 export const PX4_ROTOR_CONTROL_PANEL_ITEM_COUNT = 4;
@@ -57,15 +67,33 @@ export function PX4RotorControlPanel({ panel,context }: PanelPluginProps<readonl
   const px4SelectionRefusal = selectedPX4.length === 0
     ? t('Select at least one PX4 robot in Robot instruments.')
     : '';
+  const occupancy = useExperimentStationOccupancy();
+  const experimentRunningRefusal = experiment
+    && experimentSessionIsRunning(occupancy.sessions,experiment.head.resourceId)
+    ? ''
+    : t('Start the Experiment before sending robot commands.');
+  const [armTest,setArmTest] = useState<{ invocation:PanelActionInvocation;robotIds:readonly string[] }>();
   const [mode,setMode] = useState<PX4SetModeOption>(PX4_SET_MODE_DEFAULT);
   const [busy,setBusy] = useState<Record<string,boolean>>({});
   const [error,setError] = useState('');
   useGroundStationErrorNotification(context.executionTargetId || 'local',error,{
     title:t('Robot control'),source:panel.id,dedupeKey:`${panel.id}:action-error`,
   });
+  // Motion-enabling commands verify the operator session first. Safety stops
+  // (disarm, kill, chassis hold) are never delayed by it.
+  const controlSession = useOperatorControlSession();
+  const controlSessionRefusal = controlSession.phase === 'denied'
+    ? t('Robot control needs a signed-in operator session on this browser.')
+    : controlSession.phase === 'unavailable'
+      ? t('The station could not confirm this browser; robot control is paused.')
+      : '';
 
-  async function invoke(port:PanelActionPortRuntime|undefined,id:string,inputs:Record<string,unknown>) {
+  async function invoke(port:PanelActionPortRuntime|undefined,id:string,inputs:Record<string,unknown>,requiresOperatorSession = false) {
     if (!port || busy[id]) return false;
+    if (requiresOperatorSession && !await ensureOperatorControlSession()) {
+      setError(controlSessionRefusal || t('Robot control needs a signed-in operator session on this browser.'));
+      return false;
+    }
     setBusy((current) => ({ ...current,[id]:true }));setError('');
     try {
       await port.invoke(inputs,`Invoke ${port.label} from Robot control`);
@@ -76,8 +104,9 @@ export function PX4RotorControlPanel({ panel,context }: PanelPluginProps<readonl
     } finally { setBusy((current) => ({ ...current,[id]:false })); }
   }
 
-  function commandRefusal(port:PanelActionPortRuntime|undefined,label:string) {
-    return context.disabledReason || px4SelectionRefusal || port?.disabledReason
+  function commandRefusal(port:PanelActionPortRuntime|undefined,label:string,requiresOperatorSession = false) {
+    return context.disabledReason || px4SelectionRefusal || experimentRunningRefusal || port?.disabledReason
+      || (requiresOperatorSession ? controlSessionRefusal : '')
       || (!port?.connected ? t('{action} is unavailable.',{ action:label }) : '')
       || (port?.activeInvocation ? t('{action} already has an active invocation.',{ action:label }) : '');
   }
@@ -87,7 +116,8 @@ export function PX4RotorControlPanel({ panel,context }: PanelPluginProps<readonl
     const port = context.ports.actions[actionId];
     const tile = experimentWorkflowTile(port,Boolean(busy[actionId]));
     const label = t(title || definition.label);
-    const refusal = commandRefusal(port,label);
+    const requiresOperatorSession = actionId === 'arm';
+    const refusal = commandRefusal(port,label,requiresOperatorSession);
     const inputs:Record<string,unknown> = { robotIds:selectedPX4 };
     const kill = actionId === 'force-disarm';
     return <WorkflowStatusCard key={actionId} className="robot-px4-action-card" layout="tile" title={px4ActionTitle(actionId,label)}
@@ -99,17 +129,33 @@ export function PX4RotorControlPanel({ panel,context }: PanelPluginProps<readonl
       dataXgcRole={`robot-operation-${actionId}`} dataXgcId={`${panel.id}:${actionId}`}
       runId={tile.runId} ariaLabel={label} titleAttr={refusal || t('Run {action}',{ action:label })}
       disabled={Boolean(refusal) || Boolean(busy[actionId])}
-      onClick={() => void invoke(port,actionId,inputs)} />;
+      onClick={() => void invoke(port,actionId,inputs,requiresOperatorSession)} />;
   }
 
   const preflight = context.ports.actions[PREFLIGHT_ARM_TEST_WORKFLOW_SLOT];
-  const preflightRefusal = commandRefusal(preflight,t('Arm test'));
+  const preflightRefusal = preflight?.activeInvocation ? '' : commandRefusal(preflight,t('Arm test'),true);
+  async function openArmTest() {
+    if (!preflight || busy[PREFLIGHT_ARM_TEST_WORKFLOW_SLOT]) return;
+    if (preflight.activeInvocation) { setArmTest({ invocation:preflight.activeInvocation,robotIds:selectedPX4 });return; }
+    if (!await ensureOperatorControlSession()) {
+      setError(controlSessionRefusal || t('Robot control needs a signed-in operator session on this browser.'));
+      return;
+    }
+    setBusy((current) => ({ ...current,[PREFLIGHT_ARM_TEST_WORKFLOW_SLOT]:true }));setError('');
+    try {
+      const invocation = await preflight.invoke({ robotIds:selectedPX4 },'Open preflight arm test');
+      setArmTest({ invocation,robotIds:[...selectedPX4] });
+    } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
+    finally { setBusy((current) => ({ ...current,[PREFLIGHT_ARM_TEST_WORKFLOW_SLOT]:false })); }
+  }
 
   const setModePort = context.ports.actions['set-flight-mode'];
   const setModeTile = experimentWorkflowTile(setModePort,Boolean(busy['set-flight-mode']));
-  const setModeRefusal = context.disabledReason || px4SelectionRefusal || setModePort?.disabledReason
+  const setModePickerRefusal = context.disabledReason || px4SelectionRefusal || setModePort?.disabledReason
     || (!setModePort?.connected ? t('Set mode is unavailable.') : '')
     || (setModePort?.activeInvocation ? t('Set mode already has an active invocation.') : '')
+    || (busy['set-flight-mode'] ? t('Set mode is already starting.') : '');
+  const setModeApplyRefusal = commandRefusal(setModePort,t('Set mode'),true)
     || (busy['set-flight-mode'] ? t('Set mode is already starting.') : '');
   const armTestTile = experimentWorkflowTile(preflight,Boolean(busy[PREFLIGHT_ARM_TEST_WORKFLOW_SLOT]));
   const armTestCard = (
@@ -125,7 +171,7 @@ export function PX4RotorControlPanel({ panel,context }: PanelPluginProps<readonl
       ariaLabel={t('Arm test')}
       disabled={Boolean(preflightRefusal) || Boolean(busy[PREFLIGHT_ARM_TEST_WORKFLOW_SLOT])}
       titleAttr={preflightRefusal || t('Run preflight arm test')}
-      onClick={() => void invoke(preflight,PREFLIGHT_ARM_TEST_WORKFLOW_SLOT,{ robotIds:selectedPX4 })} />
+      onClick={() => void openArmTest()} />
   );
 
   return <>
@@ -133,9 +179,10 @@ export function PX4RotorControlPanel({ panel,context }: PanelPluginProps<readonl
       <UgvEmergencyStopView panel={panel} context={context} experiment={experiment} />
     ) : (
       <div className="robot-control-panel robot-px4-control-panel" data-xgc-role="px4-multirotor-control" data-xgc-id={panel.id}>
+        <OperatorControlSessionNotice />
         <div className="robot-px4-operator-layout">
           <div className="robot-px4-mode-group" data-xgc-role="px4-set-mode" data-xgc-id={panel.id}>
-            <div className="robot-px4-mode-select" title={setModeRefusal || undefined}>
+            <div className="robot-px4-mode-select" title={setModePickerRefusal || undefined}>
               <SelectControl
                 fill
                 value={mode}
@@ -144,7 +191,7 @@ export function PX4RotorControlPanel({ panel,context }: PanelPluginProps<readonl
                 ariaLabel={t('Flight mode')}
                 dataXgcRole="px4-set-mode-select"
                 dataXgcId={panel.id}
-                disabled={Boolean(setModeRefusal)}
+                disabled={Boolean(setModePickerRefusal)}
               />
             </div>
             <WorkflowStatusCard
@@ -161,9 +208,9 @@ export function PX4RotorControlPanel({ panel,context }: PanelPluginProps<readonl
               dataXgcId={panel.id}
               runId={setModeTile.runId}
               ariaLabel={t('Set mode')}
-              disabled={Boolean(setModeRefusal) || Boolean(busy['set-flight-mode'])}
-              titleAttr={setModeRefusal || t('Set mode to {mode}',{ mode })}
-              onClick={() => void invoke(setModePort,'set-flight-mode',{ robotIds:selectedPX4,mode })}
+              disabled={Boolean(setModeApplyRefusal) || Boolean(busy['set-flight-mode'])}
+              titleAttr={setModeApplyRefusal || t('Set mode to {mode}',{ mode })}
+              onClick={() => void invoke(setModePort,'set-flight-mode',{ robotIds:selectedPX4,mode },true)}
             />
             {armTestCard}
             <div className="robot-px4-mode-shortcuts" data-xgc-role="px4-mode-shortcuts" data-xgc-id={panel.id}>
@@ -175,9 +222,9 @@ export function PX4RotorControlPanel({ panel,context }: PanelPluginProps<readonl
                   dataXgcRole="px4-set-mode-shortcut"
                   dataXgcId={`${panel.id}:${shortcut.mode}`}
                   aria-pressed={mode === shortcut.mode}
-                  aria-description={setModeRefusal || undefined}
-                  disabled={Boolean(setModeRefusal)}
-                  title={setModeRefusal || t('Select {mode} in the flight-mode list',{ mode:shortcut.mode })}
+                  aria-description={setModePickerRefusal || undefined}
+                  disabled={Boolean(setModePickerRefusal)}
+                  title={setModePickerRefusal || t('Select {mode} in the flight-mode list',{ mode:shortcut.mode })}
                   onClick={() => setMode(shortcut.mode)}
                 >{t(shortcut.label)}</ControlButton>
               ))}
@@ -189,6 +236,8 @@ export function PX4RotorControlPanel({ panel,context }: PanelPluginProps<readonl
         </div>
       </div>
     )}
+    {armTest && preflight?.execution && <PreflightArmTestDialog targetId={context.executionTargetId || 'local'} automation={preflight.execution}
+      port={preflight} invocation={armTest.invocation} robotIds={armTest.robotIds} onClose={() => setArmTest(undefined)} />}
     <RobotRemoteControlManager panel={panel} context={context} />
   </>;
 }
@@ -209,7 +258,16 @@ function UgvEmergencyStopView({
   useGroundStationErrorNotification(context.executionTargetId || 'local',error,{
     title:t('Robot control'),source:`${panel.id}:ugv-estop`,dedupeKey:`${panel.id}:ugv-estop`,
   });
+  // Engaging the hold stops robots and is never delayed; releasing it resumes
+  // live cmd_vel, so that direction verifies the operator session first.
+  const controlSession = useOperatorControlSession();
+  const controlSessionRefusal = controlSession.phase === 'denied'
+    ? t('Robot control needs a signed-in operator session on this browser.')
+    : controlSession.phase === 'unavailable'
+      ? t('The station could not confirm this browser; robot control is paused.')
+      : '';
   const refusal = context.disabledReason || (!experiment ? t('E-stop is unavailable.') : '')
+    || (held ? controlSessionRefusal : '')
     || (busy ? t('{action} already has an active invocation.',{ action:t('E-stop') }) : '');
   const title = held
     ? t('Release chassis hold and resume live cmd_vel.')
@@ -218,6 +276,10 @@ function UgvEmergencyStopView({
   async function toggle() {
     if (refusal || !experiment) return;
     const next = !held;
+    if (!next && !await ensureOperatorControlSession()) {
+      setError(controlSessionRefusal || t('Robot control needs a signed-in operator session on this browser.'));
+      return;
+    }
     setBusy(true);setError('');
     try {
       const result = await postUgvChassisHold(context.executionTargetId || 'local',{
@@ -235,6 +297,7 @@ function UgvEmergencyStopView({
 
   return (
     <div className="robot-control-panel robot-px4-control-panel" data-xgc-role="ugv-control-view" data-xgc-id={panel.id}>
+      <OperatorControlSessionNotice />
       <div className="robot-px4-operator-layout">
         <div className="robot-px4-action-grid" data-xgc-role="ugv-action-grid" data-xgc-id={panel.id} data-xgc-columns="4">
           <div className="robot-px4-estop-slot">

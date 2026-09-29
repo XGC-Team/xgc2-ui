@@ -299,15 +299,48 @@ function decodeOptionalResponse(value: unknown): GroundStationInteractionRespons
   // Only an approved decision submits a form; anything else carrying values is
   // a response this ground station cannot account for.
   if (values && action !== 'approved') return null;
+  const results = decodeDecisionResults(response.results);
+  if (results === null || (results && action !== 'approved')) return null;
   return {
     action,
     actor,
     ...(reason ? { reason } : {}),
     ...(values ? { values } : {}),
+    ...(results ? { results } : {}),
     ...(admission ? { admission } : {}),
     ...(policy ? {policy:{policyId:policy.policyId as string,policyRevision:policy.policyRevision as string,ruleId:policy.ruleId as string,mode:policy.mode as 'auto'|'deny'}} : {}),
     at,
   };
+}
+
+function decodeDecisionResults(value: unknown) {
+  if (value === undefined) return undefined;
+  const results = record(value);
+  if (!results || Object.keys(results).some((key) =>
+    !['invocationId','attempt','state','succeeded','failed','uncertain','at'].includes(key))) return null;
+  const invocationId = requiredText(results.invocationId, 128);
+  const attempt = positiveInteger(results.attempt);
+  const state = oneOf(results.state, ['completed','not-executed'] as const);
+  const at = validTimestamp(results.at);
+  const succeeded = decodeRobotIdList(results.succeeded);
+  const failed = decodeRobotIdList(results.failed);
+  const uncertain = decodeRobotIdList(results.uncertain);
+  if (!invocationId || !attempt || !state || !at || succeeded === null || failed === null || uncertain === null) return null;
+  const ids = [...succeeded ?? [], ...failed ?? [], ...uncertain ?? []];
+  if (ids.length > 256 || new Set(ids).size !== ids.length ||
+    (state === 'completed' ? ids.length === 0 : ids.length !== 0)) return null;
+  return {
+    invocationId, attempt, state, at,
+    ...(succeeded ? { succeeded } : {}),
+    ...(failed ? { failed } : {}),
+    ...(uncertain ? { uncertain } : {}),
+  };
+}
+
+function decodeRobotIdList(value: unknown): string[] | undefined | null {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value) || value.length === 0 || value.length > 256) return null;
+  return value.every((id) => typeof id === 'string' && ROBOT_ID.test(id)) ? value as string[] : null;
 }
 
 // null means malformed; undefined means the response submitted no form.
@@ -432,7 +465,8 @@ const interactionPresentations = ['toast','panel'] as const;
 const interactionResponseModes = ['none','decision'] as const;
 const interactionSeverities = ['info','success','warning','error','critical'] as const;
 const interactionActions = ['approved','rejected','canceled','dismissed'] as const;
-const interactionResponseKeys = ['action','actor','reason','values','at','admission','policy'];
+const interactionResponseKeys = ['action','actor','reason','values','results','at','admission','policy'];
+const ROBOT_ID = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$/;
 const formFieldKinds = ['string','number','boolean'] as const;
 const formFieldKeys = ['name','label','kind','required','default'];
 const formFieldNamePattern = /^[A-Za-z][A-Za-z0-9_-]{0,63}$/;

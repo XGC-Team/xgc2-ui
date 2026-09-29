@@ -5,7 +5,7 @@ export type AutomationNodeExecutionSummary = {
   runId: string;nodeId: string;kind: string;status: AutomationNodeExecutionSummaryStatus;latestInvocationId?: string;
   occurrenceCount: number;activeOccurrenceCount: number;completedOccurrenceCount: number;failedOccurrenceCount: number;
   attemptCount: number;
-  inputs?: unknown;output?: unknown;route?: string;errorClass?: 'transient' | 'permanent' | 'canceled' | 'uncertain';
+  inputs?: unknown;output?: unknown;progress?: unknown;route?: string;errorClass?: 'transient' | 'permanent' | 'canceled' | 'uncertain';
   error?: string;nextAttemptAt?: string;startedAt?: string;finishedAt?: string;updatedAt: string;revision: number;
 };
 export type AutomationNodeAttemptPhase = 'execution' | 'compensation';

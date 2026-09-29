@@ -102,6 +102,7 @@ describe('ConfigDrawer', () => {
         discardChanges={['Name: A → B']}
         closeOnBackdrop
         showClose={false}
+        dataXgcId="edit-settings"
         actions={({ requestClose }) => (
           <ControlButton size="compact" onClick={requestClose}>Cancel</ControlButton>
         )}

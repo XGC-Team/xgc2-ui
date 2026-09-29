@@ -20,7 +20,6 @@ import { useHostRuntimeResource } from '../useHostRuntimeResource';
 import { useHostTask } from '../useHostTask';
 import { useDeferSystemTabReady } from '../hostSystemTabSurface';
 import '../HostRuntime.css';
-import './processes.css';
 
 export function HostProcessesSystemLeaf(context: HostSystemLeafProps<'Processes'>) {
   const t = useHostText();
@@ -202,6 +201,7 @@ function HostProcessTable({
       <SortableDataTable
         className="xgc-host-runtime-list"
         bodyScroll
+        virtualizeRows
         data-xgc-id="host-process-table"
         columns={[
           { id: 'pid',header: 'PID',sortable: true,cell: (process) => process.pid },

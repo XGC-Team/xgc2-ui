@@ -1,4 +1,4 @@
-import { useState,type FormEvent } from 'react';
+import { Fragment,useState,type FormEvent } from 'react';
 import { ControlButton } from '../../../components/controls/ControlButton';
 import { SelectControl } from '../../../components/controls/SelectControl';
 import { ConfigDrawer } from '../../../components/ConfigDrawer';
@@ -22,12 +22,14 @@ import {
   type ExperimentDocument,
   type ExperimentWorkflowInstance,
   type PanelActionPortBinding,
+  type PanelActionExecutionMode,
   type PanelInstance,
   type PanelPortBinding,
   type PanelWorkflowFailurePolicy,
   type PanelWorkflowPortBinding,
   type PanelWorkflowRelation,
 } from '../experimentModel';
+import { applyWorldCameraSourceSelection, WORLD_CAMERA_EXPERIMENT_ACTION_ID, WORLD_CAMERA_WORKFLOW_INSTANCE_ID } from '../worldCameraSource';
 import { listPanelConfigChanges } from './panelConfigChangeSummary';
 import { validatePanelInstance } from './panelValidation';
 import { useAppLanguage } from '../../../shared/localization/localizedText';
@@ -159,6 +161,7 @@ export function PanelConfigDrawer({
   const perActionDefaultsEditable = actionDefaultsExposure === 'editable';
   const sharedActionDefaults = sharedActionDefaultsEditable ? plugin?.sharedActionDefaults : undefined;
   const sharedActionDefaultNames = new Set(sharedActionDefaults?.fieldNames ?? []);
+  const optionsEditorActionDefaultNames = new Set(plugin?.optionsEditorActionDefaults ?? []);
   const runtimeBoundActionDefaultNames = new Set(plugin?.runtimeBoundActionDefaults ?? []);
   const sharedActionPresetOrder = panelWorkflowInstance ? [
     ...panelWorkflowInstance.actionPresets.filter((preset) => preset.id === panelWorkflow?.presetId),
@@ -178,6 +181,18 @@ export function PanelConfigDrawer({
     const context = sharedActionPresetContexts.find(({ preset }) => Object.hasOwn(preset.inputs,field.name));
     return [field.name,context?.preset.inputs[field.name]];
   }));
+
+  function updatePresetInput(instanceId: string, presetId: string, fieldName: string, value: unknown) {
+    setError('');
+    setWorkflowInstances((current) => current.map((candidate) => (
+      candidate.id !== instanceId ? candidate : {
+        ...candidate,
+        actionPresets: candidate.actionPresets.map((item) => item.id === presetId
+          ? { ...item,inputs: { ...item.inputs,[fieldName]:value } }
+          : item),
+      }
+    )));
+  }
 
   function updateSharedActionDefault(fieldName:string,value:unknown) {
     setWorkflowInstances((current) => current.map((candidate) => {
@@ -209,6 +224,37 @@ export function PanelConfigDrawer({
         }),
       }
     )));
+  }
+
+  function setActionBinding(portId:string,presetId:string) {
+    setPortBindings((current) => {
+      const previous = current.find((binding):binding is PanelActionPortBinding => binding.kind === 'action' && binding.portId === portId);
+      const sibling = current.find((binding):binding is PanelActionPortBinding => binding.kind === 'action' && binding.portId !== portId && binding.presetId === presetId);
+      const executionMode = sibling ? sibling.executionMode : previous?.executionMode;
+      return [
+        ...current.filter((binding) => binding.portId !== portId),
+        ...(presetId ? [{ portId,kind:'action' as const,presetId,...(executionMode === undefined ? {} : { executionMode }) }] : []),
+      ];
+    });
+  }
+
+  function setActionExecutionMode(presetId:string,mode:PanelActionExecutionMode) {
+    if (mode === 'standalone' && panelWorkflow?.presetId === presetId) return;
+    setPortBindings((current) => current.map((binding) => {
+      if (binding.kind !== 'action' || binding.presetId !== presetId) return binding;
+      const next = { ...binding };delete next.executionMode;
+      if (mode === 'standalone') next.executionMode = mode;
+      return next;
+    }));
+  }
+
+  function executionModeControl(binding:PanelActionPortBinding,label:string) {
+    return <FormField label={t('Execution mode')}>
+      <SelectControl fill value={binding.executionMode ?? 'session'} disabled={binding.presetId === panelWorkflow?.presetId && binding.executionMode !== 'standalone'}
+        options={[{ value:'session',label:t('With Experiment') },{ value:'standalone',label:t('Independently'),disabled:binding.presetId === panelWorkflow?.presetId }]}
+        ariaLabel={t('Run mode for {action}',{ action:label })} dataXgcRole="panel-action-execution-mode" dataXgcId={binding.portId}
+        onChange={(value) => setActionExecutionMode(binding.presetId,value as PanelActionExecutionMode)} />
+    </FormField>;
   }
 
   function setPanelWorkflow(nextValue:string) {
@@ -505,10 +551,11 @@ export function PanelConfigDrawer({
                 return {
                   value:preset.id,
                   label:`${preset.id}${action ? ` — ${action.label}` : ''}`,
+                  disabled:binding?.kind === 'action' && binding.executionMode === 'standalone' && preset.id === panelWorkflow?.presetId,
                 };
               });
               return (
-                <FormField key={port.id} label={portLabel} description={portDescription}>
+                <Fragment key={port.id}><FormField label={portLabel} description={portDescription}>
                   <SelectControl
                     value={value}
                     options={[{ value:'',label:'Not connected' },...choices]}
@@ -516,16 +563,10 @@ export function PanelConfigDrawer({
                     dataXgcRole="panel-action-port-binding"
                     dataXgcId={port.id}
                     fill
-                    onChange={(presetId) => {
-                      setPortBindings((current) => [
-                        ...current.filter((candidate) => candidate.portId !== port.id),
-                        ...(presetId
-                          ? [{ portId:port.id,kind:'action' as const,presetId }]
-                          : []),
-                      ]);
-                    }}
+                    onChange={(presetId) => setActionBinding(port.id,presetId)}
                   />
                 </FormField>
+                {binding?.kind === 'action' && executionModeControl(binding,portLabel)}</Fragment>
               );
             })}
             {plugin.dynamicActionPorts?.source === 'panel-action-bindings' && panelWorkflowInstance && (
@@ -549,35 +590,28 @@ export function PanelConfigDrawer({
                     dataXgcRole="panel-dynamic-action-add"
                     dataXgcId={panel.id}
                     fill
-                    onChange={(presetId) => {
-                      if (!presetId) return;
-                      setPortBindings((current) => [
-                        ...current,
-                        { portId:dynamicActionPortId(presetId),kind:'action' as const,presetId },
-                      ]);
-                    }}
+                    onChange={(presetId) => { if (presetId) setActionBinding(dynamicActionPortId(presetId),presetId); }}
                   />
                 </FormField>
                 {dynamicActionBindings.map((binding) => (
-                  <FormField key={binding.portId} label={panelActionLabel(binding.presetId,panelWorkflowInstance,automationDocuments)}>
+                  <Fragment key={binding.portId}><FormField label={panelActionLabel(binding.presetId,panelWorkflowInstance,automationDocuments)}>
                     <SelectControl
                       value={binding.presetId}
                       options={[
                         { value:'',label:'Not connected' },
                         ...panelWorkflowInstance.actionPresets.map((preset) => ({
                           value:preset.id,label:panelActionLabel(preset.id,panelWorkflowInstance,automationDocuments),
+                          disabled:binding.executionMode === 'standalone' && preset.id === panelWorkflow?.presetId,
                         })),
                       ]}
                       ariaLabel={panelActionLabel(binding.presetId,panelWorkflowInstance,automationDocuments)}
                       dataXgcRole="panel-dynamic-action-binding"
                       dataXgcId={binding.portId}
                       fill
-                      onChange={(presetId) => setPortBindings((current) => [
-                        ...current.filter((candidate) => candidate.portId !== binding.portId),
-                        ...(presetId ? [{ ...binding,presetId }] : []),
-                      ])}
+                      onChange={(presetId) => setActionBinding(binding.portId,presetId)}
                     />
                   </FormField>
+                  {executionModeControl(binding,panelActionLabel(binding.presetId,panelWorkflowInstance,automationDocuments))}</Fragment>
                 ))}
               </FormSection>
             )}
@@ -641,6 +675,7 @@ export function PanelConfigDrawer({
             const action = document && preset && automationActionById(document.spec,preset.actionId);
             const fields = action?.inputSchema.fields.filter((field) => (
               !sharedActionDefaultNames.has(field.name) && !runtimeBoundActionDefaultNames.has(field.name)
+                && !optionsEditorActionDefaultNames.has(field.name)
             )) ?? [];
             if (!instance || !preset || !action || fields.length === 0) return [];
             return [(
@@ -657,14 +692,7 @@ export function PanelConfigDrawer({
                     values={preset.inputs}
                     executionTargetId={panelExecutionTargetId}
                     onError={setError}
-                    onChange={(field,value) => setWorkflowInstances((current) => current.map((candidate) => (
-                      candidate.id !== instance.id ? candidate : {
-                        ...candidate,
-                        actionPresets: candidate.actionPresets.map((item) => item.id === preset.id
-                          ? { ...item,inputs: { ...item.inputs,[field.name]:value } }
-                          : item),
-                      }
-                    )))}
+                    onChange={(field,value) => updatePresetInput(instance.id, preset.id, field.name, value)}
                   />
                 </FormSectionSpan>
               </FormSection>
@@ -681,19 +709,25 @@ export function PanelConfigDrawer({
                 if (!instance || !preset) return [];
                 return [<ActionDefaultsEditor
                   key={port.id}
+                  experimentWorldOffset={experiment?.spec.localizationOffset}
                   panel={panel}
                   port={port}
                   values={preset.inputs}
                   options={options}
                   executionTargetId={panelExecutionTargetId}
-                  onChange={(values) => setWorkflowInstances((current) => current.map((candidate) => (
-                    candidate.id !== instance.id ? candidate : {
-                      ...candidate,
-                      actionPresets:candidate.actionPresets.map((item) => item.id === preset.id
-                        ? { ...item,inputs:values }
-                        : item),
-                    }
-                  )))}
+                  onChange={(values) => setWorkflowInstances((current) => (
+                    instance.id === WORLD_CAMERA_WORKFLOW_INSTANCE_ID
+                    && preset.actionId === WORLD_CAMERA_EXPERIMENT_ACTION_ID
+                      ? applyWorldCameraSourceSelection(current, instance.id, preset.id, values)
+                      : current.map((candidate) => (
+                        candidate.id !== instance.id ? candidate : {
+                          ...candidate,
+                          actionPresets:candidate.actionPresets.map((item) => item.id === preset.id
+                            ? { ...item,inputs:values }
+                            : item),
+                        }
+                      ))
+                  ))}
                   onOptionsChange={setOptions}
                 />];
               })
@@ -705,7 +739,9 @@ export function PanelConfigDrawer({
               candidate.head.resourceId === instance.ref.resourceId && candidate.branch.name === instance.ref.branch
             ));
             const action = document && preset && automationActionById(document.spec,preset.actionId);
-            const fields = action?.inputSchema.fields.filter((field) => !sharedActionDefaultNames.has(field.name)) ?? [];
+            const fields = action?.inputSchema.fields.filter((field) => (
+              !sharedActionDefaultNames.has(field.name) && !optionsEditorActionDefaultNames.has(field.name)
+            )) ?? [];
             if (!instance || !preset || !action || fields.length === 0) return [];
             return [(
               <FormSection
@@ -721,14 +757,7 @@ export function PanelConfigDrawer({
                     values={preset.inputs}
                     executionTargetId={panelExecutionTargetId}
                     onError={setError}
-                    onChange={(field,value) => setWorkflowInstances((current) => current.map((candidate) => (
-                      candidate.id !== instance.id ? candidate : {
-                        ...candidate,
-                        actionPresets: candidate.actionPresets.map((item) => item.id === preset.id
-                          ? { ...item,inputs: { ...item.inputs,[field.name]:value } }
-                          : item),
-                      }
-                    )))}
+                    onChange={(field,value) => updatePresetInput(instance.id, preset.id, field.name, value)}
                   />
                 </FormSectionSpan>
               </FormSection>

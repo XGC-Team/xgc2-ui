@@ -1,9 +1,5 @@
 import { lazy } from 'react';
-import type { HomePageContribution,ProductWebOwnerMetadata } from '../src/shared/productWebComposition';
-import { createHomePageAdapter } from '../src/app/home/createHomePageAdapter';
-import { recordingOpenFolderActionContribution } from '../src/app/home/RecordingOpenFolderActionContribution';
-import { HomeRoute } from '../src/domains/home/HomeRoute';
-import { createRecordingLibraryCardContribution } from '../src/domains/home/RecordingLibraryCardContribution';
+import type { ProductWebOwnerMetadata } from '../src/shared/productWebComposition';
 import { auditTaskLogsContribution } from '../src/domains/audit/tasklogs/taskLogsProductContribution';
 import { productOperationsContribution } from '../src/domains/execution/operationsProductContribution';
 import { assembleProductWebComposition } from '../src/shared/productWebComposition';
@@ -38,30 +34,10 @@ export { ProductWebEntry } from './core-robot-kinds';
 const MarkPromptDock = lazy(() => import('../src/devtools/mark-prompt/MarkPromptDock').then((module) => ({ default: module.MarkPromptDock })));
 const ControlGallery = lazy(() => import('../src/devtools/control-gallery/ControlGallery').then((module) => ({ default: module.ControlGallery })));
 
-const HomePage = createHomePageAdapter(HomeRoute);
-
-const home: HomePageContribution = {
-  route: {
-    page: 'home',
-    component: HomePage,
-    surface: {
-      productFeatures: ['home'],
-      targetAction: 'Core access',
-      targetCapabilities: ['core.view'],
-      remoteVisibility: 'capability',
-      remoteManagedHostAdmission: () => false,
-    },
-  },
-  cards: [
-    createRecordingLibraryCardContribution([recordingOpenFolderActionContribution]),
-  ],
-};
-
 const baseComposition = createCoreUserFeatureComposition({
   id: 'core-dev-reference',
   agentLinkComputeTargets: true,
   automationNodeComposition: coreAutomationNodeComposition,
-  home,
   developer: {
     markPrompt: MarkPromptDock,
     controlGallery: ControlGallery,

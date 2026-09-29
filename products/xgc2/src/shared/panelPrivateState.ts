@@ -64,8 +64,11 @@ export function usePanelState<T>(scope: PanelStateScope, key: string, initial: T
 }
 
 function usePersistedState<T>(storageKey: string, initial: T): [T,Dispatch<SetStateAction<T>>] {
+  // A stable subscribe keeps React from unsubscribing and resubscribing on
+  // every render of every consumer (robot selection alone has one per Panel).
+  const subscribeKey = useCallback((listener: () => void) => subscribe(storageKey, listener), [storageKey]);
   const value = useSyncExternalStore(
-    (listener) => subscribe(storageKey, listener),
+    subscribeKey,
     () => snapshot(storageKey, initial),
   );
   const setValue = useCallback<Dispatch<SetStateAction<T>>>((update) => {
@@ -76,30 +79,49 @@ function usePersistedState<T>(storageKey: string, initial: T): [T,Dispatch<SetSt
     window.localStorage.setItem(storageKey, raw);
     snapshots.set(storageKey, { raw,value: next });
     notify(storageKey);
-    window.dispatchEvent(new CustomEvent(panelStateEvent, { detail: { key: storageKey } }));
+    // Other readers of this window still hear about the write; this store
+    // already notified its own subscribers above.
+    const outer = publishing;
+    publishing = storageKey;
+    try {
+      window.dispatchEvent(new CustomEvent(panelStateEvent, { detail: { key: storageKey } }));
+    } finally {
+      publishing = outer;
+    }
   }, [initial,storageKey]);
   return [value,setValue];
 }
 
+let publishing: string | undefined;
+let windowListening = false;
+
+/**
+ * One pair of window listeners for the whole store: an outside write (another
+ * tab's storage event, or a direct localStorage write announced with the
+ * panel-state event) notifies that key's subscribers once, instead of once per
+ * subscriber per subscriber.
+ */
+function listenToWindow() {
+  if (windowListening) return;
+  windowListening = true;
+  window.addEventListener(panelStateEvent, (event: Event) => {
+    const key = (event as CustomEvent<{ key?: string }>).detail?.key;
+    if (typeof key === 'string' && key !== publishing) notify(key);
+  });
+  window.addEventListener('storage', (event: StorageEvent) => {
+    if (event.storageArea === window.localStorage && event.key) notify(event.key);
+  });
+}
+
 function subscribe(storageKey: string, listener: () => void) {
+  listenToWindow();
   let bucket = listeners.get(storageKey);
   if (!bucket) {
     bucket = new Set();
     listeners.set(storageKey, bucket);
   }
   bucket.add(listener);
-  const syncCustomEvent = (event: Event) => {
-    const detail = (event as CustomEvent<{ key?: string }>).detail;
-    if (detail?.key === storageKey) notify(storageKey);
-  };
-  const syncStorageEvent = (event: StorageEvent) => {
-    if (event.storageArea === window.localStorage && event.key === storageKey) notify(storageKey);
-  };
-  window.addEventListener(panelStateEvent, syncCustomEvent);
-  window.addEventListener('storage', syncStorageEvent);
   return () => {
-    window.removeEventListener(panelStateEvent, syncCustomEvent);
-    window.removeEventListener('storage', syncStorageEvent);
     const current = listeners.get(storageKey);
     current?.delete(listener);
     if (current?.size === 0) listeners.delete(storageKey);

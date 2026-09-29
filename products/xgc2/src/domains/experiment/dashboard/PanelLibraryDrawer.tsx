@@ -1,6 +1,7 @@
 import {
 Columns3,
 History,
+Images,
 LineChart,
 RadioTower,
 Workflow
@@ -82,6 +83,7 @@ export function PanelLibraryDrawer({
 export function GaugeIcon({ plugin }: { plugin: PanelPluginDefinition }) {
   if (plugin.id === 'automation-workflow-audit') return <History size={18} />;
   if (plugin.id === 'rosbag-plot') return <LineChart size={18} />;
+  if (plugin.id === 'scientific-gallery') return <Images size={18} />;
   if (plugin.category === 'Automation' || plugin.category === 'Operations') return <Workflow size={18} />;
   if (plugin.category === 'Control') return <RadioTower size={18} />;
   return <Columns3 size={18} />;

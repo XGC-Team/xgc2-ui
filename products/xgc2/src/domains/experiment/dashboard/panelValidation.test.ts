@@ -15,6 +15,13 @@ describe('Panel v4 validation',() => {
   it('accepts exact typed port bindings',() => {
     expect(validatePanelInstance(panel(),plugin)).toEqual({ valid:true });
   });
+  it('applies the same primary and mixed-route constraints before saving',() => {
+    const value = panel();const binding = value.portBindings.find((item) => item.kind === 'action')!;
+    binding.executionMode = 'standalone';expect(validatePanelInstance(value,plugin)).toEqual({ valid:true });
+    binding.presetId = 'run';expect(validatePanelInstance(value,plugin).error).toContain('primary workflow');
+    binding.presetId = 'default';value.portBindings.push({ portId:'alias',kind:'action',presetId:'default' });
+    expect(validatePanelInstance(value,plugin).error).toContain('same execution mode');
+  });
   it('requires every required manifest port',() => {
     const value = panel();value.portBindings = value.portBindings.filter((binding) => binding.portId !== 'start');
     expect(validatePanelInstance(value,plugin).error).toContain('Required action port "start"');

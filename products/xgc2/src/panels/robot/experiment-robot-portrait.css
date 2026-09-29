@@ -10,6 +10,7 @@
   --portrait-metal-low: var(--color-text-muted);
   --portrait-propeller-high: var(--color-text-muted);
   --portrait-propeller-low: var(--color-text-heading);
+  --portrait-edge: color-mix(in srgb, var(--color-text-heading) 13%, transparent);
   display: block;
   width: 100%;
   height: auto;
@@ -29,11 +30,41 @@
   --portrait-metal-low: color-mix(in srgb, var(--color-text-heading) 24%, var(--color-bg-surface));
   --portrait-propeller-high: color-mix(in srgb, var(--color-text-heading) 45%, var(--color-bg-surface));
   --portrait-propeller-low: color-mix(in srgb, var(--color-text-heading) 20%, var(--color-bg-surface));
+  --portrait-edge: color-mix(in srgb, var(--color-text-heading) 10%, transparent);
 }
 
 .experiment-robot-portrait-shadow-center { stop-color: var(--color-text-heading); stop-opacity: 0.13; }
 .experiment-robot-portrait-shadow-edge { stop-color: var(--color-text-heading); stop-opacity: 0; }
-.experiment-robot-portrait-face { stroke-width: 0; stroke-linejoin: round; }
+
+/* Generated clay-render portraits (PNG with alpha). */
+.experiment-robot-portrait-image {
+  aspect-ratio: 1;
+  object-fit: contain;
+  transition: transform var(--duration-deliberate) var(--easing-standard), filter var(--duration-deliberate) var(--easing-standard);
+}
+
+[data-skin='dark'] .experiment-robot-portrait-image {
+  filter: brightness(1.9) contrast(0.86) saturate(0.9);
+}
+
+.experiment-robot-portrait-image[data-selected='true'],
+.experiment-robot-portrait-host:is(:hover, :focus-visible) .experiment-robot-portrait-image {
+  transform: translateY(-2px);
+}
+
+.experiment-robot-portrait-image[data-motion='false'] {
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .experiment-robot-portrait-image { transition: none; }
+}
+/* Hairline facet edges keep the low-poly silhouettes crisp at card scale. */
+.experiment-robot-portrait-face {
+  stroke: var(--portrait-edge);
+  stroke-width: 0.6;
+  stroke-linejoin: round;
+}
 .experiment-robot-portrait-body {
   transform-origin: 110px 110px;
   transition: transform var(--duration-deliberate) var(--easing-standard);

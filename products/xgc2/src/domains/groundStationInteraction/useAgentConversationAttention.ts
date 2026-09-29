@@ -1,11 +1,19 @@
-import { useCallback,useEffect,useMemo,useState } from 'react';
+import { useCallback,useEffect,useLayoutEffect,useMemo,useRef,useState } from 'react';
 import type { AgentRequest } from '@xgc2/agent-runtime/state';
 import { createDeadlineTimer } from '../../shared/eventCoalescer';
+import { structuralEqual } from '../../shared/structuralEqual';
 import { readGroundStationNativeAttention,createGroundStationNativeClient } from './groundStationAgentService';
 import type { GroundStationNativeAttentionItem,GroundStationNativeBinding } from './groundStationAgentTypes';
 
 type Summary = {sessionId:string; experimentId:string; lastSeq:number; pending:Array<{id:string; kind:AgentRequest['kind']; title:string; createdAt?:string; submitted:boolean}>};
 type Snapshot = {sessions:Summary[]; revision:string; receivedAt:number};
+
+/** The broker lists only live conversations or pending requests, so an empty
+ * inventory cannot gain a request until a conversation starts. */
+export const ACTIVE_ATTENTION_MS = 3_000;
+export const IDLE_ATTENTION_MS = 15_000;
+
+const NO_ITEMS: GroundStationNativeAttentionItem[] = [];
 
 /** A single bounded summary request monitors background conversations. Full
  * permission arguments are fetched only when their decision is opened. */
@@ -18,23 +26,29 @@ export function useAgentConversationAttention(executionTargetId:string,bindings:
     const controller = new AbortController();
     const timer = createDeadlineTimer(() => void refresh());
     let running = false;
+    // A failed read keeps the last inventory, so a live conversation retries promptly.
+    let live = false;
     const refresh = async () => {
       if (running || controller.signal.aborted) return;
       timer.cancel();
       running = true;
       try {
         const value = decodeAttention(await readGroundStationNativeAttention(controller.signal));
+        live = value.sessions.length > 0;
         if (!controller.signal.aborted) {
           setSnapshot({...value,receivedAt:Date.now()});
           setError('');
           const pending = new Set(value.sessions.flatMap(session => session.pending.map(item => `${session.sessionId}:${item.id}`)));
-          setDetails(items => Object.fromEntries(Object.entries(items).filter(([id]) => pending.has(id))));
+          setDetails(items => {
+            const kept = Object.entries(items).filter(([id]) => pending.has(id));
+            return kept.length === Object.keys(items).length ? items : Object.fromEntries(kept);
+          });
         }
       } catch (cause) {
         if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : String(cause));
       } finally {
         running = false;
-        if (!controller.signal.aborted) timer.schedule(document.hidden ? 15_000 : 3_000);
+        if (!controller.signal.aborted) timer.schedule(live && !document.hidden ? ACTIVE_ATTENTION_MS : IDLE_ATTENTION_MS);
       }
     };
     const visible = () => { if (!document.hidden) void refresh(); };
@@ -51,7 +65,7 @@ export function useAgentConversationAttention(executionTargetId:string,bindings:
         return [id,{id,experimentId,sessionId,...input}];
       }))}));
   },[]);
-  const items = useMemo(() => {
+  const computed = useMemo(() => {
     const result = new Map<string,GroundStationNativeAttentionItem>();
     for (const session of snapshot?.sessions ?? []) for (const pending of session.pending) {
       const id = `${session.sessionId}:${pending.id}`;
@@ -73,7 +87,14 @@ export function useAgentConversationAttention(executionTargetId:string,bindings:
     }
     return [...result.values()];
   },[snapshot,details,bindings]);
-  return {items:executionTargetId === 'local' ? items : [],error:executionTargetId === 'local' ? error : '',readInputs};
+  // Every poll replaces the snapshot, usually with the same requests. Keep the
+  // committed list while it is structurally equal, so the app-wide registry and
+  // its consumers (notification center, chat, remote controller) do not
+  // re-render on an unchanged poll.
+  const committed = useRef<GroundStationNativeAttentionItem[] | undefined>(undefined);
+  const items = committed.current && structuralEqual(committed.current,computed) ? committed.current : computed;
+  useLayoutEffect(() => { committed.current = items; });
+  return {items:executionTargetId === 'local' ? items : NO_ITEMS,error:executionTargetId === 'local' ? error : '',readInputs};
 }
 
 function decodeAttention(value:unknown): Omit<Snapshot,'receivedAt'> {

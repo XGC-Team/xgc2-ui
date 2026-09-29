@@ -7,6 +7,8 @@ import type {
   AutomationRunControl,
 } from './automationHistoryTypes';
 
+import { formatOperatorDateTime } from '../../shared/operatorTime';
+
 export function compareExecutionEntriesNewestFirst(
   left: AutomationExecutionHistoryEntry,
   right: AutomationExecutionHistoryEntry,
@@ -98,14 +100,11 @@ export function automationRunAdmissionSummary(run: AutomationExecutionRunSummary
 
 export function formatAutomationExecutionTimestamp(value?: string) {
   if (!value) return '—';
-  const timestamp = new Date(value);
-  return Number.isNaN(timestamp.getTime()) ? value : timestamp.toLocaleString();
+  return formatOperatorDateTime(value);
 }
 
 export function formatAutomationExecutionListTimestamp(value: string) {
-  const timestamp = new Date(value);
-  if (Number.isNaN(timestamp.getTime())) return value;
-  return timestamp.toLocaleString(undefined, {
+  return formatOperatorDateTime(value, undefined, {
     month: 'short',day: 'numeric',hour: '2-digit',minute: '2-digit',second: '2-digit',
   });
 }

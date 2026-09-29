@@ -62,6 +62,7 @@ export {
 export { refreshExecutionTarget } from './executionActions';
 export {
   executionEventChannelSnapshot,
+  executionSnapshot,
   subscribeExecutionEvents,
   subscribeExecutionSnapshot,
 } from './executionSnapshotStore';
@@ -74,12 +75,15 @@ export {
   closeMediaEdgeSession,
   createMediaEdgeSession,
   createMediaEdgeSessionController,
+  createSameOriginMediaEdgeSignaling,
+  createStationMediaEdgeSignaling,
   decodeMediaEdgeSessionAnswer,
   mediaEdgeSessionURL,
   mediaEdgeSourceSessionsURL,
   mediaSourceID,
   normalizeMediaEdgeURL,
   openMediaEdgeSession,
+  visualizationMediaEdgeSignalingReference,
 } from './mediaEdgeService';
 export type {
   CreateMediaEdgeSessionOptions,
@@ -89,6 +93,10 @@ export type {
   MediaEdgeSessionCloseReason,
   MediaEdgeSessionHandle,
   MediaEdgeSessionReference,
+  MediaEdgeSignalingChannel,
+  MediaEdgeSameOriginSignalingReference,
   MediaEdgeSessionState,
   MediaEdgeSourceDescription,
 } from './mediaEdgeService';
+
+export { type ProcessROS1PoseSamples } from './executionService';

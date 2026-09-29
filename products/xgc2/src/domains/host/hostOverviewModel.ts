@@ -1,4 +1,5 @@
 import type { SystemTrendPoint } from '../../shared/systemTrend';
+import { formatOperatorDateTime } from '../../shared/operatorTime';
 import type { HostOverview } from './hostModel';
 
 export type HostOverviewRefreshInterval = 'off' | '5000' | '10000' | '30000' | '60000';
@@ -49,7 +50,7 @@ export function hostLoadPressure(load1: number, cpuCount?: number): HostResource
 export function appendTrendPoint(points: SystemTrendPoint[],previous: HostOverview | null,next: HostOverview) {
   const load = parseLoadAverage(next.loadAverage);
   const point: SystemTrendPoint = {
-    time: new Date(next.collectedAt).toLocaleTimeString([], { hour: '2-digit',minute: '2-digit',second: '2-digit' }),
+    time: formatOperatorDateTime(next.collectedAt, undefined, { hour: '2-digit',minute: '2-digit',second: '2-digit' }),
     diskReadRate: 0,
     diskWriteRate: 0,
     networkRxRate: 0,

@@ -7,7 +7,7 @@ import { resolveRobotInstrumentRoster } from './robotProjectionModel';
 import { robotAssetKindCompositionWithUnitreeB2 } from '../../../test-fixtures/robot-kinds/with-unitree-b2';
 
 const compositionRef = vi.hoisted(() => ({ current:undefined as unknown }));
-const useRunRobots = vi.hoisted(() => vi.fn(() => ({
+const useRobotRuns = vi.hoisted(() => vi.fn(() => ({
   operations:[],streamState:'idle' as const,loaded:false,loading:false,error:'',
 })));
 const useRobotSelection = vi.hoisted(() => vi.fn((): [string[],() => void] => [[],vi.fn()]));
@@ -25,7 +25,7 @@ vi.mock('../../domains/robot/robotPublic',() => ({
       ? text.replace(/\{(\w+)\}/g,(match,key: string) => String(values[key] ?? match))
       : text
   ),
-  useRunRobots,
+  useRobotRuns,
   useRobotSelection,
   useUgvChassisHold,
 }));
@@ -51,7 +51,7 @@ vi.mock('./RobotProjectionCard',() => ({
 
 describe('RobotInstrumentsGrid projection ownership',() => {
   beforeEach(() => {
-    useRunRobots.mockClear();
+    useRobotRuns.mockClear();
     useRobotSelection.mockReset();
     useRobotSelection.mockReturnValue([[],vi.fn()]);
     useUgvChassisHold.mockReset();
@@ -65,7 +65,8 @@ describe('RobotInstrumentsGrid projection ownership',() => {
     });
   });
 
-  it('observes the exact Session workflow owner which aggregates its connection slots',() => {
+  it.each(['panel-robot-runtime-run','manual-connection-run','old-panel-run',undefined])(
+    'keeps the Session binding projection while the Action reports %s',(actionRunId) => {
     render(<RobotInstrumentsGrid
       panel={{ id:'robot-instruments',options:{ typeFilter:'all' } } as never}
       context={{
@@ -73,7 +74,7 @@ describe('RobotInstrumentsGrid projection ownership',() => {
           actions:{
             'robot-simulation':{
               id:'robot-simulation',label:'Robot simulation',connected:true,disabledReason:'',defaults:{},
-              activeInvocation:{ id:'panel-robot-runtime-run',status:'running',revision:3 },
+              activeInvocation:actionRunId ? { id:actionRunId,status:'running',revision:3 } : undefined,
               invoke:vi.fn(),control:vi.fn(),trace:{
                 automationResourceId:'robot-runtime',workflowInstanceId:'robot-runtime',
               },
@@ -89,6 +90,9 @@ describe('RobotInstrumentsGrid projection ownership',() => {
                   state:'active',mode:'full',runMode:'simulation',revision:1 },members:[{
                   id:'member-1',targetId:'local',sessionId:'session-1',bindingId:'robot-runtime',kind:'workflow_run',
                   ownerId:'panel-robot-runtime-run',status:'running',revision:1,
+                },{
+                  id:'command-1',targetId:'local',sessionId:'session-1',bindingId:'experiment-command',kind:'workflow_command',
+                  ownerId:'manual-connection-run',status:'running',revision:1,
                 }] }],processInstances:[],documents:[],catalog:[],runSummaries:[],runDetailsById:{},loading:false,error:'',
               },trace:{ projection:'experiment.runtime.v1' },
             },
@@ -101,8 +105,8 @@ describe('RobotInstrumentsGrid projection ownership',() => {
       } as never}
     />);
 
-    expect(useRunRobots).toHaveBeenCalledWith('local','panel-robot-runtime-run');
-    expect(useRunRobots).not.toHaveBeenCalledWith('local','experiment-root-run');
+    expect(useRobotRuns).toHaveBeenCalledWith('local',['panel-robot-runtime-run']);
+    expect(useRobotRuns).not.toHaveBeenCalledWith('local','experiment-root-run');
   });
 
   it('does not probe a Panel child until its exact Session root is resolved',() => {
@@ -128,8 +132,8 @@ describe('RobotInstrumentsGrid projection ownership',() => {
       } } as never}
     />);
 
-    expect(useRunRobots).toHaveBeenCalledWith('local',undefined);
-    expect(useRunRobots).not.toHaveBeenCalledWith('local','panel-child');
+    expect(useRobotRuns).toHaveBeenCalledWith('local',[]);
+    expect(useRobotRuns).not.toHaveBeenCalledWith('local','panel-child');
   });
 
   it('withdraws the projection transport as soon as the Session starts stopping',() => {
@@ -159,13 +163,13 @@ describe('RobotInstrumentsGrid projection ownership',() => {
       } } as never}
     />);
 
-    expect(useRunRobots).toHaveBeenCalledWith('local',undefined);
-    expect(useRunRobots).not.toHaveBeenCalledWith('local','panel-child');
+    expect(useRobotRuns).toHaveBeenCalledWith('local',[]);
+    expect(useRobotRuns).not.toHaveBeenCalledWith('local','panel-child');
   });
 
   it('keeps card selection without a provider-restart control in the content',() => {
     const toggleRobot = vi.fn();
-    useRunRobots.mockReturnValue({
+    useRobotRuns.mockReturnValue({
       projection:{ robots:[{
         id:'scout-01',name:'Scout 01',kind:'scout_mini',hybridSource:'simulation',connectionState:'live',
       }] },
@@ -211,7 +215,7 @@ describe('RobotInstrumentsGrid projection ownership',() => {
   });
 
   it('marks only UGV cards while chassis hold is latched',() => {
-    useRunRobots.mockReturnValue({
+    useRobotRuns.mockReturnValue({
       projection:{ robots:[
         { id:'scout-01',name:'Scout 01',kind:'scout_mini',hybridSource:'simulation',connectionState:'live' },
         { id:'px4-01',name:'UAV 01',kind:'px4_multirotor',px4:{},hybridSource:'simulation',connectionState:'live' },
@@ -384,7 +388,7 @@ describe('RobotInstrumentsGrid frozen-roster rendering',() => {
   }
 
   it('keeps the frozen-roster card while the run projection is still pending-empty',() => {
-    useRunRobots.mockReturnValue({
+    useRobotRuns.mockReturnValue({
       projection:{ pending:true,robots:[] },
       operations:[],streamState:'idle',loaded:true,loading:false,error:'',
     } as never);
@@ -406,7 +410,7 @@ describe('RobotInstrumentsGrid frozen-roster rendering',() => {
   });
 
   it('shows No matching robots only when both roster and runtime are empty',() => {
-    useRunRobots.mockReturnValue({
+    useRobotRuns.mockReturnValue({
       operations:[],streamState:'idle',loaded:false,loading:false,error:'',
     });
     useRobotSelection.mockReturnValue([[],vi.fn()]);

@@ -1,10 +1,11 @@
 import { useCallback,type Dispatch,type SetStateAction } from 'react';
-import type { ConfigRef } from '../../shared/configResource';
+import type { ConfigRef,PinnedConfigRef } from '../../shared/configResource';
 import { createMutationIdentity } from '../../shared/utils/intent';
 import type { AutomationRunControl } from './automationHistoryTypes';
 import type { AutomationDocument } from './automationDefinitionContracts';
 import type {
   AutomationRun,
+  AutomationPanelActionSelector,
   AutomationStopRunSetResponse,
 } from './automationRunContracts';
 import { isAutomationRunActive } from './automationRunModel';
@@ -74,7 +75,7 @@ export function useAutomationRunActions({
     reason = 'Run Experiment configuration',
     throughNodeId = '',
     actionId = '',
-    options: { experimentRef?: ConfigRef } = {},
+    options: { experimentRef?: ConfigRef;expectedAutomationRef?: PinnedConfigRef;panelAction?:AutomationPanelActionSelector } = {},
   ) => start({
     actionId,automationRef,parameters,reason,...options,
     ...(throughNodeId ? { throughNodeId } : {}),

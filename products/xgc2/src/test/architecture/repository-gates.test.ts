@@ -154,6 +154,26 @@ function generatedProductProfileRoots(xgcRoot: string, moduleSet: Set<string>) {
   return [...new Set(roots)];
 }
 
+/**
+ * The offline video render page (tools/video-renderer) is a product composition
+ * root bundled outside the Vite app: it shares the frame protocol module with
+ * the web panel over postMessage. Follow its real entry imports so that shared
+ * contract stays attached through its consumer instead of reading as orphaned.
+ */
+function toolingCompositionRoots(xgcRoot: string, moduleSet: Set<string>) {
+  const entries = [resolve(xgcRoot,'tools/video-renderer/composition.jsx')];
+  const roots: string[] = [];
+  for (const entry of entries) {
+    if (!existsSync(entry)) continue;
+    const source = readFileSync(entry,'utf8');
+    for (const match of source.matchAll(/(?:from|import)\s*\(?\s*['"](\.[^'"]+)['"]/g)) {
+      const dependency = resolveRelativeSourceImport(entry,match[1]);
+      if (dependency && moduleSet.has(dependency)) roots.push(dependency);
+    }
+  }
+  return [...new Set(roots)];
+}
+
 function volatilePanelEffectDependencies(xgcRoot: string) {
   const volatileContextMembers = new Set([
     'automation',
@@ -332,8 +352,11 @@ describe('repository invariants', () => {
     const generatedReachable = reachableFrom(
       generatedProductProfileRoots(xgcRoot,moduleSet),runtimeEdges,
     );
+    const toolingReachable = reachableFrom(
+      toolingCompositionRoots(xgcRoot,moduleSet),runtimeEdges,
+    );
     const reachable = new Set(
-      [...reachableByEdition.flatMap((edition) => [...edition.reachable]),...generatedReachable],
+      [...reachableByEdition.flatMap((edition) => [...edition.reachable]),...generatedReachable,...toolingReachable],
     );
 
     const isIntentionallyCutOwnerTree = (file: string) => {

@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import type * as ExperimentListRunningIdsModule from './useExperimentListRunningIds';
 import { fireEvent,render } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import { beforeEach,describe,expect,it,vi } from 'vitest';
@@ -49,12 +50,16 @@ const mocks = vi.hoisted(() => ({
 }));
 vi.mock('./useExperimentCatalog', () => ({ useExperimentCatalog: mocks.useExperimentCatalog }));
 vi.mock('./useExperimentLocation', () => ({ useExperimentLocation: mocks.useExperimentLocation }));
-vi.mock('./useExperimentListRunningIds', () => ({
+vi.mock('./useExperimentListRunningIds', async (importOriginal) => ({
+  ...await importOriginal<typeof ExperimentListRunningIdsModule>(),
   useStationExperimentOccupancy: mocks.useStationExperimentOccupancy,
   useExperimentListRunningIds: () => mocks.useStationExperimentOccupancy().runningExperimentIds,
 }));
 vi.mock('../../app/navigationContext', () => ({
-  useNavigation: () => ({ gcsMode: mocks.gcsMode,page: 'experiment' }),
+  useNavigation: (select?: (state: never) => unknown) => {
+    const navigationState = ({ gcsMode: mocks.gcsMode,page: 'experiment' });
+    return select ? select(navigationState as never) : navigationState;
+  },
 }));
 vi.mock('../automation/automationPublic', () => ({ useAutomationWorkspace: (targetId: string) => mocks.useAutomationWorkspace(targetId) }));
 vi.mock('../robot/robotAssetStore', () => ({ useRobotAssetStore: mocks.useRobotAssetStore }));
@@ -116,11 +121,11 @@ describe('ExperimentRoute binding authority', () => {
     expect(mocks.replaceInvalidDetailWithList).toHaveBeenCalledOnce();
   });
 
-  it('replaces one legacy local-fleet deep link with the current ordinary fixture identity',() => {
+  it('replaces one legacy local-swarm deep link with the current ordinary fixture identity',() => {
     const current = document();
     current.head.resourceId = 'current-six';
     current.branch.resourceId = 'current-six';
-    current.spec.name = '6 PX4 multirotors experiment';
+    current.spec.name = 'TASE-5UAVs';
     current.spec.tags = ['devfixture','px4'];
     mockWorkspace({
       experiments:[current],
@@ -281,6 +286,17 @@ describe('ExperimentRoute binding authority', () => {
     expect(mocks.setView).not.toHaveBeenCalled();
   });
 
+  it.each([{loading:true,error:''},{loading:false,error:'request timeout'}])(
+    'does not diagnose a missing Robot version from an unresolved catalog: %j',
+    (state) => {
+      mockWorkspace({robotAssets:[]});
+      mocks.useRobotAssetStore.mockReturnValue({...mocks.useRobotAssetStore(),...state});
+      const {container}=renderWithComposition(<ExperimentRoute />);
+      expect(container.querySelector('[data-xgc-role="experiment-binding-warning"]')).toBeNull();
+      expect(container.querySelector('[data-xgc-role="experiment-dashboard-tabs"]')).toBeInTheDocument();
+    },
+  );
+
   it('opens after the Robot ref resolves without an Automation binding', () => {
     mockWorkspace();
     const { container } = renderWithComposition(<ExperimentRoute />);
@@ -427,7 +443,7 @@ function mockWorkspace(overrides: Record<string,unknown> = {}) {
 }
 
 function document(): ExperimentDocument {
-  return { head: head('experiment','exp-1','Experiment'),branch: branch('experiment','exp-1'),spec: { schemaVersion: 15,name: 'Experiment',description: '',tags: [],runModes: ['simulation','physical'],localizationOffset:{ x:0,y:0,z:0 },dashboards: [{ id: 'gcs',name: 'GCS',description: '',panels: [] }],
+  return { head: head('experiment','exp-1','Experiment'),branch: branch('experiment','exp-1'),spec: { worldBoundary:null,schemaVersion: 16,name: 'Experiment',description: '',tags: [],runModes: ['simulation','physical'],localizationOffset:{ x:0,y:0,z:0 },dashboards: [{ id: 'gcs',name: 'GCS',description: '',panels: [] }],
     robots: [{
       id: 'leader',ref: { domain: 'robot',resourceId: 'robot-1',branch: 'main' },namespace: '/uav1',
       hybridSource: 'physical',runtimeParameters: {},initialPose: { x: 0,y: 0,z: 0,yaw: 0 },

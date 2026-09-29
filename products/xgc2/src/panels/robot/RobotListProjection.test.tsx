@@ -30,13 +30,15 @@ describe('RobotListProjection', () => {
     expect(header?.querySelector('[data-xgc-role="robot-network-indicator"]'))
       .toHaveAttribute('data-xgc-source', 'diagnostic.stream-health.channels[state.imu].sourceAgeMs');
     expect(header?.querySelector('[data-xgc-role="robot-network-indicator"]')?.getAttribute('aria-label'))
-      .toBe('Communication freshness from last IMU receipt age 14 ms');
+      .toBe('Robot connection normal; Communication freshness from last IMU receipt age 14 ms');
     expect(header?.querySelector('[data-xgc-role="robot-network-indicator"]')?.getAttribute('aria-label'))
       .not.toMatch(/round-trip|RTT/i);
     expect(header?.querySelector('[data-xgc-role="robot-power-indicator"]'))
       .toHaveAttribute('data-xgc-source', 'state.power.voltageV+percentageState+percentage');
     expect(header?.querySelector('[data-xgc-role="robot-power-indicator"]'))
-      .toHaveAttribute('aria-label', 'Battery 95%; 28.8 V');
+      .toHaveAttribute('aria-label', 'Battery estimated from voltage: 95%; 28.8 V');
+    expect(header?.querySelector('[data-xgc-role="robot-power-indicator"] text')?.textContent)
+      .toBe('95');
     expect(header?.querySelector('[data-xgc-role="robot-position-indicator"]'))
       .toHaveAttribute('data-xgc-source', 'state.health.positioning');
     expect(header?.querySelector('[data-xgc-role="robot-control-indicator"]')).toBeNull();
@@ -126,7 +128,7 @@ describe('RobotListProjection', () => {
     expect(staleCluster?.querySelector('[data-xgc-role="robot-network-indicator"]'))
       .toHaveAttribute(
         'aria-label',
-        'Communication freshness from last IMU receipt age 1200 ms; stream stale',
+        'Robot connection recovering; Communication freshness from last IMU receipt age 1200 ms; stream stale',
       );
     expect(staleCluster?.querySelector('[data-xgc-role="robot-power-indicator"]'))
       .toHaveAttribute('aria-label', 'Battery status unavailable; stream stale');
@@ -150,11 +152,11 @@ describe('RobotListProjection', () => {
     const absentCluster = view.container.querySelector(selector);
     expect([...absentCluster?.querySelectorAll('.robot-instrument-status-glyph') ?? []]
       .map((node) => node.getAttribute('data-xgc-tone')))
-      .toEqual(['neutral','neutral','neutral']);
+      .toEqual(['danger','neutral','neutral']);
     expect([...absentCluster?.querySelectorAll('.robot-instrument-status-glyph') ?? []]
       .map((node) => node.getAttribute('aria-label')))
       .toEqual([
-        'Communication freshness unavailable',
+        'Robot connection recovering',
         'VRPN position unavailable',
         'Battery status unavailable',
       ]);
@@ -186,7 +188,7 @@ describe('RobotListProjection', () => {
     expect(container.querySelector('[data-xgc-role="robot-list-header-chassis-mode"]')).toBeNull();
   });
 
-  it('keeps Mecanum VRPN unavailable muted before a Run instead of danger', () => {
+  it('keeps Mecanum Adapter positioning independent of Total Run idle', () => {
     const { container } = render(
       <RobotListProjection
         robot={mecanumRobot()}
@@ -197,11 +199,62 @@ describe('RobotListProjection', () => {
     const position = container.querySelector(
       '[data-xgc-role="robot-position-indicator"][data-xgc-id="mecanum-01"]',
     );
-    expect(position).toHaveAttribute('data-xgc-tone', 'muted');
+    expect(position).toHaveAttribute('data-xgc-tone', 'success');
     expect(position).not.toHaveAttribute('data-xgc-tone', 'danger');
+    expect(position).not.toHaveAttribute('data-xgc-tone', 'muted');
     expect([...container.querySelectorAll('.robot-instrument-status-glyph')]
       .map((glyph) => glyph.getAttribute('data-xgc-tone')))
-      .toEqual(['muted','muted','muted']);
+      .toEqual(['neutral','success','success']);
+  });
+
+  it('shows VRPN positioning while the robot connection is closed, and blanks Battery vol', () => {
+    const { container } = render(
+      <RobotListProjection
+        robot={scoutRobot({ connectionState: 'closed' })}
+        projection={{
+          ...liveScoutProjection(),
+          status: { online: false,operationalReady: false,status: 'offline' },
+        }}
+      />,
+    );
+    expect(container.querySelector('[data-xgc-role="robot-position-indicator"]'))
+      .toHaveAttribute('data-xgc-tone', 'success');
+    expect(container.querySelector('[data-xgc-role="robot-ground-battery-voltage"] .robot-list-metric-body'))
+      .toHaveAttribute('data-xgc-empty', 'true');
+    expect(container.querySelector('[data-xgc-role="robot-ground-battery-voltage"] .robot-list-metric-value'))
+      .toHaveAttribute('data-xgc-empty', 'true');
+    expect(container.querySelector('[data-xgc-role="robot-ground-battery-voltage"] [data-xgc-role="robot-list-metric-rate"]')?.textContent)
+      .toBe('-- Hz');
+    expect(container.querySelector('[data-xgc-role="robot-network-indicator"]'))
+      .toHaveAttribute('data-xgc-tone', 'neutral');
+    expect(container.querySelector('[data-xgc-role="robot-list-header-chassis-mode"]')?.textContent)
+      .toBe('--');
+    expect(container.querySelector('[data-xgc-role="robot-list-header-chassis-mode"]'))
+      .toHaveAttribute('data-xgc-tone', 'normal');
+  });
+
+  it('clears stale VRPN list values without waiting for reconnect', () => {
+    const live = liveScoutProjection();
+    const stalePose = { ...live.poseChannel!,stale: true };
+    const { container } = render(
+      <RobotListProjection
+        robot={scoutRobot()}
+        projection={{
+          ...live,
+          poseChannel: stalePose,
+          channels: { ...live.channels,'vrpn.position': stalePose },
+          pose: stalePose.value,
+        }}
+      />,
+    );
+    expect(container.querySelector('[data-xgc-role="robot-ground-vrpn-position"] .robot-list-metric-body'))
+      .toHaveAttribute('data-xgc-empty', 'true');
+    expect(container.querySelector('[data-xgc-role="robot-ground-vrpn-position"] [data-xgc-axis="x"]'))
+      .toHaveAttribute('data-xgc-empty', 'true');
+    expect(container.querySelector('[data-xgc-role="robot-network-indicator"]'))
+      .toHaveAttribute('data-xgc-tone', 'success');
+    expect(container.querySelector('[data-xgc-role="robot-position-indicator"]'))
+      .toHaveAttribute('data-xgc-tone', 'success');
   });
 
   it('uses Adapter timed-out positioning danger instead of Web online/pose inference', () => {
@@ -227,6 +280,8 @@ describe('RobotListProjection', () => {
     expectListHeaderStatus(container);
     expect(container.querySelector('[data-xgc-role="robot-position-indicator"]'))
       .toHaveAttribute('data-xgc-tone', 'danger');
+    expect(container.querySelector('[data-xgc-role="robot-position-indicator"] path'))
+      .toHaveAttribute('opacity', '0.95');
   });
 
   it('uses Adapter jittering positioning warning even when the VRPN channel is fresh', () => {
@@ -262,7 +317,7 @@ describe('RobotListProjection', () => {
     expect(container.querySelector('[data-xgc-role="robot-network-indicator"]'))
       .toHaveAttribute('data-xgc-source', 'diagnostic.fcu-link.roundTripTimeMs');
     expect(container.querySelector('[data-xgc-role="robot-network-indicator"]'))
-      .toHaveAttribute('aria-label', 'FCU round-trip time 18.0 ms');
+      .toHaveAttribute('aria-label', 'Robot connection normal; FCU round-trip time 18.0 ms');
     expect(container.querySelector('[data-xgc-role="robot-position-indicator"]'))
       .toHaveAttribute('data-xgc-source', 'state.health.positioning');
     expect(container.querySelector('[data-xgc-role="robot-position-indicator"]')?.getAttribute('aria-label'))
@@ -280,7 +335,7 @@ describe('RobotListProjection', () => {
     expect(container.querySelector('[data-xgc-role="robot-list-header-flight-armed"]'))
       .toHaveAttribute('data-xgc-tone','success');
     expect(container.querySelector('[data-xgc-role="robot-list-header-flight-stage"]')?.textContent)
-      .toBe('GROUND');
+      .toBe('Ready');
     expect(container.querySelector('[data-xgc-role="robot-list-header-flight-stage"]'))
       .toHaveAttribute('data-xgc-id', 'fs150-01');
     expect(container.querySelector('.robot-list-flight-state > i')).toBeNull();
@@ -315,7 +370,7 @@ describe('RobotListProjection', () => {
     expect(container.querySelector('[data-xgc-role="robot-list-header-flight-armed"]')?.textContent)
       .toBe('ARMED');
     expect(container.querySelector('[data-xgc-role="robot-list-header-flight-stage"]')?.textContent)
-      .toBe('GROUND');
+      .toBe('Ready');
   });
 
   it('keeps list DISARMED white', () => {
@@ -336,6 +391,72 @@ describe('RobotListProjection', () => {
       .toHaveAttribute('data-xgc-tone','normal');
     expect(container.querySelector('[data-xgc-role="robot-list-header-flight-mode"]'))
       .toHaveAttribute('data-xgc-tone','success');
+  });
+
+  it('does not hide list MODE or ARM when Adapter stream-health marks state.flight stale', () => {
+    const projection = liveFlightProjection();
+    const { container } = render(
+      <RobotListProjection
+        robot={flightRobot()}
+        projection={{
+          ...projection,
+          flightState: { connected: true, mode: 'MANUAL', armed: false, landedState: 1 },
+          streamHealth: {
+            channels: [
+              ...(Array.isArray(projection.streamHealth.channels) ? projection.streamHealth.channels : []),
+              { channelId: 'state.flight', stale: true },
+            ],
+          },
+        }}
+      />,
+    );
+    expect(container.querySelector('[data-xgc-role="robot-list-header-flight-mode"]')?.textContent)
+      .toBe('MANUAL');
+    expect(container.querySelector('[data-xgc-role="robot-list-header-flight-armed"]')?.textContent)
+      .toBe('DISARMED');
+  });
+
+  it('hides list MODE and ARM when Core state.flight is stale', () => {
+    const projection = liveFlightProjection();
+    const flight = projection.channels['state.flight'];
+    const { container } = render(
+      <RobotListProjection
+        robot={flightRobot()}
+        projection={{
+          ...projection,
+          flightState: { connected: true, mode: 'MANUAL', armed: false, landedState: 1 },
+          channels: {
+            ...projection.channels,
+            'state.flight': { ...flight!, stale: true },
+          },
+        }}
+      />,
+    );
+    expect(container.querySelector('[data-xgc-role="robot-list-header-flight-mode"]')?.textContent)
+      .toBe('--');
+    expect(container.querySelector('[data-xgc-role="robot-list-header-flight-armed"]')?.textContent)
+      .toBe('--');
+  });
+
+  it('clears latched list DISARMED after disconnect', () => {
+    const { container } = render(
+      <RobotListProjection
+        robot={flightRobot({ connectionState: 'closed' })}
+        projection={{
+          ...liveFlightProjection(),
+          status: { online: false,operationalReady: false,status: 'offline' },
+          flightState: { connected: true, mode: 'MANUAL', armed: false, landedState: 1 },
+        }}
+      />,
+    );
+    expect(container.querySelector('[data-xgc-role="robot-list-header-flight-armed"]')?.textContent)
+      .toBe('--');
+    expect(container.querySelector('[data-xgc-role="robot-list-header-flight-mode"]')?.textContent)
+      .toBe('--');
+    expect(container.querySelector('[data-xgc-role="robot-list-header-flight-stage"]')?.textContent)
+      .toBe('--');
+    expect(container.querySelector('[data-xgc-role="robot-list-header-flight-armed"]'))
+      .toHaveAttribute('data-xgc-tone','normal');
   });
 
   it('never renders list POS ERR, even when localization error meters are present', () => {
@@ -393,8 +514,8 @@ describe('RobotListProjection', () => {
       }}
     />);
     const communication = container.querySelector('[data-xgc-role="robot-network-indicator"]');
-    expect(communication).toHaveAttribute('aria-label', 'Communication link connected');
-    expect(communication).toHaveAttribute('data-xgc-tone', 'info');
+    expect(communication).toHaveAttribute('aria-label', 'Robot connection normal');
+    expect(communication).toHaveAttribute('data-xgc-tone', 'success');
     expect(communication).toHaveAttribute('data-xgc-source', 'diagnostic.fcu-link.roundTripTimeMs');
     expect(communication?.getAttribute('aria-label')).not.toMatch(/IMU/);
   });
@@ -421,7 +542,7 @@ describe('RobotListProjection', () => {
     const titles = [...container.querySelectorAll('dl > div > dt .robot-list-metric-title')]
       .map((node) => node.textContent);
     expect(titles).toEqual([
-      'VRPN pos (m)','VRPN vel (m/s)','VRPN spd','VRPN acc (m/s²)',
+      'VRPN pos','VRPN vel','VRPN spd','VRPN ω',
       'CMD vel','CMD twist','Battery vol','Yaw',
     ]);
     expect(container.querySelector('[data-xgc-role="robot-ground-vrpn-speed"] [data-xgc-role="robot-list-metric-readout"]')?.textContent)
@@ -436,8 +557,15 @@ describe('RobotListProjection', () => {
       .toBe('-');
     expect(container.querySelector('[data-xgc-role="robot-ground-command-twist"] .robot-list-metric-digits')?.textContent)
       .toBe('0.18');
-    expect(container.querySelector('[data-xgc-role="robot-ground-vrpn-acceleration"] [data-xgc-axis="x"] .robot-list-metric-digits')?.textContent)
-      .toBe('0.12');
+    expect(container.querySelector('[data-xgc-role="robot-ground-vrpn-yaw-rate"]'))
+      .toHaveAttribute('data-xgc-id', `${robot.id}:vrpn-yaw-rate`);
+    expect(container.querySelector('[data-xgc-role="robot-ground-vrpn-acceleration"]')).toBeNull();
+    expect(container.querySelector('[data-xgc-role="robot-ground-vrpn-yaw-rate"] [data-xgc-role="robot-list-metric-readout"]')?.textContent)
+      .toMatch(/rad\/s/);
+    expect(container.querySelector('[data-xgc-role="robot-ground-vrpn-yaw-rate"] .robot-list-metric-digits')?.textContent)
+      .toBe('0.03');
+    expectMetricRate(container, '[data-xgc-role="robot-ground-vrpn-yaw-rate"]', '50.0 Hz');
+    expectMetricRate(container, '[data-xgc-role="robot-ground-vrpn-velocity"]', '50.0 Hz');
     expect(container.textContent).not.toMatch(/Lin err|Ang err|LINCMD|ANGCMD/);
   });
 
@@ -465,22 +593,20 @@ describe('RobotListProjection', () => {
     }
   });
 
-  it('keeps VRPN acc empty when its real channel is missing even if IMU has acceleration', () => {
+  it('keeps VRPN ω empty when twist angular z is missing even if IMU has angular velocity', () => {
     const projection = liveScoutProjection();
-    const channels = { ...projection.channels };
-    delete channels['vrpn.acceleration'];
     const { container } = render(<RobotListProjection
       robot={scoutRobot()}
       projection={{
         ...projection,
-        channels,
-        imu:{ linearAcceleration:{ x:9.81,y:9.81,z:9.81 } },
+        velocity:{ linear:{ x:0.21,y:-0.04,z:0.01 } },
+        imu:{ linearAcceleration:{ x:9.81,y:9.81,z:9.81 },angularVelocity:{ z:1.5 } },
       }}
     />);
-    const acceleration = container.querySelector('[data-xgc-role="robot-ground-vrpn-acceleration"]');
-    expect([...acceleration?.querySelectorAll('.robot-list-metric-digits') ?? []].map((node) => node.textContent))
-      .toEqual(['--','--','--']);
-    expect(acceleration?.textContent).not.toContain('9.81');
+    const yawRate = container.querySelector('[data-xgc-role="robot-ground-vrpn-yaw-rate"]');
+    expect(yawRate?.querySelector('.robot-list-metric-digits')?.textContent).toBe('--');
+    expect(yawRate?.textContent).not.toContain('1.5');
+    expect(yawRate?.textContent).not.toContain('9.81');
   });
 
   it('uses adapter stream-health IMU receipt age even when the sampled state.imu channel is absent', () => {
@@ -504,9 +630,9 @@ describe('RobotListProjection', () => {
     );
     expect(communication).toHaveAttribute(
       'aria-label',
-      'Communication freshness from last IMU receipt age 620 ms',
+      'Robot connection normal; Communication freshness from last IMU receipt age 620 ms',
     );
-    expect(communication).toHaveAttribute('data-xgc-tone', 'warning');
+    expect(communication).toHaveAttribute('data-xgc-tone', 'success');
     expect(communication?.getAttribute('aria-label')).not.toMatch(/RTT|round-trip/i);
   });
 
@@ -531,10 +657,10 @@ describe('RobotListProjection', () => {
       .toBe('28.8');
   });
 
-  it('does not infer semantic control mode from native raw values', () => {
+  it('maps Scout Mini native 0 and 1 to CMD when Adapter enum is missing', () => {
     const projection = liveScoutProjection();
     const chassisChannel = liveChannel('state.chassis', {
-      controlMode:'CONTROL_MODE_UNSPECIFIED',nativeControlMode:1,
+      controlMode:'CONTROL_MODE_UNSPECIFIED',nativeControlMode:0,
     });
     const { container } = render(<RobotListProjection
       robot={scoutRobot()}
@@ -546,8 +672,8 @@ describe('RobotListProjection', () => {
     />);
     expect(container.querySelector('[data-xgc-role="robot-control-indicator"]')).toBeNull();
     const chassisMode = container.querySelector('[data-xgc-role="robot-list-header-chassis-mode"]');
-    expect(chassisMode?.textContent).toBe('MODE 1');
-    expect(chassisMode).toHaveAttribute('data-xgc-tone', 'normal');
+    expect(chassisMode?.textContent).toBe('CMD');
+    expect(chassisMode).toHaveAttribute('data-xgc-tone', 'success');
     expect(chassisMode).toHaveClass('robot-list-header-word');
   });
 
@@ -620,8 +746,8 @@ describe('RobotListProjection', () => {
     const flightTitles = [...flight.container.querySelectorAll('dl > div > dt .robot-list-metric-title')]
       .map((node) => node.textContent);
     expect(flightTitles).toEqual([
-      'VRPN pos (m)','Local pos (m)','VRPN spd','VRPN height',
-      'SP pos (m)','SP vel (m/s)','SP acc (m/s²)',
+      'VRPN pos','Local pos','VRPN spd','VRPN height',
+      'SP pos','SP vel','SP acc',
     ]);
     expect(flight.container.querySelector('[data-xgc-role="robot-list-setpoint-mask"]'))
       .toHaveAttribute('data-xgc-id', 'fs150-01:sp-mask');
@@ -847,6 +973,9 @@ function expectListTopbar(container: HTMLElement) {
   expect(card?.firstElementChild).toBe(header);
   expect(header?.nextElementSibling).toBe(metrics);
   expect(header?.querySelector('.robot-card-identity')).not.toBeNull();
+  const identity = header?.querySelector('[data-xgc-role="robot-instrument-identity"]');
+  expect(identity).not.toBeNull();
+  expect(identity?.getAttribute('data-xgc-id')).toBeTruthy();
   expect(header?.querySelector('[data-xgc-role="robot-list-header-status"]')).not.toBeNull();
   expect(metrics?.querySelector('.robot-card-identity')).toBeNull();
   expect(metrics?.querySelector('[data-xgc-role="robot-list-header-status"]')).toBeNull();
@@ -983,9 +1112,6 @@ function liveScoutProjection(
   const velocityChannel = liveChannel('vrpn.velocity', {
     linear: { x: 0.21,y: -0.04,z: 0.01 },angular: { z: 0.03 },
   });
-  const accelerationChannel = liveChannel('vrpn.acceleration', {
-    linear: { x: 0.12,y: -0.05,z: 0.01 },
-  });
   const commandVelocityChannel = liveChannel('command.velocity', {
     linear: { x: 0.32 },angular: { z: -0.18 },
   });
@@ -1022,7 +1148,6 @@ function liveScoutProjection(
       'vrpn.position': poseChannel,
       'vrpn.velocity': velocityChannel,
       'vrpn.speed': liveChannel('vrpn.speed', { metersPerSecond: 0 }),
-      'vrpn.acceleration': accelerationChannel,
       'command.velocity': commandVelocityChannel,
       'state.imu': imuChannel,
       'state.power': liveChannel('state.power', {
@@ -1030,6 +1155,7 @@ function liveScoutProjection(
       }),
       'state.health': healthChannel,
       'state.chassis': chassisChannel,
+      'state.controller': liveChannel('state.controller', { text: 'Ready' }),
     },
     flightState: {},
     poseChannel,
@@ -1044,6 +1170,7 @@ function liveScoutProjection(
     healthChannel,
     health: healthChannel.value,
     chassis: chassisChannel.value,
+    controller: { text: 'Ready' },
     locomotion: {},
     joints: {},
     mocap: undefined,
@@ -1053,10 +1180,10 @@ function liveScoutProjection(
       { channelId: 'vrpn.position',sourceRateHz: 50,sourceAgeMs:8,stale:false },
       { channelId: 'vrpn.speed',sourceRateHz: 50 },
       { channelId: 'vrpn.velocity',sourceRateHz: 50 },
-      { channelId: 'vrpn.acceleration',sourceRateHz: 50 },
       { channelId: 'state.imu',sourceRateHz: 80,sourceAgeMs:14,stale:false },
       { channelId: 'state.power',sourceRateHz: 1.5 },
       { channelId: 'command.velocity',sourceRateHz: 20 },
+      { channelId: 'state.controller',sourceRateHz: 5,stale:false },
     ] },
     ...overrides,
   };
@@ -1103,6 +1230,8 @@ function liveFlightProjection(): RobotProjectionChannels {
         percentageState:'PERCENTAGE_STATE_AVAILABLE',percentage:80,voltageV:22.1,
       }),
       'diagnostic.fcu-link': liveChannel('diagnostic.fcu-link', { roundTripTimeMs: 18 }),
+      'state.flight': liveChannel('state.flight', { connected: true, mode: 'OFFBOARD', armed: true, landedState: 1 }),
+      'state.controller': liveChannel('state.controller', { text: 'Ready' }),
     },
     poseChannel,
     pose: poseChannel.value,
@@ -1118,13 +1247,16 @@ function liveFlightProjection(): RobotProjectionChannels {
       },
     },
     flightState: { connected: true, mode: 'OFFBOARD', armed: true, landedState: 1 },
+    controller: { text: 'Ready' },
     fcuLink: { roundTripTimeMs: 18 },
     streamHealth: { channels: [
       { channelId: 'state.pose',sourceRateHz: 30 },
+      { channelId: 'state.imu',sourceRateHz: 50,stale: false },
       { channelId: 'state.mocap.pose',sourceRateHz: 50 },
       { channelId: 'state.mocap.velocity',sourceRateHz: 50 },
       { channelId: 'state.mocap.speed',sourceRateHz: 50 },
       { channelId: 'setpoint.local',sourceRateHz: 10 },
+      { channelId: 'state.controller',sourceRateHz: 5,stale: false },
     ] },
   });
 }

@@ -11,6 +11,10 @@ describe('UnitreeB2RobotInstrument', () => {
 
     expect(screen.getByLabelText('B2 streams live')).toHaveTextContent('LIVE');
     expect(container.querySelector('.robot-b2-identity small')).toHaveTextContent('STANDING · HOLD');
+    expect(container.querySelector('[data-xgc-role="robot-instrument-identity"]')).toHaveAttribute(
+      'data-xgc-id',
+      'b2-01',
+    );
     expect(screen.getByText('12 joints')).toBeInTheDocument();
     expect(container.querySelector('[data-xgc-role="robot-b2-instrument"]')).toHaveAttribute(
       'data-xgc-stream-state',
@@ -46,12 +50,20 @@ describe('UnitreeB2RobotInstrument', () => {
   });
 
   it('renders an offline adapter separately from a stale channel', () => {
-    const { container } = renderInstrument(telemetry({ online: false,healthTone: 'unavailable' }));
+    const { container } = renderInstrument(telemetry({
+      online: false,
+      connectionState: 'closed',
+      healthTone: 'unavailable',
+    }));
 
-    expect(screen.getByLabelText('B2 streams offline')).toHaveTextContent('OFF');
+    expect(screen.getByLabelText('B2 streams live')).toHaveTextContent('LIVE');
+    expect(container.querySelector('[data-xgc-role="robot-b2-instrument"]')).toHaveAttribute(
+      'data-xgc-connection',
+      'disconnected',
+    );
     expect(container.querySelector('[data-xgc-role="robot-b2-instrument"]')).toHaveAttribute(
       'data-xgc-stream-state',
-      'offline',
+      'live',
     );
   });
 });

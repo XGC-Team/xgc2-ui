@@ -1,4 +1,5 @@
-import { describe,expect,it } from 'vitest';
+import { afterEach,describe,expect,it } from 'vitest';
+import { resolvedOperatorTimeZone,setResolvedOperatorTimeZone } from '../../shared/operatorTime';
 import { formatBytes,formatDuration,formatTimestamp } from './homeFormat';
 
 describe('homeFormat', () => {
@@ -21,6 +22,20 @@ describe('homeFormat', () => {
 
   it('returns the raw value for an unparseable timestamp', () => {
     expect(formatTimestamp('not-a-date', 'en-US')).toBe('not-a-date');
-    expect(formatTimestamp('2026-07-18T02:14:00.000Z', 'zh-CN')).not.toBe('');
+  });
+
+  describe('in the resolved operator time zone', () => {
+    const initialZone = resolvedOperatorTimeZone();
+    afterEach(() => setResolvedOperatorTimeZone(initialZone));
+
+    it('formats station wall time, not the machine zone', () => {
+      // Pin the station zone (compose sets TZ=Asia/Shanghai) instead of
+      // depending on the machine running the test.
+      setResolvedOperatorTimeZone('Asia/Shanghai');
+      expect(formatTimestamp('2026-09-21T10:22:17.000Z', 'zh-CN')).toBe('2026/09/21 18:22');
+      expect(formatTimestamp('2026-09-21T10:22:17.000Z', 'en-US')).toBe('09/21/2026, 06:22 PM');
+      setResolvedOperatorTimeZone('UTC');
+      expect(formatTimestamp('2026-09-21T10:22:17.000Z', 'zh-CN')).toBe('2026/09/21 10:22');
+    });
   });
 });

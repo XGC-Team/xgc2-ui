@@ -166,3 +166,13 @@ function logQuery(offset: number, limitBytes: number, stream: ExecutionLogStream
     stream,
   });
 }
+
+export type ProcessROS1PoseSamples = {
+  instanceId:string;
+  roots:string[];
+  samples:{
+    topic:string;observedAt:string;sourceStamp:string;frameId:string;
+    position:{ x:number;y:number;z:number };
+    orientation:{ x:number;y:number;z:number;w:number };
+  }[];
+};

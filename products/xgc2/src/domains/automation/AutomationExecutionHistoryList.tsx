@@ -1,4 +1,4 @@
-import { StatusText } from '@xgc2/ui-react';
+import { EmptyState,StatusText } from '@xgc2/ui-react';
 import { RefreshCw } from 'lucide-react';
 import { ControlButton } from '../../components/controls/ControlButton';
 import { useAutomationExecutionText } from './automationExecutionMessages';
@@ -153,10 +153,13 @@ export function AutomationExecutionHistoryList({
           );
         })}
         {orderedEntries.length > 0 && visibleEntries.length === 0 && (
-          <div className="automation-execution-filter-empty" data-xgc-role="automation-execution-filter-empty" data-xgc-id={resourceId}>
-            <strong>{t('No matching executions')}</strong>
-            <span>{t('Change a filter to show cached runs.')}</span>
-          </div>
+          <EmptyState
+            appearance="plain"
+            data-xgc-role="automation-execution-filter-empty"
+            data-xgc-id={resourceId}
+            title={t('No matching executions')}
+            description={t('Change a filter to show cached runs.')}
+          />
         )}
         {hasMoreRuns && onLoadMore && (
           <ControlButton

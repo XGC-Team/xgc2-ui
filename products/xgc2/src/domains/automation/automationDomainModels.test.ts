@@ -438,8 +438,15 @@ describe('Automation domain models', () => {
     ];
     expect(validateAutomationSpec(spec, catalog)).toBe('');
 
+    spec.edges[1].sourcePort = 'context';
+    spec.edges[1].route = 'context';
+    const contextCatalog = catalog.map((entry) => entry.kind === 'process.run-definition'
+      ? { ...entry,outputPorts: [{ id: 'context',label: 'Context' }] } : entry);
+    expect(validateAutomationSpec(spec, contextCatalog)).toBe('');
+    delete spec.edges[1].route;
+
     spec.edges[1].sourcePort = 'logs';
-    expect(validateAutomationSpec(spec, catalog)).toContain('unsupported output port');
+    expect(validateAutomationSpec(spec, catalog)).toContain('not declared');
     spec.edges[1] = { ...spec.edges[1],from: 'start',sourcePort: 'ready' };
     expect(validateAutomationSpec(spec, catalog)).toContain('without declared output ports');
   });

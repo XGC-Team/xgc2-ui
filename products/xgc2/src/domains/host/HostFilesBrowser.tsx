@@ -1,5 +1,6 @@
 import { Folder,Plus,RefreshCw,Search,Trash2,Upload } from 'lucide-react';
 import { useRef } from 'react';
+import { useProductRouteVisible } from '../../shared/routeReady';
 import { EmptyState,Input,Panel,Toolbar,useTextPromptDialog } from '@xgc2/ui-react';
 import { ControlButton } from '../../components/controls/ControlButton';
 import { InputControl } from '../../components/controls/TextControls';
@@ -51,6 +52,7 @@ export function HostFilesBrowser({
   onOpenRecycle: () => void;
 }) {
   const t = useHostText();
+  const surfaceVisible = useProductRouteVisible();
   const promptDialog = useTextPromptDialog();
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
   const createEntry = async (directory: boolean) => {
@@ -157,7 +159,6 @@ export function HostFilesBrowser({
             size="compact"
             dataXgcRole="host-files-upload" dataXgcId="host-files-upload"
             disabled={disabled || directoryActionsDisabled}
-            title={remoteManagedHost ? 'Uploaded via Agent fs write (text/small files)' : undefined}
             onClick={() => uploadInputRef.current?.click()}
           >
             <Upload size={14} aria-hidden="true" />Upload
@@ -204,7 +205,7 @@ export function HostFilesBrowser({
         disabled={disabled || directoryActionsDisabled}
         actions={entryActions}
       />
-      {promptDialog.dialog}
+      {surfaceVisible ? promptDialog.dialog : null}
     </Panel>
   );
 }

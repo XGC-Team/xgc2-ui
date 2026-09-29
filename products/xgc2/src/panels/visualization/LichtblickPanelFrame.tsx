@@ -1,11 +1,9 @@
 import { Check,ChevronDown,Network,Scan,Square,Wrench } from 'lucide-react';
 import {
   createContext,
-  useCallback,
   useContext,
   useLayoutEffect,
   useMemo,
-  useRef,
   useState,
   type ReactNode,
   type RefCallback,
@@ -13,12 +11,12 @@ import {
 import { Button,Popover } from '@xgc2/ui-react';
 import { useExperimentSurfaceVisible } from '../../domains/experiment/experimentPublic';
 import { useProductRouteVisible } from '../../shared/routeReady';
+import type { LichtblickSceneHost } from './lichtblickSceneBridge';
+import { useLichtblickPanelFrameState } from './useLichtblickPanelFrameState';
 import { PanelViewSwitcher } from '../../components/PanelViewSwitcher';
 import type { PanelPluginFrameProviderProps,PanelPluginHeaderActionsProps } from '../types';
 import {
   LICHTBLICK_EMBED_SURFACES,
-  isLichtblickEmbedReadyMessage,
-  lichtblickEmbedToggleSurfaceMessage,
   type LichtblickEmbedSurface,
 } from './lichtblickEmbedBridge';
 
@@ -37,6 +35,7 @@ type LichtblickPanelFrameState = {
   view: LichtblickWorkspaceView;
   setView: (view: LichtblickWorkspaceView) => void;
   embedBridge: LichtblickEmbedBridgeControl;
+  setSceneHost: (host:LichtblickSceneHost|undefined) => void;
 };
 
 const LichtblickPanelFrameContext = createContext<LichtblickPanelFrameState | null>(null);
@@ -44,9 +43,9 @@ const viewItems = [
   { id: 'lichtblick',label: 'Lichtblick content',icon: Scan },
   { id: 'workflow',label: 'Workflow',icon: Network },
 ] as const;
-const noEmbedCapabilities: readonly LichtblickEmbedSurface[] = [];
 const embedToolLabels: Record<LichtblickEmbedSurface,string> = {
   '3d-tools': '3D tools',
+  'obstacle-scene': 'Obstacles',
   'panel-controls': 'Panel controls',
   'panel-settings': 'Panel settings',
   alerts: 'Alerts',
@@ -56,50 +55,8 @@ const embedToolLabels: Record<LichtblickEmbedSurface,string> = {
 };
 
 export function LichtblickPanelFrameProvider({ panel,children }: PanelPluginFrameProviderProps) {
-  const [view,setView] = useState<LichtblickWorkspaceView>('lichtblick');
-  const iframeElement = useRef<HTMLIFrameElement | null>(null);
-  const [embedReady,setEmbedReady] = useState(false);
-  const [embedCapabilities,setEmbedCapabilities] = useState(noEmbedCapabilities);
-  const [visibleSurfaces,setVisibleSurfaces] = useState(noEmbedCapabilities);
-  const iframeRef = useCallback<RefCallback<HTMLIFrameElement>>((element) => {
-    if (element === iframeElement.current) return;
-    iframeElement.current = element;
-    if (!element) return;
-    setEmbedReady(false);
-    setEmbedCapabilities(noEmbedCapabilities);
-    setVisibleSurfaces(noEmbedCapabilities);
-  },[]);
-  useLayoutEffect(() => {
-    const handleMessage = (event: MessageEvent<unknown>) => {
-      const iframe = iframeElement.current;
-      if (!iframe || event.source !== iframe.contentWindow) return;
-      const origin = trustedLichtblickFrameOrigin(iframe);
-      if (!origin || event.origin !== origin || !isLichtblickEmbedReadyMessage(event.data)) return;
-      setEmbedCapabilities([...event.data.capabilities]);
-      setVisibleSurfaces([...event.data.visibleSurfaces]);
-      setEmbedReady(true);
-    };
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  },[]);
-  const toggleSurface = useCallback((surface: LichtblickEmbedSurface) => {
-    const iframe = iframeElement.current;
-    if (!iframe || !embedReady || !embedCapabilities.includes(surface)) return;
-    const origin = trustedLichtblickFrameOrigin(iframe);
-    if (!origin) return;
-    iframe.contentWindow?.postMessage(lichtblickEmbedToggleSurfaceMessage(surface), origin);
-  },[embedCapabilities,embedReady]);
-  const embedBridge = useMemo<LichtblickEmbedBridgeControl>(() => ({
-    iframeRef,
-    ready: embedReady,
-    capabilities: embedCapabilities,
-    visibleSurfaces,
-    toggleSurface,
-  }),[embedCapabilities,embedReady,iframeRef,toggleSurface,visibleSurfaces]);
-  const value = useMemo(
-    () => ({ panelId: panel.id,view,setView,embedBridge }),
-    [embedBridge,panel.id,view],
-  );
+  const frame = useLichtblickPanelFrameState();
+  const value = useMemo(() => ({ panelId:panel.id,...frame }),[frame,panel.id]);
   return <LichtblickPanelFrameContext.Provider value={value}>{children}</LichtblickPanelFrameContext.Provider>;
 }
 
@@ -119,6 +76,14 @@ export function LichtblickPanelFrameBinding({
 }) {
   const frame = useLichtblickPanelFrame(panelId);
   return children(frame.view,frame.embedBridge);
+}
+
+/** Registers the already-authorized Panel Action without adding a second run or ROS write surface. */
+export function LichtblickSceneHostBinding({ panelId,host }: { panelId:string;host:LichtblickSceneHost|undefined }) {
+  const { setSceneHost }=useLichtblickPanelFrame(panelId);
+  useLayoutEffect(() => { setSceneHost(host); },[host,setSceneHost]);
+  useLayoutEffect(() => () => setSceneHost(undefined),[setSceneHost]);
+  return null;
 }
 
 export function LichtblickPanelHeaderLeading({ panel,editing }: PanelPluginHeaderActionsProps) {
@@ -187,13 +152,4 @@ export function LichtblickPanelHeaderActions({ panel,editing }: PanelPluginHeade
       )}
     </div>
   );
-}
-
-function trustedLichtblickFrameOrigin(iframe: HTMLIFrameElement) {
-  try {
-    const origin = new URL(iframe.src, window.location.href).origin;
-    return origin === window.location.origin ? origin : '';
-  } catch {
-    return '';
-  }
 }

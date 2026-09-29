@@ -1,8 +1,8 @@
 const HYBRID_EXPERIMENT_KEYS = new Set([
   'four-scout',
-  'six-px4',
-  'five-px4-two-mecanum',
-  'six-px4-four-scout',
+  'px4-swarm',
+  'px4-mecanum-swarm',
+  'px4-scout-swarm',
 ]);
 
 const CALIBRATION_EXPERIMENT_KEYS = new Set([
@@ -15,18 +15,18 @@ const CANONICAL_LANE_KEY_PATTERN=/^[A-Za-z][A-Za-z0-9._-]{0,63}$/;
 
 export function fixtureLanePlans(recipes) {
   if (!Array.isArray(recipes) || recipes.length===0) {
-    throw new Error('local-fleet fixture recipes are required');
+    throw new Error('local-swarm fixture recipes are required');
   }
   const keys=new Set();
   const plans=recipes.map((recipe) => {
     const key=canonicalLaneKey(recipe?.key,'fixture key');
     const name=requiredString(recipe?.name,`${key} fixture name`);
-    if (keys.has(key)) throw new Error(`duplicate local-fleet fixture key: ${key}`);
+    if (keys.has(key)) throw new Error(`duplicate local-swarm fixture key: ${key}`);
     keys.add(key);
     let modePolicy;
     if (HYBRID_EXPERIMENT_KEYS.has(key)) modePolicy='hybrid-required';
     else if (CALIBRATION_EXPERIMENT_KEYS.has(key)) modePolicy='calibration-only';
-    else throw new Error(`local-fleet fixture has no declared run-mode policy: ${key}`);
+    else throw new Error(`local-swarm fixture has no declared run-mode policy: ${key}`);
     return Object.freeze({ key,name,modePolicy });
   });
   return [
@@ -52,42 +52,42 @@ export function resolveLaneRunModes(plan,experiment) {
 
 export function parseRequestedLaneKeys(value) {
   if (typeof value!=='string') {
-    throw new Error('requested local-fleet lanes must be a comma-separated string');
+    throw new Error('requested local-swarm lanes must be a comma-separated string');
   }
   if (value.trim()==='') return [];
   const requested=value.split(',').map((rawKey) => {
     const key=rawKey.trim();
-    if (key==='') throw new Error('requested local-fleet lane key must not be empty');
-    return canonicalLaneKey(key,'requested local-fleet lane key');
+    if (key==='') throw new Error('requested local-swarm lane key must not be empty');
+    return canonicalLaneKey(key,'requested local-swarm lane key');
   });
   if (new Set(requested).size!==requested.length) {
-    throw new Error('requested local-fleet lane keys must be unique');
+    throw new Error('requested local-swarm lane keys must be unique');
   }
   return requested;
 }
 
 export function filterLanePlansByKeys(lanes,requestedLaneKeys=[]) {
   if (!Array.isArray(lanes) || lanes.length===0) {
-    throw new Error('local-fleet lane plans are required');
+    throw new Error('local-swarm lane plans are required');
   }
   if (!Array.isArray(requestedLaneKeys)) {
-    throw new Error('requested local-fleet lane keys must be an array');
+    throw new Error('requested local-swarm lane keys must be an array');
   }
   const lanesByKey=new Map();
   for (const lane of lanes) {
-    const key=canonicalLaneKey(lane?.key,'local-fleet lane key');
-    if (lanesByKey.has(key)) throw new Error(`duplicate local-fleet lane key: ${key}`);
+    const key=canonicalLaneKey(lane?.key,'local-swarm lane key');
+    if (lanesByKey.has(key)) throw new Error(`duplicate local-swarm lane key: ${key}`);
     lanesByKey.set(key,lane);
   }
   const requested=requestedLaneKeys.map((key) => (
-    canonicalLaneKey(key,'requested local-fleet lane key')
+    canonicalLaneKey(key,'requested local-swarm lane key')
   ));
   if (new Set(requested).size!==requested.length) {
-    throw new Error('requested local-fleet lane keys must be unique');
+    throw new Error('requested local-swarm lane keys must be unique');
   }
   for (const key of requested) {
     if (!lanesByKey.has(key)) {
-      throw new Error(`requested local-fleet lane key was not found: ${key}`);
+      throw new Error(`requested local-swarm lane key was not found: ${key}`);
     }
   }
   if (requested.length===0) return lanes;
@@ -108,14 +108,14 @@ export function buildRepeatedModeMatrix(lanes,{ requestedModes=[],repeatRounds=3
       }
     }
   }
-  if (matrix.length===0) throw new Error('local-fleet run-mode matrix is empty');
+  if (matrix.length===0) throw new Error('local-swarm run-mode matrix is empty');
   return matrix;
 }
 
 export function validateRepeatRounds(value) {
   const rounds=typeof value==='number' ? value : Number.parseInt(String(value),10);
   if (!Number.isSafeInteger(rounds) || rounds<3) {
-    throw new Error('local-fleet repeat rounds must be at least 3');
+    throw new Error('local-swarm repeat rounds must be at least 3');
   }
   return rounds;
 }

@@ -1,0 +1,21 @@
+.robot-asset-reachability[data-xgc-state="success"] {
+  color: var(--color-success);
+}
+
+.robot-asset-reachability[data-xgc-state="warning"] {
+  color: var(--color-warning);
+}
+
+.robot-asset-reachability[data-xgc-state="danger"] {
+  color: var(--color-danger);
+}
+
+.robot-asset-reachability [data-xgc-spinning="true"] {
+  animation: xgc-workspace-busy-spin calc(var(--duration-deliberate) * 3) linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .robot-asset-reachability [data-xgc-spinning="true"] {
+    animation: none;
+  }
+}

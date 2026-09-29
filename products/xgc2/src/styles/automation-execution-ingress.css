@@ -7,7 +7,6 @@
   padding: var(--space-lg) var(--space-lg);
   overflow: auto;
   background: var(--color-bg-surface);
-  border-bottom: var(--stroke-thin) solid var(--color-border);
 }
 
 .automation-execution-ingress-transition-ledger > header,
@@ -21,22 +20,23 @@
 
 .automation-execution-ingress-transition-ledger > header strong {
   color: var(--color-text-heading);
-  font-size: var(--font-sm);
-  font-weight: var(--weight-semibold);
-  letter-spacing: var(--tracking-label);
-  text-transform: uppercase;
+  font-size: var(--type-caption-caps-size);
+  font-weight: var(--type-caption-caps-weight);
+  letter-spacing: var(--type-caption-caps-tracking);
+  text-transform: var(--type-caption-caps-transform);
 }
 
 .automation-execution-ingress-transition > header strong {
   color: var(--color-text-heading);
-  font-size: var(--font-sm);
-  font-family: var(--font-mono);
+  font-size: var(--type-code-size);
+  font-family: var(--type-code-family);
+  font-weight: var(--weight-medium);
 }
 
 .automation-execution-ingress-transition-ledger > header span,
 .automation-execution-ingress-transition > header span {
   color: var(--color-text-muted);
-  font-size: var(--font-sm);
+  font-size: var(--type-meta-size);
 }
 
 .automation-execution-ingress-transition-list {
@@ -70,11 +70,9 @@
 }
 
 .automation-execution-ingress-transition dt {
-  color: var(--color-text-faint);
-  font-size: var(--font-sm);
-  font-weight: var(--weight-semibold);
-  letter-spacing: var(--tracking-label);
-  text-transform: uppercase;
+  color: var(--color-text-muted);
+  font-size: var(--type-meta-size);
+  font-weight: var(--type-meta-weight);
 }
 
 .automation-execution-ingress-transition dd {
@@ -82,11 +80,12 @@
   margin: 0;
   overflow-wrap: anywhere;
   color: var(--color-text-heading);
-  font-size: var(--font-sm);
+  font-size: var(--type-meta-size);
 }
 
 .automation-execution-ingress-transition code {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
+  font-variant-numeric: var(--type-numeric-variant);
 }
 
 .automation-execution-ingress-transitions-load-more {

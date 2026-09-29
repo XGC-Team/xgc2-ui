@@ -74,6 +74,25 @@ function hasRoleAttribute(element: TypeScript.JsxOpeningLikeElement): boolean {
   return hasJsxAttribute(element, 'data-xgc-role') || hasJsxAttribute(element, 'dataXgcRole');
 }
 
+// Literal `aria-hidden="true"` / `aria-hidden={true}` / `aria-hidden={'true'}` only.
+// Expression bindings such as `aria-hidden={!selected}` are the V12 park pattern
+// (role lives on the route surface) and must not be flagged.
+function hasLiteralAriaHiddenTrue(element: TypeScript.JsxOpeningLikeElement): boolean {
+  return element.attributes.properties.some((property) => {
+    if (!ts.isJsxAttribute(property) || property.name.getText() !== 'aria-hidden') return false;
+    const initializer = property.initializer;
+    if (!initializer) return false;
+    if (ts.isStringLiteral(initializer)) return initializer.text === 'true';
+    if (ts.isJsxExpression(initializer)) {
+      const expression = initializer.expression;
+      if (!expression) return false;
+      if (expression.kind === ts.SyntaxKind.TrueKeyword) return true;
+      if (ts.isStringLiteral(expression)) return expression.text === 'true';
+    }
+    return false;
+  });
+}
+
 function hasJsxSpread(element: TypeScript.JsxOpeningLikeElement): boolean {
   return element.attributes.properties.some((property) => ts.isJsxSpreadAttribute(property));
 }
@@ -138,6 +157,26 @@ describe('markable host contract', () => {
     expect(violations).toEqual([]);
   });
 
+  it('does not combine literal aria-hidden="true" with data-xgc-role on the same element', () => {
+    const violations: string[] = [];
+    for (const file of productionFiles(/\.tsx$/)) {
+      const source = readFileSync(file, 'utf8');
+      const sourceFile = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+      const visit = (node: TypeScript.Node) => {
+        if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
+          if (hasRoleAttribute(node) && hasLiteralAriaHiddenTrue(node)) {
+            violations.push(
+              `${elementLocation(sourceFile, node)}: ${node.tagName.getText()} is aria-hidden="true" yet carries data-xgc-role; move the role to a visible chrome host`,
+            );
+          }
+        }
+        ts.forEachChild(node, visit);
+      };
+      visit(sourceFile);
+    }
+    expect(violations).toEqual([]);
+  });
+
   it('requires InstrumentStatus slots to declare role and robotId', () => {
     const violations: string[] = [];
     for (const file of productionFiles(/\.tsx$/)) {
@@ -158,6 +197,28 @@ describe('markable host contract', () => {
         ts.forEachChild(node, visit);
       };
       visit(sourceFile);
+    }
+    expect(violations).toEqual([]);
+  });
+
+  it('requires instrument slot identity hosts to use RobotInstrumentIdentity', () => {
+    const hosts = [
+      'panels/robot/FlightRobotInstrument.tsx',
+      'panels/robot/GroundRobotInstrument.tsx',
+      'panels/robot/RobotListProjection.tsx',
+      'domains/robot/kinds/unitree-b2/UnitreeB2RobotInstrument.tsx',
+      'domains/robot/kinds/unitree-b2/panelRenderers.tsx',
+    ];
+    const anonymousName = /<strong(?:\s[^>]*)?>\s*\{(?:name|robot\.name)\}/;
+    const violations: string[] = [];
+    for (const rel of hosts) {
+      const source = readFileSync(resolve(SRC, rel), 'utf8');
+      if (!source.includes('RobotInstrumentIdentity')) {
+        violations.push(`${rel}: missing RobotInstrumentIdentity`);
+      }
+      if (anonymousName.test(source)) {
+        violations.push(`${rel}: anonymous <strong>{name}</strong> is not markable`);
+      }
     }
     expect(violations).toEqual([]);
   });

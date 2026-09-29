@@ -44,43 +44,18 @@ export type CameraVideoPanelRuntime =
   | { kind: 'failed' | 'waiting';title: string;description: string;issue:CameraValidationIssue }
   | { kind: 'ready';title: string;description: '';edgeUrl: string;sourceId: string };
 
-export function containedVideoSize({
-  containerWidth,
-  containerHeight,
-  sourceWidth,
-  sourceHeight,
-}: {
-  containerWidth: number;
-  containerHeight: number;
-  sourceWidth: number;
-  sourceHeight: number;
-}) {
-  if (![containerWidth,containerHeight,sourceWidth,sourceHeight].every(
-    (value) => Number.isFinite(value) && value > 0,
-  )) return undefined;
-
-  const sourceAspectRatio = sourceWidth / sourceHeight;
-  const containerAspectRatio = containerWidth / containerHeight;
-  if (containerAspectRatio > sourceAspectRatio) {
-    return {
-      width:containerHeight * sourceAspectRatio,
-      height:containerHeight,
-    };
-  }
-  return {
-    width:containerWidth,
-    height:containerWidth / sourceAspectRatio,
-  };
-}
+export { containedVideoSize } from './cameraVideoGeometry';
 
 export function cameraVideoPanelRuntime({
   requestedEdgeUrl,
   requestedSourceId,
+  stationSignaling = false,
 }: {
   requestedEdgeUrl: unknown;
   requestedSourceId: unknown;
+  stationSignaling?: boolean;
 }): CameraVideoPanelRuntime {
-  if (requestedEdgeUrl === undefined || requestedEdgeUrl === '') {
+  if (!stationSignaling && (requestedEdgeUrl === undefined || requestedEdgeUrl === '')) {
     const issue = { code:'media-edge-required' } as const;
     return {
       kind: 'waiting',
@@ -89,9 +64,9 @@ export function cameraVideoPanelRuntime({
       issue,
     };
   }
-  let edgeUrl: string;
+  let edgeUrl = '';
   try {
-    edgeUrl = normalizeMediaEdgeURL(requestedEdgeUrl);
+    if (!stationSignaling) edgeUrl = normalizeMediaEdgeURL(requestedEdgeUrl);
   } catch {
     const issue = { code:'media-edge-url-invalid' } as const;
     return {

@@ -41,7 +41,7 @@ export function AppWindowControls({ language }: { language: AppLanguage }) {
         data-xgc-role="app-window-minimize"
         data-xgc-id="app-window-minimize"
         iconOnly
-        onPointerDown={(event) => {
+        onClick={(event) => {
           event.preventDefault();
           event.stopPropagation();
           void api.minimize();
@@ -57,7 +57,7 @@ export function AppWindowControls({ language }: { language: AppLanguage }) {
         data-xgc-role="app-window-maximize"
         data-xgc-id="app-window-maximize"
         iconOnly
-        onPointerDown={(event) => {
+        onClick={(event) => {
           event.preventDefault();
           event.stopPropagation();
           void api.toggleMaximize().then((value) => setMaximized(Boolean(value)));
@@ -72,7 +72,7 @@ export function AppWindowControls({ language }: { language: AppLanguage }) {
         data-xgc-role="app-window-close"
         data-xgc-id="app-window-close"
         iconOnly
-        onPointerDown={(event) => {
+        onClick={(event) => {
           event.preventDefault();
           event.stopPropagation();
           void api.close();

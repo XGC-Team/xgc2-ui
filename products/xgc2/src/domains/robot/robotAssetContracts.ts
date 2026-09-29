@@ -50,10 +50,29 @@ export type PX4RobotAssetSpec = RobotAssetSpecBase & {
     /** SITL PX4 remote UDP port (owned by the Robot). */
     simulationRemotePort: number;
     simulation: RobotSimulationConfig;
+    /** Absent = centralized on Core. container (FS150 only) runs SITL + MAVROS in the Robot's own container. */
+    simulationSetup?: RobotSimulationSetup;
   };
   scout?: never;
   mecanum?: never;
 };
+
+export const SIMULATION_SETUP_CENTRALIZED = 'centralized';
+export const SIMULATION_SETUP_CONTAINER = 'container';
+/** SITL + MAVROS on the robot's real companion Linux Agent (D-116 M3). */
+export const SIMULATION_SETUP_ONBOARD = 'onboard';
+export type RobotSimulationSetup = {
+  mode: typeof SIMULATION_SETUP_CENTRALIZED | typeof SIMULATION_SETUP_CONTAINER | typeof SIMULATION_SETUP_ONBOARD;
+  /** Required for container: <reference>@sha256:<64 hex>. */
+  image?: string;
+  /** Required for onboard: the robot's enrolled companion Agent. */
+  agentId?: string;
+};
+
+/** Robot-LAN address Core derives for a container-setup PX4 robot (172.30.251.(100 + MAV system ID)). */
+export function robotContainerAddress(mavSystemId: number) {
+  return `172.30.251.${100 + mavSystemId}`;
+}
 
 export function px4RobotModelId(spec: PX4RobotAssetSpec) {
   return spec.px4.modelId;

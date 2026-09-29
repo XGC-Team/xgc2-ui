@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback,useMemo,useState } from 'react';
 import type { ReactNode } from 'react';
 import { Inline,Stack } from '@xgc2/ui-react';
 import { ControlButton } from '../../components/controls/ControlButton';
@@ -12,6 +12,7 @@ import { GroundStationChatActivity } from './GroundStationChatActivity';
 import type { GroundStationChatEntryDensity } from './GroundStationChatEntry';
 import {
   GroundStationDecisionChatCard,
+  GroundStationDecisionResultLog,
   GroundStationOperatorResponseBubble,
 } from './GroundStationChatDecision';
 import {
@@ -62,17 +63,19 @@ export function GroundStationActivityChat({
   onOpenContext?: GroundStationOpenContext;
   onSendMessage?: (input: GroundStationChatMessageInput) => void | Promise<void>;
 }) {
-  const passiveItems: GroundStationChatTimelineItem[] = [...statuses,...contexts].map((interaction) => ({
-    id: `interaction:${interaction.id}`,
-    type: 'interaction',
-    at: interaction.createdAt,
-    interaction,
-  }));
-  const items: GroundStationChatTimelineItem[] = [
-    ...passiveItems,
-    ...projectGroundStationDecisionTimeline(decisions),
-  ].sort(compareTimelineItems);
-  const groups = collapseGroundStationChatTimeline(items);
+  const items = useMemo(() => {
+    const passiveItems: GroundStationChatTimelineItem[] = [...statuses,...contexts].map((interaction) => ({
+      id: `interaction:${interaction.id}`,
+      type: 'interaction',
+      at: interaction.createdAt,
+      interaction,
+    }));
+    return [
+      ...passiveItems,
+      ...projectGroundStationDecisionTimeline(decisions),
+    ].sort(compareTimelineItems);
+  },[statuses,contexts,decisions]);
+  const groups = useMemo(() => collapseGroundStationChatTimeline(items),[items]);
   const activityVersion = items
     .map((item) => `${item.type}:${item.id}:${item.interaction.revision}:${item.interaction.updatedAt}`)
     .join('|');
@@ -80,7 +83,7 @@ export function GroundStationActivityChat({
     (current, item) => severityRank(item.interaction.severity) > severityRank(current) ? item.interaction.severity : current,
     'info',
   );
-  const renderItem = (item: GroundStationChatTimelineItem, density: GroundStationChatEntryDensity) => (
+  const renderItem = useCallback((item: GroundStationChatTimelineItem, density: GroundStationChatEntryDensity) => (
     <GroundStationChatTimelineEntry
       item={item}
       targetId={targetId}
@@ -90,13 +93,14 @@ export function GroundStationActivityChat({
       onRespond={onRespond}
       onOpenContext={onOpenContext}
     />
-  );
-  if (renderConversation) return renderConversation(groups.map((group) => ({
+  ),[targetId,presentation,onDismiss,onRespond,onOpenContext]);
+  const entries = useMemo(() => groups.map((group) => ({
     id: groupKey(group),
     at: group.latest.at,
     content: <GroundStationChatTimelineGroupView group={group}
       density={presentation === 'panel' ? 'full' : 'summary'} renderItem={renderItem} />,
-  })));
+  })),[groups,presentation,renderItem]);
+  if (renderConversation) return renderConversation(entries);
   return (
     <GroundStationChatPanel
       enabled={enabled}
@@ -193,6 +197,9 @@ function GroundStationChatTimelineEntry({
   }
   if (item.type === 'operator-response') {
     return <GroundStationOperatorResponseBubble interaction={item.interaction} response={item.response} />;
+  }
+  if (item.type === 'decision-result') {
+    return <GroundStationDecisionResultLog interaction={item.interaction} presentation={presentation} />;
   }
   const interaction = item.interaction;
   return (

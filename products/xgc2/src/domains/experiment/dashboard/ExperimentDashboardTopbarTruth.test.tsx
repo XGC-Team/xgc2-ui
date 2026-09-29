@@ -18,7 +18,7 @@ describe('ExperimentDashboardTopbar aggregate lifecycle truth',() => {
       visibleExperiment: {
         head: { domain:'experiment',resourceId:'experiment-a',name:'Experiment A',tags:[],mainCommitId:'c1',currentVersion:1,digest:'d',revision:1,createdAt:'',updatedAt:'' },
         branch: { domain:'experiment',resourceId:'experiment-a',name:'main',headCommitId:'c1',headVersion:1,revision:1,createdAt:'',updatedAt:'' },
-        spec: { schemaVersion:15,name:'Experiment A',description:'',tags:[],runModes:['simulation'],localizationOffset:{ x:0,y:0,z:0 },robots:[],workflowInstances:[],dashboards:[dashboard] },
+        spec: { worldBoundary:null,schemaVersion:16,name:'Experiment A',description:'',tags:[],runModes:['simulation'],localizationOffset:{ x:0,y:0,z:0 },robots:[],workflowInstances:[],dashboards:[dashboard] },
       },
       editing:false,readOnly:false,saving:false,start:vi.fn(),requestExit:vi.fn(),
     };

@@ -82,16 +82,15 @@
 .automation-trigger-controls-surface[data-xgc-callout="true"] > strong,
 .automation-trigger-controls-listener strong {
   color: var(--color-text-heading);
-  font-size: var(--font-sm);
-  font-weight: var(--weight-semibold);
+  font-size: var(--type-meta-size);
+  font-weight: var(--type-emphasis-weight);
   white-space: nowrap;
 }
 
 .automation-trigger-controls-status {
   flex: 0 0 auto;
-  font-size: var(--font-xs);
-  font-weight: var(--weight-semibold);
-  text-transform: uppercase;
+  font-size: var(--type-status-size);
+  font-weight: var(--type-status-weight);
 }
 
 .automation-trigger-controls-actions {
@@ -124,8 +123,8 @@
   color: var(--color-text-strong);
   background: var(--color-bg-subtle);
   border-radius: var(--radius-control);
-  font-family: var(--font-mono);
-  font-size: var(--font-xs);
+  font-family: var(--type-code-family);
+  font-size: var(--type-code-size);
 }
 
 .automation-trigger-controls-credential .xgc-control-button,
@@ -142,7 +141,7 @@
 
 .automation-trigger-controls-listener-expiry {
   color: var(--color-text-muted);
-  font-size: var(--font-xs);
+  font-size: var(--type-meta-size);
   white-space: nowrap;
 }
 
@@ -156,7 +155,7 @@
   gap: var(--space-sm);
 }
 
-.automation-trigger-controls-listener-start .xgc-input-control {
+.automation-trigger-controls-listener-start .control-input {
   --xgc-control-height: var(--size-control-compact);
   --xgc-control-input-padding-inline: var(--space-sm);
   width: calc(var(--size-control-default) * 3);
@@ -168,14 +167,11 @@
 }
 
 /* TextareaControl applies both class names on the same wrapper span. */
-.automation-trigger-controls-payload.xgc-textarea-control textarea,
-.automation-trigger-controls-payload .xgc-textarea-control textarea {
+.automation-trigger-controls-payload.control-textarea textarea,
+.automation-trigger-controls-payload .control-textarea textarea {
   width: 100%;
   min-height: calc(var(--size-control-default) * 3);
   resize: vertical;
-  font-family: var(--font-mono);
-  font-size: var(--font-sm);
-  line-height: var(--line-height-relaxed);
 }
 
 @container xgc-workspace (max-width: 720px) {
@@ -204,7 +200,7 @@
     width: 100%;
   }
 
-  .automation-trigger-controls-listener-start .xgc-input-control {
+  .automation-trigger-controls-listener-start .control-input {
     width: 100%;
     flex: 1 1 auto;
   }

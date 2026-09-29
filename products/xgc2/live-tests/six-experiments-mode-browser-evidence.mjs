@@ -59,7 +59,7 @@ const stableSSEWindowMs = requiredMinimumInteger(
 const preferredStableSSEGateCell = 'camera-intrinsic/physical';
 const requestedLanes=parseRequestedLaneKeys(process.env.XGC_SIX_EXPERIMENTS_LANES??'');
 const fixtureRecipes=JSON.parse(readFileSync(
-  new URL('../../local-fleet-lab/experiment-fixture-recipes.json',import.meta.url),'utf8',
+  new URL('../../local-swarm-lab/experiment-fixture-recipes.json',import.meta.url),'utf8',
 )).recipes;
 const lanePlans = filterLanePlansByKeys(fixtureLanePlans(fixtureRecipes),requestedLanes);
 
@@ -170,7 +170,7 @@ try {
     console.log(`PASS: ${activeCell} browser Run -> stable waiting -> Stop -> idle`);
   }
   assertNoRetiredWorkflowRouteRequests(forbiddenRequests,{
-    scope:'local-fleet browser matrix',
+    scope:'local-swarm browser matrix',
   });
   if (executionStreams.length === 0) throw new Error('browser never opened the target execution SSE stream');
   if (frontendHistoryRequests.length > evidence.cells.length*5+5) {
@@ -186,7 +186,7 @@ try {
     throw new Error(`expected ${matrix.length} browser repeat cells, got ${evidence.cells.length}`);
   }
   writeFileSync(evidencePath,`${JSON.stringify(evidence,null,2)}\n`);
-  console.log(`Local-fleet System Runner browser matrix passed; evidence: ${evidencePath}`);
+  console.log(`Local-swarm System Runner browser matrix passed; evidence: ${evidencePath}`);
 } catch (cause) {
   if (/target crashed/i.test(cause instanceof Error ? cause.message : String(cause))) capturePageCrash();
   await pageCrashCapture;

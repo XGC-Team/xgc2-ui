@@ -26,16 +26,24 @@ vi.mock('../../domains/execution/executionPublic', async (loadOriginal) => {
 });
 
 vi.mock('./CameraVideoPanel',() => ({
-  CameraVideoPanel:({ connectionEnabled,ownerLifecycle,surfaceVisible,expectedSourceSize }:{
+  CameraVideoPanel:({ connectionEnabled,ownerLifecycle,surfaceVisible,expectedSourceSize,mediaEdgeProcess }:{
     connectionEnabled:boolean;ownerLifecycle:string;surfaceVisible:boolean;
     expectedSourceSize?:{ width:number;height:number };
+    mediaEdgeProcess?:{ targetId:string;instanceId:string };
   }) => <div data-testid={surfaceVisible ? 'intrinsic-camera-video':'intrinsic-camera-video-lifecycle'}
     data-connected={String(connectionEnabled)} data-owner-lifecycle={ownerLifecycle}
+    data-media-target={mediaEdgeProcess?.targetId} data-media-process={mediaEdgeProcess?.instanceId}
     data-expected-size={expectedSourceSize ? `${expectedSourceSize.width}x${expectedSourceSize.height}` : undefined} />,
 }));
 
 vi.mock('./CameraIntrinsicCalibrationRuntimePanel',() => ({
   CameraIntrinsicCalibrationRuntimePanel:({ processInstanceId,liveStage }:{
+    processInstanceId:string;liveStage?:ReactNode;
+  }) => <div data-testid="intrinsic-runtime" data-process={processInstanceId}>{liveStage}</div>,
+}));
+
+vi.mock('./CameraIntrinsicValidationRuntimePanel',() => ({
+  CameraIntrinsicValidationRuntimePanel:({ processInstanceId,liveStage }:{
     processInstanceId:string;liveStage?:ReactNode;
   }) => <div data-testid="intrinsic-runtime" data-process={processInstanceId}>{liveStage}</div>,
 }));
@@ -146,7 +154,10 @@ describe('CameraIntrinsicCalibrationWorkspace Action port',() => {
     expect(screen.queryByRole('button',{ name:'Run camera intrinsic calibration' })).toBeNull();
   });
 
-  it('keeps exact local teardown mounted when owner readiness falls before Run stopping',() => {
+  it.each([
+    ['calibration',CameraIntrinsicCalibrationWorkspace],
+    ['validation',CameraIntrinsicValidationWorkspace],
+  ])('keeps %s media identity through owner teardown',(_kind,Workspace) => {
     const action = actionPort();
     action.activeInvocation = { id:'panel-run',status:'running',revision:1 };
     const baseRuntime = runtimeFixture();
@@ -168,11 +179,14 @@ describe('CameraIntrinsicCalibrationWorkspace Action port',() => {
     const panel = panelFixture();
     const renderState = () => <CameraIntrinsicCalibrationFrameProvider panel={panel}>
       <CameraIntrinsicCalibrationHeaderActions panel={panel} editing={false} />
-      <CameraIntrinsicCalibrationWorkspace panel={panel} context={context(action,runtime)} />
+      <Workspace panel={panel} context={context(action,runtime)} />
     </CameraIntrinsicCalibrationFrameProvider>;
     const view = render(renderState());
     expect(screen.getByTestId('intrinsic-camera-video')).toHaveAttribute('data-connected','true');
     expect(screen.getByTestId('intrinsic-camera-video')).toHaveAttribute('data-expected-size','3840x2160');
+    expect(screen.getByTestId('intrinsic-runtime')).toHaveAttribute('data-process','calibrator');
+    expect(screen.getByTestId('intrinsic-camera-video')).toHaveAttribute('data-media-process','media-edge');
+    expect(screen.getByTestId('intrinsic-camera-video')).toHaveAttribute('data-media-target','local');
 
     processes.forEach((process) => { process.readiness = { status:'unknown' }; });
     vi.mocked(useExecutionTarget).mockReturnValue(executionWith(processes));
@@ -182,6 +196,17 @@ describe('CameraIntrinsicCalibrationWorkspace Action port',() => {
       .toHaveAttribute('data-owner-lifecycle','stopping');
     expect(screen.getByTestId('intrinsic-camera-video-lifecycle'))
       .toHaveAttribute('data-connected','false');
+    expect(screen.getByTestId('intrinsic-camera-video-lifecycle'))
+      .toHaveAttribute('data-media-process','media-edge');
+
+    vi.mocked(useExecutionTarget).mockReturnValue(executionWith([
+      processFixture('unrelated-media','xgc-media-edge','unrelated-run'),
+    ]));
+    view.rerender(renderState());
+    expect(screen.getByTestId('intrinsic-camera-video-lifecycle'))
+      .toHaveAttribute('data-media-process','media-edge');
+    expect(screen.getByTestId('intrinsic-camera-video-lifecycle'))
+      .toHaveAttribute('data-owner-lifecycle','stopping');
 
     action.activeInvocation = { id:'panel-run',status:'stopping',revision:2 };
     view.rerender(renderState());
@@ -193,6 +218,25 @@ describe('CameraIntrinsicCalibrationWorkspace Action port',() => {
     expect(screen.queryByTestId('intrinsic-runtime')).toBeNull();
     expect(findLifecycle('intrinsic','stopped')).toHaveAttribute('data-state','stopped');
     expect(screen.queryByText('Calibration is stopped')).toBeNull();
+  });
+
+  it.each([
+    ['calibration',CameraIntrinsicCalibrationWorkspace],
+    ['validation',CameraIntrinsicValidationWorkspace],
+  ])('does not attach %s to an unrelated media owner',(_kind,Workspace) => {
+    const action=actionPort();
+    action.activeInvocation={ id:'panel-run',status:'running',revision:1 };
+    vi.mocked(useExecutionTarget).mockReturnValue(executionWith([
+      processFixture('calibrator','xgc2-camera-intrinsic-calibrator-ros1','panel-run'),
+      processFixture('unrelated-media','xgc-media-edge','another-run'),
+    ]));
+    const panel=panelFixture();
+    render(<CameraIntrinsicCalibrationFrameProvider panel={panel}>
+      <Workspace panel={panel} context={context(action,runtimeFixture())} />
+    </CameraIntrinsicCalibrationFrameProvider>);
+    expect(screen.queryByTestId('intrinsic-camera-video')).toBeNull();
+    expect(screen.queryByTestId('intrinsic-camera-video-lifecycle')).toBeNull();
+    expect(findLifecycle('intrinsic','starting')).toBeInTheDocument();
   });
 });
 

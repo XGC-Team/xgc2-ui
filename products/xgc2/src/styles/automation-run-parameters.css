@@ -35,7 +35,7 @@
 .automation-run-parameter-description {
   margin: 0;
   color: var(--color-text-muted);
-  font-size: var(--font-base);
+  font-size: var(--type-body-size);
   line-height: var(--line-height-relaxed);
 }
 

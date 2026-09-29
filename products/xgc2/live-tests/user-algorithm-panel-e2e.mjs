@@ -36,8 +36,8 @@ import {
 } from './user-algorithm-panel-contract.mjs';
 
 const mutationConsent=required('XGC_USER_ALGORITHM_PANEL_E2E_MUTATE');
-if (mutationConsent!=='disposable-local-fleet') {
-  throw new Error('XGC_USER_ALGORITHM_PANEL_E2E_MUTATE must equal disposable-local-fleet');
+if (mutationConsent!=='disposable-local-swarm') {
+  throw new Error('XGC_USER_ALGORITHM_PANEL_E2E_MUTATE must equal disposable-local-swarm');
 }
 if (required('XGC_USER_ALGORITHM_PANEL_E2E_FULL_SESSION')!=='1') {
   throw new Error('XGC_USER_ALGORITHM_PANEL_E2E_FULL_SESSION=1 is required for the Session-member acceptance phase');

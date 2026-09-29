@@ -29,12 +29,12 @@ export function AutomationEditorRunOverview({ run,detail,targetId,reported,total
       <div className="automation-editor-run-primary">
         <div><strong title={run.id}>Run {shortAutomationEditorRunId(run.id)}</strong><span>{automationEditorExecutionSummary(run.status, run.startedAt, run.finishedAt ?? run.updatedAt)}</span></div>
         {detail?.error && (
-          <span
+          <StatusText
             className="automation-editor-run-data-state"
-            data-xgc-tone={detail.nodeSummaries.length > 0 ? 'warning' : 'danger'}
+            status={detail.nodeSummaries.length > 0 ? 'warning' : 'error'}
             title={detail.error}
             aria-label={detail.nodeSummaries.length > 0 ? 'Execution data refresh failed' : 'Execution data unavailable'}
-          ><CircleAlert size={13} aria-hidden="true" /></span>
+          ><CircleAlert size={13} aria-hidden="true" /></StatusText>
         )}
       </div>
       {!compact && (
@@ -43,8 +43,8 @@ export function AutomationEditorRunOverview({ run,detail,targetId,reported,total
           <span>Started <strong>{formatAutomationEditorTimestamp(run.startedAt)}</strong></span>
           <span>Nodes <strong>{reported}/{total}</strong></span>
           {detail?.loading && <span>Data <strong>Refreshing…</strong></span>}
-          {detail?.error && <span data-xgc-tone={detail.nodeSummaries.length > 0 ? 'warning' : 'danger'} title={detail.error}>Data <strong>{detail.nodeSummaries.length > 0 ? 'Refresh failed' : 'Unavailable'}</strong></span>}
-          {errorCount > 0 && <span data-xgc-tone="danger">Errors <strong>{errorCount}</strong></span>}
+          {detail?.error && <StatusText status={detail.nodeSummaries.length > 0 ? 'warning' : 'error'} title={detail.error}>Data <strong>{detail.nodeSummaries.length > 0 ? 'Refresh failed' : 'Unavailable'}</strong></StatusText>}
+          {errorCount > 0 && <StatusText status="error">Errors <strong>{errorCount}</strong></StatusText>}
         </div>
       )}
       <ControlButton

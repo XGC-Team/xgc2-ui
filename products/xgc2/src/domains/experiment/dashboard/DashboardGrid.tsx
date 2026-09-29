@@ -16,6 +16,7 @@ import {
   DASHBOARD_GAP,
   DASHBOARD_MARGIN,
   DASHBOARD_ROW_HEIGHT,
+  dashboardFillRowHeightPx,
   GCS_DASHBOARD_MARGIN,
   GCS_DASHBOARD_SEAM_PX,
 } from '../../../shared/dashboardGeometry';
@@ -23,7 +24,6 @@ import type { GridPos } from '../../../types/common';
 import type { PanelInstance } from '../experimentModel';
 import {
   gcsAvailableHeightPx,
-  gcsRowHeightPx,
   normalizeGcsLayout,
   type GcsPanelSizePolicy,
 } from './dashboardGcsLayout';
@@ -36,6 +36,7 @@ export function DashboardGrid({
   panels,
   editing,
   gcsMode,
+  fillRemainingHeight,
   children,
   empty,
   onLayoutCommit,
@@ -43,6 +44,7 @@ export function DashboardGrid({
   panels: PanelInstance[];
   editing: boolean;
   gcsMode?: boolean;
+  fillRemainingHeight?: boolean;
   children: (panel: PanelInstance) => ReactNode;
   empty?: ReactNode;
   onLayoutCommit: (positions: Record<string, GridPos>) => void;
@@ -92,13 +94,17 @@ export function DashboardGrid({
       ...(bounds.maxH === undefined ? {} : { maxH: bounds.maxH }),
     };
   }), [constraints, panels]);
-  const availableHeight = renderedGcsMode ? gcsAvailableHeightPx(containerHeight) : 0;
-  const baseRowHeight = renderedGcsMode
-    ? gcsRowHeightPx(availableHeight, maxRowOf(baseLayout))
-    : DASHBOARD_ROW_HEIGHT;
+  const fillViewport = renderedGcsMode || Boolean(fillRemainingHeight);
+  const availableHeight = fillViewport ? gcsAvailableHeightPx(containerHeight) : 0;
   // GCS: zero gutters; gray seams are CSS trailing borders on each PanelFrame.
+  // Config standalone page keeps Config gutters and only stretches row height.
   const gapPx = renderedGcsMode ? GCS_DASHBOARD_SEAM_PX : DASHBOARD_GAP;
   const margin: [number, number] = renderedGcsMode ? GCS_DASHBOARD_MARGIN : DASHBOARD_MARGIN;
+  const fillRowHeight = (rows: number) => dashboardFillRowHeightPx(availableHeight, rows, {
+    gapPx,
+    paddingY: margin[1],
+  });
+  const baseRowHeight = fillViewport ? fillRowHeight(maxRowOf(baseLayout)) : DASHBOARD_ROW_HEIGHT;
   const layout = useMemo(() => renderedGcsMode
     ? normalizeGcsLayout(baseLayout, (panelId) => sizePolicies.get(panelId), {
       containerWidthPx: width,
@@ -106,7 +112,7 @@ export function DashboardGrid({
       gapPx,
     })
     : baseLayout, [baseLayout, baseRowHeight, gapPx, renderedGcsMode, sizePolicies, width]);
-  const rowHeight = renderedGcsMode ? gcsRowHeightPx(availableHeight, maxRowOf(layout)) : DASHBOARD_ROW_HEIGHT;
+  const rowHeight = fillViewport ? fillRowHeight(maxRowOf(layout)) : DASHBOARD_ROW_HEIGHT;
 
   return (
     <ComposableWorkspace

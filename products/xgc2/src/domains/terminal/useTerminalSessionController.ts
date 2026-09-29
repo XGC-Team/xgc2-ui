@@ -24,6 +24,7 @@ export function useTerminalSessionController({
   promptConnectPassword,
   targetCoreId,
   managedHostId,
+  initialDirectory,
 }: {
   persistenceScope: string;
   onShowTerminal: () => void;
@@ -34,6 +35,7 @@ export function useTerminalSessionController({
   promptConnectPassword: (host: TerminalHost) => Promise<string | null>;
   targetCoreId?: string;
   managedHostId?: string;
+  initialDirectory?: string;
 }) {
   const [sessions,setSessions] = usePersistentState<TerminalSession[]>(terminalPersistenceKey(persistenceScope,'sessions'),[],isTerminalSessions);
   const [activeSessionId,setActiveSessionId] = usePersistentState(terminalPersistenceKey(persistenceScope,'active-session'),'',isString);
@@ -66,7 +68,7 @@ export function useTerminalSessionController({
       if (typed == null || typed === '') return;
       connectPassword = typed;
     }
-    const session = createTerminalSession(host);
+    const session = createTerminalSession(host,initialDirectory);
     if (connectPassword) {
       connectPasswordsRef.current[session.id] = connectPassword;
     }

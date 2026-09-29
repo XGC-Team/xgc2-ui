@@ -2,10 +2,14 @@ import { createHash } from 'node:crypto';
 import { mkdirSync,mkdtempSync,rmSync,writeFileSync } from 'node:fs';
 import { dirname,join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { fileURLToPath } from 'node:url';
+import { runInNewContext } from 'node:vm';
+import { createServer } from 'vite';
 import { describe,expect,it,vi } from 'vitest';
 import config,{
   configureAPIProxy,
   forwardOriginalRequestAuthority,
+  moduleHasSideEffects,
   parseXgcWebDevServerPort,
   parseXgcWebProductBuild,
   productWebCompositionModulePath,
@@ -43,9 +47,10 @@ describe('Vite API proxy forwarding authority', () => {
   });
 
   it.each([
-    { method: 'GET',url: '/api/agent-runtime/settings' },
-    { method: 'POST',url: '/api/agent-runtime/settings' },
-    { method: 'POST',url: '/api/agent-runtime/settings/refresh' },
+    { method: 'GET',url: '/api/native-agents/settings' },
+    { method: 'POST',url: '/api/native-agents/settings' },
+    { method: 'POST',url: '/api/native-agents/settings/refresh' },
+    { method: 'GET',url: '/api/native-agents/attention' },
   ])('preserves the browser authority for $method $url', ({ method,url }) => {
     const recorder = headerRecorder({ host: '127.0.0.1:8787' });
     const request = { method,url,headers: { host: 'localhost:5174' },socket: {} };
@@ -60,16 +65,19 @@ describe('Vite API proxy forwarding authority', () => {
   });
 
   it.each([
-    '/api/agent-runtime/settings?view=brief',
-    '/api/agent-runtime/settings/refresh?view=brief',
-    '/api/agent-runtime/settings-other',
-    '/api/agent-runtime/settings-other?view=brief',
-    '/api/agent-runtime/settings/refresh-other',
-    '/api/agent-runtime/settings/refresh/extra',
-    '/api/agent-runtime/settings/sessions',
-    '/api/agent-runtime/sessions',
-    '/api/agent-runtime/sessions?view=brief',
-    '/api/agent-runtime',
+    '/api/native-agents/settings?view=brief',
+    '/api/native-agents/settings/refresh?view=brief',
+    '/api/native-agents/settings-other',
+    '/api/native-agents/settings-other?view=brief',
+    '/api/native-agents/settings/refresh-other',
+    '/api/native-agents/settings/refresh/extra',
+    '/api/native-agents/settings/sessions',
+    '/api/native-agents/attention?view=brief',
+    '/api/native-agents/attention-other',
+    '/api/native-agents/attention/sessions',
+    '/api/native-agents/sessions',
+    '/api/native-agents/sessions?view=brief',
+    '/api/native-agents',
     '/api/experiments/experiment-a/native-agents-other/sessions',
     '/api/experiments//native-agents/sessions',
   ])('keeps the proxy target Host outside the bounded native routes: %s', (url) => {
@@ -105,6 +113,17 @@ describe('Vite API proxy forwarding authority', () => {
     expect(Object.fromEntries(encrypted.headers)).toEqual({
       'x-forwarded-host': 'xgc2.test:5443',
       'x-forwarded-proto': 'https',
+    });
+  });
+
+  it('preserves the LAN attention authority without rewriting its Origin', () => {
+    const recorder = headerRecorder({ host: '127.0.0.1:8787',origin: 'http://192.168.51.251:5174' });
+    forwardOriginalRequestAuthority(recorder.request, {
+      headers: { host: '192.168.51.251:5174' },socket: {},url: '/api/native-agents/attention',
+    });
+    expect(Object.fromEntries(recorder.headers)).toEqual({
+      host: '192.168.51.251:5174',origin: 'http://192.168.51.251:5174',
+      'x-forwarded-host': '192.168.51.251:5174','x-forwarded-proto': 'http',
     });
   });
 
@@ -153,6 +172,42 @@ describe('Vite API proxy forwarding authority', () => {
   });
 });
 
+describe('Vite browser HMR authority', () => {
+  it('builds valid HTTP/HTTPS and LAN/IPv6 socket URLs from the real Vite client with a concrete configured port', async () => {
+    // Transform the installed Vite client without opening a listener or watching
+    // the workspace. This verifies its actual null-host/protocol fallback.
+    const server = await createServer({
+      configFile: false,
+      root: dirname(fileURLToPath(import.meta.url)),
+      logLevel: 'silent',
+      optimizeDeps: { noDiscovery: true,include: [] },
+      server: { ...config.server,watch: null },
+    });
+    try {
+      expect(server.httpServer?.listening).toBe(false);
+      const client = await server.transformRequest('/@vite/client');
+      expect(client).not.toBeNull();
+      const start = client!.code.indexOf('const importMetaUrl =');
+      const end = client!.code.indexOf('const transport =',start);
+      expect(start).toBeGreaterThanOrEqual(0);
+      expect(end).toBeGreaterThan(start);
+      const socketSetup = client!.code.slice(start,end).replaceAll('import.meta.url','moduleURL');
+      const port = parseXgcWebDevServerPort();
+      for (const [moduleURL,expected] of [
+        ['http://localhost:5174/@vite/client',`ws://localhost:${port}/`],
+        ['http://192.168.51.251:5174/@vite/client',`ws://192.168.51.251:${port}/`],
+        ['https://station.test:5443/@vite/client',`wss://station.test:${port}/`],
+        ['http://[fd00::10]:5174/@vite/client',`ws://[fd00::10]:${port}/`],
+      ]) {
+        const result = runInNewContext(`${socketSetup}\n({ url: new URL(socketProtocol + '://' + socketHost).href,port: hmrPort })`,{ moduleURL,URL }) as { url: string;port: number };
+        expect(result).toEqual({ url: expected,port });
+      }
+    } finally {
+      await server.close();
+    }
+  });
+});
+
 describe('Vite fixed product profile entry', () => {
   it('keeps the handwritten Core Dev entry only as an explicit non-product fallback', () => {
     const fallback = productWebCompositionModulePath(undefined,false);
@@ -164,7 +219,7 @@ describe('Vite fixed product profile entry', () => {
   it('accepts every fixed generated Core ProductWorkspace entry', () => {
     const root = mkdtempSync(join(tmpdir(), 'xgc-vite-product-'));
     try {
-      for (const product of ['core-dev','core-local-fleet-dev','core-release','core-jg-dev','core-jg-release']) {
+      for (const product of ['core-dev','core-local-swarm-dev','core-release','core-jg-dev','core-jg-release']) {
         const entry = writeGeneratedProductEntry(root,product);
         expect(productWebCompositionModulePath(entry,true)).toBe(entry);
       }
@@ -249,6 +304,19 @@ describe('Vite fixed product profile entry', () => {
     for (const invalid of ['0','05173','65536','1.5','5173/tcp','true']) {
       expect(() => parseXgcWebDevServerPort(invalid)).toThrow(/TCP port|between 1 and 65535/);
     }
+  });
+});
+
+describe('Vite production tree-shaking', () => {
+  it('lets Rollup drop unused agent runtime scripts but keeps every other module effect', () => {
+    const agentRuntime = '/repo/web/node_modules/@xgc2/agent-runtime/dist';
+    expect(moduleHasSideEffects(`${agentRuntime}/react.js`)).toBe(false);
+    expect(moduleHasSideEffects(`${agentRuntime}/upstream/t3/MessagesTimeline.js`)).toBe(false);
+    expect(moduleHasSideEffects('C:\\repo\\web\\node_modules\\@xgc2\\agent-runtime\\dist\\react.js')).toBe(false);
+    expect(moduleHasSideEffects(`${agentRuntime}/agent-chat.css`)).toBe(true);
+    expect(moduleHasSideEffects('/repo/web/node_modules/@xgc2/ui-react/dist/index.js')).toBe(true);
+    expect(moduleHasSideEffects('/repo/web/src/domains/groundStationInteraction/GroundStationNotificationCenter.tsx')).toBe(true);
+    expect(config.build?.rollupOptions?.treeshake).toEqual({ moduleSideEffects: moduleHasSideEffects });
   });
 });
 

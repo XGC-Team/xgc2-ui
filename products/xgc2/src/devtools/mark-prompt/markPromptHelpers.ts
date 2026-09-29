@@ -48,6 +48,18 @@ const pageCodeHints: Record<string, string[]> = {
     'src/domains/robot/RobotAssetsPage.tsx',
     'src/components/ListPage.tsx',
   ],
+  'Scene assets': [
+    'src/domains/venue/VenueAssetsPage.tsx',
+    'src/components/ListPage.tsx',
+  ],
+  'Venue assets': [
+    'src/domains/venue/VenueAssetsPage.tsx',
+    'src/components/ListPage.tsx',
+  ],
+  场地资产: [
+    'src/domains/venue/VenueAssetsPage.tsx',
+    'src/components/ListPage.tsx',
+  ],
   机器人资产: [
     'src/domains/robot/RobotAssetsPage.tsx',
     'src/components/ListPage.tsx',
@@ -84,7 +96,6 @@ const pageCodeHints: Record<string, string[]> = {
   ],
   'Audit logs': [
     'src/domains/audit/AuditPage.tsx',
-    'src/components/LogTablePage.tsx',
   ],
   Settings: [
     'src/domains/settings/SettingsPage.tsx',
@@ -378,6 +389,37 @@ export function placeCaptionInViewport(
     }, size, viewport, margin),
     placement,
   };
+}
+
+/** A developer tool yields to fixed drawer actions without moving the drawer
+ * or replacing the user's saved drag position. Geometry is viewport-relative. */
+export function placeToolbarAroundDrawerChrome(
+  desired: { left: number;top: number },
+  size: FloatingSize,
+  viewport: ViewportSize,
+  chrome: readonly BoundaryRect[],
+  margin = 8,
+) {
+  const preferred = clampFloatingBoxToViewport(desired,size,viewport,margin);
+  const width = Math.min(size.width,preferred.maxWidth);
+  const height = Math.min(size.height,preferred.maxHeight);
+  const obstacles = chrome.filter((rect) => rect.width > 0 && rect.height > 0);
+  const clear = (position: { left: number;top: number }) => obstacles.every((rect) => (
+    position.left + width + margin <= rect.left || position.left >= rect.left + rect.width + margin
+    || position.top + height + margin <= rect.top || position.top >= rect.top + rect.height + margin
+  ));
+  if (clear(preferred)) return preferred;
+  const xs = [preferred.left,...obstacles.flatMap((rect) => [rect.left - width - margin,rect.left + rect.width + margin])];
+  const ys = [preferred.top,...obstacles.flatMap((rect) => [rect.top - height - margin,rect.top + rect.height + margin])];
+  let selected = preferred;
+  let distance = Infinity;
+  for (const left of xs) for (const top of ys) {
+    const candidate = clampFloatingBoxToViewport({ left,top },size,viewport,margin);
+    if (!clear(candidate)) continue;
+    const nextDistance = (candidate.left - preferred.left) ** 2 + (candidate.top - preferred.top) ** 2;
+    if (nextDistance < distance) { selected = candidate;distance = nextDistance; }
+  }
+  return selected;
 }
 
 export function isToolbarPosition(value: unknown): value is ToolbarPositionPercent {

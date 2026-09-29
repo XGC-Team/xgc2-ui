@@ -110,12 +110,21 @@
   gap: var(--space-sm);
   color: var(--color-text-heading);
 }
+.automation-workflow-history-header {
+  min-width: 0;
+  min-height: 48px;
+  gap: var(--space-lg);
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: var(--stroke-thin) solid var(--color-border);
+}
 .automation-workflow-history-row {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
+  justify-content: flex-start;
   gap: var(--space-2xs);
   width: 100%;
+  height: auto;
   padding: var(--space-sm);
   border: var(--stroke-thin) solid var(--color-border);
   color: var(--color-text-soft);

@@ -1,3 +1,4 @@
+import { EmptyState } from '@xgc2/ui-react';
 import { ChevronDown,ChevronUp,CircleAlert } from 'lucide-react';
 import {
   useEffect,
@@ -176,10 +177,12 @@ export function AutomationEditorLogs({
           data-xgc-id={run?.id ?? resourceId}
         >
           {!run ? (
-            <div className="automation-editor-logs-empty">
-              <strong>No execution data yet</strong>
-              <span>Run this Automation to inspect its node inputs, outputs, errors, and process logs.</span>
-            </div>
+            <EmptyState
+              appearance="plain"
+              fill
+              title="No execution data yet"
+              description="Run this Automation to inspect its node inputs, outputs, errors, and process logs."
+            />
           ) : (
             <>
               <aside className="automation-editor-run-pane" data-xgc-density={detailOpen ? 'compact' : 'full'} aria-label="Execution overview">

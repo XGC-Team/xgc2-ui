@@ -31,6 +31,7 @@ describe('Experiment Robot binding authoring', () => {
     expect(created.ref.resourceId).toBe('robot-2');
     expect(created.namespace).toBe('/uav1');
     expect(created.hybridSource).toBe('physical');
+    expect(created.simulationSensors).toEqual({ simpleLidar:false });
   });
 
   it('assigns any selected physical PX4 to the first continuous UAV slot',() => {
@@ -144,6 +145,7 @@ describe('Experiment Robot binding authoring', () => {
       lidarSimulationEnabled: false,
       imageSimulationEnabled: false,
     });
+    expect(scout.simulationSensors).toEqual({ simpleLidar:false });
     expect(scout.px4).toBeUndefined();
     expect(scout.mecanum).toBeUndefined();
   });
@@ -156,6 +158,7 @@ describe('Experiment Robot binding authoring', () => {
     expect(created.id).toBe('ugv-01');
     expect(created.namespace).toBe('/ugv1');
     expect(created.ref.resourceId).toBe('mecanum-1');
+    expect(created.simulationSensors).toEqual({ simpleLidar:false });
   });
 
   it('clears prior kind markers when rebinding to a different Robot kind', () => {

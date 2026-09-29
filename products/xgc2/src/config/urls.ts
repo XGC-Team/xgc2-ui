@@ -15,3 +15,6 @@ export function sameOriginWebSocketUrl(path: string) {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
   return `${protocol}//${window.location.host}${normalizedPath}`;
 }
+
+// Canonical local ROS master for the existing Lichtblick scene Action workflow.
+export const DEFAULT_LOCAL_ROS_MASTER_URL = 'http://127.0.0.1:11311';

@@ -81,6 +81,28 @@ describe('CameraIntrinsicCalibrationRuntimePanel', () => {
     });
   });
 
+  it('recovers a completed solve through a snapshot after a stream failure', async () => {
+    apiMocks.loadState.mockResolvedValue(calibrationState({
+      solveJob:{ id:'job-1',status:'running',stage:'solving',completed:0,total:17,error:null },
+      candidatePool:{ count:17,imageSize:[1280,720],solveFrozen:true },
+    }));
+    const view=render(<CameraIntrinsicCalibrationRuntimePanel
+      processInstanceId="intrinsic-reconnect" targetId="local" panelId="panel-reconnect" />);
+    await waitFor(() => expect(screen.getByRole('button',{ name:'Analyze calibration' })).toBeDisabled());
+    const [, ,onState,onError]=apiMocks.openStateStream.mock.calls.at(-1)!;
+    apiMocks.loadState.mockResolvedValue(candidateCalibrationState());
+    await act(async () => onError(new Error('network error')));
+    await waitFor(() => expect(screen.getByRole('button',{ name:'Save result' })).toBeEnabled());
+    expect(apiMocks.analyze).not.toHaveBeenCalled();
+    expect(apiMocks.saveCandidate).not.toHaveBeenCalled();
+    await act(async () => onState(candidateCalibrationState()));
+    expect(vi.mocked(useGroundStationErrorNotification).mock.calls.at(-1)?.[1]).toBe('');
+    const reads=apiMocks.loadState.mock.calls.length;
+    view.unmount();
+    await act(async () => onError(new Error('late network error')));
+    expect(apiMocks.loadState).toHaveBeenCalledTimes(reads);
+  });
+
   it('does not read calibrator state after its workflow owner begins teardown', async () => {
     const view = render(<CameraIntrinsicCalibrationRuntimePanel
       processInstanceId="intrinsic-teardown" targetId="local" panelId="panel-teardown" enabled={false} />);
@@ -279,7 +301,7 @@ describe('CameraIntrinsicCalibrationRuntimePanel', () => {
     expect(screen.queryByRole('button', { name: 'Capture now' })).toBeNull();
     expect(screen.queryByRole('button',{ name:'Analyze candidate' })).toBeNull();
     expect(screen.queryByRole('button',{ name:'Continue collecting' })).toBeNull();
-    expect(screen.getByRole('button', { name: 'Save result' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Saved' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Recalibrate' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Auto sweep' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Go to near' })).toBeDisabled();
@@ -630,7 +652,7 @@ describe('CameraIntrinsicCalibrationRuntimePanel', () => {
     ));
     await waitFor(() => expect(apiMocks.commitAsset).toHaveBeenCalled());
     expect(apiMocks.analyze).not.toHaveBeenCalled();
-    await waitFor(() => expect(screen.getByRole('button',{ name:'Save result' })).toBeDisabled());
+    await waitFor(() => expect(screen.getByRole('button',{ name:'Saved' })).toBeDisabled());
     expect(screen.getByRole('button',{ name:'Recalibrate' })).toBeEnabled();
   });
 
@@ -645,7 +667,7 @@ describe('CameraIntrinsicCalibrationRuntimePanel', () => {
     expect(await screen.findByRole('button',{ name:'Download evidence' })).toBeInTheDocument();
     expect(screen.queryByText('Saved calibration restored')).toBeNull();
     expect(screen.queryByRole('button',{ name:'Capture now' })).toBeNull();
-    const save = screen.getByRole('button',{ name:'Save result' });
+    const save = screen.getByRole('button',{ name:'Saved' });
     expect(save).toBeDisabled();
     expect(save).toHaveAttribute('data-xgc-role','camera-intrinsic-save');
     const recalibrate = screen.getByRole('button',{ name:'Recalibrate' });

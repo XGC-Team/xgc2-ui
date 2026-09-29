@@ -12,7 +12,7 @@ import {
 } from './six-experiments-mode-matrix.mjs';
 
 const fixtureRecipes=JSON.parse(readFileSync(
-  new URL('../../local-fleet-lab/experiment-fixture-recipes.json',import.meta.url),'utf8',
+  new URL('../../local-swarm-lab/experiment-fixture-recipes.json',import.meta.url),'utf8',
 )).recipes;
 
 function resolvedLanes() {
@@ -41,7 +41,7 @@ test('discovers every repeated matrix cell from authored Experiment runModes',()
   }
 });
 
-test('requires hybrid on each fleet and forbids it on calibration',() => {
+test('requires hybrid on each swarm and forbids it on calibration',() => {
   const plans=fixtureLanePlans(fixtureRecipes);
   for (const plan of plans.filter((candidate) => candidate.modePolicy==='hybrid-required')) {
     assert.throws(() => resolveLaneRunModes(plan,{ spec:{ runModes:['simulation','physical'] } }),/hybrid-required/);

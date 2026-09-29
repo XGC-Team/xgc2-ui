@@ -31,10 +31,14 @@ import {
   PX4_MOCAP_ROTOR_PROFILE_ID,
   SCOUT_CONNECTORS,
   SCOUT_MINI_KIND,
+  SIMULATION_SETUP_CENTRALIZED,
+  SIMULATION_SETUP_CONTAINER,
+  SIMULATION_SETUP_ONBOARD,
   px4RobotModelId,
   type MecanumRobotAssetSpec,
   type PX4RobotAssetSpec,
   type RobotSimulationConfig,
+  type RobotSimulationSetup,
   type ScoutRobotAssetSpec,
 } from './robotAssetContracts';
 import {
@@ -54,6 +58,36 @@ function decodeSimulation(value: unknown, path: string): RobotSimulationConfig {
     launchPackage: protocolRequiredString(simulation, 'launchPackage', path),
     launchFile: protocolRequiredString(simulation, 'launchFile', path),
   };
+}
+
+const PINNED_ROBOT_IMAGE = /^(?:[a-z0-9]+(?:[._/:-][a-z0-9]+)*@)?sha256:[0-9a-f]{64}$/;
+const ROBOT_CONTAINER_MAX_MAV_SYSTEM_ID = 150;
+
+function decodeSimulationSetup(value: unknown, path: string): RobotSimulationSetup {
+  const setup = protocolObject(value, path, ['mode', 'image', 'agentId']);
+  const mode = protocolRequiredString(setup, 'mode', path);
+  if (mode !== SIMULATION_SETUP_CENTRALIZED && mode !== SIMULATION_SETUP_CONTAINER && mode !== SIMULATION_SETUP_ONBOARD) {
+    throw new Error(`Protocol error: ${path}.mode is not a known simulation setup.`);
+  }
+  return {
+    mode,
+    ...(Object.hasOwn(setup, 'image') ? { image: protocolRequiredString(setup, 'image', path) } : {}),
+    ...(Object.hasOwn(setup, 'agentId') ? { agentId: protocolRequiredString(setup, 'agentId', path) } : {}),
+  };
+}
+
+function simulationSetupIssue(modelId: string, mavSystemId: number, setup: RobotSimulationSetup | undefined): string {
+  if (!setup || setup.mode === SIMULATION_SETUP_CENTRALIZED) return '';
+  if (setup.mode === SIMULATION_SETUP_ONBOARD) {
+    if (modelId !== PX4_MODEL_FS150) return 'The onboard simulation setup is available only for FS150.';
+    return setup.agentId && !setup.image ? '' : 'The onboard simulation setup names only its onboard Agent.';
+  }
+  if (modelId !== PX4_MODEL_FS150) return 'The container simulation setup is available only for FS150.';
+  if (mavSystemId > ROBOT_CONTAINER_MAX_MAV_SYSTEM_ID) {
+    return `The container simulation setup requires MAV system ID ${ROBOT_CONTAINER_MAX_MAV_SYSTEM_ID} or lower.`;
+  }
+  if (!PINNED_ROBOT_IMAGE.test(setup.image ?? '')) return 'The robot image must be pinned as <reference>@sha256:<digest> or sha256:<image id>.';
+  return '';
 }
 
 function normalizeSimulation(simulation: RobotSimulationConfig): RobotSimulationConfig {
@@ -110,14 +144,14 @@ const fs150Telemetry = Object.freeze({
   instrumentFamily: 'flight' as const,
   presentation: 'fs150' as const,
   instrumentChannels: Object.freeze([
-    'state.flight', 'state.pose', 'state.velocity', 'state.speed',
+    'state.flight', 'state.controller', 'state.pose', 'state.velocity', 'state.speed',
     'state.localization.error', 'state.imu', 'state.power', 'state.health',
     'state.mocap.pose', 'state.mocap.velocity', 'state.mocap.speed',
     'setpoint.local', 'diagnostic.fcu-link',
     'diagnostic.stream-health',
   ]),
   listChannels: Object.freeze([
-    'state.flight', 'state.pose', 'state.velocity', 'state.speed',
+    'state.flight', 'state.controller', 'state.pose', 'state.velocity', 'state.speed',
     'state.localization.error', 'state.power', 'state.health', 'state.mocap.pose',
     'state.mocap.velocity', 'state.mocap.speed', 'setpoint.local',
     'diagnostic.fcu-link', 'diagnostic.stream-health',
@@ -218,7 +252,7 @@ export function px4RobotAssetKindContributionForModels(
             'modelId', 'mavSystemId', 'managementIp', 'sshUsername', 'sshPassword', 'mocapRigidBodyName',
             'positioningFrameNumber', 'positioningComparisonThresholdM',
             'physicalMavrosLocalPort', 'physicalFcuRemotePort',
-            'simulationLocalPort', 'simulationRemotePort', 'simulation',
+            'simulationLocalPort', 'simulationRemotePort', 'simulation', 'simulationSetup',
           ],
         );
         const mavSystemId = protocolRequiredInteger(px4, 'mavSystemId', px4Path);
@@ -264,6 +298,9 @@ export function px4RobotAssetKindContributionForModels(
             simulation: Object.hasOwn(px4, 'simulation')
               ? decodeSimulation(protocolField(px4, 'simulation', px4Path), `${px4Path}.simulation`)
               : { productId: '', launchPackage: '', launchFile: '' },
+            ...(Object.hasOwn(px4, 'simulationSetup')
+              ? { simulationSetup: decodeSimulationSetup(protocolField(px4, 'simulationSetup', px4Path), `${px4Path}.simulationSetup`) }
+              : {}),
           },
         };
       },
@@ -304,6 +341,8 @@ export function px4RobotAssetKindContributionForModels(
           || !px4.px4.sshPassword || !px4.px4.mocapRigidBodyName) {
           return 'PX4 requires IP, SSH credentials and a mocap rigid body.';
         }
+        const setupIssue = simulationSetupIssue(modelId, px4.px4.mavSystemId, px4.px4.simulationSetup);
+        if (setupIssue) return setupIssue;
         if (modelId === PX4_MODEL_MOCAP_ROTOR) {
           if (px4.px4.physicalMavrosLocalPort !== 0 || px4.px4.physicalFcuRemotePort !== 0
             || px4.px4.simulationLocalPort !== 0 || px4.px4.simulationRemotePort !== 0

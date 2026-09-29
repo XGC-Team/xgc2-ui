@@ -54,7 +54,7 @@ describe('managed host navigation policy', () => {
     const profile = agentEffectiveFixture(false);
     profile.Surfaces.Operations = true;
 
-    for (const page of ['home','settings','operations','appStore','containers'] as const) {
+    for (const page of ['experiment','settings','operations','appStore','containers'] as const) {
       expect(routeVisibleForManagedHost(route(page,admitOperations).surface,true,profile)).toBe(true);
       expect(routeVisibleForManagedHost(route(page,denyRemote).surface,true,profile)).toBe(false);
     }
@@ -81,12 +81,12 @@ describe('managed host navigation policy', () => {
     profile.Surfaces.Operations = true;
 
     expect(firstVisibleManagedHostPage([
-      route('home',denyRemote),
+      route('experiment',denyRemote),
       route('settings',admitSystem),
       route('operations',admitOperations),
     ],profile)).toBe('settings');
     expect(firstVisibleManagedHostPage([
-      route('home',denyRemote),
+      route('experiment',denyRemote),
       route('operations',admitOperations),
     ],agentEffectiveFixture(false))).toBeUndefined();
   });

@@ -1,0 +1,59 @@
+/* Restricted access-entry guest shell (harness#118). Page-specific layout
+   only; tokens and control skins stay shared. */
+
+.access-entry-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  background: var(--background-app);
+  color: inherit;
+}
+
+.access-entry-spinner {
+  place-self: center;
+  width: var(--size-icon-lg, 24px);
+  height: var(--size-icon-lg, 24px);
+  border: var(--stroke-strong) solid var(--color-border-muted);
+  border-top-color: var(--color-text-heading);
+  border-radius: 50%;
+  animation: xgc-workspace-busy-spin calc(var(--duration-deliberate) * 3) linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .access-entry-spinner {
+    animation: none;
+    opacity: var(--opacity-full);
+  }
+}
+
+.access-entry-status {
+  place-self: center;
+  padding: var(--space-md);
+  color: var(--color-text-muted);
+}
+
+.access-entry-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--color-border-muted);
+  background: var(--background-surface);
+}
+
+.access-entry-header-meta {
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.access-entry-main {
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-md);
+  display: grid;
+  gap: var(--space-md);
+  align-content: start;
+  justify-items: center;
+}

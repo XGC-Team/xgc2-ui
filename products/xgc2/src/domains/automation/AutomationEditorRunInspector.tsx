@@ -1,5 +1,5 @@
 import { CircleAlert,X } from 'lucide-react';
-import { Tabs } from '@xgc2/ui-react';
+import { EmptyState,Tabs } from '@xgc2/ui-react';
 import { ControlButton } from '../../components/controls/ControlButton';
 import { SelectControl } from '../../components/controls/SelectControl';
 import '../../styles/automation-editor-run-inspector.css';
@@ -108,7 +108,7 @@ function NodeData({ result,run }: { result: AutomationNodeResult;run: Automation
           </div>
         </>
       ) : (
-        <div className="automation-editor-detail-empty">No runtime result was recorded for this node.</div>
+        <EmptyState appearance="plain" fill title="No runtime result was recorded for this node." />
       )}
     </section>
   );
@@ -143,7 +143,7 @@ function ProcessConsole({ run,sources,selectedSource,onSelectSource }: {
           entityId={selectedSource.entityId}
           follow={isAutomationExecutionRunActive(run)}
         />
-      ) : <div className="automation-editor-detail-empty">No process log source is available.</div>}
+      ) : <EmptyState appearance="plain" fill title="No process log source is available." />}
     </section>
   );
 }
@@ -169,7 +169,12 @@ function ContextIssues({ run,contextID,issues }: { run: AutomationRunView;contex
       data-xgc-id={contextID}
     >
       {issues.length === 0 ? (
-        <div className="automation-editor-detail-empty"><strong>No errors reported</strong><span>This node and its related processes did not report an error.</span></div>
+        <EmptyState
+          appearance="plain"
+          fill
+          title="No errors reported"
+          description="This node and its related processes did not report an error."
+        />
       ) : (
         <ul>
           {issues.map((issue) => (

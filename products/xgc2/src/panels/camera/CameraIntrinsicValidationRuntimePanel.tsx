@@ -1,5 +1,5 @@
 import { Camera,Download,RotateCcw,ScanSearch,ZoomIn } from 'lucide-react';
-import { EmptyState,Notice } from '@xgc2/ui-react';
+import { Button,EmptyState,Notice } from '@xgc2/ui-react';
 import {
   useEffect,useMemo,useRef,useState,
   type PointerEvent,type ReactNode,type WheelEvent,
@@ -16,6 +16,7 @@ import {
   type CameraIntrinsicValidationReport,
 } from '../../domains/execution/cameraCalibrationProcessPublic';
 import { useAppLanguage } from '../../shared/localization/localizedText';
+import { formatOperatorDateTime } from '../../shared/operatorTime';
 import { localizeCameraMessage,useCameraText } from './cameraMessages';
 
 type CachedIntrinsicValidation = {
@@ -340,7 +341,7 @@ export function CameraIntrinsicValidationRuntimePanel({
         <div>
           {galleryViews.map((view) => {
             const viewMarkId=`${panelId}:${view.id}`;
-            return <button type="button" key={view.id}
+            return <Button appearance="ghost" type="button" key={view.id}
               className={view.id===activeView ? 'is-active' : ''}
               data-xgc-role="camera-intrinsic-validation-view" data-xgc-id={viewMarkId}
               data-available={imageUrls[view.id] ? 'true' : 'false'}
@@ -353,7 +354,7 @@ export function CameraIntrinsicValidationRuntimePanel({
               <span className="panels-camera-intrinsic-validation-view-label"
                 data-xgc-role="camera-intrinsic-validation-view-label"
                 data-xgc-id={viewMarkId}>{validationViewLabel(view,labeledReference,labeledComparison,files,t,language)}</span>
-            </button>;
+            </Button>;
           })}
         </div>
       </nav>
@@ -383,8 +384,7 @@ function cacheIntrinsicValidation(key:string,value:CachedIntrinsicValidation) {
 }
 
 function formatTimestamp(value:string,language:string) {
-  const timestamp=Date.parse(value);
-  return Number.isFinite(timestamp) ? new Date(timestamp).toLocaleString(language) : value;
+  return formatOperatorDateTime(value, language);
 }
 
 function isRawConfiguration(configuration?:CameraIntrinsicValidationConfiguration) {

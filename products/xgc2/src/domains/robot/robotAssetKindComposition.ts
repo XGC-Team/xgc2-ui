@@ -277,6 +277,7 @@ export type RobotKindPanelRenderProps = {
     readonly id: string;
     readonly name: string;
     readonly connectionState: 'inactive' | 'opening' | 'live' | 'closed' | 'revoked';
+    readonly connectionDetail?: string;
     readonly hybridSource?: 'simulation' | 'physical';
   };
   readonly status: {

@@ -1,9 +1,14 @@
 /* Unitree B2 quadruped instrument face — dog-specific chrome (not UGV CAN/lights). */
+/* xgc2-style-policy: fixed-geometry-typography — P98 B2 instrument face: dial, speed and vitals text is laid out in fixed instrument slots */
 
 .robot-b2-instrument {
   --robot-b2-accent: color-mix(in srgb, var(--color-accent) 72%, #c4a35a 28%);
   --robot-b2-healthy: var(--color-success);
   --robot-b2-speed-shadow: 0 0 8px color-mix(in srgb, var(--robot-b2-accent) 46%, transparent);
+  /* Instrument slots were measured at the 0.16.18 --font-xs / --font-sm
+   * steps; pin them so the shared type floor does not resize the face. */
+  --robot-b2-font-label: 10px;
+  --robot-b2-font-dial: 11px;
   container-type: inline-size;
   isolation: isolate;
   position: relative;
@@ -37,8 +42,11 @@
   position: relative;
   z-index: var(--z-raised);
 }
-.robot-b2-instrument[data-xgc-connection="offline"] {
+.robot-b2-instrument[data-xgc-connection="disconnected"] {
   --robot-b2-accent: var(--color-text-disabled);
+}
+.robot-b2-instrument[data-xgc-connection="recovering"] {
+  --robot-b2-accent: color-mix(in srgb, var(--color-danger) 62%, var(--color-bg-chrome));
 }
 .robot-b2-instrument-header {
   min-width: 0;
@@ -69,8 +77,8 @@
 }
 .robot-b2-instrument-header small {
   color: var(--color-text-muted);
-  font-family: var(--font-mono);
-  font-size: var(--font-xs);
+  font-family: var(--font-sans);
+  font-size: var(--robot-b2-font-label);
   letter-spacing: var(--tracking-caps);
   text-transform: uppercase;
 }
@@ -105,12 +113,13 @@
     radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--color-bg-surface) 80%, transparent), color-mix(in srgb, var(--color-bg-app) 70%, transparent));
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-border-muted) 50%, transparent);
 }
+/* fixed-geometry HUD: monospace per DESIGN_CONTRACT type-role exception */
 .robot-b2-heading-dial > span {
   position: absolute;
   color: var(--color-text-muted);
   font-family: var(--font-mono);
-  font-size: var(--font-xs);
-  font-weight: var(--weight-bold);
+  font-size: var(--robot-b2-font-label);
+  font-weight: var(--weight-medium);
   letter-spacing: var(--tracking-caps);
 }
 .robot-b2-heading-dial .north { top: 6px; left: 50%; transform: translateX(-50%); }
@@ -138,19 +147,20 @@
   stroke: color-mix(in srgb, var(--color-bg-app) 40%, transparent);
   stroke-width: 1.2;
 }
+/* fixed-geometry HUD: monospace per DESIGN_CONTRACT type-role exception */
 .robot-b2-heading-dial strong {
   position: absolute;
   left: 50%;
   top: 62%;
   transform: translateX(-50%);
   font-family: var(--font-mono);
-  font-size: var(--font-sm);
-  font-variant-numeric: tabular-nums;
+  font-size: var(--robot-b2-font-dial);
+  font-weight: var(--weight-medium);
 }
 .robot-b2-heading > small {
   color: var(--color-text-muted);
-  font-family: var(--font-mono);
-  font-size: var(--font-xs);
+  font-family: var(--font-sans);
+  font-size: var(--robot-b2-font-label);
   letter-spacing: var(--tracking-caps);
 }
 
@@ -188,7 +198,7 @@
 .robot-b2-angular strong,
 .robot-b2-position strong,
 .robot-b2-power-panel strong {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--font-lg);
   font-variant-numeric: tabular-nums;
   line-height: var(--line-height-none);
@@ -196,7 +206,7 @@
 .robot-b2-speed small,
 .robot-b2-angular small {
   color: var(--color-text-muted);
-  font-size: var(--font-xs);
+  font-size: var(--robot-b2-font-label);
 }
 .robot-b2-speed-track {
   height: 4px;
@@ -215,8 +225,9 @@
   justify-content: space-between;
   gap: var(--space-xs);
   color: var(--color-text-muted);
-  font-family: var(--font-mono);
-  font-size: var(--font-xs);
+  font-family: var(--font-sans);
+  font-size: var(--robot-b2-font-label);
+  font-variant-numeric: tabular-nums;
   letter-spacing: var(--tracking-caps);
   text-transform: uppercase;
 }
@@ -227,28 +238,29 @@
   grid-template-columns: 1.2rem minmax(0, 1fr) auto;
   gap: var(--space-xs);
   align-items: baseline;
-  font-family: var(--font-mono);
-  font-size: var(--font-xs);
+  font-family: var(--font-sans);
+  font-size: var(--robot-b2-font-label);
+  font-variant-numeric: tabular-nums;
 }
 .robot-b2-position i,
 .robot-b2-power-panel i {
   color: var(--color-text-muted);
   font-style: normal;
-  font-size: var(--font-xs);
+  font-size: var(--robot-b2-font-label);
 }
-.robot-b2-pose-fresh {
-  grid-template-columns: 1fr !important;
+.robot-b2-position > .robot-b2-pose-fresh {
+  grid-template-columns: 1fr;
   justify-items: start;
   color: var(--color-text-muted);
-  font-size: var(--font-xs);
+  font-size: var(--robot-b2-font-label);
   letter-spacing: var(--tracking-caps);
 }
 .robot-b2-pose-fresh[data-xgc-pose="fresh"] { color: var(--robot-b2-healthy); }
 .robot-b2-pose-fresh[data-xgc-pose="stale"] { color: var(--color-danger); }
-.robot-b2-joints {
-  grid-template-columns: 1fr !important;
+.robot-b2-power-panel > .robot-b2-joints {
+  grid-template-columns: 1fr;
   color: var(--color-text-muted);
-  font-size: var(--font-xs);
+  font-size: var(--robot-b2-font-label);
   letter-spacing: var(--tracking-caps);
   text-transform: uppercase;
 }
@@ -272,8 +284,8 @@
 }
 .robot-b2-vitals small {
   color: var(--color-text-muted);
-  font-family: var(--font-mono);
-  font-size: var(--font-xs);
+  font-family: var(--font-sans);
+  font-size: var(--robot-b2-font-label);
   letter-spacing: var(--tracking-caps);
 }
 .robot-b2-vitals strong {
@@ -281,12 +293,10 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-family: var(--font-mono);
-  font-size: var(--font-xs);
+  font-family: var(--font-sans);
+  font-size: var(--robot-b2-font-label);
   font-variant-numeric: tabular-nums;
 }
-.robot-b2-vitals strong[data-xgc-tone="healthy"] { color: var(--robot-b2-healthy); }
-.robot-b2-vitals strong[data-xgc-tone="danger"] { color: var(--color-danger); }
 
 @container (max-width: 320px) {
   .robot-b2-instrument-body {
@@ -298,4 +308,10 @@
   .robot-b2-instrument-header small { display: none; }
   .robot-b2-angular { display: none; }
   .robot-b2-motion { grid-template-columns: 1fr; }
+}
+
+/* Instrument emphasis keeps the user-agent bold it was verified with; the
+ * shared element default (emphasis weight) must not restyle the face. */
+.robot-b2-instrument :where(strong, b) {
+  font-weight: var(--weight-bold);
 }

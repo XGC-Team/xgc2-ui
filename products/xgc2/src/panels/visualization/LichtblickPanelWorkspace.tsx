@@ -7,8 +7,9 @@ import {
 } from '../../domains/experiment/experimentPublic';
 import { useProductRouteVisible } from '../../shared/routeReady';
 import type { PanelPluginProps } from '../types';
-import { LichtblickPanelFrameBinding } from './LichtblickPanelFrame';
+import { LichtblickPanelFrameBinding,LichtblickSceneHostBinding } from './LichtblickPanelFrame';
 import { LichtblickStartupPipeline } from './LichtblickStartupPipeline';
+import { useWorkflowStartupPresentation,workflowStartupGeneration } from '../../components/useWorkflowStartupPresentation';
 import { LichtblickWorkflowView } from './LichtblickWorkflowView';
 import {
   lichtblickLayoutWasBootstrapped,
@@ -19,6 +20,7 @@ import {
   lichtblickLayoutPresentation,
 } from './lichtblickLayoutOptions';
 import { lichtblickProxyUrl } from './lichtblickProxyUrl';
+import { resolveLichtblickSceneHost } from './lichtblickSceneBridge';
 import {
   LICHTBLICK_BRIDGE_PROCESS_DEFINITION_ID,
   LICHTBLICK_WEB_PROCESS_DEFINITION_ID,
@@ -26,8 +28,7 @@ import {
 import {
   EMPTY_LICHTBLICK_RUN_IDS,
   lichtblickProcessStillLive,
-  lichtblickWorkspaceEmptyKind,
-  lichtblickWorkspaceIsPreparing,
+  lichtblickWorkspaceStartupPhase,
   nextHeldLichtblickActionRunIds,
   nextHeldLichtblickEmbed,
   type HeldLichtblickEmbed,
@@ -100,33 +101,39 @@ export function LichtblickWorkspacePanel({
   const embedUrl = heldEmbed?.url ?? '';
   const layout = lichtblickLayoutOptions(panel.options);
   const layoutPresentation = lichtblickLayoutPresentation(layout.layoutMode);
-  const runtimeError = runtime?.error.trim() ?? '';
-  const preparing = lichtblickWorkspaceIsPreparing({
-    connected:Boolean(runtimePort?.connected),
-    active:Boolean(active) && !lifecycleStopping,
-    runtimeLoading:Boolean(runtime?.loading),
-    hasOwnedLiveProcess:ownedProcesses.some(lichtblickProcessStillLive),
-    runtimeReady,
-  });
-  const emptyKind = lichtblickWorkspaceEmptyKind({
-    runtimeError,
+  const failedRun = !active && action?.latestInvocation?.status === 'failed' ? action.latestInvocation : undefined;
+  const runtimeError = runtime?.error.trim()
+    || (failedRun ? runtime?.runDetailsById[failedRun.id]?.run?.primaryError?.trim() || 'Lichtblick workflow failed.' : '');
+  const hasOwnedLiveProcess = ownedProcesses.some(lichtblickProcessStillLive);
+  const startupPhase = lichtblickWorkspaceStartupPhase({
     stopping:lifecycleStopping,
-    preparing,
+    runtimeError,
+    active:Boolean(active) && !lifecycleStopping,
+    hasOwnedLiveProcess,
+    hasEmbed:Boolean(embedUrl),
   });
-  const startupPhase = emptyKind === 'stopping'
-    ? 'stopping'
-    : emptyKind === 'stopped' ? 'stopped' : 'starting';
+  const startupGeneration = workflowStartupGeneration(
+    active?.id || heldEmbed?.processId || '',
+    panel.id,
+  );
+  const { presented,onPresentationComplete } = useWorkflowStartupPresentation(
+    startupGeneration,
+    startupPhase === 'stopped',
+  );
 
   return <LichtblickPanelFrameBinding panelId={panel.id}>
     {(view,embedBridge) => {
       const showWorkflow = view === 'workflow';
-      const showEmbedBusy = Boolean(embedUrl) && surfaceVisible && !showWorkflow && !embedBridge.ready;
+      const contentVisible = presented && Boolean(embedUrl) && !showWorkflow && !lifecycleStopping;
+      const keepPipelineMounted = !presented || lifecycleStopping || !embedUrl;
+      const showEmbedBusy = contentVisible && surfaceVisible && !embedBridge.ready;
       return <div
         className="lichtblick-workspace"
       data-xgc-role="lichtblick-workspace"
       data-xgc-id={panel.id}
       data-xgc-view={view}
-      data-xgc-visible-surface={showWorkflow ? 'workflow' : embedUrl ? 'lichtblick' : 'empty'}
+      data-xgc-visible-surface={showWorkflow ? 'workflow' : contentVisible ? 'lichtblick' : 'empty'}
+      data-xgc-startup-presented={presented ? 'true' : 'false'}
       data-xgc-parked={surfaceVisible ? 'false' : 'true'}
       data-xgc-embed-held={embedUrl && !liveEmbed ? 'true' : 'false'}
       data-xgc-layout-mode={layout.layoutMode}
@@ -146,6 +153,17 @@ export function LichtblickWorkspacePanel({
       data-xgc-bridge-process-id={bridgeProcess?.id ?? ''}
       data-xgc-bridge-ready={bridgeReady ? 'true' : 'false'}
     >
+      <LichtblickSceneHostBinding panelId={panel.id} host={resolveLichtblickSceneHost({
+        panelId:panel.id,
+        sceneNamespace:layout.sceneNamespace,
+        action:context.ports.actions['scene-command'],
+        targetId:runtime?.targetId,
+        webReady,
+        bridgeReady,
+        lifecycleStopping,
+        disabledReason:context.disabledReason,
+        editing:context.editing,
+      })} />
       {webProcess && runtime && (
         <MarkLichtblickLayoutBootstrapped
           ready={embedBridge.ready}
@@ -154,7 +172,8 @@ export function LichtblickWorkspacePanel({
         />
       )}
       {embedUrl && (
-        <iframe ref={embedBridge.iframeRef} className="lichtblick-frame" title={panel.title || 'Lichtblick'}
+        <iframe ref={embedBridge.iframeRef}
+          className="lichtblick-frame" title={panel.title || 'Lichtblick'}
           hidden={showWorkflow}
           aria-hidden={showWorkflow || undefined}
           src={embedUrl} sandbox="allow-scripts allow-same-origin allow-forms"
@@ -173,11 +192,15 @@ export function LichtblickWorkspacePanel({
           <span className="xgc-workspace-busy-ring" aria-hidden="true" />
         </div>
       )}
-      {!showWorkflow && !embedUrl && (
+      {keepPipelineMounted && (
         <LichtblickStartupPipeline
           panelId={panel.id}
+          generation={startupGeneration}
+          onPresentationComplete={onPresentationComplete}
           phase={startupPhase}
-          runActive={Boolean(active) && !lifecycleStopping}
+          paused={!surfaceVisible || showWorkflow}
+          hidden={showWorkflow}
+          runActive={!lifecycleStopping && (Boolean(active) || hasOwnedLiveProcess)}
           runtimeError={runtimeError}
           viewer={webProcess}
           bridge={bridgeProcess}

@@ -46,7 +46,7 @@
   box-shadow: var(--shadow-floating);
   font-family: var(--font-mono);
   font-size: var(--font-sm);
-  line-height: 16px;
+  line-height: var(--line-height-normal);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -65,7 +65,7 @@
   box-shadow: var(--shadow-floating);
   font-size: var(--font-sm);
   font-weight: var(--weight-bold);
-  line-height: 1;
+  line-height: var(--line-height-none);
 }
 
 [class~="dev-annotation-pin"] {

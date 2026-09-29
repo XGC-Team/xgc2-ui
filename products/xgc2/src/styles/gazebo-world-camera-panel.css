@@ -60,27 +60,10 @@ body:has(.app-shell[data-xgc-mode='ground-station']) .gazebo-world-camera-calibr
 }
 
 /*
- * Height chain: PanelFrame is not a flex column by default, so percentage
- * heights on nested shells can collapse and leave empty copy sitting low in
- * the panel. Make this panel's frame a column, pin the body to the remaining
- * space, then absolute-fill workspace layers so stopped copy can flex-center.
+ * Height chain: the plugin fillBody flag pins the frame body (flex column and
+ * position:relative come from the shared WorkspacePanel), then these
+ * absolute-fill workspace layers let stopped copy flex-center.
  */
-.xgc-panel-frame:has(> .xgc-panel-frame-body [data-xgc-role="gazebo-world-camera-workspace"]) {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-
-.xgc-panel-frame:has(> .xgc-panel-frame-body [data-xgc-role="gazebo-world-camera-workspace"]) > .xgc-panel-frame-body {
-  position: relative;
-  flex: 1 1 auto;
-  width: 100%;
-  height: auto;
-  min-height: 0;
-  overflow: hidden;
-  background: transparent;
-}
-
 .gazebo-world-camera-panel-workspace,
 .gazebo-world-camera-panel-image-view,
 .gazebo-world-camera-panel-workflow {
@@ -106,12 +89,26 @@ body:has(.app-shell[data-xgc-mode='ground-station']) .gazebo-world-camera-calibr
   background: transparent;
 }
 
+.gazebo-world-camera-panel-image-view[hidden] {
+  display: none;
+}
+
+.gazebo-world-camera-panel-image-view > [data-xgc-role="gazebo-world-camera-empty-state"] {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  background: var(--background-surface, var(--color-bg-surface));
+}
+
 /*
- * Fill the panel body. Letterboxing (contain + intrinsic 16:9 box) left a
- * second light pad around the stream; cover crops the unused axis instead.
+ * Keep the source aspect ratio. Unused axes letterbox on the panel surface
+ * (contain). Do not crop with cover even when the tile ratio is disharmonious.
+ * Size the stage (root) to the panel; let CameraVideoPanel contain mode size
+ * the <video> to the letterboxed box so the pad is surface, not decoder bars.
  */
-.gazebo-world-camera-panel-image-view .camera-video-panel-root,
-.gazebo-world-camera-panel-image-view .camera-video-panel-stream {
+.gazebo-world-camera-panel-image-view .camera-video-panel-root {
   width: 100%;
   height: 100%;
   min-width: 0;
@@ -120,10 +117,11 @@ body:has(.app-shell[data-xgc-mode='ground-station']) .gazebo-world-camera-calibr
 }
 
 .gazebo-world-camera-panel-image-view .camera-video-panel-stream {
-  justify-self: stretch;
-  align-self: stretch;
-  object-fit: cover;
+  justify-self: center;
+  align-self: center;
+  object-fit: contain;
   object-position: center center;
+  background: transparent;
 }
 
 .gazebo-world-camera-panel-image-view[hidden] {
@@ -140,6 +138,19 @@ body:has(.app-shell[data-xgc-mode='ground-station']) .gazebo-world-camera-calibr
 .gazebo-world-camera-intrinsic-input {
   flex: 1 1 auto;
   min-width: 0;
+}
+
+.gazebo-world-camera-authored-pose {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-layout-default) var(--space-layout-comfortable);
+}
+
+@media (max-width: 720px) {
+  .gazebo-world-camera-authored-pose {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .gazebo-world-camera-pose-editor {
