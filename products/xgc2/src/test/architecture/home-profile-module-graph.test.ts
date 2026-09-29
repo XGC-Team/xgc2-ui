@@ -23,7 +23,6 @@ const webRoot = process.cwd();
 const fixturesDir = resolve(webRoot,'test-fixtures/home-profiles');
 
 const fixturePaths = {
-  recording: resolve(fixturesDir,'home-only-recording.tsx'),
   none: resolve(fixturesDir,'home-none.tsx'),
 } as const;
 
@@ -78,28 +77,6 @@ async function collectViteInputModuleIds(profileModule: string): Promise<string[
 }
 
 describe('home profile Vite input module graphs', () => {
-  it('home-only-recording includes Home + recording owner modules and excludes removed spotlight/action/host Files from Home', async () => {
-    const ids = await collectViteInputModuleIds(fixturePaths.recording);
-
-    expect(moduleIdsContain(ids,'/domains/home/HomeRoute')).toBe(true);
-    expect(moduleIdsContain(ids,'/app/home/createHomePageAdapter')).toBe(true);
-    expect(moduleIdsContain(ids,'/domains/home/RecordingLibraryCardContribution')).toBe(true);
-    expect(moduleIdsContain(ids,'/domains/home/RecordingLibrary')).toBe(true);
-    expect(moduleIdsContain(ids,'/domains/home/useRecordingLibrary')).toBe(true);
-    expect(moduleIdsContain(ids,'/styles/home.css')).toBe(true);
-
-    expect(moduleIdsContain(ids,'/domains/home/ExperimentSpotlightCardContribution')).toBe(false);
-    expect(moduleIdsContain(ids,'/domains/home/ExperimentSpotlightCard.tsx')).toBe(false);
-    expect(moduleIdsContain(ids,'/domains/home/HomeExperimentCard')).toBe(false);
-    expect(moduleIdsContain(ids,'/domains/home/useHomeExperimentSpotlight')).toBe(false);
-    expect(moduleIdsContain(ids,'/domains/home/homeExperimentSpotlightModel')).toBe(false);
-    expect(moduleIdsContain(ids,'/domains/home/experimentSpotlightCopy')).toBe(false);
-    // Zero-action recording card must not pull the Files open-folder app adapter.
-    expect(moduleIdsContain(ids,'/app/home/RecordingOpenFolderActionContribution')).toBe(false);
-    expect(moduleIdsContain(ids,'/app/home/RecordingOpenFolderAction.tsx')).toBe(false);
-    expect(moduleIdsContain(ids,'/domains/host/')).toBe(false);
-  }, 180_000);
-
   it('home-none excludes Home modules/styles and keeps a deterministic non-Home default route', async () => {
     const ids = await collectViteInputModuleIds(fixturePaths.none);
     const { productWebComposition } = await import('../../../test-fixtures/home-profiles/home-none');
@@ -108,9 +85,7 @@ describe('home profile Vite input module graphs', () => {
     expect(moduleIdsContain(ids,'/app/home/')).toBe(false);
     expect(moduleIdsContain(ids,'/styles/home.css')).toBe(false);
 
-    expect(productWebComposition.home).toBeUndefined();
-    expect(productWebComposition.routes.some((route) => route.page === 'home')).toBe(false);
-    expect(productWebComposition.navigation.primary.some((item) => item.id === 'home')).toBe(false);
+    expect(productWebComposition.routes.some((route) => route.page === 'experiment')).toBe(true);
     expect(productWebComposition.navigation.defaultPage).toBe('experiment');
     expect(productWebComposition.routes[0]?.page).toBe('experiment');
   }, 180_000);

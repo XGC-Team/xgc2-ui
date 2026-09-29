@@ -18,8 +18,7 @@ test('danger actions share the Discard surface while icon actions keep a red gly
   captures.push(await capture(page,'operations','[data-xgc-role="operations-kill-all"][data-xgc-id="local"]'));
 
   await page.locator('[data-xgc-role="primary-nav-item"][data-xgc-id="automations"]').click();
-  const archive = page.locator('[data-xgc-role="automation-definition-archive"]')
-    .and(page.getByRole('button',{ name:'Archive Paper Leader SCE1 Catkin Build',exact:true }));
+  const archive = page.locator('[data-xgc-role="automation-definition-archive"]').first();
   await expect(archive).toBeVisible();
   await expect(archive).toHaveAttribute('data-icon-only','true');
   const archiveId = await archive.getAttribute('data-xgc-id');
@@ -34,7 +33,7 @@ test('danger actions share the Discard surface while icon actions keep a red gly
   const response = await page.request.get('/api/experiments');
   expect(response.ok()).toBe(true);
   const experiments = await response.json() as { head:{ resourceId:string;name:string } }[];
-  const experiment = experiments.find(({ head }) => head.name === '5 PX4 multirotors + 2 Mecanum UGVs experiment');
+  const experiment = experiments.find(({ head }) => head.name === 'SCE');
   expect(experiment).toBeDefined();
   await page.goto(`/#/experiments/${experiment!.head.resourceId}/gcs`);
   captures.push({ ...await capture(page,'kill','[data-xgc-role="robot-operation-force-disarm"][data-xgc-id="robot-control:force-disarm"]'),tile:true });

@@ -6,6 +6,7 @@ import { workflowRuntimeDatasources } from '../../../shared/workflowRuntimeProto
 import type { AutomationPanelContext } from '../../../panels/types';
 import type { PanelInstance } from '../experimentModel';
 import { ExperimentPanelContent } from './ExperimentPanelContent';
+import { testPanelExecution } from '../../../test/panelExecutionTestSupport';
 
 const executionTargets=vi.hoisted(() => vi.fn(() => []));
 vi.mock('../../execution/executionPublic',async () => ({
@@ -14,20 +15,20 @@ vi.mock('../../execution/executionPublic',async () => ({
 
 describe('ExperimentPanelContent v2 host boundary',() => {
   it('rejects an unregistered plugin',() => {
-    render(<ExperimentPanelContent panel={panel('missing')} automation={automation()} experimentLifecycle={lifecycle()} />);
+    render(<ExperimentPanelContent panel={panel('missing')} automation={automation()} executionObserver={testPanelExecution()} experimentLifecycle={lifecycle()} />);
     expect(screen.getByText('Panel unavailable')).toBeInTheDocument();
   });
   it('subscribes dynamic service tiles to their target even before child workflow targets arrive',() => {
     executionTargets.mockClear();
     const value=panel('automation-workflow-control');
-    render(<ExperimentPanelContent panel={value} executionTargetId="local" automation={automation()}
+    render(<ExperimentPanelContent panel={value} executionTargetId="local" automation={automation()} executionObserver={testPanelExecution()}
       experimentLifecycle={{ ...lifecycle(),activeRun:{ id:'root',workflowTargets:[] } } as never} />);
     expect(executionTargets).toHaveBeenCalledWith(['local']);
   });
   it('renders a plugin with resolved ports instead of passing host documents',() => {
     const value = panel('workflow-logs');
     value.portBindings = [{ portId:'workflow-traces',kind:'data',projection:workflowRuntimeDatasources.runLogs }];
-    const { container } = render(<ExperimentPanelContent panel={value} automation={automation()} experimentLifecycle={lifecycle()} />);
+    const { container } = render(<ExperimentPanelContent panel={value} automation={automation()} executionObserver={testPanelExecution()} experimentLifecycle={lifecycle()} />);
     // The binding matches the registered manifest contract, so the port
     // resolves as connected with no host document behind it yet.
     expect(container.querySelector('[data-xgc-role="workflow-log-output"]')).toHaveTextContent('"targetId": "local"');

@@ -1,9 +1,17 @@
 // @vitest-environment jsdom
 
-import { fireEvent,render,screen,waitFor } from '@testing-library/react';
+import { fireEvent,render,screen,waitFor,within } from '@testing-library/react';
 import { describe,expect,it,vi } from 'vitest';
 import { GroundStationDecisionResponseControls } from './GroundStationDecisionResponse';
 import type { GroundStationDecisionInteraction } from './groundStationInteractionTypes';
+
+vi.mock('../operatorAccess/operatorAccessPublic', async (importOriginal) => ({
+  ...(await importOriginal() as object),
+  ensureOperatorControlSession: async () => true,
+  operatorControlSessionReady: () => true,
+  useOperatorControlSession: () => ({ phase: 'ready', ensuring: false, blocked: false, retry: vi.fn() }),
+  OperatorControlSessionNotice: () => null,
+}));
 
 function decision(): GroundStationDecisionInteraction {
   return {
@@ -72,8 +80,58 @@ describe('GroundStationDecisionResponseControls', () => {
     if (label === 'Continue') {
       expect(screen.getByRole('button', { name: label })).toHaveAttribute('data-xgc-tone', 'primary');
     }
+    expect(screen.getByRole('button', { name: 'Not now' })).toHaveAttribute('data-xgc-appearance', 'default');
 
-    expect(onRespond).toHaveBeenCalledWith(request, action, {});
+    await waitFor(() => expect(onRespond).toHaveBeenCalledWith(request, action, {}));
     await waitFor(() => expect(onResponded).toHaveBeenCalledTimes(1));
+  });
+
+  it('keeps dialog expiry as a text row above the actions', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-09-12T04:00:00Z'));
+    try {
+      const request = decision();
+      request.createdAt = '2026-09-12T04:00:00Z';
+      request.updatedAt = request.createdAt;
+      request.expiresAt = '2026-09-12T04:00:30Z';
+      const { container } = render(<GroundStationDecisionResponseControls
+        interaction={request}
+        onRespond={vi.fn(async () => request)}
+        appearance="dialog"
+      />);
+      const response = container.querySelector('[data-xgc-role="ground-station-decision-response"]') as HTMLElement;
+      const deadline = response.querySelector('[data-xgc-role="ground-station-decision-deadline"]') as HTMLElement;
+      const actions = response.querySelector('[data-xgc-role="ground-station-decision-actions"]') as HTMLElement;
+      expect(deadline).not.toHaveAttribute('data-xgc-variant');
+      expect(deadline).toHaveTextContent('Expires in 30s');
+      expect(actions).not.toContainElement(deadline);
+      expect(deadline.compareDocumentPosition(actions) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+      expect(screen.getByRole('button', { name: 'Continue' })).toHaveAttribute('data-xgc-tone', 'primary');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('keeps two dialog notes separately markable and submits the typed note', async () => {
+    const first = decision();
+    first.id = 'request-one';
+    const second = decision();
+    second.id = 'request-two';
+    const onRespond = vi.fn(async () => second);
+    const { container } = render(<>
+      <GroundStationDecisionResponseControls interaction={first} onRespond={onRespond} appearance="dialog" />
+      <GroundStationDecisionResponseControls interaction={second} onRespond={onRespond} appearance="dialog" />
+    </>);
+    for (const interaction of [first, second]) {
+      const response = container.querySelector(`[data-xgc-role="ground-station-decision-response"][data-xgc-id="${interaction.id}"]`) as HTMLElement;
+      const addNote = within(response).getByRole('button', { name: 'Add a note' });
+      expect(addNote).toHaveAttribute('data-xgc-id', interaction.id);
+      fireEvent.click(addNote);
+      expect(response.querySelector(`[data-xgc-role="ground-station-decision-reason-input"][data-xgc-id="${interaction.id}"]`)).toBeInTheDocument();
+    }
+    const secondResponse = container.querySelector('[data-xgc-role="ground-station-decision-response"][data-xgc-id="request-two"]') as HTMLElement;
+    fireEvent.change(within(secondResponse).getByRole('textbox', { name: 'Operator note' }), { target: { value: 'Area checked' } });
+    fireEvent.click(within(secondResponse).getByRole('button', { name: 'Continue' }));
+    await waitFor(() => expect(onRespond).toHaveBeenCalledWith(second, 'approved', { reason: 'Area checked' }));
   });
 });

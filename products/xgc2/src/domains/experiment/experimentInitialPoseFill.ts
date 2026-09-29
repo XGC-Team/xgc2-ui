@@ -109,7 +109,7 @@ export function experimentRobotBindingsChangeOnlyInitialXYYaw(
   return valid && changed;
 }
 
-function canonicalPose(value:unknown):CanonicalRobotPose|undefined {
+export function canonicalPose(value:unknown):CanonicalRobotPose|undefined {
   const record = objectValue(value);
   const position = objectValue(record?.position);
   const orientation = objectValue(record?.orientation);

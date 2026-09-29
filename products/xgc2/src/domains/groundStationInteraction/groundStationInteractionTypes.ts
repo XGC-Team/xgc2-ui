@@ -58,6 +58,16 @@ type GroundStationInteractionResponseBase<A extends GroundStationInteractionActi
 export type GroundStationDecisionResponse = GroundStationInteractionResponseBase<GroundStationDecisionAction> & {
   /** Typed answers, present only on an approved response to a form decision. */
   values?: GroundStationFormValues;
+  /** Per-target execution outcome after the ground station runs the approved action. */
+  results?: {
+    invocationId: string;
+    attempt: number;
+    state: 'completed' | 'not-executed';
+    succeeded?: string[];
+    failed?: string[];
+    uncertain?: string[];
+    at: string;
+  };
 };
 export type GroundStationDismissalResponse = GroundStationInteractionResponseBase<GroundStationDismissalAction>;
 // Cancellation is a lifecycle outcome: an Automation run may close any still-open

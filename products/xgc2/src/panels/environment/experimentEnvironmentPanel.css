@@ -1,0 +1,174 @@
+.experiment-environment-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  height: 100%;
+  min-height: 0;
+}
+
+.experiment-environment-toolbar {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: var(--space-xs) var(--space-sm);
+  align-items: center;
+  min-width: 0;
+}
+
+.experiment-environment-disclosure-status {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.experiment-environment-radio-body {
+  display: grid;
+  gap: var(--space-md);
+  min-width: 0;
+  width: min(100%, var(--size-grid-column-wide));
+  justify-items: start;
+}
+
+.experiment-environment-radio-results {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.experiment-environment-radio-result {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.experiment-environment-network,
+.experiment-environment-agent-options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  min-height: 0;
+  overflow: auto;
+}
+
+.experiment-environment-body {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: minmax(0, var(--size-grid-column-wide)) minmax(0, 1fr);
+  gap: var(--space-md);
+  min-width: 0;
+  min-height: 0;
+}
+
+.experiment-environment-instances {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  scrollbar-gutter: stable;
+}
+
+.experiment-environment-instance {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: var(--size-control-compact);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-2xs);
+  padding: var(--space-2xs) var(--space-sm);
+  text-align: left;
+  cursor: pointer;
+  background: transparent;
+  border: var(--stroke-thin) solid transparent;
+  border-radius: var(--radius-control);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: var(--font-base);
+  font-weight: var(--weight-regular);
+  line-height: var(--line-height-tight);
+  transition: border-color var(--duration-fast) var(--easing-standard), background var(--duration-fast) var(--easing-standard);
+}
+
+.experiment-environment-instance:hover {
+  background: var(--color-bg-surface-hover);
+}
+
+.experiment-environment-instance:focus-visible {
+  outline: var(--stroke-strong) solid var(--color-border-focus);
+  outline-offset: 0;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.experiment-environment-instance[aria-pressed='true'] {
+  background: var(--color-bg-selected);
+  border-color: var(--color-border-primary);
+}
+
+.experiment-environment-instance-name {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-heading);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.experiment-environment-instance-state {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.experiment-environment-detail-pane {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  min-width: 0;
+  min-height: 0;
+}
+
+.experiment-environment-prepare {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+}
+
+.experiment-environment-slot {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  min-width: 0;
+}
+
+.experiment-environment-prepare [data-xgc-role='experiment-environment-image-missing'] {
+  color: var(--color-text-muted);
+}
+
+.experiment-environment-panel-tools {
+  /* HostFilesWorkspace / Terminal fill: children use flex:1 1 0 and need a column flex host. */
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}

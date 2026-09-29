@@ -1,7 +1,8 @@
 import { useMemo,useState } from 'react';
 import { ArrowDownToLine,FileCode,Play,RotateCcw,Search,Square,Trash2 } from 'lucide-react';
-import { Input,Panel,SortableDataTable,Toolbar } from '@xgc2/ui-react';
+import { Input,Panel,Toolbar } from '@xgc2/ui-react';
 import { ControlButton } from '../../components/controls/ControlButton';
+import { SortableDataTable } from '../../components/SortableDataTable';
 import type { ContainerComposeOperation,DockerComposeProject } from './containerModel';
 import { ComposeCreateDrawer } from './ComposeCreateDrawer';
 import { ContainerStatusText } from './ContainerStatusText';
@@ -67,6 +68,7 @@ export function ComposeProjectsPanel({
 
       <SortableDataTable
         className="container-data-table-shell"
+        data-xgc-id="compose-projects"
         columns={[
           {
             id: 'name',

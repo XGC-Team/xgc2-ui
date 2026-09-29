@@ -13,7 +13,13 @@ describe('native prompt outbox',()=>{
   expect(store.getSnapshot().items.map(p=>p.text)).toEqual(['one','two']);await waitFor(()=>expect(api.updateNativePromptQueue).toHaveBeenCalledTimes(1));
   pending.shift()!();await waitFor(()=>expect(api.updateNativePromptQueue).toHaveBeenCalledTimes(2));
   expect(api.updateNativePromptQueue.mock.calls[1]?.[1]).toMatchObject({text:'two',options:{model:'chosen'}});
-  pending.shift()!();await waitFor(()=>expect(store.getSnapshot().items).toEqual([]));
+  // HTTP acknowledgement alone marks rows accepted; the canonical journal or a
+  // queued receipt drains them, so an acknowledged row never flashes away.
+  pending.shift()!();await waitFor(()=>expect(store.getSnapshot().items.every(p=>p.accepted)).toBe(true));
+  expect(store.getSnapshot().items).toHaveLength(2);
+  const turns=store.getSnapshot().items.map(p=>({role:'user' as const,turnId:p.turnId}));
+  store.reconcile('s_a',turns as never);
+  expect(store.getSnapshot().items).toEqual([]);
  });
  it('pauses uncertain submissions and retries the same identity after reload',async()=>{
   api.updateNativePromptQueue.mockRejectedValue(new Error('connection lost'));

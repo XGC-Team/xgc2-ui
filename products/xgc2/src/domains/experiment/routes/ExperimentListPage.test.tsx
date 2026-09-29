@@ -170,6 +170,18 @@ describe('ExperimentListPage', () => {
     expect(onOpen).toHaveBeenCalledWith('exp-1');
   });
 
+  it('does not turn catalog Experiment titles into tab-rename editors', () => {
+    const { container } = renderPage();
+    const open = container.querySelector<HTMLButtonElement>('[data-xgc-role="experiment-row-open"][data-xgc-id="exp-1"]')!;
+    expect(open.tagName).toBe('BUTTON');
+    expect(open).not.toHaveAttribute('contenteditable');
+    fireEvent.mouseEnter(open);
+    fireEvent.doubleClick(open);
+    expect(container.querySelector('.xgc-workspace-tab-input')).toBeNull();
+    expect(container.querySelector('.xgc-list-folder-name-input')).toBeNull();
+    expect(container.querySelector('[data-xgc-role="experiment-row-open"][data-xgc-id="exp-1"]')?.tagName).toBe('BUTTON');
+  });
+
   it('edits Experiment tags inline instead of using row chips as a filter', () => {
     const onOpen = vi.fn();
     const onEditTags = vi.fn();
@@ -289,7 +301,7 @@ function experiment(resourceId = 'exp-1', name = 'Experiment A', namespaceId = '
   return {
     head: { domain: 'experiment',resourceId,namespaceId,name,tags: ['tag-a'],mainCommitId: 'c1',currentVersion: 1,digest: 'd',revision: 1,createdAt: '',updatedAt: '2026-07-14T00:00:00Z' },
     branch: { domain: 'experiment',resourceId,name: 'main',headCommitId: 'c1',headVersion: 1,revision: 1,createdAt: '',updatedAt: '' },
-    spec: { schemaVersion: 15,name,description: 'Typed experiment',tags: ['tag-a'],runModes: ['simulation','physical'],localizationOffset:{ x:0,y:0,z:0 },dashboards: [{ id: 'gcs',name: 'GCS',description: '',panels: [] }],
+    spec: { worldBoundary:null,schemaVersion:16,name,description: 'Typed experiment',tags: ['tag-a'],runModes: ['simulation','physical'],localizationOffset:{ x:0,y:0,z:0 },dashboards: [{ id: 'gcs',name: 'GCS',description: '',panels: [] }],
       robots: [],workflowInstances: [] },
   };
 }

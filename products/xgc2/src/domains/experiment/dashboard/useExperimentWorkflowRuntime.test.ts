@@ -91,7 +91,7 @@ describe('useExperimentWorkflowRuntime',() => {
     expect(result.current.activeRuns).toEqual([]);
   });
 
-  it('loads one exact Session command root and restores its full-Run Panel fallback',async () => {
+  it('retains the Session command root and projects its observed Panel fallback',async () => {
     const command=run('ordinary-user-root','experiment-a','simulation');
     command.status='succeeded';
     command.revision=7;
@@ -108,11 +108,10 @@ describe('useExperimentWorkflowRuntime',() => {
       }],
       waits:[],effects:[],runtimeGroups:[],runtimes:[],resources:[],
     } as never;
-    const loadRunDetail=vi.fn(async () => commandDetail);
     const release=vi.fn();
-    const retainRunDetail=vi.fn(() => release);
+    const retainRunObservation=vi.fn(() => release);
     const source=runtimeSource({
-      sessionViews:[sessionView()],loadRunDetail,retainRunDetail,
+      sessionViews:[sessionView()],retainRunObservation,
     });
     const { result,rerender,unmount }=renderHook(({ runDetailsById }) => (
       useExperimentWorkflowRuntime(experiment(),'local',{ ...source,runDetailsById })
@@ -120,8 +119,7 @@ describe('useExperimentWorkflowRuntime',() => {
 
     expect(result.current.sessionActive).toBe(true);
     expect(result.current.activeRuns).toEqual([]);
-    await waitFor(() => expect(loadRunDetail).toHaveBeenCalledWith(command.id,undefined));
-    expect(loadRunDetail).toHaveBeenCalledTimes(1);
+    expect(retainRunObservation).toHaveBeenCalledWith(command.id);
 
     rerender({ runDetailsById:{ [command.id]:commandDetail } });
     await waitFor(() => expect(result.current.activeRun).toMatchObject({
@@ -141,8 +139,7 @@ describe('useExperimentWorkflowRuntime',() => {
       rootRunId:command.id,targetId:'local',id:'camera-child',status:'waiting',revision:4,
     });
     rerender({ runDetailsById:{ [command.id]:commandDetail } });
-    expect(loadRunDetail).toHaveBeenCalledTimes(1);
-    expect(retainRunDetail).toHaveBeenCalledTimes(1);
+    expect(retainRunObservation).toHaveBeenCalledTimes(1);
     unmount();
     expect(release).toHaveBeenCalledOnce();
   });
@@ -161,13 +158,12 @@ describe('useExperimentWorkflowRuntime',() => {
     terminalMemberSession.members[0]={
       ...terminalMemberSession.members[0]!,ownerId:command.id,status:'failed',revision:4,
     };
-    const loadRunDetail=vi.fn(async () => commandDetail);
-    const source=runtimeSource({ sessionViews:[terminalMemberSession],loadRunDetail });
+    const source=runtimeSource({ sessionViews:[terminalMemberSession] });
     const { result,rerender }=renderHook(({ runDetailsById }) => (
       useExperimentWorkflowRuntime(experiment(),'local',{ ...source,runDetailsById })
     ),{ initialProps:{ runDetailsById:{} as Record<string,AutomationRunDetail> } });
 
-    await waitFor(() => expect(loadRunDetail).toHaveBeenCalledWith(command.id,undefined));
+    expect(source.retainRunObservation).toHaveBeenCalledWith(command.id);
     expect(result.current.activeRun).toBeUndefined();
 
     rerender({ runDetailsById:{ [command.id]:commandDetail } });
@@ -242,8 +238,7 @@ function runtimeSource(overrides:Partial<ExperimentWorkflowRuntimeSource> = {}):
   return {
     runSummaries:[],runDetailsById:{},resolved:true,error:'',
     refreshExecutionHistory:vi.fn(async () => []),
-    loadRunDetail:vi.fn(async () => ({ invocations:[],nodeSummaries:[],loading:false,error:'not found' })),
-    retainRunDetail:vi.fn(() => () => undefined),
+    retainRunObservation:vi.fn(() => () => undefined),
     convergeStoppedExperiment:vi.fn(async () => undefined),
     ...overrides,
   };

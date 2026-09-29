@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { act,fireEvent,render,waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import type { ComponentProps } from 'react';
 import { describe,expect,it,vi } from 'vitest';
 import { AutomationTriggerControls } from './AutomationTriggerControls';
@@ -40,6 +41,7 @@ describe('AutomationTriggerControls', () => {
 
     expect(container.querySelector('[data-xgc-role="automation-trigger-run-once"][data-xgc-id="start"]')).not.toBeNull();
     expect(container.querySelector('[data-xgc-role="automation-trigger-deactivate"][data-xgc-id="start"]')).not.toBeNull();
+    expect(container.querySelector('[data-xgc-role="automation-trigger-autostart"]')).toBeNull();
     expect(container.querySelector('[data-xgc-role="automation-trigger-update-activation"][data-xgc-id="start"]'))
       .toHaveTextContent('Update activation');
     expect(container.querySelector('[data-xgc-role="automation-trigger-version-drift"][data-xgc-id="start"]'))
@@ -57,18 +59,86 @@ describe('AutomationTriggerControls', () => {
     expect(controls.props.onDismissActivationCredential).toHaveBeenCalledWith();
   });
 
-  it('activates target startup without a synthetic Run and preserves unreachable Agent truth', () => {
+  it('uses the target startup switch for desired autostart and preserves unreachable Agent truth', async () => {
+    const user = userEvent.setup();
     const controls = renderControls('trigger.target-startup', {
       activation: activationFixture({
-        triggerKind: 'trigger.target-startup',reachability: 'unreachable',
+        triggerKind: 'trigger.target-startup',desiredState: 'active',observedState: 'inactive',reachability: 'unreachable',
       }),
     });
     const { container } = controls.view;
-    expect(container.querySelector('[data-xgc-role="automation-trigger-deactivate"]')).not.toBeNull();
+    const autostartControl = container.querySelector(
+      '[data-xgc-role="automation-trigger-autostart"][data-xgc-id="start"]',
+    );
+    const autostart = autostartControl?.querySelector<HTMLInputElement>('input[role="switch"]');
+    expect(autostartControl).not.toBeNull();
+    expect(autostart).toHaveAttribute('role', 'switch');
+    expect(autostart).toBeChecked();
+    expect(container.querySelector('[data-xgc-role="automation-trigger-activate"]')).toBeNull();
+    expect(container.querySelector('[data-xgc-role="automation-trigger-deactivate"]')).toBeNull();
     expect(container.querySelector('[data-xgc-role="automation-trigger-run-once"]')).toBeNull();
     expect(container.querySelector('[data-xgc-role="automation-test-listener-start"]')).toBeNull();
     expect(container.querySelector('[data-xgc-role="automation-trigger-reachability"]'))
       .toHaveTextContent('Unreachable');
+    expect(container.querySelector('[data-xgc-role="automation-trigger-status"]'))
+      .toHaveAttribute('data-xgc-state', 'inactive');
+
+    await user.click(autostart!);
+    await waitFor(() => expect(controls.props.onDeactivate).toHaveBeenCalledOnce());
+    expect(autostart).toBeChecked();
+    expect(controls.props.onRunOnce).not.toHaveBeenCalled();
+
+    controls.view.rerender(<AutomationTriggerControls
+      {...controls.props}
+      activation={activationFixture({
+        triggerKind: 'trigger.target-startup',desiredState: 'inactive',observedState: 'inactive',reachability: 'unreachable',
+      })}
+    />);
+    const inactiveAutostartControl = container.querySelector(
+      '[data-xgc-role="automation-trigger-autostart"][data-xgc-id="start"]',
+    );
+    const inactiveAutostart = inactiveAutostartControl?.querySelector<HTMLInputElement>('input[role="switch"]');
+    expect(inactiveAutostart).not.toBeChecked();
+    await user.click(inactiveAutostart!);
+    await waitFor(() => expect(controls.props.onActivate).toHaveBeenCalledOnce());
+    expect(inactiveAutostart).not.toBeChecked();
+    expect(controls.props.onRunOnce).not.toHaveBeenCalled();
+  });
+
+  it.each(['activate', 'deactivate'])('disables target startup switch while %s is busy', async (busy) => {
+    const user = userEvent.setup();
+    const controls = renderControls('trigger.target-startup', {
+      activation: activationFixture({ triggerKind: 'trigger.target-startup' }),
+      busy,
+    });
+    const autostartControl = controls.view.container.querySelector('[data-xgc-role="automation-trigger-autostart"]');
+    const autostart = autostartControl?.querySelector<HTMLInputElement>('input[role="switch"]');
+    expect(autostartControl).not.toBeNull();
+    expect(autostart).toBeDisabled();
+    await user.click(autostart!);
+    expect(controls.props.onActivate).not.toHaveBeenCalled();
+    expect(controls.props.onDeactivate).not.toHaveBeenCalled();
+  });
+
+  it('does not optimistically check target startup after activation fails', async () => {
+    const user = userEvent.setup();
+    const controls = renderControls('trigger.target-startup', {
+      activation: activationFixture({
+        triggerKind: 'trigger.target-startup',desiredState: 'inactive',observedState: 'inactive',
+      }),
+      onActivate: vi.fn().mockRejectedValue(new Error('activation rejected')),
+    });
+    const autostartControl = controls.view.container.querySelector('[data-xgc-role="automation-trigger-autostart"]');
+    const autostart = autostartControl?.querySelector<HTMLInputElement>('input[role="switch"]');
+    expect(autostartControl).not.toBeNull();
+    expect(autostart).not.toBeChecked();
+
+    await user.click(autostart!);
+    await waitFor(() => expect(controls.props.onActivate).toHaveBeenCalledOnce());
+    await waitFor(() => expect(controls.view.container).toHaveTextContent('activation rejected'));
+    expect(autostart).not.toBeChecked();
+    expect(controls.props.onDeactivate).not.toHaveBeenCalled();
+    expect(controls.props.onRunOnce).not.toHaveBeenCalled();
   });
 
   it('does not let an earlier trigger identity overwrite feedback for the current trigger', async () => {
@@ -105,6 +175,7 @@ describe('AutomationTriggerControls', () => {
     expect(container.querySelector('[data-xgc-role="automation-test-listener-start"][data-xgc-id="start"]'))
       .toHaveTextContent('Start listening');
     expect(container.querySelector('[data-xgc-role="automation-trigger-activate"][data-xgc-id="start"]')).not.toBeNull();
+    expect(container.querySelector('[data-xgc-role="automation-trigger-autostart"]')).toBeNull();
     expect(container.querySelector('[data-xgc-role="automation-test-payload"][data-xgc-id="start"]')).not.toBeNull();
     expect(container.querySelector('[data-xgc-role="automation-test-event-submit"]')).toBeDisabled();
     expect(container.querySelector('[data-xgc-role="automation-trigger-run-once"]')).toBeNull();

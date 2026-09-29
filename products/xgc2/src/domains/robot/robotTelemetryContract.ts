@@ -3,6 +3,7 @@ import { PX4_MODEL_FS150,PX4_MODEL_MOCAP_ROTOR } from './robotAssetContracts';
 import {
   isRecord,
   nonEmptyString,
+  parseInstant,
   safeInteger,
   validDateTime,
   validRobotOperationID,
@@ -43,19 +44,11 @@ export function isRunRobot(value: unknown): value is RunRobot {
     || !isRecord(robot.channels)) return false;
   // Channel decoding is deliberately NOT part of robot acceptance: one channel
   // the browser cannot decode used to reject the robot, and one rejected robot
-  // rejects the whole fleet snapshot, so a single unknown sample blanked every
+  // rejects the whole swarm snapshot, so a single unknown sample blanked every
   // instrument. runRobotWithDecodableChannels drops exactly the undecodable
-  // channels instead. A non-live connection still cannot carry channels: it has
-  // no authority to vouch for their freshness, and rendering them would show a
-  // stale value as live.
-  return robot.connectionState === 'live' || (
-    robot.online === false
-    && robot.operationalReady === false
-    && robot.status === 'offline'
-    && robot.onlineUntil === undefined
-    && robot.operationalReadyUntil === undefined
-    && Object.keys(robot.channels).length === 0
-  );
+  // channels instead. Observer channels may arrive on opening/closed robots;
+  // per-channel stale/sourceAge vouches for freshness, not connectionState.
+  return true;
 }
 
 /**
@@ -207,7 +200,7 @@ function validRobotAuthority(value: {
   }
   return value.status === 'online'
     && validDateTime(value.operationalReadyUntil)
-    && Date.parse(value.operationalReadyUntil) <= Date.parse(value.onlineUntil);
+    && parseInstant(value.operationalReadyUntil) <= parseInstant(value.onlineUntil);
 }
 
 function isRobotChannelProjection(value: unknown): value is RobotChannelProjection {

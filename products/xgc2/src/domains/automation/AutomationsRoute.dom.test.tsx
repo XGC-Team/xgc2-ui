@@ -8,7 +8,10 @@ import { automationUserViewStorageKey } from './automationNavigation';
 const routeMocks = vi.hoisted(() => ({ page: 'automations',pageProps: vi.fn() }));
 
 vi.mock('../../app/navigationContext', () => ({
-  useNavigation: () => ({ managedHostId: 'local',page: routeMocks.page }),
+  useNavigation: (select?: (state: never) => unknown) => {
+    const navigationState = ({ managedHostId: 'local',page: routeMocks.page });
+    return select ? select(navigationState as never) : navigationState;
+  },
 }));
 
 vi.mock('../../app/useTargetCore', () => ({
@@ -120,7 +123,7 @@ describe('AutomationsRoute user view state', () => {
     fireEvent.click(screen.getByRole('button',{ name: 'open' }));
     expect(screen.getByText('workflow-b')).toBeInTheDocument();
 
-    routeMocks.page = 'home';
+    routeMocks.page = 'robotAssets';
     view.rerender(<AutomationsRoute />);
     window.history.replaceState(null,'','/');
     window.dispatchEvent(new HashChangeEvent('hashchange'));

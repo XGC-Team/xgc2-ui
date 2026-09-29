@@ -1,9 +1,8 @@
-import { useEffect,useState } from 'react';
-import { Notice } from '@xgc2/ui-react';
+import { useState } from 'react';
+import { Button,Notice } from '@xgc2/ui-react';
 import type {
   AgentProviderConfiguration,
   AgentProviderSettingsUpdate,
-  AgentSettings,
 } from '@xgc2/agent-runtime/react';
 import { ConfigSection } from '../../components/ConfigSection';
 import { ControlButton } from '../../components/controls/ControlButton';
@@ -11,12 +10,7 @@ import { InputControl } from '../../components/controls/TextControls';
 import { SelectControl } from '../../components/controls/SelectControl';
 import { FormActions,FormField,SwitchControl } from '../../components/FormPrimitives';
 import type { ProductSettingsContext } from '../../shared/productWebComposition';
-import {
-  getNativeProviderSettings,
-  refreshNativeProviderSettings,
-  updateNativeProviderSettings,
-} from './groundStationAgentSettingsService';
-import { isNativeCompanionUnavailable,operatorNativeErrorMessage } from './nativeCompanionAvailability';
+import { useAgentProviderSettings } from './useAgentProviderSettings';
 
 type Draft = {
   revision: string;
@@ -39,32 +33,9 @@ const PROVIDER_TITLES: Record<string, string> = {
 export function AgentProvidersSettingsSection({ language }: ProductSettingsContext) {
   const [open,setOpen] = useState(false);
   const [expandedId,setExpandedId] = useState('');
-  const [settings,setSettings] = useState<AgentSettings>();
   const [drafts,setDrafts] = useState<Record<string, Draft>>({});
-  const [error,setError] = useState('');
-  const [unavailable,setUnavailable] = useState(false);
-  const [reload,setReload] = useState(0);
-  const [busy,setBusy] = useState(false);
-  const [savingId,setSavingId] = useState('');
+  const {settings,error,unavailable,busy,savingId,retry,refresh,save}=useAgentProviderSettings(open);
   const chinese = language === 'zh-CN';
-  useEffect(() => {
-    if (!open) return;
-    const controller = new AbortController();
-    setBusy(true);
-    void getNativeProviderSettings(controller.signal).then((next) => {
-      if (controller.signal.aborted) return;
-      setSettings(next);
-      setUnavailable(false);
-      setError('');
-    }).catch((cause: unknown) => {
-      if (controller.signal.aborted) return;
-      setUnavailable(isNativeCompanionUnavailable(cause));
-      setError(operatorNativeErrorMessage(cause));
-    }).finally(() => {
-      if (!controller.signal.aborted) setBusy(false);
-    });
-    return () => controller.abort();
-  }, [open,reload]);
 
   return (
     <ConfigSection
@@ -90,37 +61,13 @@ export function AgentProvidersSettingsSection({ language }: ProductSettingsConte
           })}
           onDraftChange={(draft) => setDrafts((current) => ({ ...current, [provider.id]: draft }))}
           onToggle={() => setExpandedId((current) => current === provider.id ? '' : provider.id)}
-          onRefresh={async () => {
-            setSavingId(provider.id);
-            try {
-              setSettings(await refreshNativeProviderSettings(provider.id));
-              setUnavailable(false);
-              setError('');
-            } catch (cause: unknown) {
-              setUnavailable(isNativeCompanionUnavailable(cause));
-              setError(operatorNativeErrorMessage(cause));
-            } finally {
-              setSavingId('');
-            }
-          }}
+          onRefresh={() => refresh(provider.id)}
           onSave={async (update) => {
-            setSavingId(provider.id);
-            try {
-              const next = await updateNativeProviderSettings(update);
-              setSettings(next);
-              setDrafts((current) => {
-                const remaining = { ...current };
-                delete remaining[provider.id];
-                return remaining;
-              });
-              setUnavailable(false);
-              setError('');
-            } catch (cause: unknown) {
-              setUnavailable(isNativeCompanionUnavailable(cause));
-              setError(operatorNativeErrorMessage(cause));
-            } finally {
-              setSavingId('');
-            }
+            if (await save(update)) setDrafts((current) => {
+              const remaining = { ...current };
+              delete remaining[provider.id];
+              return remaining;
+            });
           }}
         />
       ))}
@@ -131,7 +78,7 @@ export function AgentProvidersSettingsSection({ language }: ProductSettingsConte
           disabled={busy}
           dataXgcRole="station-agent-provider-settings-retry"
           dataXgcId="agent-providers"
-          onClick={() => setReload((value) => value + 1)}
+          onClick={retry}
         >{chinese ? '重试连接' : 'Retry connection'}</ControlButton>
       ) : null}
     </ConfigSection>
@@ -191,7 +138,8 @@ function ProviderRows({
         data-xgc-role="config-section-disclosure"
         data-xgc-id={disclosureId}
       >
-        <button
+        <Button
+          appearance="ghost"
           type="button"
           className="config-section-disclosure-toggle"
           aria-expanded={expanded}
@@ -203,7 +151,7 @@ function ProviderRows({
           <span className="config-section-disclosure-title">
             {PROVIDER_TITLES[provider.provider] ?? provider.provider}
           </span>
-        </button>
+        </Button>
         <span
           className="config-section-disclosure-status"
           data-xgc-role="config-section-disclosure-status"
@@ -215,6 +163,7 @@ function ProviderRows({
       {expanded ? (
         <>
           <FormField
+            className="agent-provider-config-field"
             label={chinese ? '启用' : 'Enabled'}
             dataXgcRole="agent-provider-enabled"
             dataXgcId={provider.id}
@@ -229,6 +178,7 @@ function ProviderRows({
             />
           </FormField>
           <FormField
+            className="agent-provider-config-field"
             label={chinese ? 'CLI 路径' : 'CLI path'}
             dataXgcRole="agent-provider-binary-path"
             dataXgcId={provider.id}
@@ -244,6 +194,7 @@ function ProviderRows({
           </FormField>
           {provider.models.length ? (
             <FormField
+              className="agent-provider-config-field"
               label={chinese ? '默认模型' : 'Default model'}
               dataXgcRole="agent-provider-model-setting"
               dataXgcId={provider.id}
@@ -265,6 +216,7 @@ function ProviderRows({
           ) : null}
           {selectedModel?.efforts.length ? (
             <FormField
+              className="agent-provider-config-field"
               label={chinese ? '默认思考强度' : 'Default thinking effort'}
               dataXgcRole="agent-provider-effort-setting"
               dataXgcId={provider.id}
@@ -286,6 +238,7 @@ function ProviderRows({
           ) : null}
           {provider.permissions.length ? (
             <FormField
+              className="agent-provider-config-field"
               label={chinese ? '默认权限' : 'Default permissions'}
               dataXgcRole="agent-provider-permission-setting"
               dataXgcId={provider.id}

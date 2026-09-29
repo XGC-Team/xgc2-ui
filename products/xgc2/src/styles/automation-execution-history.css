@@ -30,7 +30,7 @@
   flex: 0 0 280px;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  border-right: var(--stroke-thin) solid var(--color-border-strong);
+  border-right: var(--stroke-thin) solid var(--color-border-muted);
 }
 .automation-execution-main {
   min-width: 0;
@@ -62,7 +62,6 @@
   padding: var(--space-md) var(--space-lg);
   background: var(--color-bg-surface);
   border: 0;
-  border-bottom: var(--stroke-thin) solid var(--color-border);
   border-radius: 0;
   box-shadow: none;
 }
@@ -79,14 +78,15 @@
 .automation-active-run-bar span,
 .automation-active-run-bar small {
   color: var(--color-text-muted);
-  font-size: var(--font-sm);
+  font-size: var(--type-meta-size);
 }
 .automation-active-run-bar strong {
   overflow: hidden;
   color: var(--color-text-heading);
-  font-size: var(--font-base);
+  font-size: var(--type-emphasis-size);
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-weight: var(--type-emphasis-weight);
 }
 .automation-active-run-title {
   min-width: 0;
@@ -98,21 +98,10 @@
   min-width: 0;
   overflow: hidden;
   color: var(--color-text-muted);
-  font-family: var(--font-mono);
-  font-size: var(--font-xs);
+  font-family: var(--type-code-family);
+  font-size: var(--type-code-size);
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-.automation-execution-list > header,
-.automation-execution-detail > header {
-  min-width: 0;
-  min-height: 48px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-lg);
-  padding: var(--space-md) var(--space-lg);
-  border-bottom: var(--stroke-thin) solid var(--color-border);
 }
 .automation-execution-list > header > div,
 .automation-execution-detail > header > div {
@@ -131,16 +120,17 @@
   min-width: 0;
   overflow: hidden;
   color: var(--color-text-heading);
-  font-size: var(--font-lg);
+  font-size: var(--type-title-size);
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-weight: var(--type-title-weight);
 }
 .automation-execution-list > header span,
 .automation-execution-detail > header span {
   min-width: 0;
   overflow: hidden;
   color: var(--color-text-muted);
-  font-size: var(--font-sm);
+  font-size: var(--type-meta-size);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -184,7 +174,7 @@
 }
 .automation-execution-row > span {
   color: var(--color-text-muted);
-  font-size: var(--font-xs);
+  font-size: var(--type-meta-size);
 }
 .automation-execution-row-title {
   min-width: 0;
@@ -197,15 +187,16 @@
   min-width: 0;
   overflow: hidden;
   color: var(--color-text-heading);
-  font-size: var(--font-base);
+  font-size: var(--type-emphasis-size);
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-weight: var(--type-emphasis-weight);
 }
 .automation-execution-row-title strong time {
   flex: 0 0 auto;
   color: var(--color-text-heading);
-  font-size: var(--font-base);
-  font-variant-numeric: tabular-nums;
+  font-size: var(--type-emphasis-size);
+  font-variant-numeric: var(--type-numeric-variant);
 }
 .automation-execution-meta {
   min-width: 0;
@@ -214,7 +205,7 @@
   flex-wrap: nowrap;
   gap: var(--space-md);
   color: var(--color-text-muted);
-  font-size: var(--font-sm);
+  font-size: var(--type-meta-size);
 }
 .automation-execution-meta > * {
   min-width: 0;
@@ -230,7 +221,7 @@
   flex-direction: column;
 }
 
-@container xgc-workspace (max-width: 980px) {
+@container xgc-workspace (max-width: 960px) {
   .automation-execution-list {
     width: 224px;
     flex-basis: 224px;
@@ -248,7 +239,7 @@
     width: 100%;
     flex: 0 0 clamp(150px, 34%, 240px);
     border-right: 0;
-    border-bottom: var(--stroke-thin) solid var(--color-border-strong);
+    border-bottom: var(--stroke-thin) solid var(--color-border-muted);
   }
 
   .automation-execution-list > header,
@@ -295,8 +286,8 @@
   padding: var(--space-md) var(--space-lg);
   color: var(--color-text-muted);
   cursor: pointer;
-  font-size: var(--font-sm);
-  font-weight: var(--weight-medium);
+  font-size: var(--type-control-size);
+  font-weight: var(--type-control-weight);
 }
 
 .automation-execution-filter-disclosure > summary:hover {
@@ -311,7 +302,7 @@
   justify-content: flex-end;
   gap: var(--space-md);
   color: var(--color-text-muted);
-  font-size: var(--font-sm);
+  font-size: var(--type-meta-size);
 }
 
 .automation-execution-list-indicators [data-xgc-role="automation-execution-stream-state"] {
@@ -321,8 +312,8 @@
   padding: 0;
   overflow: visible;
   color: var(--color-text-muted);
-  font-size: var(--font-sm);
-  font-weight: var(--weight-medium);
+  font-size: var(--type-status-size);
+  font-weight: var(--type-status-weight);
   white-space: nowrap;
 }
 
@@ -338,8 +329,8 @@
   background: transparent;
   border: 0;
   border-radius: 0;
-  font-size: var(--font-sm);
-  font-variant-numeric: tabular-nums;
+  font-size: var(--type-meta-size);
+  font-variant-numeric: var(--type-numeric-variant);
 }
 
 .automation-execution-availability {
@@ -369,14 +360,15 @@
 
 .automation-execution-filter-field > label,
 .automation-execution-filter-note {
-  font-size: var(--font-sm);
-  font-weight: var(--weight-semibold);
+  font-size: var(--type-meta-size);
+  font-weight: var(--type-meta-weight);
 }
 
 .automation-execution-filter-field > label {
-  color: var(--color-text-faint);
-  letter-spacing: var(--tracking-label);
-  text-transform: uppercase;
+  color: var(--color-text-muted);
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-line-height);
+  font-weight: var(--type-label-weight);
 }
 
 .automation-execution-filter-note {
@@ -384,21 +376,6 @@
   color: var(--color-accent);
   letter-spacing: 0;
   text-transform: none;
-}
-
-.automation-execution-filter-empty {
-  min-width: 0;
-  display: grid;
-  gap: var(--space-sm);
-  padding: var(--space-2xl) var(--space-xl);
-  color: var(--color-text-muted);
-  font-size: var(--font-sm);
-  text-align: center;
-}
-
-.automation-execution-filter-empty strong {
-  color: var(--color-text-heading);
-  font-size: var(--font-base);
 }
 
 [data-xgc-role="automation-execution-row"] {

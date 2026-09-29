@@ -18,6 +18,8 @@
   "include": [
     "finalModuleProvenancePlugin.ts",
     "finalModuleProvenancePlugin.test.ts",
+    "fontPreloadPlugin.ts",
+    "fontPreloadPlugin.test.ts",
     "markPromptHerdrBridgePlugin.ts",
     "markPromptHerdrBridgePlugin.test.ts",
     "vite.config.ts",

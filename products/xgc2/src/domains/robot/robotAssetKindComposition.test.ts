@@ -11,6 +11,7 @@ import {
   robotAssetKindContributionByProtocolKind,
   robotAssetKindCompositionWireArms,
   UNKNOWN_ROBOT_KIND_ADMISSION,
+  px4RobotAssetKindContributionForModels,
   type ContributedRobotAssetSpec,
   type RobotAssetCommonFields,
   type RobotAssetKindContribution,
@@ -75,10 +76,15 @@ describe('assembleRobotAssetKindComposition', () => {
     expect(telemetry?.velocityChannelId).toBe('state.velocity');
     expect(telemetry?.linkChannelId).toBe('diagnostic.fcu-link');
     expect(telemetry?.instrumentChannels).toEqual(expect.arrayContaining([
-      'state.flight','state.pose','state.velocity','state.imu','setpoint.local',
+      'state.flight','state.controller','state.pose','state.velocity','state.imu','setpoint.local',
       'state.mocap.pose','diagnostic.fcu-link','diagnostic.stream-health',
     ]));
     expect(telemetry?.instrumentChannels).not.toContain('diagnostic.offboard-input');
+    const mocap = px4RobotAssetKindContributionForModels({
+      fs150: false,mocapRotor: true,simulation: false,
+    }).productModels?.find((model) => model.id === 'mocap_rotor')?.telemetry;
+    expect(mocap?.instrumentChannels).toEqual(expect.arrayContaining(['state.flight','state.pose']));
+    expect(mocap?.instrumentChannels).not.toContain('state.controller');
   });
 
   it('brands real contributed leaves and rejects no-arm and partial-arm built-ins',() => {

@@ -23,11 +23,9 @@ import {
 } from './automationDocumentService';
 import {
   cancelAutomationRun,
-  getAutomationExecutionRelations,
   getAutomationRun,
+  getAutomationRunDetail,
   getAutomationRunSnapshot,
-  listAutomationNodeExecutionSummaries,
-  listAutomationNodeInvocations,
   startAutomationRun,
   stopAutomationRun,
   stopAutomationRunSet,
@@ -64,13 +62,14 @@ import type {
   AutomationRunSnapshot,
 } from './automationRunContracts';
 import type {
-  AutomationExecutionRelations,
   AutomationNodeInvocation,
   AutomationNodeExecutionSummary,
   AutomationWaitRelation,
 } from './automationExecutionContracts';
 import { newAutomationNode,newAutomationSpec } from './automationSpecModel';
 import { useAutomationWorkspace } from './useAutomationWorkspace';
+import { useAutomationRunDetails } from './useAutomationRunDetails';
+import { getAutomationObservations,type AutomationObservationBundle } from './automationObservationService';
 import { useAutomationPageSelection } from './useAutomationPageSelection';
 import { AutomationCommitConflict } from './automationErrorModel';
 import type * as AutomationDocumentServiceModule from './automationDocumentService';
@@ -93,6 +92,8 @@ vi.mock('../execution/executionPublic', async (loadOriginal) => {
   const original = await loadOriginal<typeof ExecutionPublicModule>();
   return { ...original,useExecutionEventChannel: vi.fn() };
 });
+
+vi.mock('./automationObservationService',() => ({ getAutomationObservations:vi.fn() }));
 
 vi.mock('../../shared/eventCoalescer', async (loadOriginal) => {
   const original = await loadOriginal<typeof EventCoalescerModule>();
@@ -118,11 +119,9 @@ vi.mock('./automationRunService', async (loadOriginal) => {
   return {
     ...original,
     cancelAutomationRun: vi.fn(),
-    getAutomationExecutionRelations: vi.fn(),
     getAutomationRun: vi.fn(),
+    getAutomationRunDetail: vi.fn(),
     getAutomationRunSnapshot: vi.fn(),
-    listAutomationNodeExecutionSummaries: vi.fn(),
-    listAutomationNodeInvocations: vi.fn(),
     startAutomationRun: vi.fn(),
     stopAutomationRun: vi.fn(),
     stopAutomationRunSet: vi.fn(),
@@ -167,11 +166,9 @@ describe('useAutomationWorkspace', () => {
     vi.mocked(listAutomationActivations).mockResolvedValue([]);
     vi.mocked(listAutomationNamespaces).mockResolvedValue([]);
     vi.mocked(listAutomationNodeCatalog).mockResolvedValue([catalogEntry]);
-    vi.mocked(listAutomationNodeInvocations).mockResolvedValue([]);
-    vi.mocked(listAutomationNodeExecutionSummaries).mockResolvedValue([]);
     vi.mocked(getAutomationDocument).mockResolvedValue(documentFixture());
     vi.mocked(getAutomationRunSnapshot).mockResolvedValue(runSnapshotFixture());
-    vi.mocked(getAutomationExecutionRelations).mockResolvedValue(emptyRelations());
+    vi.mocked(getAutomationRunDetail).mockReset().mockResolvedValue(detailFixture());
     vi.mocked(listAutomationExecutionHistory).mockResolvedValue({ entries: [],complete: true });
     vi.mocked(listAutomationIngressTransitions).mockResolvedValue({ transitions: [],complete: true });
     vi.mocked(listMCPConnections).mockResolvedValue([]);
@@ -186,6 +183,42 @@ describe('useAutomationWorkspace', () => {
         streamState: executionStreamState,
       };
     });
+  });
+
+  it('shares Panel observations, covers in-flight events by cursor, and loads a graph only on demand',async () => {
+    vi.useFakeTimers();
+    const first=deferred<AutomationObservationBundle>();
+    const second=deferred<AutomationObservationBundle>();
+    vi.mocked(getAutomationObservations).mockReset().mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+    const { result,unmount }=renderHook(() => useAutomationRunDetails({ targetId:'local',markExecutionHistoryObserved:vi.fn() }));
+    let releaseA!:() => void;
+    let releaseB!:() => void;
+    try {
+      act(() => {
+        releaseA=result.current.retainRunObservation('run-1');
+        releaseB=result.current.retainRunObservation('run-1');
+      });
+      await act(async () => { await vi.advanceTimersByTimeAsync(16); });
+      expect(getAutomationObservations).toHaveBeenCalledTimes(1);
+      act(() => executionEventListener?.(executionEvent({ offset:10 })));
+      const { run,nodeSummaries,relations }=detailFixture();
+      await act(async () => { first.resolve({ items:[{ run,nodeSummaries,relations }],cursor:{ streamId:'stream-1',latestOffset:10 } }); });
+      await act(async () => { await vi.advanceTimersByTimeAsync(50); });
+      expect(getAutomationObservations).toHaveBeenCalledTimes(1);
+      expect(result.current.runDetailsById['run-1']?.run?.id).toBe('run-1');
+      expect(getAutomationRunDetail).not.toHaveBeenCalled();
+      expect(getAutomationRunSnapshot).not.toHaveBeenCalled();
+      act(() => { releaseA();executionEventListener?.(executionEvent({ offset:11 })); });
+      await act(async () => { await vi.advanceTimersByTimeAsync(16); });
+      expect(getAutomationObservations).toHaveBeenCalledTimes(2);
+      await act(async () => { second.resolve({ items:[{ run,nodeSummaries,relations }],cursor:{ streamId:'stream-1',latestOffset:11 } }); });
+      await act(async () => { await result.current.loadRunDetail('run-1'); });
+      expect(getAutomationRunDetail).toHaveBeenCalledOnce();
+      expect(getAutomationRunSnapshot).toHaveBeenCalledOnce();
+      act(() => { releaseB();executionEventListener?.(executionEvent({ offset:12 })); });
+      await act(async () => { await vi.advanceTimersByTimeAsync(50); });
+      expect(getAutomationObservations).toHaveBeenCalledTimes(2);
+    } finally { unmount();vi.useRealTimers(); }
   });
 
   it('loads typed documents, namespaces, trusted catalog and runtime facts independently', async () => {
@@ -520,7 +553,7 @@ describe('useAutomationWorkspace', () => {
     vi.mocked(listAutomationIngressTransitions).mockResolvedValueOnce({
       transitions: [ingressTransition(dead, 1, 'accepted')],complete: true,
     });
-    vi.mocked(getAutomationRun).mockResolvedValueOnce(run);
+    vi.mocked(getAutomationRunDetail).mockResolvedValueOnce(detailFixture(run));
     const exposures: Array<{
       targetId: string;
       catalogCount: number;
@@ -725,7 +758,7 @@ describe('useAutomationWorkspace', () => {
     vi.mocked(startAutomationRun).mockReturnValueOnce(pendingStart.promise);
     vi.mocked(stopAutomationRun).mockReturnValueOnce(pendingStop.promise);
     vi.mocked(stopAutomationRunSet).mockReturnValueOnce(pendingStopSet.promise);
-    vi.mocked(getAutomationRun).mockReturnValueOnce(pendingDetailRun.promise);
+    vi.mocked(getAutomationRunDetail).mockReturnValueOnce(pendingDetailRun.promise.then(run => detailFixture(run)));
 
     let refreshRequest!: ReturnType<typeof result.current.refresh>;
     let activationRequest!: ReturnType<typeof result.current.activate>;
@@ -1619,7 +1652,7 @@ describe('useAutomationWorkspace', () => {
     expect(listAutomationExecutionHistory).toHaveBeenCalledTimes(4);
   });
 
-  it('inserts an unknown observed Run from lifecycle SSE without history reads and ignores an unobserved child', async () => {
+  it('enriches an unknown observed Run from lifecycle SSE through one history read and ignores an unobserved child', async () => {
     const observed=runFixture({ id:'run-sse-observed' });
     const child=runFixture({
       id:'run-sse-unobserved-child',automationResourceId:'child-automation',definitionId:'child-definition',
@@ -1650,29 +1683,28 @@ describe('useAutomationWorkspace', () => {
         }));
         await Promise.resolve();
       });
-      expect(result.current.runSummaries).toEqual([{
-        ...observedStorageSummary,
-        acceptedAt:'2026-07-14T00:00:00.000000000Z',
-        createdAt:'2026-07-14T00:00:00.000000000Z',
-        startedAt:'2026-07-14T00:00:00.000000000Z',
-        updatedAt:'2026-07-14T00:00:00.000000000Z',
-      }]);
+      // A storage lifecycle summary carries no source metadata; it is not
+      // attribution. The run appears only after the enriched history read.
+      expect(result.current.runSummaries).toEqual([]);
 
       // A transition event need not repeat definitionId at the payload root;
       // the complete Run summary still identifies an unobserved child exactly.
       act(() => executionEventListener?.(executionEvent({
         entityId:child.id,seq:1,offset:2,payload:{ run:childStorageSummary },
       })));
+      vi.mocked(listAutomationExecutionHistory).mockResolvedValue({
+        entries: historyPageFromRuns([observed]).entries,complete: true,
+      });
       await act(async () => { await vi.advanceTimersByTimeAsync(30_000); });
 
+      expect(listAutomationExecutionHistory).toHaveBeenCalledTimes(2);
       expect(result.current.runSummaries).toHaveLength(1);
       expect(result.current.runSummaries[0]).toMatchObject({
         id:observed.id,automationResourceId:'automation-a',definitionId:'automation-a',
         actionId:'run',configDigest:'a'.repeat(64),executionPlanDigest:'b'.repeat(64),
         registryDigest:'c'.repeat(64),status:'running',revision:1,
+        sourceKind:observedSummary.sourceKind,sourceRef:observedSummary.sourceRef,
       });
-      expect(listAutomationExecutionHistory).toHaveBeenCalledOnce();
-      expect(createEventCoalescer).not.toHaveBeenCalled();
     } finally {
       unmount();
       vi.useRealTimers();
@@ -2122,9 +2154,9 @@ describe('useAutomationWorkspace', () => {
     const updatedNode = nodeSummaryFixture({ status: 'succeeded',revision: 2,finishedAt: '2026-07-14T00:00:02Z' });
     const initialInvocation = nodeInvocationFixture(initialNode);
     const updatedInvocation = nodeInvocationFixture(updatedNode, { status: 'succeeded',revision: 2,finishedAt: '2026-07-14T00:00:02Z' });
-    vi.mocked(getAutomationRun).mockResolvedValueOnce(run);
-    vi.mocked(listAutomationNodeInvocations).mockResolvedValueOnce([initialInvocation]);
-    vi.mocked(listAutomationNodeExecutionSummaries).mockResolvedValueOnce([initialNode]);
+    vi.mocked(getAutomationRunDetail).mockResolvedValueOnce(detailFixture(run, {
+      invocations:[initialInvocation],nodeSummaries:[initialNode],
+    }));
     const { result } = renderHook(() => useAutomationWorkspace('local'));
     await waitFor(() => expect(result.current.loading).toBe(false));
     await act(async () => { await result.current.loadRunDetail(run.id); });
@@ -2132,9 +2164,9 @@ describe('useAutomationWorkspace', () => {
       invocations: [initialInvocation],nodeSummaries: [initialNode],loading: false,
     });
 
-    vi.mocked(getAutomationRun).mockResolvedValueOnce(updatedRun);
-    vi.mocked(listAutomationNodeInvocations).mockResolvedValueOnce([updatedInvocation]);
-    vi.mocked(listAutomationNodeExecutionSummaries).mockResolvedValueOnce([updatedNode]);
+    vi.mocked(getAutomationRunDetail).mockResolvedValueOnce(detailFixture(updatedRun, {
+      invocations:[updatedInvocation],nodeSummaries:[updatedNode],
+    }));
     act(() => executionEventListener?.(executionEvent({
       type: workflowRuntimeEvents.invocationSucceeded,
       payload: { nodeId: updatedNode.nodeId,status: updatedNode.status,revision: updatedNode.revision },
@@ -2144,8 +2176,8 @@ describe('useAutomationWorkspace', () => {
       invocations: [updatedInvocation],nodeSummaries: [updatedNode],loading: false,error: '',
     }));
     expect(result.current.runDetailsById[run.id].run).toEqual(updatedRun);
-    expect(listAutomationNodeInvocations).toHaveBeenCalledTimes(2);
-    expect(listAutomationNodeExecutionSummaries).toHaveBeenCalledTimes(2);
+    expect(getAutomationRunDetail).toHaveBeenCalledTimes(2);
+    expect(getAutomationRun).not.toHaveBeenCalled();
     expect(getAutomationRunSnapshot).toHaveBeenCalledTimes(1);
   });
 
@@ -2153,61 +2185,60 @@ describe('useAutomationWorkspace', () => {
     const running=runFixture({ status:'running',revision:1 });
     const waiting=runFixture({ status:'waiting',revision:2 });
     const node=nodeSummaryFixture({ status:'waiting',revision:2 });
-    vi.mocked(getAutomationRun).mockResolvedValueOnce(running).mockResolvedValue(waiting);
+    vi.mocked(getAutomationRunDetail).mockResolvedValueOnce(detailFixture(running));
     const { result }=renderHook(() => useAutomationWorkspace('local'));
     await act(async () => { await result.current.loadRunDetail(running.id); });
-    vi.mocked(listAutomationNodeExecutionSummaries).mockResolvedValue([node]);
+    vi.mocked(getAutomationRunDetail).mockResolvedValue(detailFixture(waiting, { nodeSummaries:[node] }));
     act(() => executionEventListener?.(executionEvent({
       seq:2,type:workflowRuntimeEvents.runWaiting,payload:{ status:'waiting',revision:2 },
     })));
     expect(result.current.runDetailsById[running.id].run).toMatchObject({ status:'waiting',revision:2 });
     await waitFor(() => expect(result.current.runDetailsById[running.id].nodeSummaries).toEqual([node]));
-    expect(getAutomationExecutionRelations).toHaveBeenCalledTimes(2);
+    expect(getAutomationRunDetail).toHaveBeenCalledTimes(2);
     expect(listAutomationExecutionHistory).not.toHaveBeenCalled();
   });
 
   it('keeps invalidations received during a detail bundle and never regresses newer SSE run facts',async () => {
     const running=runFixture({ status:'running',revision:1 });
     const waiting=runFixture({ status:'waiting',revision:2 });
-    const staleRead=deferred<AutomationRun>();
-    const trailingRead=deferred<AutomationRun>();
+    const staleRead=deferred<ReturnType<typeof detailFixture>>();
+    const trailingRead=deferred<ReturnType<typeof detailFixture>>();
     const finalNode=nodeSummaryFixture({ status:'waiting',revision:2 });
-    vi.mocked(getAutomationRun).mockResolvedValueOnce(running)
+    vi.mocked(getAutomationRunDetail).mockResolvedValueOnce(detailFixture(running))
       .mockReturnValueOnce(staleRead.promise).mockReturnValueOnce(trailingRead.promise)
-      .mockResolvedValue(waiting);
+      .mockResolvedValue(detailFixture(waiting, { nodeSummaries:[finalNode] }));
     const { result,unmount }=renderHook(() => useAutomationWorkspace('local'));
     await act(async () => { await result.current.loadRunDetail(running.id); });
     vi.useFakeTimers();
     try {
       let initialRefresh!:ReturnType<typeof result.current.loadRunDetail>;
       act(() => { initialRefresh=result.current.loadRunDetail(running.id); });
-      expect(getAutomationRun).toHaveBeenCalledTimes(2);
+      expect(getAutomationRunDetail).toHaveBeenCalledTimes(2);
       act(() => executionEventListener?.(executionEvent({
         seq:2,type:workflowRuntimeEvents.invocationWaiting,payload:{ nodeId:'start' },
       })));
       await act(async () => { await vi.advanceTimersByTimeAsync(40); });
-      expect(getAutomationRun).toHaveBeenCalledTimes(2);
+      expect(getAutomationRunDetail).toHaveBeenCalledTimes(2);
       act(() => executionEventListener?.(executionEvent({
         seq:3,type:workflowRuntimeEvents.runWaiting,payload:{ status:'waiting',revision:2 },
       })));
       expect(result.current.runDetailsById[running.id].run?.revision).toBe(2);
-      vi.mocked(listAutomationNodeExecutionSummaries).mockResolvedValue([finalNode]);
-      await act(async () => { staleRead.resolve(running);await initialRefresh; });
+      await act(async () => { staleRead.resolve(detailFixture(running));await initialRefresh; });
       expect(result.current.runDetailsById[running.id].run?.revision).toBe(2);
-      expect(getAutomationRun).toHaveBeenCalledTimes(3);
+      expect(getAutomationRunDetail).toHaveBeenCalledTimes(3);
       act(() => executionEventListener?.(executionEvent({
         seq:4,type:workflowRuntimeEvents.invocationSucceeded,payload:{ nodeId:'start' },
       })));
       await act(async () => { await vi.advanceTimersByTimeAsync(40); });
-      expect(getAutomationRun).toHaveBeenCalledTimes(3);
-      await act(async () => { trailingRead.resolve(waiting);await Promise.resolve(); });
+      expect(getAutomationRunDetail).toHaveBeenCalledTimes(3);
+      await act(async () => { trailingRead.resolve(detailFixture(waiting, { nodeSummaries:[finalNode] }));await Promise.resolve(); });
       await act(async () => { await vi.advanceTimersByTimeAsync(40); });
       expect(result.current.runDetailsById[running.id]).toMatchObject({
         run:{ status:'waiting',revision:2 },nodeSummaries:[finalNode],loading:false,
       });
-      const settledReads=vi.mocked(getAutomationRun).mock.calls.length;
+      const settledReads=vi.mocked(getAutomationRunDetail).mock.calls.length;
       await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
-      expect(getAutomationRun).toHaveBeenCalledTimes(settledReads);
+      expect(getAutomationRunDetail).toHaveBeenCalledTimes(settledReads);
       expect(settledReads).toBe(4);
       expect(listAutomationExecutionHistory).not.toHaveBeenCalled();
     } finally { unmount();vi.useRealTimers(); }
@@ -2223,16 +2254,15 @@ describe('useAutomationWorkspace', () => {
     const staleInvocation = nodeInvocationFixture(staleNode, { status: 'running',revision: 2 });
     const currentWait = waitRelation(currentInvocation, { state: 'resumed',revision: 3,reason: 'runtime ready' });
     const staleWait = waitRelation(staleInvocation, { state: 'pending',revision: 2,reason: 'waiting for readiness' });
-    vi.mocked(getAutomationRun).mockResolvedValue(run);
-    vi.mocked(listAutomationNodeInvocations)
-      .mockResolvedValueOnce([currentInvocation])
-      .mockResolvedValueOnce([staleInvocation]);
-    vi.mocked(listAutomationNodeExecutionSummaries)
-      .mockResolvedValueOnce([currentNode])
-      .mockResolvedValueOnce([staleNode]);
-    vi.mocked(getAutomationExecutionRelations)
-      .mockResolvedValueOnce({ ...emptyRelations(),waits: [currentWait] })
-      .mockResolvedValueOnce({ ...emptyRelations(),waits: [staleWait] });
+    vi.mocked(getAutomationRunDetail)
+      .mockResolvedValueOnce(detailFixture(run, {
+        invocations:[currentInvocation],nodeSummaries:[currentNode],
+        relations:{ ...emptyRelations(),waits:[currentWait] },
+      }))
+      .mockResolvedValueOnce(detailFixture(run, {
+        invocations:[staleInvocation],nodeSummaries:[staleNode],
+        relations:{ ...emptyRelations(),waits:[staleWait] },
+      }));
     const { result } = renderHook(() => useAutomationWorkspace('local'));
     await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -2253,13 +2283,10 @@ describe('useAutomationWorkspace', () => {
     const revisionTwo = runFixture({ revision:2,status:'waiting',updatedAt:'2026-07-14T00:00:02Z' });
     const node = nodeSummaryFixture();
     const invocation = nodeInvocationFixture(node);
-    const firstRelations = deferred<AutomationExecutionRelations>();
-    vi.mocked(getAutomationRun).mockResolvedValueOnce(run).mockResolvedValueOnce(revisionTwo);
-    vi.mocked(listAutomationNodeInvocations).mockResolvedValue([invocation]);
-    vi.mocked(listAutomationNodeExecutionSummaries).mockResolvedValue([node]);
-    vi.mocked(getAutomationExecutionRelations)
-      .mockReturnValueOnce(firstRelations.promise)
-      .mockResolvedValueOnce(emptyRelations());
+    const firstDetail = deferred<ReturnType<typeof detailFixture>>();
+    vi.mocked(getAutomationRunDetail)
+      .mockReturnValueOnce(firstDetail.promise)
+      .mockResolvedValueOnce(detailFixture(revisionTwo, { invocations:[invocation],nodeSummaries:[node] }));
     const { result } = renderHook(() => useAutomationWorkspace('local'));
     await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -2271,33 +2298,31 @@ describe('useAutomationWorkspace', () => {
         result.current.loadRunDetail(run.id,run.revision),
       ];
     });
-    await waitFor(() => expect(getAutomationExecutionRelations).toHaveBeenCalledOnce());
+    await waitFor(() => expect(getAutomationRunDetail).toHaveBeenCalledOnce());
     await act(async () => {
-      firstRelations.resolve(emptyRelations());
+      firstDetail.resolve(detailFixture(run, { invocations:[invocation],nodeSummaries:[node] }));
       await Promise.all(loads);
     });
-    expect(getAutomationRun).toHaveBeenCalledOnce();
-    expect(listAutomationNodeInvocations).toHaveBeenCalledOnce();
-    expect(listAutomationNodeExecutionSummaries).toHaveBeenCalledOnce();
+    expect(getAutomationRunDetail).toHaveBeenCalledOnce();
+    expect(getAutomationRun).not.toHaveBeenCalled();
     expect(getAutomationRunSnapshot).toHaveBeenCalledOnce();
 
     await act(async () => { await result.current.loadRunDetail(run.id,run.revision); });
-    expect(getAutomationRun).toHaveBeenCalledOnce();
+    expect(getAutomationRunDetail).toHaveBeenCalledOnce();
 
     await act(async () => { await result.current.loadRunDetail(run.id,revisionTwo.revision); });
-    expect(getAutomationRun).toHaveBeenCalledTimes(2);
-    expect(getAutomationExecutionRelations).toHaveBeenCalledTimes(2);
+    expect(getAutomationRunDetail).toHaveBeenCalledTimes(2);
     expect(getAutomationRunSnapshot).toHaveBeenCalledOnce();
     expect(result.current.runDetailsById[run.id].run).toEqual(revisionTwo);
   });
 
   it('keeps ref-counted detail pins target-scoped and an old release cannot unpin the new scope',async () => {
-    vi.mocked(getAutomationRun).mockImplementation(async (targetId,runId) => {
+    vi.mocked(getAutomationRunDetail).mockImplementation(async (targetId,runId) => {
       const time=new Date(Date.UTC(2026,6,14,0,0,Number(runId.slice(-2)))).toISOString();
-      return runFixture({
+      return detailFixture(runFixture({
         id:runId,targetId,status:'succeeded',revision:1,
         createdAt:time,updatedAt:time,finishedAt:time,
-      });
+      }));
     });
     const { result,rerender }=renderHook(({ targetId }) => useAutomationWorkspace(targetId),{
       initialProps:{ targetId:'local' },
@@ -2330,11 +2355,9 @@ describe('useAutomationWorkspace', () => {
     const run = runFixture();
     const node = nodeSummaryFixture();
     const invocation = nodeInvocationFixture(node);
-    vi.mocked(getAutomationRun).mockResolvedValue(run);
-    vi.mocked(listAutomationNodeInvocations)
-      .mockResolvedValueOnce([invocation])
+    vi.mocked(getAutomationRunDetail)
+      .mockResolvedValueOnce(detailFixture(run, { invocations:[invocation],nodeSummaries:[node] }))
       .mockRejectedValueOnce(new Error('temporary occurrence read failure'));
-    vi.mocked(listAutomationNodeExecutionSummaries).mockResolvedValue([node]);
     const { result } = renderHook(() => useAutomationWorkspace('local'));
     await waitFor(() => expect(result.current.loading).toBe(false));
     await act(async () => { await result.current.loadRunDetail(run.id); });
@@ -2871,4 +2894,11 @@ function nodeInvocationFixture(
     ...(nodeSummary.finishedAt ? { finishedAt: nodeSummary.finishedAt } : {}),
     ...overrides,
   };
+}
+
+function detailFixture(
+  run:AutomationRun=runFixture(),
+  overrides:Partial<Awaited<ReturnType<typeof getAutomationRunDetail>>>={},
+):Awaited<ReturnType<typeof getAutomationRunDetail>> {
+  return { run,invocations:[],nodeSummaries:[],relations:emptyRelations(),...overrides };
 }

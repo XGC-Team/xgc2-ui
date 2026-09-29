@@ -1,7 +1,9 @@
+import { decodeExperimentWorldBoundary,reexpressExperimentWorldBoundary,type ExperimentWorldBoundary } from '../experimentWorldBoundary';
 import type {
   ExperimentDocument,
   ExperimentLocalizationOffset,
   ExperimentRobotBinding,
+  ExperimentScene,
 } from '../experimentModel';
 import { normalizeExperimentLocalizationOffset } from '../experimentModel';
 import { experimentRobotBindingsChangeOnlyInitialPose } from '../experimentInitialPoseAuthoring';
@@ -57,6 +59,19 @@ export function createExperimentRobotBindingActions({
     // The saved origin is consumed at the next restart. Editing the dashboard
     // during an active Run keeps its existing structural authoring lock.
     if (runtimeActive && editing) return disabledReason();
+    return '';
+  }
+
+  function sceneDisabledReason() {
+    const rendered = getRendered();
+    if (!rendered) return 'The current Experiment is unavailable.';
+    if (configResourceDefinitionEditLocked(rendered.head, rendered.spec.tags)) return 'This Experiment is read only.';
+    if (saving) return 'Wait for the current changes to finish saving.';
+    if (runtimeActive) {
+      return 'The Experiment scene cannot be changed while the Experiment is running. Stop the Experiment before changing the scene.';
+    }
+    if (editing && !applyDraft) return 'This dashboard cannot apply scene changes to the Edit draft.';
+    if (!editing && !save) return 'This dashboard cannot save scene changes to the Experiment.';
     return '';
   }
 
@@ -131,6 +146,7 @@ export function createExperimentRobotBindingActions({
       spec: {
         ...rendered.spec,
         localizationOffset: nextOffset,
+        worldBoundary: reexpressExperimentWorldBoundary(rendered.spec.worldBoundary,rendered.spec.localizationOffset,nextOffset),
       },
     };
     if (editing) {
@@ -145,5 +161,57 @@ export function createExperimentRobotBindingActions({
     return saved;
   }
 
-  return { update,updateLocalizationOffset,disabledReason,localizationOffsetDisabledReason };
+  async function updateWorldBoundary(value:ExperimentWorldBoundary | null,expectedHeadCommitId:string,reason = 'Update Experiment world fence') {
+    const rendered=getRendered();
+    if (!rendered) throw new Error('The current Experiment is unavailable.');
+    if (configResourceDefinitionEditLocked(rendered.head,rendered.spec.tags)) throw new Error('This Experiment is read only.');
+    if (rendered.branch.headCommitId!==expectedHeadCommitId) throw new Error('The Experiment changed while its world fence was being updated.');
+    const refusal=localizationOffsetDisabledReason();
+    if (refusal) throw new Error(refusal);
+    const boundary=decodeExperimentWorldBoundary(value);
+    if (JSON.stringify(boundary)===JSON.stringify(rendered.spec.worldBoundary)) return rendered;
+    const nextDocument:ExperimentDocument={...rendered,spec:{...rendered.spec,worldBoundary:boundary}};
+    if (editing) {
+      if (!applyDraft) throw new Error('This dashboard cannot apply changes to the Edit draft.');
+      applyDraft(nextDocument);rememberSaved?.(nextDocument);return nextDocument;
+    }
+    if (!save) throw new Error('This dashboard cannot save changes to the Experiment.');
+    const saved=await save(nextDocument,reason);rememberSaved?.(saved);return saved;
+  }
+
+  async function updateScene(
+    value:ExperimentScene | undefined,
+    expectedHeadCommitId:string,
+    reason = 'Update Experiment scene',
+  ) {
+    const rendered = getRendered();
+    if (!rendered) throw new Error('The current Experiment is unavailable.');
+    if (configResourceDefinitionEditLocked(rendered.head,rendered.spec.tags)) throw new Error('This Experiment is read only.');
+    if (rendered.branch.headCommitId !== expectedHeadCommitId) {
+      throw new Error('The Experiment changed while its scene was being updated.');
+    }
+    const refusal = sceneDisabledReason();
+    if (refusal) throw new Error(refusal);
+    const scene = value === undefined ? undefined : {
+      ...value,
+      ...(value.parameters === undefined ? {} : { parameters:structuredClone(value.parameters) }),
+    };
+    if (JSON.stringify(scene) === JSON.stringify(rendered.spec.scene)) return rendered;
+    const nextSpec = { ...rendered.spec };
+    if (scene === undefined) delete nextSpec.scene;
+    else nextSpec.scene = scene;
+    const nextDocument:ExperimentDocument = { ...rendered,spec:nextSpec };
+    if (editing) {
+      if (!applyDraft) throw new Error('This dashboard cannot apply scene changes to the Edit draft.');
+      applyDraft(nextDocument);
+      rememberSaved?.(nextDocument);
+      return nextDocument;
+    }
+    if (!save) throw new Error('This dashboard cannot save scene changes to the Experiment.');
+    const saved = await save(nextDocument,reason);
+    rememberSaved?.(saved);
+    return saved;
+  }
+
+  return { update,updateLocalizationOffset,updateWorldBoundary,updateScene,disabledReason,localizationOffsetDisabledReason,sceneDisabledReason };
 }

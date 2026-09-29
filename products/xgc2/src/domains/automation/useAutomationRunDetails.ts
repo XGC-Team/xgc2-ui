@@ -1,18 +1,19 @@
 import { useCallback,useEffect,useRef,useState } from 'react';
 import { mergeExecutionRelations,mergeRevisioned } from './automationExecutionMerge';
 import type { AutomationRunDetail } from './automationExecutionContracts';
+import { sameValue } from './automationHistoryValidation';
 import { projectAutomationRunLifecycleEvent } from './automationRunEventProjection';
 import type { ExecutionEvent } from '../execution/executionPublic';
 import { messageOf } from './automationErrorModel';
 import { validateAutomationRelationLedger } from './automationRelationsModel';
 import type { AutomationRun } from './automationRunContracts';
 import {
-  getAutomationExecutionRelations,
   getAutomationRun,
+  getAutomationRunDetail,
   getAutomationRunSnapshot,
-  listAutomationNodeExecutionSummaries,
-  listAutomationNodeInvocations,
 } from './automationRunService';
+import { useAutomationRunObservations } from './useAutomationRunObservations';
+import type { AutomationObservationBundle } from './automationObservationService';
 import { useAutomationTargetScope,type AutomationTargetScope } from './useAutomationTargetScope';
 import { retainAutomationRunDetails } from './automationRunDetailRetention';
 
@@ -30,6 +31,18 @@ type RunDetailInFlight = { scope: AutomationTargetScope;promise: Promise<Automat
 const emptyRunDetail = ():AutomationRunDetail => ({
   invocations: [],nodeSummaries: [],loading: false,error: '',
 });
+
+/**
+ * Revision wins: a higher incoming revision always replaces. Same revision
+ * with identical facts reuses the retained reference so re-reads and replays
+ * do not invalidate memoized consumers.
+ */
+function retainEquivalentRun(retained:AutomationRun|undefined,incoming:AutomationRun) {
+  if (!retained) return incoming;
+  if (retained.revision > incoming.revision) return retained;
+  if (retained.revision === incoming.revision && sameValue(retained,incoming)) return retained;
+  return incoming;
+}
 
 export function useAutomationRunDetails({
   targetId,
@@ -111,11 +124,57 @@ export function useAutomationRunDetails({
     };
   },[replaceSnapshot,targetScope,targetScopeRef]);
 
+  const applyObservations=useCallback((bundle:AutomationObservationBundle) => {
+    replaceSnapshot(targetScope,(current) => {
+      let changed=false;
+      const details={ ...current.details };
+      bundle.items.forEach((item) => {
+        const previous=details[item.run.id];
+        const incomingRelations=previous?.relations ? {
+          ...previous.relations,childRuns:item.relations.childRuns,
+          childRunGroups:item.relations.childRunGroups,childRunGroupMembers:item.relations.childRunGroupMembers,
+        } : item.relations;
+        const run=retainEquivalentRun(previous?.run,item.run);
+        const nodeSummaries=mergeRevisioned(item.nodeSummaries,previous?.nodeSummaries??[],(node) => node.nodeId);
+        const relations=mergeExecutionRelations(incomingRelations,previous?.relations);
+        // Content-stable observation: keep the previous detail and snapshot
+        // references; only real revision advances rebuild them.
+        if (previous && previous.run===run && previous.nodeSummaries===nodeSummaries
+          && previous.relations===relations && !previous.error) return;
+        details[item.run.id]={
+          ...(previous??emptyRunDetail()),
+          run,
+          nodeSummaries,
+          relations,
+          error:'',
+        };
+        changed=true;
+      });
+      return changed ? { ...current,details } : current;
+    });
+  },[replaceSnapshot,targetScope]);
+  const observationError=useCallback((ids:string[],cause:unknown) => {
+    replaceSnapshot(targetScope,(current) => {
+      const details={ ...current.details };
+      ids.forEach((id) => { details[id]={ ...(details[id]??emptyRunDetail()),error:messageOf(cause) }; });
+      return { ...current,details };
+    });
+  },[replaceSnapshot,targetScope]);
+  const retainObservation=useAutomationRunObservations(targetId,applyObservations,observationError);
+  const retainRunObservation=useCallback((id:string) => {
+    const releaseDetail=retainRunDetail(id);
+    const releaseObservation=retainObservation(id);
+    return () => { releaseObservation();releaseDetail(); };
+  },[retainObservation,retainRunDetail]);
+
   const cacheExactRun = useCallback((run: AutomationRun, onlyExisting = false) => {
     replaceSnapshot(targetScope, (current) => {
       const previous = current.details[run.id];
       if (onlyExisting && !previous) return current;
-      const retainedRun = previous?.run && previous.run.revision > run.revision ? previous.run : run;
+      const retainedRun = retainEquivalentRun(previous?.run,run);
+      // No newer fact: keep the existing detail and snapshot references so
+      // consumers memoized on runDetailsById are not re-rendered by a no-op.
+      if (previous && previous.run === retainedRun) return current;
       return {
         ...current,
         details: {
@@ -152,11 +211,8 @@ export function useAutomationRunDetails({
     }));
     try {
       const previousSnapshot = runDetailsByIdRef.current[runId]?.snapshot;
-      const [run,invocations,nodeSummaries,relations,runSnapshot] = await Promise.all([
-        getAutomationRun(requestScope.targetId, runId),
-        listAutomationNodeInvocations(requestScope.targetId, runId),
-        listAutomationNodeExecutionSummaries(requestScope.targetId, runId),
-        getAutomationExecutionRelations(requestScope.targetId, runId),
+      const [{ run,invocations,nodeSummaries,relations },runSnapshot] = await Promise.all([
+        getAutomationRunDetail(requestScope.targetId, runId),
         previousSnapshot
           ? Promise.resolve(previousSnapshot)
           : getAutomationRunSnapshot(requestScope.targetId, runId),
@@ -174,7 +230,7 @@ export function useAutomationRunDetails({
       const detail = {
         // A lifecycle SSE may arrive while the parallel bundle is reading.
         // Preserve its newer run facts when the older GET finally completes.
-        run: previous?.run && previous.run.revision > run.revision ? previous.run : run,
+        run: retainEquivalentRun(previous?.run,run),
         invocations: mergedInvocations,
         nodeSummaries: mergedNodeSummaries,
         relations: mergedRelations,
@@ -182,9 +238,17 @@ export function useAutomationRunDetails({
         loading: false,
         error: '',
       };
-      replaceSnapshot(requestScope, (current) => ({
-        ...current,details: { ...current.details,[runId]: detail },
-      }));
+      replaceSnapshot(requestScope, (current) => {
+        const existing=current.details[runId];
+        // A re-read that lands the same revisioned facts keeps the previous
+        // detail and snapshot references; only real changes rebuild them.
+        if (existing && existing.run===detail.run && existing.invocations===detail.invocations
+          && existing.nodeSummaries===detail.nodeSummaries && existing.relations===detail.relations
+          && existing.snapshot===detail.snapshot && !existing.loading && !existing.error) {
+          return current;
+        }
+        return { ...current,details: { ...current.details,[runId]: detail } };
+      });
       return detail;
     } catch (cause) {
       if (targetScopeRef.current !== requestScope || requestsRef.current.get(runId) !== request) {
@@ -263,6 +327,7 @@ export function useAutomationRunDetails({
     applyRunLifecycleEvent,
     loadRunDetail,
     retainRunDetail,
+    retainRunObservation,
     refreshRun,
     loadRun,
     resetRunDetails,

@@ -114,7 +114,7 @@
 }
 
 .app-store-card-install-path {
-  min-height: 0 !important;
+  min-height: 0;
   margin: 0;
   font-family: var(--font-mono);
   font-size: var(--font-sm);
@@ -122,7 +122,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  display: block !important;
+  display: block;
   -webkit-line-clamp: unset;
   line-clamp: unset;
 }

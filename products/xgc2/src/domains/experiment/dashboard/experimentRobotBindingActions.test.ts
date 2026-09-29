@@ -1,5 +1,6 @@
 import { describe,expect,it,vi } from 'vitest';
-import { newExperimentSpec,type ExperimentDocument,type ExperimentRobotBinding } from '../experimentModel';
+import { newExperimentDeployment } from '../experimentDeployment';
+import { newExperimentSpec,type ExperimentDocument,type ExperimentRobotBinding,type ExperimentScene } from '../experimentModel';
 import {
   EXPERIMENT_ROBOT_ROSTER_EDIT_REASON,
   createExperimentRobotBindingActions,
@@ -434,3 +435,136 @@ function px4Binding(id: string): ExperimentRobotBinding {
     px4:{},
   };
 }
+
+
+describe('world-boundary authoring on the same Experiment owner',() => {
+  const boundary = () => ({schemaVersion:1 as const,frameId:'world' as const,unit:'m' as const,
+    controlBounds:{xMin:-2,xMax:4,yMin:-3,yMax:5,zMin:0.2,zMax:3},groundZ:-0.25});
+  it('atomically re-expresses a physical field without changing frozen source',async () => {
+    const original=experiment();original.spec.worldBoundary=boundary();
+    let current=original;
+    const save=vi.fn(async (value:ExperimentDocument) => ({...value,branch:{...value.branch,headCommitId:'commit-2',headVersion:2}}));
+    const actions=createExperimentRobotBindingActions({getRendered:()=>current,rememberSaved:(next)=>{current=next;},runtimeActive:false,dashboardEditing:false,save});
+    await actions.updateLocalizationOffset({x:5,y:-7,z:2},'commit-1');
+    expect(save).toHaveBeenCalledOnce();
+    expect(current.spec.worldBoundary?.controlBounds).toEqual({xMin:3,xMax:9,yMin:-10,yMax:-2,zMin:2.2,zMax:5});
+    expect(current.spec.worldBoundary?.groundZ).toBe(1.75);
+    expect(original.spec.worldBoundary).toEqual(boundary());
+    expect(original.spec.localizationOffset).toEqual({x:0,y:0,z:0});
+  });
+  it('uses the same expected-head gate and does not write a stale boundary',async () => {
+    const current=experiment();const save=vi.fn(async(value:ExperimentDocument)=>value);
+    const actions=createExperimentRobotBindingActions({getRendered:()=>current,runtimeActive:false,dashboardEditing:false,save});
+    await expect(actions.updateWorldBoundary(boundary(),'old-commit')).rejects.toThrow('changed');
+    expect(save).not.toHaveBeenCalled();
+  });
+  it('applies only to the existing Edit draft and deep copies inputs',async () => {
+    let current=experiment();const original=current;const applyDraft=vi.fn();const save=vi.fn(async(value:ExperimentDocument)=>value);
+    const actions=createExperimentRobotBindingActions({getRendered:()=>current,rememberSaved:(next)=>{current=next;},runtimeActive:false,dashboardEditing:true,applyDraft,save});
+    const input=boundary();await actions.updateWorldBoundary(input,'commit-1');input.controlBounds.xMax=99;
+    expect(save).not.toHaveBeenCalled();expect(applyDraft).toHaveBeenCalledOnce();
+    expect(current.spec.worldBoundary?.controlBounds?.xMax).toBe(4);expect(original.spec.worldBoundary).toBeNull();
+  });
+  it('keeps System Experiment world boundaries read-only',async () => {
+    const current=experiment();current.head.system=true;const save=vi.fn(async(value:ExperimentDocument)=>value);
+    const actions=createExperimentRobotBindingActions({getRendered:()=>current,runtimeActive:false,dashboardEditing:false,save});
+    await expect(actions.updateWorldBoundary(boundary(),'commit-1')).rejects.toThrow('read only');expect(save).not.toHaveBeenCalled();
+  });
+});
+
+describe('Experiment scene authoring',() => {
+  const scene = ():ExperimentScene => ({
+    asset:'warehouse',simulator:'gazebo',parameters:{ camera:{ width:640,height:480 } },
+  });
+
+  it('saves only the scene selection, preserving Robot, deployment and the rest of the spec',async () => {
+    const current = experiment([px4Binding('uav-01')]);
+    current.spec.deployment = newExperimentDeployment('centralized');
+    current.spec.description = 'Keep this description';
+    const beforeSpec = structuredClone(current.spec);
+    const save = vi.fn(async (value:ExperimentDocument) => value);
+    const actions = createExperimentRobotBindingActions({
+      getRendered:() => current,runtimeActive:false,dashboardEditing:false,save,
+    });
+    const selected = scene();
+    await actions.updateScene(selected,current.branch.headCommitId);
+    const saved = save.mock.calls[0]?.[0];
+    expect(save).toHaveBeenCalledOnce();
+    expect(save).toHaveBeenCalledWith(expect.any(Object),'Update Experiment scene');
+    expect(saved?.spec).toEqual({ ...beforeSpec,scene:selected });
+    expect(saved?.spec.robots).toEqual(beforeSpec.robots);
+    expect(saved?.spec.deployment).toEqual(beforeSpec.deployment);
+    (selected.parameters!.camera as { width:number }).width = 1280;
+    expect(saved?.spec.scene?.parameters?.camera).toEqual({ width:640,height:480 });
+    expect(current.spec.scene).toBeUndefined();
+  });
+
+  it('applies a deep-copied scene selection to the Edit draft',async () => {
+    const current = experiment();
+    const applyDraft = vi.fn();
+    const save = vi.fn(async (value:ExperimentDocument) => value);
+    const actions = createExperimentRobotBindingActions({
+      getRendered:() => current,runtimeActive:false,dashboardEditing:true,applyDraft,save,
+    });
+    const selected = scene();
+    await actions.updateScene(selected,current.branch.headCommitId);
+    (selected.parameters!.camera as { width:number }).width = 1280;
+    expect(save).not.toHaveBeenCalled();
+    expect(applyDraft).toHaveBeenCalledOnce();
+    expect(applyDraft.mock.calls[0]?.[0].spec.scene?.parameters?.camera).toEqual({ width:640,height:480 });
+  });
+
+  it('rejects scene changes while the Experiment is running with scene-specific copy',async () => {
+    const current = experiment();
+    const save = vi.fn(async (value:ExperimentDocument) => value);
+    const applyDraft = vi.fn();
+    const actions = createExperimentRobotBindingActions({
+      getRendered:() => current,runtimeActive:true,dashboardEditing:false,save,applyDraft,
+    });
+    expect(actions.sceneDisabledReason()).toBe(
+      'The Experiment scene cannot be changed while the Experiment is running. Stop the Experiment before changing the scene.',
+    );
+    await expect(actions.updateScene(scene(),current.branch.headCommitId)).rejects.toThrow(/Experiment scene/);
+    expect(save).not.toHaveBeenCalled();
+    expect(applyDraft).not.toHaveBeenCalled();
+  });
+
+  it('keeps read-only, saving and unavailable-draft reasons specific to scene authoring',async () => {
+    const readOnly = experiment();
+    readOnly.head.system = true;
+    const readOnlyActions = createExperimentRobotBindingActions({
+      getRendered:() => readOnly,runtimeActive:false,dashboardEditing:false,
+      save:vi.fn(async (value:ExperimentDocument) => value),
+    });
+    expect(readOnlyActions.sceneDisabledReason()).toBe('This Experiment is read only.');
+
+    const current = experiment();
+    const savingActions = createExperimentRobotBindingActions({
+      getRendered:() => current,runtimeActive:false,dashboardEditing:false,saving:true,
+      save:vi.fn(async (value:ExperimentDocument) => value),
+    });
+    expect(savingActions.sceneDisabledReason()).toBe('Wait for the current changes to finish saving.');
+
+    const unavailableDraft = createExperimentRobotBindingActions({
+      getRendered:() => current,runtimeActive:false,dashboardEditing:true,
+    });
+    expect(unavailableDraft.sceneDisabledReason())
+      .toBe('This dashboard cannot apply scene changes to the Edit draft.');
+    const unavailableSave = createExperimentRobotBindingActions({
+      getRendered:() => current,runtimeActive:false,dashboardEditing:false,
+    });
+    expect(unavailableSave.sceneDisabledReason())
+      .toBe('This dashboard cannot save scene changes to the Experiment.');
+  });
+
+  it('checks the current Experiment head before saving a scene',async () => {
+    const current = experiment();
+    const save = vi.fn(async (value:ExperimentDocument) => value);
+    const actions = createExperimentRobotBindingActions({
+      getRendered:() => current,runtimeActive:false,dashboardEditing:false,save,
+    });
+    await expect(actions.updateScene(scene(),'stale-head'))
+      .rejects.toThrow('The Experiment changed while its scene was being updated.');
+    expect(save).not.toHaveBeenCalled();
+  });
+});

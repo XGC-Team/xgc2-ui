@@ -1,3 +1,4 @@
+import type { PinnedConfigRef } from '../../shared/configResource';
 import { describe,expect,it } from 'vitest';
 import { RUN_STATUSES,isRunStatusTerminal } from '../../shared/executionStatusVocabulary';
 import {
@@ -9,6 +10,19 @@ import { parseAutomationRun } from './automationRunRecordModel';
 import type { AutomationRun } from './automationRunContracts';
 
 describe('Automation occurrence execution contract', () => {
+  it('decodes standalone ownership only on an Experiment root, never from parameters',() => {
+    const panelAction={ panelId:'controls',portId:'capture',workflowInstanceId:'worker',presetId:'capture',executionMode:'standalone' as const,runMode:'simulation' };
+    const original=runFixture();
+    const run=runFixture({ sourceKind:'experiment',sourceRef:{ ...original.sourceRef,domain:'experiment',resourceId:'experiment-a' },automationRef:original.sourceRef as PinnedConfigRef<'automation'>,panelAction });
+    expect(parseAutomationRun(run,'/run').panelAction).toEqual(panelAction);
+    expect(parseAutomationRun({ ...original,parameters:{ panelAction } },'/run')).not.toHaveProperty('panelAction');
+    expect(() => parseAutomationRun({ ...original,panelAction },'/run')).toThrow('Experiment-sourced root');
+    expect(() => parseAutomationRun({ ...run,parentRunId:'parent',rootRunId:'parent',callNodeId:'call',depth:1 },'/run')).toThrow('Experiment-sourced root');
+    expect(() => parseAutomationRun({ ...run,panelAction:{ ...panelAction,executionMode:'session' } },'/run')).toThrow('executionMode');
+    expect(() => parseAutomationRun({ ...run,panelAction:{ ...panelAction,requestParameters:{} } },'/run')).toThrow('requestParameters');
+    expect(() => parseAutomationRun({ ...run,panelAction:{ ...panelAction,portId:' ' } },'/run')).toThrow('portId');
+  });
+
   it('projects only the exact public Run schema and rejects private or unknown fields', () => {
     const run = runFixture();
     expect(parseAutomationRun(run, '/run')).toEqual(run);

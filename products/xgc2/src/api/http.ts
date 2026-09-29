@@ -1,4 +1,5 @@
 import { API_BASE,REQUEST_TIMEOUT_MS } from '../config/apiBase';
+import { reportStationUnauthorized,stationUsesOperatorCookie } from './stationTransport';
 import {
   beginCoreRequestTrace,
   completeCoreRequestTrace,
@@ -34,6 +35,7 @@ export class HTTPError<T = unknown> extends Error {
 }
 
 export function terminalToken() {
+  if (stationUsesOperatorCookie()) return '';
   const envToken = import.meta.env.VITE_XGC_TERMINAL_TOKEN;
   if (envToken) return envToken;
   try {
@@ -44,6 +46,7 @@ export function terminalToken() {
 }
 
 export function stationToken() {
+  if (stationUsesOperatorCookie()) return '';
   try {
     return window.localStorage.getItem('xgcStationToken') || '';
   } catch {
@@ -60,7 +63,25 @@ export function requestStationResponse(path: string,init?: RequestInit): Promise
   const headers = new Headers(init?.headers);
   const token = stationToken();
   if (token) headers.set('X-XGC-Station-Token',token);
-  return fetch(`${url.pathname}${url.search}`,{ ...init,credentials: 'include',headers });
+  return fetch(`${url.pathname}${url.search}`,{ ...init,credentials: 'include',headers }).then((response) => {
+    if (response.status === 401) reportStationUnauthorized();
+    return response;
+  });
+}
+
+/** Restricted same-origin clients use their HttpOnly session, never station credentials. */
+export function requestCookieResponse(path: string,init?: RequestInit): Promise<Response> {
+  const url = new URL(path,window.location.origin);
+  if (url.origin !== window.location.origin || !url.pathname.startsWith('/api/')) {
+    throw new Error('Cookie transport requires a current-station API path.');
+  }
+  const headers = new Headers(init?.headers);
+  for (const name of [...headers.keys()]) {
+    if (name === 'authorization' || name === 'cookie' || name.startsWith('x-xgc-')) headers.delete(name);
+  }
+  return fetch(`${url.pathname}${url.search}`,{
+    ...init,credentials:'include',redirect:'error',referrerPolicy:'no-referrer',headers,
+  });
 }
 
 export function withTerminalAuth(options?: ApiTargetOptions): ApiTargetOptions {
@@ -219,6 +240,7 @@ async function send<T>(
       signal: controller.signal,
     });
     response = res;
+    if (res.status === 401) reportStationUnauthorized();
 
     if (!res.ok) {
       completeCoreRequestTrace(trace, {
@@ -396,6 +418,7 @@ export function openReplayJSONStream<T>({
   const connect = async () => {
     onConnecting?.();
     let response: Response | undefined;
+    let identityRejected = false;
     try {
       await beforeConnect?.();
       if (closed || controller.signal.aborted) return;
@@ -411,6 +434,10 @@ export function openReplayJSONStream<T>({
         headers,
         signal: controller.signal,
       });
+      if (response.status === 401) {
+        identityRejected = true;
+        reportStationUnauthorized();
+      }
       if (!response.ok) throw new ReplayJSONStreamHTTPError(response.status);
       if (!response.body) throw new Error('event stream has no response body');
       reconnectAttempts = 0;
@@ -431,7 +458,9 @@ export function openReplayJSONStream<T>({
       } catch {
         // Fetch may already have aborted or errored this response body.
       }
-      if (!closed) scheduleReconnect();
+      // An explicit authentication failure needs a fresh confirmed identity,
+      // not a retry that may silently pick up another local credential.
+      if (!closed && !identityRejected) scheduleReconnect();
     }
   };
 

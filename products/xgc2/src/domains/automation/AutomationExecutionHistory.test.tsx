@@ -738,7 +738,7 @@ describe('AutomationExecutionHistory', () => {
     const service = container.querySelector('[data-xgc-role="automation-node"][data-xgc-id="service"]');
     expect(service).toHaveAttribute('data-xgc-status', 'active');
     expect(service).toHaveAttribute('data-xgc-runtime-state', 'active');
-    expect(service?.querySelector('[data-xgc-role="automation-node-tile"]')).not.toHaveAttribute('data-running');
+    expect(service?.querySelector('[data-xgc-role="automation-node-tile"]')).toHaveAttribute('data-running', 'true');
     expect(service?.querySelector('[data-xgc-role="automation-node-status"]')).toHaveTextContent('running');
   });
 

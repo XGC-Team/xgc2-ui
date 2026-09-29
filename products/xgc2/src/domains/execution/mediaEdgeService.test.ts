@@ -1,12 +1,15 @@
 // @vitest-environment jsdom
 
-import { beforeEach,describe,expect,it,vi } from 'vitest';
+import { afterEach,beforeEach,describe,expect,it,vi } from 'vitest';
 import { requestExternalJSON } from '../../api/http';
+import type * as HTTPModule from '../../api/http';
 import {
   MEDIA_EDGE_CONTROL_DATA_CHANNEL,
   closeMediaEdgeSession,
   createMediaEdgeSession,
   createMediaEdgeSessionController,
+  createSameOriginMediaEdgeSignaling,
+  createStationMediaEdgeSignaling,
   decodeMediaEdgeSessionAnswer,
   mediaEdgeSessionURL,
   mediaEdgeSourceSessionsURL,
@@ -15,7 +18,9 @@ import {
   type MediaEdgeSessionAnswer,
 } from './mediaEdgeService';
 
-vi.mock('../../api/http', () => ({ requestExternalJSON: vi.fn() }));
+vi.mock('../../api/http', async (original) => ({
+  ...await original<typeof HTTPModule>(),requestExternalJSON: vi.fn(),
+}));
 
 const reference = {
   edgeUrl: 'http://192.0.2.20:18090/',
@@ -28,6 +33,72 @@ const normalizedReference = {
 
 describe('mediaEdgeService', () => {
   beforeEach(() => vi.clearAllMocks());
+  afterEach(() => { vi.unstubAllGlobals();localStorage.clear(); });
+
+  it('uses exact station Process/source paths and station identity for both verbs',async () => {
+    localStorage.setItem('xgcStationToken','station-secret');
+    localStorage.setItem('xgcTerminalToken','terminal-secret');
+    const fetchMock = vi.fn().mockResolvedValueOnce(Response.json(answerPayload(),{ status:201 }))
+      .mockResolvedValueOnce(new Response(null,{ status:204 }));
+    vi.stubGlobal('fetch',fetchMock);
+    const signaling = createStationMediaEdgeSignaling('local','owned-process',reference.sourceId);
+    const signal = new AbortController().signal;
+    await expect(signaling.open('v=0',signal)).resolves.toEqual(answer());
+    await signaling.close(answer().sessionId);
+    const prefix = '/api/visualization/targets/local/media-edge/owned-process/sources/front.camera/sessions';
+    expect(fetchMock.mock.calls.map(([path]) => path)).toEqual([prefix,`${prefix}/${answer().sessionId}`]);
+    expect(fetchMock.mock.calls.map(([,init]) => init.method)).toEqual(['POST','DELETE']);
+    for (const [,init] of fetchMock.mock.calls) {
+      expect(init.credentials).toBe('include');
+      expect(init.headers.get('X-XGC-Station-Token')).toBe('station-secret');
+      expect(init.headers.has('X-XGC-Terminal-Token')).toBe(false);
+      expect(init.redirect).toBe('error');
+    }
+    expect(fetchMock.mock.calls[0][1].signal).toBe(signal);
+    expect(requestExternalJSON).not.toHaveBeenCalled();
+    expect(() => createStationMediaEdgeSignaling('remote','owned-process','front')).toThrow(/local target/);
+    expect(() => createStationMediaEdgeSignaling('local','../other','front')).toThrow(/processInstanceId/);
+  });
+
+  it('keeps guest signaling on its cookie-only channel even with station tokens present',async () => {
+    localStorage.setItem('xgcStationToken','station-secret');
+    localStorage.setItem('xgcTerminalToken','terminal-secret');
+    const fetchMock = vi.fn().mockResolvedValueOnce(Response.json(answerPayload(),{ status:201 }))
+      .mockResolvedValueOnce(new Response(null,{ status:204 }));
+    vi.stubGlobal('fetch',fetchMock);
+    const signaling = createSameOriginMediaEdgeSignaling({
+      sessionsPath:'/api/guest/media/sessions',sessionPathPrefix:'/api/guest/media/sessions',sourceId:reference.sourceId,
+    });
+    await signaling.open('v=0');await signaling.close(answer().sessionId);
+    for (const [,init] of fetchMock.mock.calls) {
+      expect(init.credentials).toBe('include');
+      expect(init.headers.has('X-XGC-Station-Token')).toBe(false);
+      expect(init.headers.has('X-XGC-Terminal-Token')).toBe(false);
+      expect(init.headers.has('Authorization')).toBe(false);
+    }
+    expect(() => createSameOriginMediaEdgeSignaling({
+      sessionsPath:'https://upstream.test/api/session',sessionPathPrefix:'/api/session',sourceId:'front',
+    })).toThrow(/same-origin/);
+  });
+
+  it.each(['consumer-unmounted','owner-stopping'] as const)('cleans an accepted signaling-channel POST on %s',async (reason) => {
+    const peer = new FakePeerConnection('complete');
+    const pending = deferred<MediaEdgeSessionAnswer>();
+    const signaling = { open:vi.fn((_sdp:string,_signal?:AbortSignal) => pending.promise),close:vi.fn().mockResolvedValue(undefined) };
+    const abort = new AbortController();
+    const opening = createMediaEdgeSession({ signaling,onTrack:vi.fn(),signal:abort.signal },{
+      peerConnectionFactory:() => peer as unknown as RTCPeerConnection,
+    });
+    await vi.waitFor(() => expect(signaling.open).toHaveBeenCalledOnce());
+    abort.abort(reason);
+    expect(signaling.open.mock.calls[0][1]?.aborted).toBe(reason === 'owner-stopping');
+    pending.resolve(answer());
+    await expect(opening).rejects.toMatchObject({ name:'AbortError' });
+    expect(peer.close).toHaveBeenCalledOnce();
+    if (reason === 'owner-stopping') expect(signaling.close).not.toHaveBeenCalled();
+    else expect(signaling.close).toHaveBeenCalledExactlyOnceWith(answer().sessionId);
+    expect(peer.setRemoteDescription).not.toHaveBeenCalled();
+  });
 
   it('opens and closes a strictly decoded session through the selected edge', async () => {
     vi.mocked(requestExternalJSON)

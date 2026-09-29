@@ -1,20 +1,9 @@
-import { Fragment, type ReactNode } from 'react';
+import { Fragment, memo, type ReactNode } from 'react';
 import { useRobotText } from '../../domains/robot/robotPublic';
 import { numberValue } from './robotTelemetryValues';
 import { splitSignedArrayAxis, splitSignedFixed } from './robotProjectionModel';
 
-export function RobotListMetric({
-  robotId,
-  slot,
-  title,
-  unit,
-  rate,
-  role,
-  className,
-  empty,
-  source,
-  children,
-}: {
+type RobotListMetricFrame = {
   robotId: string;
   slot: string;
   title: string;
@@ -24,10 +13,14 @@ export function RobotListMetric({
   className?: string;
   empty?: boolean;
   source?: string;
-  children: ReactNode;
-}) {
+};
+
+function robotListMetricFrame(
+  { robotId,slot,title,unit,rate,role,className,empty,source }: RobotListMetricFrame,
+  readout: ReactNode,
+) {
   const hostId = `${robotId}:${slot}`;
-  const heading = unit ? `${title} (${unit})` : title;
+  const labeled = unit ? `${title} (${unit})` : title;
   return (
     <div className={className} data-xgc-role={role} data-xgc-id={hostId} data-xgc-source={source}>
       <dt>
@@ -35,9 +28,10 @@ export function RobotListMetric({
           className="robot-list-metric-title"
           data-xgc-role="robot-list-metric-title"
           data-xgc-id={hostId}
-          title={heading}
+          title={title}
+          aria-label={labeled}
         >
-          {heading}
+          {title}
         </span>
         {rate !== undefined && (
           <span
@@ -55,18 +49,22 @@ export function RobotListMetric({
           data-xgc-role="robot-list-metric-readout"
           data-xgc-id={hostId}
         >
-          {children}
+          {readout}
         </span>
       </dd>
     </div>
   );
 }
 
+export function RobotListMetric({ children,...frame }: RobotListMetricFrame & { children: ReactNode }) {
+  return robotListMetricFrame(frame,children);
+}
+
 function scalarDigitMinCh(digits: number) {
   return Math.max(4, digits + 3);
 }
 
-export function RobotListScalarValue({
+export const RobotListScalarValue = memo(function RobotListScalarValue({
   value,
   unit,
   digits = 2,
@@ -92,9 +90,9 @@ export function RobotListScalarValue({
       {unit ? <span className="robot-list-metric-unit">{` ${unit}`}</span> : null}
     </span>
   );
-}
+});
 
-export function RobotListVectorValue({ value,showAxisLabels = false }: {
+export const RobotListVectorValue = memo(function RobotListVectorValue({ value,showAxisLabels = false }: {
   value: Record<string, unknown>;
   showAxisLabels?: boolean;
 }) {
@@ -146,4 +144,25 @@ export function RobotListVectorValue({ value,showAxisLabels = false }: {
       ))}
     </span>
   );
-}
+});
+
+/**
+ * A list metric with an x/y/z readout. Every prop is a primitive or the
+ * projection's own value object, so a card render skips this metric unless
+ * its readout, rate or state changed. `value` must keep its identity while
+ * unchanged (no fresh `{}` per render).
+ */
+export const RobotListVectorMetric = memo(function RobotListVectorMetric({ value,...frame }: RobotListMetricFrame & {
+  value: Record<string,unknown>;
+}) {
+  return robotListMetricFrame(frame,<RobotListVectorValue value={value} />);
+});
+
+/** A list metric with a scalar readout; `unit` and `digits` belong to the value. */
+export const RobotListScalarMetric = memo(function RobotListScalarMetric({ value,unit,digits,...frame }: Omit<RobotListMetricFrame,'unit'> & {
+  value: number | null;
+  unit?: string;
+  digits?: number;
+}) {
+  return robotListMetricFrame(frame,<RobotListScalarValue value={value} unit={unit} digits={digits} />);
+});

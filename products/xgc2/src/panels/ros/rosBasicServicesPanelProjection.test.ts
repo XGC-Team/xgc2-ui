@@ -1,6 +1,8 @@
 import { describe,expect,it } from 'vitest';
+import { newAutomationNode,newAutomationSpec,type AutomationChildRunRelation,type AutomationDocument,type AutomationExecutionRelations,type AutomationRunSnapshot } from '../../domains/automation/automationPublic';
 import type { ProcessInstance } from '../../domains/execution/executionPublic';
 import type { ExperimentProcessRuntimeProjection } from '../../domains/experiment/experimentPublic';
+import type { ExperimentSessionView } from '../../domains/experiment/experimentPublic';
 import { projectRosBasicServices } from './rosBasicServicesPanelProjection';
 
 describe('ROS Control Panel Workflow projection',() => {
@@ -44,6 +46,109 @@ describe('ROS Control Panel Workflow projection',() => {
     })));
   });
 
+  it.each(['local','agent-a'])('maps a %s bound world-runtime Action child from the ROS manual Action graph',(targetId) => {
+    const value = totalRunRuntime();
+    const service = totalRunServices.find((item) => item.id === 'gzserver')!;
+    withoutDirectService(value,service.id);
+    const dispatcherId='7c6fc08d-f4c7-56a5-acf1-8cc60f41d446';
+    const runtimeId='a67c3022-e819-522c-b4a2-cd844dc56973';
+    const dispatcher = worldDispatcherRun(dispatcherId,'root-run','succeeded');
+    const worldRuntime = { ...worldRuntimeRun(runtimeId,dispatcherId,'root-run'),targetId };
+    const worldChild = {
+      ...run('world-gzserver-child',service.automationId,service.childActionId),targetId,
+      sourceKind:'automation' as const,
+      sourceRef:automationRef(service.automationId),
+      parentRunId:runtimeId,rootRunId:'root-run',
+    };
+    const worldServicesRelation = {
+      ...childRelation('runtime-direct',runtimeId,0,dispatcherId),targetId,
+      ...(targetId==='local' ? {} : { targetRoot:true,targetRootBindingId:'xgc-world-runtime' }),
+      parentInvocationId:'8119a01e-9fb9-583c-b2a9-1db9924ae23d',
+      childDefinitionId:'world-runtime-automation',ownerRunId:dispatcherId,rootRunId:'root-run',
+      runStatus:'succeeded' as const,
+    };
+    const worldServiceRelation = {
+      ...childRelation(service.callNodeId,'world-gzserver-child',0,runtimeId),targetId,
+      childDefinitionId:service.automationId,ownerRunId:runtimeId,rootRunId:'root-run',
+    };
+    const worldRuntimeGroupId='679e8c82-4605-50d8-9255-1c0ddbc8df5f';
+    const worldRuntimeGroup={
+      id:worldRuntimeGroupId,targetId:'local',rootRunId:'root-run',parentRunId:dispatcherId,
+      producerInvocationId:worldServicesRelation.parentInvocationId,producerNodeId:'runtime-direct',
+      groupKey:'automation-call:fan-out',expectedMembers:1,memberCount:1,waitPolicy:'wait' as const,
+      joinMode:'join-all' as const,failurePolicy:'fail-fast' as const,remainingPolicy:'cancel' as const,
+      resultPolicy:'propagate' as const,maxConcurrency:256,state:'resolved' as const,
+      outcome:'succeeded' as const,terminalCount:1,createdAt:'t',updatedAt:'t',sealedAt:'t',resolvedAt:'t',revision:3,
+    };
+    const worldRuntimeMember={
+      id:'5aa7924d-1e46-5535-8fdc-b622924157b0',groupId:worldRuntimeGroupId,ordinal:0,
+      itemKey:'xgc-world-runtime',childRunId:runtimeId,state:'terminal' as const,
+      createdAt:'t',updatedAt:'t',dispatchedAt:'t',terminalAt:'t',revision:4,
+    };
+    value.runSummaries.push(dispatcher,worldRuntime,worldChild);
+    value.runDetailsById['panel-run']!.snapshot=automationRunSnapshot('panel-run',manualPanelWorkflowSpec());
+    value.runDetailsById[dispatcherId] = runDetail(dispatcher,[worldServicesRelation],targetId==='local' ? [worldRuntimeGroup] : [],targetId==='local' ? [worldRuntimeMember] : []);
+    value.processInstances.push(process(
+      'world-gzserver-process','gazebo-server','world-gzserver-child','running','passing','orchestration-run',
+    ));
+    value.runDetailsById[runtimeId] = {
+      ...runDetail(worldRuntime,[worldServiceRelation]),
+      snapshot:automationRunSnapshot(runtimeId,panelWorkflowSpec()),
+    };
+    value.sessionViews = [sessionView('current-session','experiment-1',dispatcherId)];
+
+    const projection = projectRosBasicServices(value,['gzserver'],totalRunBindings());
+    expect(projection[0]).toMatchObject({ runId:'world-gzserver-child',status:'ready' });
+
+    const failed = totalRunRuntime();
+    withoutDirectService(failed,service.id);
+    failed.runSummaries.push(dispatcher,worldRuntime,{
+      ...worldChild,status:'failed' as const,revision:2,
+    });
+    failed.runDetailsById['panel-run']!.snapshot=automationRunSnapshot('panel-run',manualPanelWorkflowSpec());
+    failed.runDetailsById[dispatcherId]=runDetail(dispatcher,[worldServicesRelation],targetId==='local' ? [worldRuntimeGroup] : [],targetId==='local' ? [worldRuntimeMember] : []);
+    failed.runDetailsById[runtimeId]={
+      ...runDetail(worldRuntime,[{ ...worldServiceRelation,runStatus:'failed' as const,runRevision:2 }]),
+      snapshot:automationRunSnapshot(runtimeId,panelWorkflowSpec()),
+    };
+    expect(projectRosBasicServices(failed,['gzserver'],totalRunBindings())[0])
+      .toMatchObject({ runId:'world-gzserver-child',status:'failed' });
+
+    const foreign = totalRunRuntime();
+    withoutDirectService(foreign,service.id);
+    const foreignDispatcher = worldDispatcherRun('foreign-world-services','foreign-root','succeeded');
+    const foreignRuntime = { ...worldRuntimeRun('foreign-world-runtime','foreign-world-services','foreign-root'),targetId:'agent-b' };
+    const foreignChild = {
+      ...run('foreign-gzserver-child',service.automationId,service.childActionId),
+      targetId:'agent-b',
+      sourceKind:'automation' as const,
+      sourceRef:automationRef(service.automationId),
+      parentRunId:'foreign-world-runtime',rootRunId:'foreign-root',
+    };
+    foreign.runSummaries.push(foreignDispatcher,foreignRuntime,foreignChild);
+    foreign.runDetailsById['foreign-world-services'] = runDetail(foreignDispatcher,[{
+      ...childRelation('foreign-world-runtime-call','foreign-world-runtime',0,'foreign-world-services'),
+      childDefinitionId:'world-runtime-automation',ownerRunId:'foreign-world-services',rootRunId:'foreign-root',
+      runStatus:'succeeded' as const,
+    }]);
+    foreign.runDetailsById['foreign-world-runtime'] = runDetail(foreignRuntime,[{
+      ...childRelation('foreign-gzserver-call','foreign-gzserver-child',0,'foreign-world-runtime'),
+      childDefinitionId:service.automationId,ownerRunId:'foreign-world-runtime',rootRunId:'foreign-root',
+    }]);
+    foreign.sessionViews = [sessionView('other-session','other-experiment','foreign-world-services')];
+    expect(projectRosBasicServices(foreign,['gzserver'],totalRunBindings())[0])
+      .toMatchObject({ runId:undefined,status:'idle' });
+  });
+
+  it('does not infer the call from mutable Automation documents when the Run snapshot is absent',() => {
+    const value = totalRunRuntime();
+    const detail = value.runDetailsById['panel-run']!;
+    delete detail.snapshot;
+    value.documents.push(mutablePanelWorkflow());
+    expect(projectRosBasicServices(value,['gzserver'],totalRunBindings())[0])
+      .toMatchObject({ runId:undefined,status:'idle' });
+  });
+
   it('keeps the invoke-panel-action parent Action Run instead of the Total Run grandchild',() => {
     const value = totalRunRuntime();
     value.runSummaries.push({
@@ -79,7 +184,7 @@ describe('ROS Control Panel Workflow projection',() => {
       },
     );
     value.runDetailsById['manual-action']={
-      invocations:[],nodeSummaries:[],loading:false,error:'',
+      invocations:[],nodeSummaries:[],loading:false,error:'',snapshot:automationRunSnapshot('manual-action'),
       relations:{
         runId:'manual-action',
         childRuns:[childRelation('call-ros','manual-ros-child',0,'manual-action')],
@@ -233,7 +338,7 @@ describe('ROS Control Panel Workflow projection',() => {
     const value = totalRunRuntime();
     const gzsChild = value.runSummaries.find((item) => item.id === 'gzs-child')!;
     gzsChild.status = 'stopped';
-    const gzRelation = value.runDetailsById['panel-run']!.relations!.childRuns.find((item) => item.callNodeId === 'call-gzserver')!;
+    const gzRelation = value.runDetailsById['panel-run']!.relations!.childRuns.find((item) => item.callNodeId === 'call-gzserver-diagnostic')!;
     gzRelation.runStatus = 'stopped';
     const projected = projectRosBasicServices(value,['roscore','gzserver'],totalRunBindings());
     expect(projected[0]).toMatchObject({ runId:'ros-child',status:'ready' });
@@ -283,17 +388,115 @@ function process(
 }
 
 const totalRunServices = [
-  { id:'roscore' as const,callNodeId:'call-ros',childRunId:'ros-child',definitionId:'roscore' },
-  { id:'gzserver' as const,callNodeId:'call-gzserver',childRunId:'gzs-child',definitionId:'gazebo-server' },
-  { id:'gzclient' as const,callNodeId:'call-gzclient',childRunId:'gzc-child',definitionId:'gazebo-client' },
-  { id:'rviz' as const,callNodeId:'call-rviz',childRunId:'rviz-child',definitionId:'rviz' },
-  { id:'vrpn' as const,callNodeId:'call-vrpn',childRunId:'vrpn-child',definitionId:'vrpn-client-ros1' },
+  { id:'roscore' as const,callNodeId:'call-ros',childRunId:'ros-child',definitionId:'roscore',automationId:'roscore-automation',childActionId:'start-from-ros-control' },
+  { id:'gzserver' as const,callNodeId:'call-gzserver-diagnostic',childRunId:'gzs-child',definitionId:'gazebo-server',automationId:'gzserver-automation',childActionId:'start-from-ros-control' },
+  { id:'gzclient' as const,callNodeId:'call-gzclient',childRunId:'gzc-child',definitionId:'gazebo-client',automationId:'gzclient-automation',childActionId:'start-from-ros-control' },
+  { id:'rviz' as const,callNodeId:'call-rviz',childRunId:'rviz-child',definitionId:'rviz',automationId:'rviz-automation',childActionId:'start-from-ros-control' },
+  { id:'vrpn' as const,callNodeId:'call-vrpn-diagnostic',childRunId:'vrpn-child',definitionId:'vrpn-client-ros1',automationId:'vrpn-automation',childActionId:'start-from-ros-control' },
 ];
 
 function totalRunBindings() {
   return Object.fromEntries(totalRunServices.map((service) => [service.id,{
     automationResourceId:'ros-panel',actionId:service.id,
   }]));
+}
+
+function withoutDirectService(value:ExperimentProcessRuntimeProjection,serviceId:string) {
+  const service = totalRunServices.find((item) => item.id === serviceId)!;
+  value.runSummaries = value.runSummaries.filter((runValue) => runValue.id !== service.childRunId);
+  value.runDetailsById['panel-run']!.relations!.childRuns = value.runDetailsById['panel-run']!.relations!.childRuns
+    .filter((relation) => relation.callNodeId !== service.callNodeId);
+  value.processInstances = value.processInstances.filter((instance) => instance.ownerId !== service.childRunId);
+}
+
+function panelWorkflowSpec() {
+  const spec = newAutomationSpec('ROS Control');
+  const base = spec.actions[0]!;
+  spec.actions = totalRunServices.map((service) => ({
+    ...base,id:service.id,entryNodeId:`entry-${service.id}`,
+  }));
+  spec.nodes = totalRunServices.flatMap((service) => [
+    { ...newAutomationNode('trigger.manual',{},`Start ${service.id}`),id:`entry-${service.id}` },
+    { ...newAutomationNode('automation.call',{
+      automationId:service.automationId,actionId:service.childActionId,
+    },`Call ${service.id}`,4),id:service.callNodeId },
+  ]);
+  spec.edges = totalRunServices.map((service) => ({
+    id:`edge-${service.id}`,from:`entry-${service.id}`,to:service.callNodeId,condition:'success' as const,
+  }));
+  return spec;
+}
+
+function manualPanelWorkflowSpec() {
+  const spec=panelWorkflowSpec();
+  const calls=new Set(spec.nodes.filter((node) => node.kind==='automation.call').map((node) => node.id));
+  spec.nodes=spec.nodes.filter((node) => !calls.has(node.id));
+  spec.edges=spec.edges.filter((edge) => !calls.has(edge.from) && !calls.has(edge.to));
+  return spec;
+}
+
+function automationRunSnapshot(runId:string,automationSpec=panelWorkflowSpec()):AutomationRunSnapshot {
+  const automationRef = {
+    domain:'automation' as const,resourceId:'ros-panel',branch:'main',commitId:'commit-1',version:1,digest:'a'.repeat(64),
+  };
+  return {
+    runId,targetId:'local',sourceKind:'automation',sourceRef:automationRef,automationRef,
+    assetContext:{ schemaVersion:1 },automationSpec,definitionDigest:'b'.repeat(64),
+    digest:'c'.repeat(64),createdAt:'t',
+  };
+}
+
+function mutablePanelWorkflow():AutomationDocument {
+  return {
+    head:{ domain:'automation',resourceId:'ros-panel',name:'ROS Control',tags:[],mainCommitId:'commit-1',currentVersion:1,
+      digest:'d'.repeat(64),revision:1,createdAt:'t',updatedAt:'t' },
+    branch:{ domain:'automation',resourceId:'ros-panel',name:'main',headCommitId:'commit-1',headVersion:1,revision:1,
+      createdAt:'t',updatedAt:'t' },
+    spec:panelWorkflowSpec(),
+  };
+}
+
+function automationRef(resourceId:string) {
+  return { domain:'automation' as const,resourceId,branch:'main',commitId:'commit-1',version:1,digest:'d'.repeat(64) };
+}
+
+function worldDispatcherRun(id:string,rootRunId:string,status:'succeeded'|'waiting') {
+  return {
+    ...run(id,'world-services-automation','start-for-experiment'),sourceKind:'automation' as const,
+    sourceRef:automationRef('world-services-automation'),parentRunId:rootRunId,rootRunId,status,
+  };
+}
+
+function worldRuntimeRun(id:string,parentRunId:string,rootRunId:string) {
+  return {
+    ...run(id,'world-runtime-automation','start-for-experiment'),sourceKind:'automation' as const,
+    sourceRef:automationRef('world-runtime-automation'),parentRunId,rootRunId,
+  };
+}
+
+function sessionView(sessionId:string,experimentResourceId:string,ownerId:string):ExperimentSessionView {
+  return {
+    session:{ id:sessionId,targetId:'local',experimentResourceId,state:'active',mode:'full',runMode:'simulation',revision:1 },
+    members:[{
+      id:`member-${sessionId}`,targetId:'local',sessionId,bindingId:'xgc-world-services',kind:'workflow_run',
+      ownerId,status:'running',revision:1,
+    }],
+  };
+}
+
+function runDetail(
+  runValue:ReturnType<typeof worldDispatcherRun>,
+  childRuns:AutomationChildRunRelation[],
+  childRunGroups:AutomationExecutionRelations['childRunGroups']=[],
+  childRunGroupMembers:AutomationExecutionRelations['childRunGroupMembers']=[],
+) {
+  return {
+    invocations:[],nodeSummaries:[],loading:false,error:'',
+    relations:{
+      runId:runValue.id,childRuns,childRunGroups,childRunGroupMembers,waits:[],effects:[],
+      runtimeGroups:[],runtimes:[],resources:[],
+    },
+  };
 }
 
 function totalRunRuntime():ExperimentProcessRuntimeProjection {
@@ -311,6 +514,7 @@ function totalRunRuntime():ExperimentProcessRuntimeProjection {
   value.runDetailsById = {
     'panel-run':{
       invocations:[],nodeSummaries:[],loading:false,error:'',
+      snapshot:automationRunSnapshot('panel-run'),
       relations:{
         runId:'panel-run',
         childRuns:totalRunServices.map((service,index) => childRelation(service.callNodeId,service.childRunId,index)),
@@ -337,7 +541,7 @@ function panelWorkflowRun(
   };
 }
 
-function childRelation(callNodeId:string,childRunId:string,ordinal:number,parentRunId='panel-run') {
+function childRelation(callNodeId:string,childRunId:string,ordinal:number,parentRunId='panel-run'):AutomationChildRunRelation {
   return {
     id:`rel-${callNodeId}`,targetId:'local',rootRunId:'root-run',parentRunId,
     parentInvocationId:`invoke-${callNodeId}`,callNodeId,ordinal,childRunId,ownerRunId:'panel-run',

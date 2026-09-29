@@ -10,21 +10,57 @@ import { RobotControlFrameProvider,RobotControlHeaderActions,RobotControlHeaderL
 
 const notificationMocks = vi.hoisted(() => ({ useError:vi.fn() }));
 const chassisHoldMocks = vi.hoisted(() => ({ post:vi.fn(async () => ({ held:true,applied:['scout-01'],failed:[],skipped:0 })) }));
+const occupancyMocks = vi.hoisted(() => ({ running:true,experimentResourceId:'experiment-a' }));
+const operatorControlMocks = vi.hoisted(() => ({
+  ensure: vi.fn<() => Promise<boolean>>(async () => true),
+  hook: vi.fn((): { phase:'idle'|'ensuring'|'ready'|'denied'|'unavailable';ensuring:boolean;blocked:boolean;retry:() => void } => ({ phase:'ready',ensuring:false,blocked:false,retry:vi.fn() })),
+}));
 
-vi.mock('../../domains/groundStationInteraction/groundStationInteractionPublic',() => ({
+vi.mock('../../domains/operatorAccess/operatorAccessPublic',() => ({
+  ensureOperatorControlSession: operatorControlMocks.ensure,
+  operatorControlSessionReady: () => operatorControlMocks.hook().phase === 'ready',
+  useOperatorControlSession: () => operatorControlMocks.hook(),
+  OperatorControlSessionNotice: () => null,
+}));
+
+vi.mock('../../domains/groundStationInteraction/groundStationInteractionPublic',async (importOriginal) => ({
+  ...(await importOriginal() as object),
   useGroundStationErrorNotification:notificationMocks.useError,
 }));
 vi.mock('../../domains/robot/robotPublic',async (importOriginal) => {
   const actual = await importOriginal();
   return { ...(actual as object),postUgvChassisHold:chassisHoldMocks.post };
 });
+vi.mock('../../domains/experiment/useExperimentListRunningIds',() => ({
+  useExperimentStationOccupancy:() => ({
+    resolved:true,
+    sessions:occupancyMocks.running ? [{
+      session:{
+        id:'session-a',
+        experimentResourceId:occupancyMocks.experimentResourceId,
+        state:'active',
+      },
+      members:[],
+    }] : [],
+    runningExperimentIds:occupancyMocks.running ? new Set([occupancyMocks.experimentResourceId]) : new Set(),
+    error:'',
+    refresh:async () => undefined,
+    convergeStoppedExperiment:async () => undefined,
+  }),
+}));
 
 describe('PX4 set mode',() => {
   beforeEach(() => {
     window.localStorage.clear();
+    occupancyMocks.running = true;
+    occupancyMocks.experimentResourceId = 'experiment-a';
     notificationMocks.useError.mockReset();
     chassisHoldMocks.post.mockReset();
     chassisHoldMocks.post.mockResolvedValue({ held:true,applied:['scout-01'],failed:[],skipped:0 });
+    operatorControlMocks.ensure.mockReset();
+    operatorControlMocks.ensure.mockResolvedValue(true);
+    operatorControlMocks.hook.mockReset();
+    operatorControlMocks.hook.mockReturnValue({ phase:'ready',ensuring:false,blocked:false,retry:vi.fn() });
   });
 
   it('keeps shortcuts from sending a mode until Set mode is clicked',async () => {
@@ -123,7 +159,7 @@ describe('PX4 set mode',() => {
     fireEvent.click(screen.getByRole('button',{ name:'Altitude' }));
     expect(screen.getByLabelText('Flight mode')).toHaveTextContent('ALTCTL');
     expect(setMode.invoke).not.toHaveBeenCalled();
-    expect(screen.getByRole('button',{ name:'Start remote control' })).toBeEnabled();
+    expect(screen.getByRole('button',{ name:'Start remote control' })).toBeDisabled();
   });
 
   it('packs Position/Altitude/Offboard left at equal content width under the combobox',() => {
@@ -231,7 +267,7 @@ describe('PX4 set mode',() => {
       const button = view.container.querySelector(`[data-xgc-role="${role}"][data-xgc-id="${id}"]`);
       expect(button).toBe(buttons[index]);
       expect(button).toHaveAccessibleName(label);
-      expect(button).toBeDisabled();
+      if (label === 'Arm test') expect(button).toBeEnabled();else expect(button).toBeDisabled();
       expect(button).toHaveAttribute('data-xgc-status','running');
       expect(button?.querySelector('[data-xgc-progress], .xgc-workflow-status-card-progress, .xgc-progress')).toBeTruthy();
       expect(actions[actionId].invoke).not.toHaveBeenCalled();
@@ -324,8 +360,50 @@ describe('PX4 set mode',() => {
       expect(disarm.invoke).toHaveBeenCalledWith({ robotIds:['px4-01'] },'Invoke Disarm from Robot control');
       expect(kill.invoke).toHaveBeenCalledWith({ robotIds:['px4-01'] },'Invoke Kill from Robot control');
       expect(reboot.invoke).toHaveBeenCalledWith({ robotIds:['px4-01'] },'Invoke Reboot from Robot control');
-      expect(armTest.invoke).toHaveBeenCalledWith({ robotIds:['px4-01'] },'Invoke Arm test from Robot control');
+      expect(armTest.invoke).toHaveBeenCalledWith({ robotIds:['px4-01'] },'Open preflight arm test');
     });
+  });
+
+  it('disables PX4 send tiles until the Experiment Session is running',() => {
+    occupancyMocks.running = false;
+    writeSelection(['px4-01']);
+    const setMode = actionPort('set-flight-mode','Set mode');
+    const arm = actionPort('arm','Arm');
+    const disarm = actionPort('disarm','Disarm');
+    const kill = actionPort('force-disarm','Kill');
+    const reboot = actionPort('reboot-autopilot','Reboot');
+    const armTest = actionPort('preflight-arm-test','Arm test');
+    const view = renderPanel({
+      'set-flight-mode': setMode,
+      arm,disarm,'force-disarm': kill,'reboot-autopilot': reboot,'preflight-arm-test': armTest,
+    });
+    const title = 'Start the Experiment before sending robot commands.';
+    for (const name of ['Arm','Disarm','Kill','Reboot','Arm test','Set mode'] as const) {
+      const card = screen.getByRole('button',{ name });
+      expect(card).toBeDisabled();
+      expect(card).toHaveAttribute('title',title);
+    }
+    expect(screen.getByRole('button',{ name:'Kill' })).toHaveAttribute('data-xgc-tone','danger');
+    expect(view.container).not.toHaveTextContent(title);
+    fireEvent.click(screen.getByRole('button',{ name:'Arm' }));
+    fireEvent.click(screen.getByRole('button',{ name:'Set mode' }));
+    fireEvent.click(screen.getByRole('button',{ name:'Arm test' }));
+    expect(arm.invoke).not.toHaveBeenCalled();
+    expect(setMode.invoke).not.toHaveBeenCalled();
+    expect(armTest.invoke).not.toHaveBeenCalled();
+    expect(screen.getByRole('button',{ name:'Flight mode' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button',{ name:'Offboard' }));
+    expect(screen.getByLabelText('Flight mode')).toHaveTextContent('OFFBOARD');
+    expect(setMode.invoke).not.toHaveBeenCalled();
+  });
+
+  it('prefers the PX4 selection refusal over the Experiment Session gate',() => {
+    occupancyMocks.running = false;
+    const arm = actionPort('arm','Arm');
+    renderPanel({ arm });
+    const button = screen.getByRole('button',{ name:'Arm' });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute('title','Select at least one PX4 robot in Robot instruments.');
   });
 
   it('disables Arm/Disarm/Kill/Reboot/Arm test together when no PX4 robot is selected',() => {
@@ -431,7 +509,7 @@ describe('PX4 set mode',() => {
     }
     expect(view.container).not.toHaveTextContent('Select at least one PX4 robot in Robot instruments.');
     const start = screen.getByRole('button',{ name:'Start remote control' });
-    expect(start).toBeEnabled();
+    expect(start).toBeDisabled();
     expect(start).toHaveClass('xgc-panel-runtime-action');
     expect(start).toHaveAttribute('data-xgc-icon-only','true');
     expect(view.container.querySelector('[data-xgc-role="experiment-panel-header-trailing"]')).toContainElement(start);
@@ -467,6 +545,52 @@ describe('PX4 set mode',() => {
       experimentId:'experiment-a',held:false,
     }));
     await waitFor(() => expect(estop).toHaveAttribute('aria-pressed','false'));
+  });
+
+  it('disables motion-enabling commands inline after a definitive sign-out, with a retry that recovers',async () => {
+    writeSelection(['px4-01']);
+    const retry = vi.fn();
+    operatorControlMocks.ensure.mockResolvedValue(false);
+    operatorControlMocks.hook.mockReturnValue({ phase:'denied',ensuring:false,blocked:true,retry });
+    const arm = actionPort('arm','Arm');
+    const setMode = actionPort('set-flight-mode','Set mode');
+    const kill = actionPort('force-disarm','Kill');
+    const actions = { 'set-flight-mode':setMode,arm,'force-disarm':kill };
+    const view = renderPanel(actions);
+    const armButton = screen.getByRole('button',{ name:'Arm' });
+    expect(armButton).toBeDisabled();
+    expect(armButton).toHaveAttribute('title','Robot control needs a signed-in operator session on this browser.');
+    expect(screen.getByRole('button',{ name:'Set mode' })).toBeDisabled();
+    // Safety stops are never gated by the operator session fence.
+    const killButton = screen.getByRole('button',{ name:'Kill' });
+    expect(killButton).toBeEnabled();
+    fireEvent.click(killButton);
+    await waitFor(() => expect(kill.invoke).toHaveBeenCalled());
+    expect(arm.invoke).not.toHaveBeenCalled();
+    expect(setMode.invoke).not.toHaveBeenCalled();
+    // The session recovers in place; nothing navigates away.
+    operatorControlMocks.ensure.mockResolvedValue(true);
+    operatorControlMocks.hook.mockReturnValue({ phase:'ready',ensuring:false,blocked:false,retry:vi.fn() });
+    view.rerender(panelTree(actions));
+    fireEvent.click(screen.getByRole('button',{ name:'Arm' }));
+    await waitFor(() => expect(arm.invoke).toHaveBeenCalledWith({ robotIds:['px4-01'] },'Invoke Arm from Robot control'));
+    expect(operatorControlMocks.ensure).toHaveBeenCalled();
+  });
+
+  it('keeps a control click in place when the session cannot be confirmed yet',async () => {
+    writeSelection(['px4-01']);
+    operatorControlMocks.hook.mockReturnValue({ phase:'idle',ensuring:false,blocked:false,retry:vi.fn() });
+    operatorControlMocks.ensure.mockResolvedValue(false);
+    const arm = actionPort('arm','Arm');
+    renderPanel({ arm });
+    const armButton = screen.getByRole('button',{ name:'Arm' });
+    expect(armButton).toBeEnabled();
+    fireEvent.click(armButton);
+    await waitFor(() => expect(operatorControlMocks.ensure).toHaveBeenCalled());
+    expect(arm.invoke).not.toHaveBeenCalled();
+    await waitFor(() => expect(notificationMocks.useError).toHaveBeenCalledWith('local',
+      'Robot control needs a signed-in operator session on this browser.',
+      expect.objectContaining({ dedupeKey:'robot-control:action-error' })));
   });
 });
 

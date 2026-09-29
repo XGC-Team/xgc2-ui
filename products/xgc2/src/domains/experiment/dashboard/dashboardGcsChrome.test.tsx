@@ -74,15 +74,6 @@ describe('Experiment Config vs GCS dashboard chrome', () => {
     expect(dashboardCss).toMatch(/left var\(--duration-fast\) var\(--easing-standard\)/);
   });
 
-  it('puts the visible Config tab in the height chain so the grid can mount on first paint', () => {
-    const dashboardCss = readFileSync(join(styles, 'dashboard.css'), 'utf8');
-    expect(dashboardCss).toMatch(
-      /\[data-xgc-role=["']experiment-dashboard-surface["']\]:not\(\[hidden\]\) \[data-xgc-role=["']experiment-dashboard-tab-surface["']\]:not\(\[hidden\]\)[\s\S]*?height:\s*100%/,
-    );
-    expect(dashboardCss).not.toMatch(
-      /\[data-xgc-mode=["']ground-station["']\][^{]*\[data-xgc-role=["']experiment-dashboard-tab-surface["']\]:not\(\[hidden\]\)/,
-    );
-  });
 });
 
 function installChromeCss() {

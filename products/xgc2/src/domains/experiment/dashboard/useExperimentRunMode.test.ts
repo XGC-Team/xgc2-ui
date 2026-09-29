@@ -56,7 +56,8 @@ function experimentFixture(runModes: ExperimentRunMode[], resourceId = 'exp-1'):
     head: { domain: 'experiment',resourceId,name: 'Experiment',tags: [],mainCommitId: 'c1',currentVersion: 1,digest: 'd',revision: 1,createdAt: '',updatedAt: '' },
     branch: { domain: 'experiment',resourceId,name: 'main',headCommitId: 'c1',headVersion: 1,revision: 1,createdAt: '',updatedAt: '' },
     spec: {
-      schemaVersion: 15,name: 'Experiment',description: '',tags: [],runModes,localizationOffset:{ x:0,y:0,z:0 },
+      worldBoundary:null,
+      schemaVersion:16,name: 'Experiment',description: '',tags: [],runModes,localizationOffset:{ x:0,y:0,z:0 },
       dashboards: [{ id: 'gcs',name: 'GCS',description: '',panels: [] }],
       robots: [],workflowInstances: [],
     },

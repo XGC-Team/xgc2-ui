@@ -1,4 +1,5 @@
 import { useState,type ReactNode } from 'react';
+import { useProductRouteVisible } from '../../shared/routeReady';
 import { Archive,Copy,Download,FileText,Folder,KeyRound,MoreHorizontal,Scissors,Trash2,UserRound } from 'lucide-react';
 import { ActionMenu,Button,EmptyState,useConfirmationDialog,useTextPromptDialog } from '@xgc2/ui-react';
 import { SortableDataTable } from '../../components/SortableDataTable';
@@ -52,6 +53,7 @@ export function HostFileTable({
   actions: HostFileEntryActions;
 }) {
   const t = useHostText();
+  const surfaceVisible = useProductRouteVisible();
   const confirmation = useConfirmationDialog();
   const promptDialog = useTextPromptDialog();
   const [openMenuPath,setOpenMenuPath] = useState<string | null>(null);
@@ -117,6 +119,7 @@ export function HostFileTable({
       <SortableDataTable
         className="xgc-host-file-list"
         bodyScroll
+        virtualizeRows
         data-xgc-id="host-files"
         data-xgc-role="host-file-table"
         defaultSort={{ columnId: 'name',direction: 'ascending' }}
@@ -138,7 +141,7 @@ export function HostFileTable({
                 <Download size={14} aria-hidden="true" />
               </ControlButton>
               <FileMoreMenu
-                item={item} open={openMenuPath === item.path} disabled={disabled} remoteManagedHost={remoteManagedHost}
+                item={item} open={surfaceVisible && openMenuPath === item.path} disabled={disabled} remoteManagedHost={remoteManagedHost}
                 onOpenChange={(next) => setOpenMenuPath(next ? item.path : null)}
                 onCopy={() => runAndClose(item.path, () => setDestinationPicker({ item,mode: 'copy' }))}
                 onCompress={() => runAndClose(item.path, () => void promptText('Archive name',`${item.name}.zip`,(name) => void confirmCompress(item,name)))}
@@ -156,9 +159,9 @@ export function HostFileTable({
         rows={entries}
         tableProps={{ className: 'xgc-host-file-table' }}
       />
-      {confirmation.dialog}
-      {promptDialog.dialog}
-      {destinationPicker && (
+      {surfaceVisible ? confirmation.dialog : null}
+      {surfaceVisible ? promptDialog.dialog : null}
+      {surfaceVisible && destinationPicker && (
         <div data-xgc-role="host-file-destination-picker" data-xgc-id={destinationPicker.mode}>
           <AutomationPathPicker
             targetId={executionTargetId}

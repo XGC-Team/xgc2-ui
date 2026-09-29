@@ -10,10 +10,13 @@ const routeState = vi.hoisted(() => ({
 }));
 
 vi.mock('../../app/navigationContext', () => ({
-  useNavigation: () => ({
+  useNavigation: (select?: (state: never) => unknown) => {
+    const navigationState = ({
     language: 'en-US',
     pageSection: (page: string) => (page === 'audit' ? routeState.section : ''),
-  }),
+  });
+    return select ? select(navigationState as never) : navigationState;
+  },
 }));
 
 vi.mock('./auditService', () => ({

@@ -5,7 +5,7 @@ import type {
   AutomationRunSummaryView,
 } from '../automation/automationPublic';
 import type { ProcessInstance } from '../execution/executionPublic';
-import type { ExperimentRunView,ExperimentSessionView } from './experimentWorkflowModel';
+import type { ExperimentPlacement,ExperimentRunView,ExperimentSessionView } from './experimentWorkflowModel';
 
 /**
  * Read-only Experiment workflow truth exposed to panels. The Process snapshot
@@ -19,11 +19,24 @@ export type ExperimentProcessRuntimeProjection = {
   activeRun?:ExperimentRunView;
   activeRuns?:readonly ExperimentRunView[];
   sessionViews?:readonly ExperimentSessionView[];
+  /**
+   * The host's single run-mode projection: the active Run's frozen mode, or
+   * the operator's selection for the next Run while idle. Read-only; panels
+   * must not open a second mode authority.
+   */
+  selectedRunMode?:string;
+  /**
+   * The host's single algorithm placement: the same topbar Centralized /
+   * Per robot choice used by Run. Read-only Prepare input; panels must not
+   * open a second placement authority or mutate shared Robot assets.
+   */
+  selectedPlacement?:ExperimentPlacement;
   processInstances:ProcessInstance[];
   documents:AutomationDocument[];
   catalog:AutomationNodeCatalogEntry[];
   runSummaries:AutomationRunSummaryView[];
   runDetailsById:Record<string,AutomationRunDetail>;
+  loadRunDetail?:(runId:string) => Promise<AutomationRunDetail>;
   loading:boolean;
   error:string;
 };
@@ -36,6 +49,10 @@ export function experimentProcessRuntimeProjection(
   return typeof candidate.targetId === 'string'
     && Array.isArray(candidate.processInstances)
     && (candidate.sessionViews === undefined || Array.isArray(candidate.sessionViews))
+    && (candidate.selectedRunMode === undefined || typeof candidate.selectedRunMode === 'string')
+    && (candidate.selectedPlacement === undefined
+      || candidate.selectedPlacement === 'centralized'
+      || candidate.selectedPlacement === 'per-robot')
     && Array.isArray(candidate.documents)
     && Array.isArray(candidate.catalog)
     && Array.isArray(candidate.runSummaries)

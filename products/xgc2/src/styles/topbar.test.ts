@@ -30,10 +30,11 @@ describe('topbar typography visual contract', () => {
       topbarCss.indexOf('.topbar > :has', topbarCss.indexOf('[data-xgc-role="product-breadcrumbs"]')),
     );
 
+    // Breadcrumbs, page titles, dashboard tabs and run mode share the chrome text role.
     expect(root).toContain('font-family: var(--font-sans);');
-    expect(root).toContain('font-size: var(--xgc-shell-ui-font-size, var(--font-base));');
-    expect(root).toContain('font-weight: var(--weight-regular);');
-    expect(root).toContain('line-height: var(--line-height-control);');
+    expect(root).toContain('font-size: var(--type-chrome-size);');
+    expect(root).toContain('font-weight: var(--type-chrome-weight);');
+    expect(root).toContain('line-height: var(--type-chrome-line-height);');
     expect(root).toContain('color: var(--color-text-muted);');
     expect(items).toContain('font-family: inherit;');
     expect(items).toContain('font-size: inherit;');
@@ -46,14 +47,14 @@ describe('topbar typography visual contract', () => {
 
   it('keeps standalone page titles on the same muted typography as breadcrumbs', () => {
     const titleStart = topbarCss.indexOf('.topbar h1,\n.topbar-page-title');
-    const titleEnd = topbarCss.indexOf('.topbar-catalog-title {', titleStart);
+    const titleEnd = topbarCss.indexOf('}', titleStart);
     const title = topbarCss.slice(titleStart, titleEnd);
 
     expect(titleStart).toBeGreaterThan(-1);
     expect(title).toContain('font-family: var(--font-sans);');
-    expect(title).toContain('font-size: var(--xgc-shell-ui-font-size, var(--font-base));');
-    expect(title).toContain('font-weight: var(--weight-regular);');
-    expect(title).toContain('line-height: var(--line-height-control);');
+    expect(title).toContain('font-size: var(--type-chrome-size);');
+    expect(title).toContain('font-weight: var(--type-chrome-weight);');
+    expect(title).toContain('line-height: var(--type-chrome-line-height);');
     expect(title).toContain('color: var(--color-text-muted);');
     expect(title).not.toContain('--color-text-strong');
     expect(title).not.toContain('--font-lg');
@@ -69,11 +70,14 @@ describe('topbar typography visual contract', () => {
     ]) {
       const rule = roleRule(role);
       expect(rule).toContain('font-family: var(--font-sans);');
-      expect(rule).toContain('font-size: var(--xgc-shell-ui-font-size, var(--font-base));');
-      expect(rule).toContain('font-weight: var(--weight-regular);');
-      expect(rule).toContain('line-height: var(--line-height-control);');
+      expect(rule).toContain('font-size: var(--type-chrome-size);');
+      expect(rule).toContain('font-weight: var(--type-chrome-weight);');
+      expect(rule).toContain('line-height: var(--type-chrome-line-height);');
     }
 
+    expect(topbarCss).toContain('.experiment-topbar-context [data-xgc-role="experiment-dashboard-tab"]');
+    expect(topbarCss).toContain('.experiment-topbar-context [data-xgc-role="experiment-dashboard-tab-control"]');
+    expect(topbarCss).not.toMatch(/(?:^|\n)\[data-xgc-role="experiment-dashboard-tab(?:-control)?"\] \{/);
     const tabControl = roleRule('experiment-dashboard-tab-control');
     expect(tabControl).toContain('flex: 1 1 auto;');
     expect(tabControl).toContain('justify-content: center;');
@@ -115,6 +119,17 @@ describe('topbar typography visual contract', () => {
     expect(editorRules).not.toContain('box-shadow:');
   });
 
+  it('keeps the Experiments catalog title from looking like a renameable tab on hover', () => {
+    const hoverStart = topbarCss.indexOf(
+      '[data-xgc-role="product-breadcrumbs"][data-xgc-id="experiment"] [data-xgc-role="page-title-back"]:hover',
+    );
+    expect(hoverStart).toBeGreaterThan(-1);
+    const hover = topbarCss.slice(hoverStart, topbarCss.indexOf('}', hoverStart) + 1);
+    expect(hover).toContain('background: transparent;');
+    expect(hover).toContain('color: var(--color-text-heading);');
+    expect(hover).not.toContain('--color-bg-control-hover');
+  });
+
   it('makes the in-app topbar the frameless Electron drag handle without eating controls', () => {
     const handle = roleRule('app-topbar');
     expect(handle).toContain('-webkit-app-region: drag;');
@@ -141,11 +156,12 @@ describe('topbar typography visual contract', () => {
     expect(topbarCss).not.toMatch(/\.xgc-input\b/);
     expect(topbarCss).not.toMatch(/(?:color|background|border(?:-[a-z]+)?):\s*(?:#|rgb\(|hsl\()/i);
 
+    // The shared workspace tabs and breadcrumbs render the same chrome role (ui-react 0.16.19).
     expect(sharedCss).toMatch(
-      /\.xgc-workspace-tab-select\s*\{[\s\S]*font-size:\s*var\(--font-base\);[\s\S]*line-height:\s*var\(--line-height-none\);/,
+      /\.xgc-workspace-tab-select\s*\{[\s\S]*font-size:\s*var\(--type-chrome-size\);[\s\S]*line-height:\s*var\(--type-chrome-line-height\);/,
     );
     expect(sharedCss).toMatch(
-      /\.xgc-breadcrumb-item\s*\{[\s\S]*font-size:\s*var\(--font-base\);[\s\S]*font-weight:\s*var\(--weight-regular\);[\s\S]*line-height:\s*var\(--line-height-none\);/,
+      /\.xgc-breadcrumb-item\s*\{[\s\S]*font-size:\s*var\(--type-chrome-size\);[\s\S]*font-weight:\s*var\(--type-chrome-weight\);[\s\S]*line-height:\s*var\(--type-chrome-line-height\);/,
     );
 
     const darkTokens = sharedCss.match(/:root,\s*:root\[data-skin=['"]?dark['"]?\]\s*\{[^}]*\}/)?.[0] ?? '';

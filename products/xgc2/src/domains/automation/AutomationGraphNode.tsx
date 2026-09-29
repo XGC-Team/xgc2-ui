@@ -212,6 +212,7 @@ export function AutomationGraphNode({ data,selected: flowSelected }: NodeProps<N
           </>
         )}
         padding="none"
+        running={visibleStatus === 'running'}
         selected={isSelected}
       />
     </article>

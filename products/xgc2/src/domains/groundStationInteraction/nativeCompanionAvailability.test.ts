@@ -1,6 +1,7 @@
 import { AgentClientError } from '@xgc2/agent-runtime/client';
 import { describe,expect,it } from 'vitest';
 import {
+  composerControlReason,
   isNativeCompanionUnavailable,
   isNativeCompanionUnavailableMessage,
   operatorNativeErrorMessage,
@@ -13,6 +14,15 @@ describe('native companion availability', () => {
     expect(operatorNativeErrorMessage(cause)).toBe('');
     expect(isNativeCompanionUnavailableMessage('客户端连接中断。')).toBe(true);
     expect(operatorNativeErrorMessage(new Error('Settings changed; reload the draft.'))).toBe('Settings changed; reload the draft.');
+    expect(composerControlReason({
+      locale: 'en', companionUnavailable: true, providersLoaded: true, hasEnabledProvider: false,
+    })).toBe('The local companion is not connected');
+    expect(composerControlReason({
+      locale: 'zh', companionUnavailable: true, providersLoaded: true, hasEnabledProvider: false,
+    })).toBe('本机客户端未连接');
+    expect(composerControlReason({
+      locale: 'en', companionUnavailable: false, providersLoaded: true, hasEnabledProvider: false,
+    })).toBe('No enabled provider. Enable one in Settings.');
   });
 
   it('does not dump request-timeout paths onto the operator surface', () => {

@@ -15,7 +15,7 @@ describe('groundRobotTelemetryChannels', () => {
     const channels = groundRobotTelemetryChannels({ kind: 'scout_mini' }, true);
     expect(channels).toEqual(scoutInstrumentChannels);
     expect(channels).toEqual(expect.arrayContaining([
-      'state.imu','state.power','state.health','state.chassis','diagnostic.stream-health',
+      'state.imu','state.power','state.health','state.chassis','state.controller','diagnostic.stream-health',
     ]));
     expect(channels).not.toContain('diagnostic.fcu-link');
   });
@@ -24,20 +24,20 @@ describe('groundRobotTelemetryChannels', () => {
     const channels = groundRobotTelemetryChannels({ kind: MECANUM_UGV_KIND }, true);
     expect(channels).toEqual(mecanumInstrumentChannels);
     expect(channels).toEqual(expect.arrayContaining([
-      'state.imu','state.power','state.health','diagnostic.stream-health',
+      'state.imu','state.power','state.health','state.controller','diagnostic.stream-health',
     ]));
     expect(channels).not.toContain('state.chassis');
     expect(channels).not.toContain('diagnostic.fcu-link');
   });
 
-  it('adds only the real VRPN acceleration channel to list subscriptions', () => {
+  it('does not subscribe Ground list to vrpn.acceleration', () => {
     expect(groundRobotTelemetryChannels({ kind:'scout_mini' },false)).toEqual(scoutListChannels);
     expect(groundRobotTelemetryChannels({ kind: MECANUM_UGV_KIND }, false))
       .toEqual(mecanumListChannels);
-    expect(scoutInstrumentChannels).not.toContain(groundListMetricChannelIds.acceleration);
-    expect(mecanumInstrumentChannels).not.toContain(groundListMetricChannelIds.acceleration);
-    expect(scoutListChannels).toContain(groundListMetricChannelIds.acceleration);
-    expect(mecanumListChannels).toContain(groundListMetricChannelIds.acceleration);
+    expect(scoutListChannels).toEqual(scoutInstrumentChannels);
+    expect(mecanumListChannels).toEqual(mecanumInstrumentChannels);
+    expect(scoutListChannels).not.toContain('vrpn.acceleration');
+    expect(mecanumListChannels).not.toContain('vrpn.acceleration');
   });
 
   it('freezes source provenance for the eight ground list fields and four header contracts', () => {
@@ -45,7 +45,6 @@ describe('groundRobotTelemetryChannels', () => {
       position:'vrpn.position',
       velocity:'vrpn.velocity',
       speed:'vrpn.speed',
-      acceleration:'vrpn.acceleration',
       command:'command.velocity',
       power:'state.power',
       imu:'state.imu',

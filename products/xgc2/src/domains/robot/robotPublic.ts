@@ -35,6 +35,7 @@ export {
   useRobotChannelSelection,
   useRunRobot,
   useRunRobots,
+  useRobotRuns,
   useRunRobotStatus,
 } from './robotRuntimeSelectors';
 export {
@@ -50,5 +51,6 @@ export {
   requestRobotInstrumentSshJump,
 } from './robotInstrumentSshJump';
 export { postRobotMotionIntent,type RobotMotionIntent } from './robotMotionIntentService';
+export { isRemoteMotionHeld,remoteMotionHeldError } from './remoteMotionService';
 export { postUgvChassisHold,type UgvChassisHoldResult } from './ugvChassisHoldService';
 export { ugvChassisHoldKey,useUgvChassisHold } from './ugvChassisHoldStore';

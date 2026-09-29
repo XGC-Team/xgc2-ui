@@ -7,6 +7,11 @@ import type { RobotAssetDocument,RobotAssetSpec } from './robotAssetContracts';
 import { PX4_MODEL_MOCAP_ROTOR,PX4_MOCAP_ROTOR_PROFILE_ID } from './robotAssetContracts';
 import { px4RobotAssetKindContributionForModels } from './builtInRobotAssetKindContributions';
 import { RobotAssetConfigDrawer } from './RobotAssetConfigDrawer';
+import { listRobotSimulationImages } from './robotAssetService';
+vi.mock(import('./robotAssetService'), async (importOriginal) => ({
+  ...await importOriginal(),
+  listRobotSimulationImages: vi.fn().mockResolvedValue([]),
+}));
 import { assembleRobotAssetKindComposition,RobotAssetKindCompositionProvider } from './robotAssetKindComposition';
 import { robotAssetKindCompositionWithUnitreeB2 } from '../../../test-fixtures/robot-kinds/with-unitree-b2';
 
@@ -28,6 +33,34 @@ function renderDrawer(ui: React.ReactElement) {
 }
 
 describe('RobotAssetConfigDrawer', () => {
+  it.each([
+    { mode: 'centralized' },
+    { mode: 'container', image: `sha256:${'a'.repeat(64)}` },
+    { mode: 'onboard', agentId: 'saved-onboard-agent' },
+  ] as const)('preserves stored $mode fields while editing unrelated robot information', async (setup) => {
+    const existing = fixtureRobot({ kind: 'px4_multirotor', id: 'legacy-robot', name: 'FS150 01', mocap: 'uav1' });
+    if (!existing.spec.px4) throw new Error('fixture');
+    existing.spec.px4.simulationSetup = setup;
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    renderDrawer(<RobotAssetConfigDrawer document={existing} assets={[existing]} onClose={vi.fn()} onSave={onSave} />);
+    expect(document.querySelector('[data-xgc-role="robot-asset-simulation-setup"]')).toBeNull();
+    expect(screen.queryByText(/In simulation, PX4/)).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Updated robot' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save robot' }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
+      name: 'Updated robot', px4: expect.objectContaining({ simulationSetup: setup }),
+    })));
+  });
+
+  it('queries images using the contributed wire kind and keeps the readonly section on inventory-only robots', async () => {
+    renderDrawer(<RobotAssetConfigDrawer assets={[]} onClose={vi.fn()} onSave={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Chassis' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Unitree B2' }));
+    await waitFor(() => expect(listRobotSimulationImages).toHaveBeenLastCalledWith('unitree_b2', undefined, expect.any(AbortSignal)));
+    expect(await screen.findByText('No simulation image provided for this model.')).toBeInTheDocument();
+    expect(document.querySelector('[data-xgc-role="robot-asset-simulation-images"]')).not.toBeNull();
+  });
+
   it.each([
     ['Multirotor','px4_multirotor'],
     ['Unicycle','scout_mini'],
@@ -139,8 +172,8 @@ describe('RobotAssetConfigDrawer', () => {
     expect(screen.getByLabelText('VRPN pose topic')).toHaveValue('/vrpn_client_node/ugv1/pose');
   });
 
-  it('continues Scout / Mecanum numbering from that kind, not from PX4 fleet size', () => {
-    // 20 PX4 + 5 Scout + 3 Mecanum mirrors the shipped fleet shape that used to
+  it('continues Scout / Mecanum numbering from that kind, not from PX4 swarm size', () => {
+    // 20 PX4 + 5 Scout + 3 Mecanum mirrors the shipped swarm shape that used to
     // produce "Scout 21" when switching type from a UAV draft.
     const assets = [
       ...Array.from({ length: 20 },(_,index) => fixtureRobot({

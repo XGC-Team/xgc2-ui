@@ -27,6 +27,7 @@ export type RunRobotPX4 = {
 };
 
 export type RunRobotScout = {
+  mocapRigidBodyName?: string;
   managementAddress: string;
   positioningFrameNumber?: number;
   positioningComparisonThresholdM?: number;

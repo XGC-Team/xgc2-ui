@@ -1,8 +1,9 @@
 import { useEffect } from 'react';
 import { usePersistentState } from '../../../hooks/usePersistentState';
 import type { AppLanguage } from '../../../shared/localization/languagePreference';
-import { LogTablePage, type LogTableColumn, type LogTablePageLabels } from '../../../components/LogTablePage';
-import { StatusText } from '@xgc2/ui-react';
+import { formatOperatorDateTime } from '../../../shared/operatorTime';
+import { LogTablePage, StatusText, type LogTableColumn, type LogTablePageLabels, type PaginationLabels } from '@xgc2/ui-react';
+import { RefreshCw } from 'lucide-react';
 import { useTaskLogsResource, type TaskLogRow } from './useTaskLogsResource';
 import { useDeferRouteReady } from '../../../shared/routeReady';
 import '../audit.css';
@@ -60,7 +61,9 @@ export function TaskLogsPage({ language }: { language: AppLanguage }) {
           setPage(1);
         }}
         emptyText={query.trim() || status !== 'all' ? copy.empty.filtered : copy.empty.task}
-        labels={copy.table}
+        labels={copy.table.labels}
+        paginationLabels={copy.table.pagination}
+        refreshIcon={<RefreshCw size={14} />}
       />
       </div>
     </div>
@@ -109,16 +112,15 @@ function TaskStatus({ log, copy }: { log: TaskLogRow; copy: TaskLogsCopy }) {
 }
 
 function formatTime(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '-';
-  return date.toLocaleString();
+  if (!value) return '-';
+  return formatOperatorDateTime(value);
 }
 
 type TaskLogsCopy = {
   search: string;
   statusOptions: Array<{ value: string; label: string }>;
   status: { info: string; warning: string; error: string; debug: string };
-  table: Partial<LogTablePageLabels>;
+  table: { labels: LogTablePageLabels; pagination: Pick<PaginationLabels,'pageSizeSuffix' | 'total'> };
   columns: { job: string; event: string; command: string; status: string; date: string };
   empty: { task: string; filtered: string };
 };
@@ -135,12 +137,8 @@ const taskLogsCopy: Record<AppLanguage, TaskLogsCopy> = {
     ],
     status: { info: 'Info', warning: 'Warning', error: 'Error', debug: 'Debug' },
     table: {
-      status: 'Level',
-      refresh: 'Refresh',
-      total: 'Total',
-      pageSizeSuffix: '/ page',
-      loading: 'Loading',
-      search: 'Search task logs',
+      labels: { status: 'Level', refresh: 'Refresh', loading: 'Loading', search: 'Search task logs' },
+      pagination: { total: 'Total', pageSizeSuffix: '/ page' },
     },
     columns: {
       job: 'Job',
@@ -165,12 +163,8 @@ const taskLogsCopy: Record<AppLanguage, TaskLogsCopy> = {
     ],
     status: { info: '信息', warning: '警告', error: '错误', debug: '调试' },
     table: {
-      status: '级别',
-      refresh: '刷新',
-      total: '总计',
-      pageSizeSuffix: '条/页',
-      loading: '加载中',
-      search: '搜索任务日志',
+      labels: { status: '级别', refresh: '刷新', loading: '加载中', search: '搜索任务日志' },
+      pagination: { total: '总计', pageSizeSuffix: '条/页' },
     },
     columns: {
       job: '任务',

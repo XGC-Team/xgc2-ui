@@ -39,7 +39,10 @@ try {
   await page.waitForTimeout(warmupMs);
 
   const phases = [];
-  for (let phase = 1; phase <= 2; phase += 1) {
+  // Phases 1-2: visible cards. Phase 3: the same stream while every card is
+  // parked (hidden route/dashboard), which must not draw telemetry.
+  for (let phase = 1; phase <= 3; phase += 1) {
+    await page.evaluate((parked) => globalThis.__xgcMixedRobotBenchmark.setParked(parked), phase === 3);
     await page.evaluate(() => globalThis.__xgcMixedRobotBenchmark.stop());
     await cdp.send('HeapProfiler.collectGarbage');
     await page.evaluate(() => globalThis.__xgcMixedRobotBenchmark.reset());
@@ -52,7 +55,7 @@ try {
     await cdp.send('HeapProfiler.collectGarbage');
     const afterGC = metrics(await cdp.send('Performance.getMetrics'));
     phases.push({
-      phase,durationMs,benchmark,
+      phase,parked:phase === 3,durationMs,benchmark,
       rates: {
         eventsPerSecond: benchmark.events * 1000 / durationMs,
         changesPerSecond: benchmark.changes * 1000 / durationMs,

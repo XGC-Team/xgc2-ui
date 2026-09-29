@@ -52,6 +52,7 @@ export function InputControl({
   unit,
   size = 'default',
   controlKind = 'input',
+  format,
   className = '',
   dataXgcRole,
   dataXgcId,
@@ -63,6 +64,8 @@ export function InputControl({
   unit?: string;
   size?: ControlSize;
   controlKind?: 'input' | 'search';
+  /** Code/expression surfaces opt into the family code face via data-xgc-format. */
+  format?: 'monospace';
   className?: string;
   dataXgcRole?: string;
   dataXgcId?: string;
@@ -70,7 +73,7 @@ export function InputControl({
 }) {
   return (
     <Input
-      className={controlClassNames('xgc-control', 'xgc-input-control', className)}
+      className={controlClassNames('xgc-control', 'xgc-input-control', 'control-input', className)}
       icon={icon}
       unit={unit}
       uiSize={size}
@@ -78,6 +81,7 @@ export function InputControl({
         'data-xgc-control': controlKind,
         'data-xgc-size': size,
         'data-xgc-unit': unit ? 'true' : undefined,
+        'data-xgc-format': format,
         'data-xgc-role': dataXgcRole,
         'data-xgc-id': dataXgcId,
       }}
@@ -101,7 +105,7 @@ export function TextareaControl({
 }) {
   return (
     <span
-      className={controlClassNames('xgc-control', 'xgc-textarea-control', className)}
+      className={controlClassNames('xgc-control', 'xgc-textarea-control', 'control-textarea', className)}
       data-xgc-control="textarea"
       data-xgc-role={dataXgcRole}
       data-xgc-id={dataXgcId}

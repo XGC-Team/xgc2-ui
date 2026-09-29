@@ -30,6 +30,33 @@ describe('useExperimentDashboardEditor composition', () => {
     expect(result.current.panels.items).toBe(panels);
   });
 
+  it('keeps the editor projection and command identities stable while commands use the latest state', () => {
+    const selectedExperiment = experimentFixture();
+    const saveExperimentDraft = vi.fn(async (experiment: ExperimentDocument, _reason?: string) => experiment);
+    const { result,rerender } = renderHook(
+      ({ experiment }) => useExperimentDashboardEditor({ selectedExperiment: experiment,saveExperimentDraft }),
+      { initialProps: { experiment: selectedExperiment },wrapper: ProductCompositionWrapper },
+    );
+    const first = result.current;
+
+    rerender({ experiment: selectedExperiment });
+
+    expect(result.current).toBe(first);
+    expect(result.current.session).toBe(first.session);
+    expect(result.current.panels).toBe(first.panels);
+    expect(result.current.dashboards).toBe(first.dashboards);
+    expect(result.current.drop).toBe(first.drop);
+
+    // Commands captured before Edit opened still act on the current session.
+    act(() => first.session.start());
+    act(() => first.panels.add(requiredPlugin('robot-instruments-grid')));
+
+    expect(result.current.session.editing).toBe(true);
+    expect(result.current.session.start).toBe(first.session.start);
+    expect(result.current.panels.add).toBe(first.panels.add);
+    expect(result.current.panels.items).toHaveLength(1);
+  });
+
   it('keeps dashboard, panel config and layout mutations local until one explicit save', async () => {
     const selectedExperiment = experimentFixture();
     const saveExperimentDraft = vi.fn(async (experiment: ExperimentDocument, _reason?: string) => experiment);
@@ -43,13 +70,13 @@ describe('useExperimentDashboardEditor composition', () => {
     act(() => result.current.panels.add(plugin));
     const panel = result.current.panels.items[0]!;
     act(() => result.current.panels.saveConfig({
-      ...panel,title: 'Fleet overview',options: { ...panel.options,compact: true },
+      ...panel,title: 'Swarm overview',options: { ...panel.options,compact: true },
     }));
     act(() => result.current.panels.updateLayout({ [panel.id]: { x: 3,y: 2,w: 9,h: 5 } }));
 
     expect(saveExperimentDraft).not.toHaveBeenCalled();
     expect(result.current.panels.items[0]).toMatchObject({
-      id: panel.id,title: 'Fleet overview',gridPos: { x: 3,y: 2,w: 9,h: 5 },
+      id: panel.id,title: 'Swarm overview',gridPos: { x: 3,y: 2,w: 9,h: 5 },
     });
     act(() => result.current.dashboards.create());
     expect(result.current.dashboards.items).toHaveLength(2);
@@ -124,6 +151,29 @@ describe('useExperimentDashboardEditor composition', () => {
     expect(result.current.session.editing).toBe(false);
     expect(result.current.panels.items).toHaveLength(0);
     expect(result.current.dashboards.selected.name).toBe('GCS');
+    expect(saveExperimentDraft).not.toHaveBeenCalled();
+  });
+
+  it('leaves a no-op Edit without confirmation and keeps the dialog after dashboard edits', () => {
+    const selectedExperiment = experimentFixture();
+    const saveExperimentDraft = vi.fn(async (experiment: ExperimentDocument, _reason?: string) => experiment);
+    const { result } = renderHook(
+      () => useExperimentDashboardEditor({ selectedExperiment,saveExperimentDraft }),
+      { wrapper: ProductCompositionWrapper },
+    );
+
+    act(() => result.current.session.start());
+    expect(result.current.session.dirty).toBe(false);
+    act(() => result.current.session.requestExit());
+    expect(result.current.session.editing).toBe(false);
+    expect(result.current.session.exitConfirmationOpen).toBe(false);
+
+    act(() => result.current.session.start());
+    act(() => result.current.dashboards.rename('gcs', 'Unsaved dashboard'));
+    expect(result.current.session.dirty).toBe(true);
+    act(() => result.current.session.requestExit());
+    expect(result.current.session.editing).toBe(true);
+    expect(result.current.session.exitConfirmationOpen).toBe(true);
     expect(saveExperimentDraft).not.toHaveBeenCalled();
   });
 
@@ -209,8 +259,9 @@ function experimentFixture(resourceId = 'experiment-a'): ExperimentDocument {
       revision: 1,createdAt: '',updatedAt: '',
     },
     spec: {
-      schemaVersion: 15,name: 'Experiment',description: '',tags: [],
+      schemaVersion:16,name: 'Experiment',description: '',tags: [],
       runModes: ['simulation','physical'],
+      worldBoundary:null,
       localizationOffset:{ x:0,y:0,z:0 },
       robots: [],workflowInstances: [],
       dashboards: [{ id: 'gcs',name: 'GCS',description: '',panels: [] }],

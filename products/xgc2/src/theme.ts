@@ -19,7 +19,10 @@ const themeTokenFallbacks = {
 
 export const externalVisualizationThemeDefaults = {
   gridColor: '#9e9e9e',
-  markerColor: '#ffbf00',
+  // AR11 identity TEXT default: azure, distinct from the OS13/OD5 obstacle
+  // amber and readable on both light floors and dark backdrops.
+  markerColor: '#00a2ff',
+  markerBackgroundColor: '#000000',
 } as const;
 
 export type AppThemeToken = keyof typeof themeTokenFallbacks;

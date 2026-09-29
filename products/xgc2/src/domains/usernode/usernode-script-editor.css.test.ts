@@ -19,14 +19,14 @@ describe('User script source editor', () => {
     expect(page).toContain('align-items: center');
     expect(page).not.toMatch(/align-items:\s*stretch/);
     expect(host).toContain('align-self: center');
-    expect(host).toContain('margin-inline: auto');
+    expect(host).not.toContain('margin-inline: auto');
     expect(host).not.toMatch(/width:\s*100%/);
     expect(host).not.toMatch(/justify-self:\s*stretch/);
   });
 
   it('keeps Script body as leftover-height chrome, not a one-line form control', () => {
     const field = css.match(/\.usernode-source-field(?:\.xgc-form-field)? \{[^}]*\}/s)?.[0] ?? '';
-    const editor = css.match(/\.usernode-source-editor\.xgc-textarea-control \{[^}]*\}/s)?.[0] ?? '';
+    const editor = css.match(/\.usernode-source-editor\.control-textarea \{[^}]*\}/s)?.[0] ?? '';
 
     expect(field).toContain('flex: 1 1 auto');
     expect(field).toContain('min-height: 0');
@@ -36,8 +36,13 @@ describe('User script source editor', () => {
     expect(css).toMatch(/\.usernode-script-identity \{[^}]*flex:\s*0 0 auto/s);
     expect(css).not.toMatch(/\.usernode-source-label/);
     const detail = css.match(/\[data-xgc-role="usernode-asset-detail"\] \{[^}]*\}/s)?.[0] ?? '';
+    const detailWrapper =
+      css.match(
+        /\[data-xgc-role="usernode-assets-page"\]:has\(\[data-xgc-role="usernode-asset-detail"\]\) \{[^}]*\}/s,
+      )?.[0] ?? '';
+    expect(detailWrapper).toContain('align-items: center');
     expect(detail).toContain('width: min(1120px, 100%)');
-    expect(detail).toContain('margin-inline: auto');
+    expect(detail).not.toContain('margin-inline: auto');
     expect(detail).toContain('align-self: center');
     expect(detail).not.toMatch(/width:\s*100%/);
   });

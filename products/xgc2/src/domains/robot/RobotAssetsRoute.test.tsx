@@ -26,7 +26,10 @@ vi.mock('../../hooks/useConfigurationLocation', () => ({
   useConfigurationLocation: mocks.useConfigurationLocation,
 }));
 vi.mock('../../app/navigationContext', () => ({
-  useNavigation: () => ({ page: 'robotAssets' }),
+  useNavigation: (select?: (state: never) => unknown) => {
+    const navigationState = ({ page: 'robotAssets' });
+    return select ? select(navigationState as never) : navigationState;
+  },
 }));
 vi.mock('../assets/assetsPublic', () => ({
   useConfigAssetCatalogView: mocks.useConfigAssetCatalogView,

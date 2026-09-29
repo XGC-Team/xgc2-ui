@@ -1,4 +1,7 @@
 import { useId } from 'react';
+import scoutPortraitUrl from './assets/scout-portrait.png';
+import mecanumPortraitUrl from './assets/mecanum-portrait.png';
+import fs150PortraitUrl from './assets/fs150-portrait.png';
 import './experiment-robot-portrait.css';
 
 export type ExperimentRobotPortraitProps = {
@@ -14,14 +17,29 @@ type Face = { points:Point[];material:Material;light:number;depth:number };
 const CAMERA:Point = [1,1,1];
 const LIGHT:Point = [0.25,-0.45,1];
 
+/** Generated clay-render portraits, one per URDF family, replacing hand-built faces. */
+const FAMILY_PORTRAIT_URL:Partial<Record<ExperimentRobotPortraitProps['family'],string>> = {
+  ground: scoutPortraitUrl,
+  mecanum: mecanumPortraitUrl,
+  air: fs150PortraitUrl,
+};
+
 /**
  * Rigid silhouettes, in metres, from robot-description/ros1/{scout,fs150,
  * mecanum}_description/urdf/*_visual.urdf. Joint centres below are kept in
  * their actual base_link coordinates. Bodies simplify their visual meshes;
  * every surface, axle, wheel and propeller uses the same isometric projection.
+ * Families with a generated portrait render that image instead.
  */
 export function ExperimentRobotPortrait({ family,selected = false,motion = true,variant = 0 }: ExperimentRobotPortraitProps) {
   const shadow = `${useId()}-shadow`;
+  const portraitUrl = FAMILY_PORTRAIT_URL[family];
+  if (portraitUrl) {
+    return (
+      <img className="experiment-robot-portrait experiment-robot-portrait-image" src={portraitUrl} alt="" aria-hidden="true"
+        data-family={family} data-selected={selected} data-motion={motion} data-variant={variant} />
+    );
+  }
   const faces = vehicleFaces(family).sort((a,b) => a.depth - b.depth);
   const vertices = faces.flatMap((face) => face.points.map(project));
   const minX = Math.min(...vertices.map(([x]) => x));
@@ -61,7 +79,7 @@ function vehicleFaces(family:ExperimentRobotPortraitProps['family']) {
   const add = (points:Point[],material:Material) => {
     const normal = unit(cross(subtract(points[1]!,points[0]!),subtract(points[2]!,points[0]!)));
     if (dot(normal,CAMERA) <= 0.000001) return;
-    faces.push({ points,material,light:38 + 57*Math.max(0,dot(normal,unit(LIGHT))),
+    faces.push({ points,material,light:34 + 63*Math.max(0,dot(normal,unit(LIGHT))),
       depth:points.reduce((sum,point) => sum+dot(point,CAMERA),0)/points.length });
   };
   const prism = (outline:readonly (readonly [number,number])[],bottom:number,top:number,material:Material) => {

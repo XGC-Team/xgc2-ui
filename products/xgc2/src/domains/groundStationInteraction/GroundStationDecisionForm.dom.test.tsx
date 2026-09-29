@@ -6,6 +6,14 @@ import { GroundStationDecisionResponseControls } from './GroundStationDecisionRe
 import type { GroundStationDecisionResponder } from './groundStationInteractionActions';
 import type { GroundStationDecisionInteraction } from './groundStationInteractionTypes';
 
+vi.mock('../operatorAccess/operatorAccessPublic', async (importOriginal) => ({
+  ...(await importOriginal() as object),
+  ensureOperatorControlSession: async () => true,
+  operatorControlSessionReady: () => true,
+  useOperatorControlSession: () => ({ phase: 'ready', ensuring: false, blocked: false, retry: vi.fn() }),
+  OperatorControlSessionNotice: () => null,
+}));
+
 function formDecision(): GroundStationDecisionInteraction {
   return {
     schemaVersion: 1,

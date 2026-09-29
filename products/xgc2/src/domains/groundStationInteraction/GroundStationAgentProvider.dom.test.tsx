@@ -1,15 +1,18 @@
 // @vitest-environment jsdom
 
-import { render,screen,waitFor } from '@testing-library/react';
+import { act,render,screen,waitFor } from '@testing-library/react';
 import { afterEach,beforeEach,describe,expect,it,vi } from 'vitest';
 import { emptyStream,type AgentSession,type StreamState } from '@xgc2/agent-runtime/state';
 import type * as AgentServiceModule from './groundStationAgentService';
+import { request } from '../../api/http';
 import {
   GroundStationAgentProvider,
   useGroundStationNativeAgentRegistry,
+  useGroundStationNativeAttention,
   useGroundStationAgentStreamFocus,
   type GroundStationNativeBinding,
 } from './GroundStationAgentProvider';
+import { IDLE_ATTENTION_MS } from './useAgentConversationAttention';
 
 const native = vi.hoisted(() => ({
   state: undefined as StreamState | undefined,
@@ -47,6 +50,14 @@ function RegistryProbe() {
   return <output>{observed ? `${observed.state.cursor} / ${observed.connection} / ${observed.error}` : 'unavailable'}</output>;
 }
 
+let attentionRenders = 0;
+
+function AttentionProbe() {
+  useGroundStationNativeAttention();
+  attentionRenders += 1;
+  return null;
+}
+
 function StreamFocus({ experimentId }: { experimentId: string }) {
   useGroundStationAgentStreamFocus(experimentId,true);
   return null;
@@ -59,14 +70,22 @@ beforeEach(() => {
   native.connection = 'connected';
   native.error = '';
   native.getNativeSessionPage.mockResolvedValue({sessions:[session]});
-  window.localStorage.setItem('xgc.ground-station.native-agent.bindings.v1',JSON.stringify({
-    version: 1,bindings: [{ experimentId: 'exp-a',sessionId: session.id }],
-  }));
+  window.localStorage.setItem('xgc.ground-station.conversation-selection.v2',JSON.stringify({ 'exp-a': session.id }));
 });
 
 afterEach(() => window.localStorage.clear());
 
 describe('Native Agent stream projection', () => {
+  it('selects the authoritative server conversation when only retired browser bindings exist', async () => {
+    window.localStorage.removeItem('xgc.ground-station.conversation-selection.v2');
+    window.localStorage.setItem('xgc.ground-station.native-agent.bindings.v1',JSON.stringify({
+      version: 1,bindings: [{ experimentId: 'exp-a',sessionId: 'retired-session' }],
+    }));
+    render(<GroundStationAgentProvider executionTargetId="local"><StreamFocus experimentId="exp-a" /><RegistryProbe /></GroundStationAgentProvider>);
+    await screen.findByText('0 / connected /');
+    expect(JSON.parse(window.localStorage.getItem('xgc.ground-station.conversation-selection.v2')!)).toEqual({ 'exp-a': session.id });
+  });
+
   it('retains an unchanged projection across parent renders and propagates real stream changes', async () => {
     const surface = () => <GroundStationAgentProvider executionTargetId="local"><StreamFocus experimentId="exp-a" /><RegistryProbe /></GroundStationAgentProvider>;
     const view = render(surface());
@@ -87,5 +106,23 @@ describe('Native Agent stream projection', () => {
     view.rerender(surface());
     await screen.findByText('1 / disconnected / stream unavailable');
     expect(native.getNativeSessionPage).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('Native Agent attention', () => {
+  it('does not re-render attention consumers on an unchanged poll', async () => {
+    vi.useFakeTimers();
+    try {
+      attentionRenders = 0;
+      render(<GroundStationAgentProvider executionTargetId="local"><AttentionProbe /></GroundStationAgentProvider>);
+      await act(() => vi.advanceTimersByTimeAsync(0));
+      const settled = attentionRenders;
+      const polls = vi.mocked(request).mock.calls.length;
+      for (let poll = 0; poll < 3; poll += 1) await act(() => vi.advanceTimersByTimeAsync(IDLE_ATTENTION_MS));
+      expect(vi.mocked(request).mock.calls.length).toBe(polls + 3);
+      expect(attentionRenders).toBe(settled);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

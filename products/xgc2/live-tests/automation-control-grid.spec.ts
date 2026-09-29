@@ -1,6 +1,6 @@
 import { expect,test,type Locator } from '@playwright/test';
 
-const experimentName = '5 PX4 multirotors + 2 Mecanum UGVs experiment';
+const experimentName = 'SCE';
 const gridSelector = '[data-xgc-role="automation-workflow-action-grid"][data-xgc-id="paper-leader-sce1"]';
 const actionSelector = '[data-xgc-role="panel-action-invoke"]';
 
@@ -12,17 +12,20 @@ test('Automation grids wrap square actions with equal outer insets',async ({ pag
   expect(experiment).toBeDefined();
   await page.goto(`/#/experiments/${experiment!.head.resourceId}/gcs`);
   const grid = page.locator(gridSelector);
-  await expect(grid.locator(actionSelector)).toHaveCount(7);
+  await expect(grid.locator(actionSelector)).toHaveCount(6);
 
   for (const viewport of [{ width:1920,height:1080 },{ width:1440,height:960 }]) {
     await page.setViewportSize(viewport);
     await expect.poll(async () => equalInsets(await gridGeometry(grid))).toBe(true);
     const geometry = await gridGeometry(grid);
     expect(geometry.columns).toBe(geometry.view.width <= 300 ? 2 : 4);
-    verifyGrid(geometry,7);
-    const resetPose = geometry.cards.find((card) => card.id === 'reset-pose');
-    expect(resetPose).toBeDefined();
-    expect(resetPose!.width).toBeCloseTo(resetPose!.height,1);
+    verifyGrid(geometry,6);
+    const record = geometry.cards.find((card) => card.id === 'record');
+    expect(record).toBeDefined();
+    const reset = geometry.cards.find((card) => card.id === 'reset');
+    expect(reset).toBeDefined();
+    expect(reset!.width).toBeCloseTo(reset!.height,1);
+    expect(geometry.cards.find((card) => card.id === 'reset-pose')).toBeUndefined();
     for (const skin of ['light','dark']) {
       await page.locator('html').evaluate((element,value) => element.setAttribute('data-skin',value),skin);
       await testInfo.attach(`gcs-${viewport.width}-${skin}`,{
@@ -57,7 +60,7 @@ test('Automation grids wrap square actions with equal outer insets',async ({ pag
       },size);
       const geometry = await gridGeometry(isolatedGrid);
       expect(geometry.columns).toBe(size.columns);
-      verifyGrid(geometry,7);
+      verifyGrid(geometry,6);
       await testInfo.attach(`isolated-${size.width}x${size.height}-geometry`,{
         body:Buffer.from(JSON.stringify(geometry,null,2)),contentType:'application/json',
       });

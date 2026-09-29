@@ -1,3 +1,4 @@
+import { formatOperatorDateTime } from '../../shared/operatorTime';
 import { useEffect,useState,type ReactNode } from 'react';
 import { ControlButton } from '../../components/controls/ControlButton';
 import { Notice,StatusText } from '@xgc2/ui-react';
@@ -198,7 +199,6 @@ function RelationError({ label,kind,message,role,id }: { label: string;kind?: st
 }
 function formatTimestamp(value?: string) {
   if (!value) return '—';
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+  return formatOperatorDateTime(value);
 }
 function shortID(value: string) { return value.length > 16 ? `${value.slice(0, 10)}…${value.slice(-4)}` : value; }

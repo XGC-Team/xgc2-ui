@@ -20,7 +20,9 @@ export type HostRouteProps = {
 export function HostRoute({
   composition = EMPTY_HOST_SYSTEM_COMPOSITION,
 }: HostRouteProps = {}) {
-  const nav = useNavigation();
+  const nav = useNavigation((state) => ({
+    managedHostId: state.managedHostId,systemSection: state.pageSection('system'),setPageSection: state.setPageSection,
+  }));
   const { routedTargetCoreId,selectedTargetCore } = useTargetCore('system');
   const managedHosts = useManagedHosts();
   const { setPageSection } = nav;
@@ -44,7 +46,7 @@ export function HostRoute({
       current?.focus.requestId === requestId ? undefined : current
     ));
   },[]);
-  const requestedTab = (nav.pageSection('system') || 'overview') as HostTab;
+  const requestedTab = (nav.systemSection || 'overview') as HostTab;
   const [lastHostTab,setLastHostTab] = useState<HostTab>(() => requestedTab === 'maintenance' ? 'overview' : requestedTab);
   // Maintenance belongs to its own parked ToolboxRoute. Keep this route's
   // existing leaves mounted while that sibling is active, including file paths.
@@ -69,6 +71,7 @@ export function HostRoute({
       executionTargetId={executionTargetId}
       systemProfile={system.systemProfile}
       managementConnection={system.managementConnection}
+      agentLink={selectedHost?.link}
       composition={composition}
       runtimeProcessFocus={runtimeProcessFocus?.targetKey === targetKey
         ? runtimeProcessFocus.focus

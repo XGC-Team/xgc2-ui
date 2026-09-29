@@ -9,8 +9,8 @@
 
 import {
   clamp,
+  measuredQuaternion,
   normalizeYaw,
-  normalizedQuaternion,
   numberValue,
   objectValue,
   quaternionYawDegrees,
@@ -18,6 +18,11 @@ import {
   stringValue,
   type RobotHealthTone,
 } from '../../../../panels/robot/robotTelemetryValues';
+import {
+  b2CoreSubscriptionReady,
+  robotConnectionPresentation,
+  type RobotConnectionPresentation,
+} from '../../../../panels/robot/robotConnectionPresentation';
 
 /** Channels for full instrument face (single / double board). */
 export const b2InstrumentChannels = [
@@ -110,6 +115,7 @@ export type B2RobotInstrumentTelemetry = {
   online: boolean;
   operationalReady: boolean;
   connectionState: string;
+  connectionDetail?: string;
   poseFresh: boolean;
   velocityStale: boolean;
   speedStale: boolean;
@@ -126,6 +132,7 @@ export type B2RobotInstrumentTelemetry = {
   jointsStale: boolean;
   streamHealth: Record<string, unknown>;
   link: Record<string, unknown>;
+  linkStale?: boolean;
   poseSequence?: number;
   speedSequence?: number;
   powerSequence?: number;
@@ -137,6 +144,7 @@ export type B2RobotInstrumentTelemetry = {
 export type B2RobotInstrumentReadout = {
   online: boolean;
   operationalReady: boolean;
+  connectionPresentation: RobotConnectionPresentation;
   streamState: 'live' | 'stale' | 'offline';
   heading: number | null;
   linearSpeed: number | null;
@@ -160,21 +168,26 @@ export type B2RobotInstrumentReadout = {
 };
 
 export function b2RobotInstrumentReadout(input: B2RobotInstrumentTelemetry): B2RobotInstrumentReadout {
-  const orientation = objectValue(input.pose.orientation);
-  const position = objectValue(input.pose.position);
-  const hasOrientation = Boolean(orientation && ['x', 'y', 'z', 'w'].some((axis) => numberValue(orientation[axis]) != null));
+  const orientation = input.poseFresh ? measuredQuaternion(objectValue(input.pose.orientation)) : null;
+  const position = input.poseFresh ? objectValue(input.pose.position) : undefined;
   const percentage = numberValue(input.power.percentage);
   const roundTripTimeMs = numberValue(input.link.roundTripTimeMs);
-  const connectionState = input.connectionState.trim().toLowerCase();
-  const linear = objectValue(input.velocity.linear);
-  const angular = objectValue(input.velocity.angular);
-  const linearSpeed = numberValue(input.speed.metersPerSecond)
-    ?? planarSpeed(linear);
+  const linear = input.velocityStale ? undefined : objectValue(input.velocity.linear);
+  const angular = input.velocityStale ? undefined : objectValue(input.velocity.angular);
+  const linearSpeed = input.speedStale
+    ? null
+    : numberValue(input.speed.metersPerSecond) ?? planarSpeed(linear);
   const motionEnabled = typeof input.locomotion.motionEnabled === 'boolean'
     ? input.locomotion.motionEnabled
     : null;
   const commandStale = input.locomotion.commandStale === true;
-  const streamState = !input.online
+  const anyStream = input.poseFresh
+    || !input.velocityStale
+    || !input.speedStale
+    || !input.powerStale
+    || !input.locomotionStale
+    || !input.jointsStale;
+  const streamState = !anyStream
     ? 'offline'
     : !input.poseFresh
       || input.velocityStale
@@ -184,28 +197,39 @@ export function b2RobotInstrumentReadout(input: B2RobotInstrumentTelemetry): B2R
       || input.jointsStale
       ? 'stale'
       : 'live';
+  const connectionPresentation = robotConnectionPresentation({
+    connectionState: input.connectionState,
+    connectionDetail: input.connectionDetail,
+    hasRun: input.healthTone !== 'idle',
+    coreReady: b2CoreSubscriptionReady(
+      input.linkStale === undefined && Object.keys(input.link).length === 0
+        ? undefined
+        : { stale: input.linkStale === true },
+    ),
+  });
   return {
     online: input.online,
     operationalReady: input.healthTone === 'healthy',
+    connectionPresentation,
     streamState,
-    heading: hasOrientation ? normalizeYaw(quaternionYawDegrees(normalizedQuaternion(orientation))) : null,
+    heading: orientation ? normalizeYaw(quaternionYawDegrees(orientation)) : null,
     linearSpeed,
     angularSpeed: numberValue(angular?.z) ?? null,
     x: numberValue(position?.x) ?? null,
     y: numberValue(position?.y) ?? null,
     z: numberValue(position?.z) ?? null,
-    battery: percentage == null ? null : clamp(percentage <= 1 ? percentage * 100 : percentage, 0, 100),
-    batteryVoltage: numberValue(input.power.voltageV) ?? null,
-    batteryCurrent: numberValue(input.power.currentA) ?? null,
+    battery: input.powerStale || percentage == null
+      ? null
+      : clamp(percentage <= 1 ? percentage * 100 : percentage, 0, 100),
+    batteryVoltage: input.powerStale ? null : numberValue(input.power.voltageV) ?? null,
+    batteryCurrent: input.powerStale ? null : numberValue(input.power.currentA) ?? null,
     locomotionMode: b2LocomotionLabel(input.locomotion),
     motionEnabled,
     commandStale,
     jointCount: b2JointCount(input.joints),
     jointsStale: input.jointsStale,
     health: stringValue(input.health.summary) ?? input.healthTone,
-    link: input.online
-      ? connectionState === 'live' ? 'live' : connectionState || 'online'
-      : 'offline',
+    link: connectionPresentation,
     roundTripTimeMs: roundTripTimeMs == null ? null : Math.max(0, roundTripTimeMs),
     pose: input.poseFresh ? 'fresh' : 'stale',
     frequencies: {

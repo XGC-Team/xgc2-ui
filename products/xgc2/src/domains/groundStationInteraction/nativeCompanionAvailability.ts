@@ -28,6 +28,21 @@ export function operatorNativeErrorMessage(cause: unknown): string {
   return messageOf(cause);
 }
 
+export function composerControlReason(input: {
+  locale: 'en' | 'zh';
+  companionUnavailable: boolean;
+  providersLoaded: boolean;
+  hasEnabledProvider: boolean;
+}): string {
+  if (input.companionUnavailable) {
+    return input.locale === 'zh' ? '本机客户端未连接' : 'The local companion is not connected';
+  }
+  if (input.providersLoaded && !input.hasEnabledProvider) {
+    return input.locale === 'zh' ? '没有已启用的供应者。在设置中启用。' : 'No enabled provider. Enable one in Settings.';
+  }
+  return '';
+}
+
 export function isNativeCompanionUnavailableMessage(message: string): boolean {
   return COMPANION_COPY.has(message)
     || (/^request timeout after \d+ms: /.test(message) && message.includes('/native-agents/'));

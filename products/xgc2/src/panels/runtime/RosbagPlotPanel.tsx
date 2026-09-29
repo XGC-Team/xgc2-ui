@@ -1,5 +1,5 @@
-import { useEffect,useMemo,useState,type DragEvent,type PointerEvent } from 'react';
-import { EmptyState,Notice } from '@xgc2/ui-react';
+import { memo,useCallback,useEffect,useMemo,useRef,useState,type DragEvent,type PointerEvent } from 'react';
+import { Button,EmptyState,Notice } from '@xgc2/ui-react';
 import { ControlButton } from '../../components/controls/ControlButton';
 import { SelectControl } from '../../components/controls/SelectControl';
 import {
@@ -27,6 +27,7 @@ import {
   removeSeriesFromPane,
   seriesColorIndex,
   seriesIdForField,
+  type RosbagPlotPane,
   type RosbagPlotWorkspace,
 } from './rosbagPlotPanelModel';
 import { useRuntimePanelText } from './runtimeMessages';
@@ -42,7 +43,22 @@ export function RosbagPlotPanel({ panel,context }: PanelPluginProps<readonly ['v
   const [catalogError,setCatalogError] = useState('');
   const [seriesById,setSeriesById] = useState<Record<string,ROSBagPlotSeries>>({});
   const [collapsed,setCollapsed] = useState<string[]>([]);
-  const [hover,setHover] = useState<{ paneId: string;t: number }>();
+  const [hover,setHoverState] = useState<{ paneId: string;t: number }>();
+
+  // Pointer moves arrive per event; commit at most one hover update per frame.
+  const hoverFrameRef = useRef<number | undefined>(undefined);
+  const pendingHoverRef = useRef<{ paneId: string;t: number } | undefined>(undefined);
+  const setHover = useCallback((next: { paneId: string;t: number } | undefined) => {
+    pendingHoverRef.current = next;
+    if (hoverFrameRef.current !== undefined) return;
+    hoverFrameRef.current = requestAnimationFrame(() => {
+      hoverFrameRef.current = undefined;
+      setHoverState(pendingHoverRef.current);
+    });
+  }, []);
+  useEffect(() => () => {
+    if (hoverFrameRef.current !== undefined) cancelAnimationFrame(hoverFrameRef.current);
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -103,6 +119,12 @@ export function RosbagPlotPanel({ panel,context }: PanelPluginProps<readonly ['v
   }, [seriesById,wanted,workspace.bagId]);
 
   const topics = plottableTopics(catalog?.topics);
+  const handleDropOnPane = useCallback((paneId: string, seriesId: string) => {
+    setWorkspace((current) => addSeriesToPane(current, paneId, seriesId));
+  }, []);
+  const handleRemoveSeries = useCallback((paneId: string, seriesId: string) => {
+    setWorkspace((current) => removeSeriesFromPane(current, paneId, seriesId));
+  }, []);
   const selectBag = (bagId: string) => {
     setWorkspace(emptyRosbagPlotWorkspace(bagId));
     setSeriesById({});
@@ -161,92 +183,130 @@ export function RosbagPlotPanel({ panel,context }: PanelPluginProps<readonly ['v
             data-xgc-role="rosbag-plot-empty"
             data-xgc-id={panel.id}
           />
-        ) : workspace.panes.map((pane) => {
-          const series = pane.seriesIds.map((id) => seriesById[id]).filter(Boolean) as ROSBagPlotSeries[];
-          const scale = chartScale(series);
-          return (
-            <article
-              key={pane.id}
-              className="rosbag-plot-pane"
-              data-xgc-role="rosbag-plot-pane"
-              data-xgc-id={pane.id}
-              onDragOver={(event) => event.preventDefault()}
-              onDrop={(event) => {
-                const drag = readFieldDrag(event);
-                if (!drag) return;
-                event.preventDefault();
-                event.stopPropagation();
-                setWorkspace((current) => addSeriesToPane(current, pane.id, drag.seriesId));
-              }}
-            >
-              <header className="rosbag-plot-legend">
-                {pane.seriesIds.map((id) => (
-                  <span key={id} data-series={seriesColorIndex(id, pane.seriesIds)}>
-                    {id}
-                    <ControlButton
-                      size="compact"
-                      appearance="ghost"
-                      aria-label={t('Remove {name}',{ name:id })}
-                      dataXgcRole="rosbag-plot-remove"
-                      dataXgcId={id}
-                      onClick={() => setWorkspace((current) => removeSeriesFromPane(current, pane.id, id))}
-                    >×</ControlButton>
-                  </span>
-                ))}
-              </header>
-              <svg
-                className="rosbag-plot-chart"
-                viewBox={`0 0 ${ROSBAG_CHART_GEOMETRY.width} ${ROSBAG_CHART_GEOMETRY.height}`}
-                preserveAspectRatio="none"
-                aria-label={t('Rosbag time series')}
-                onPointerMove={(event) => setHover({ paneId: pane.id,t: timeAtPointer(event, scale) })}
-                onPointerLeave={() => setHover(undefined)}
-              >
-                <rect
-                  className="rosbag-plot-plot-area"
-                  x={ROSBAG_CHART_GEOMETRY.left}
-                  y={ROSBAG_CHART_GEOMETRY.top}
-                  width={ROSBAG_CHART_GEOMETRY.width - ROSBAG_CHART_GEOMETRY.left - ROSBAG_CHART_GEOMETRY.right}
-                  height={ROSBAG_CHART_GEOMETRY.height - ROSBAG_CHART_GEOMETRY.top - ROSBAG_CHART_GEOMETRY.bottom}
-                />
-                {series.map((item) => (
-                  <polyline
-                    key={item.id}
-                    className="rosbag-plot-line"
-                    data-series={seriesColorIndex(item.id, pane.seriesIds)}
-                    fill="none"
-                    points={polylineForSeries(item.points, scale)}
-                  />
-                ))}
-                <text className="rosbag-plot-axis" x={8} y={16}>{formatTick(scale.vMax)}</text>
-                <text className="rosbag-plot-axis" x={8} y={ROSBAG_CHART_GEOMETRY.height - 28}>{formatTick(scale.vMin)}</text>
-                <text className="rosbag-plot-axis" x={ROSBAG_CHART_GEOMETRY.left} y={ROSBAG_CHART_GEOMETRY.height - 6}>
-                  {formatTick(scale.tMin)}s
-                </text>
-                <text
-                  className="rosbag-plot-axis"
-                  x={ROSBAG_CHART_GEOMETRY.width - 48}
-                  y={ROSBAG_CHART_GEOMETRY.height - 6}
-                >
-                  {formatTick(scale.tMax)}s
-                </text>
-              </svg>
-              {hover?.paneId === pane.id && (
-                <p className="rosbag-plot-readout" data-xgc-role="rosbag-plot-readout" data-xgc-id={pane.id}>
-                  {pane.seriesIds.map((id) => {
-                    const seriesItem = seriesById[id];
-                    const point = seriesItem ? nearestPoint(seriesItem.points, hover.t) : undefined;
-                    return `${id}=${point ? formatTick(point.v) : '—'}`;
-                  }).join(' · ')}
-                </p>
-              )}
-            </article>
-          );
-        })}
+        ) : workspace.panes.map((pane) => (
+          <PlotPane
+            key={pane.id}
+            pane={pane}
+            seriesById={seriesById}
+            hoverT={hover?.paneId === pane.id ? hover.t : undefined}
+            onDropSeries={handleDropOnPane}
+            onHover={setHover}
+            onRemoveSeries={handleRemoveSeries}
+          />
+        ))}
       </div>
     </section>
   );
 }
+
+const PlotPane = memo(function PlotPane({
+  pane,
+  seriesById,
+  hoverT,
+  onDropSeries,
+  onHover,
+  onRemoveSeries,
+}: {
+  pane: RosbagPlotPane;
+  seriesById: Record<string,ROSBagPlotSeries>;
+  hoverT: number | undefined;
+  onDropSeries: (paneId: string, seriesId: string) => void;
+  onHover: (next: { paneId: string;t: number } | undefined) => void;
+  onRemoveSeries: (paneId: string, seriesId: string) => void;
+}) {
+  const t = useRuntimePanelText();
+  const series = useMemo(
+    () => pane.seriesIds.map((id) => seriesById[id]).filter(Boolean) as ROSBagPlotSeries[],
+    [pane.seriesIds, seriesById],
+  );
+  const scale = useMemo(() => chartScale(series), [series]);
+  const lines = useMemo(
+    () => series.map((item) => ({ id: item.id,points: polylineForSeries(item.points, scale) })),
+    [series, scale],
+  );
+  const readout = useMemo(() => {
+    if (hoverT === undefined) return undefined;
+    return pane.seriesIds.map((id) => {
+      const seriesItem = seriesById[id];
+      const point = seriesItem ? nearestPoint(seriesItem.points, hoverT) : undefined;
+      return `${id}=${point ? formatTick(point.v) : '—'}`;
+    }).join(' · ');
+  }, [hoverT, pane.seriesIds, seriesById]);
+
+  return (
+    <article
+      className="rosbag-plot-pane"
+      data-xgc-role="rosbag-plot-pane"
+      data-xgc-id={pane.id}
+      onDragOver={(event) => event.preventDefault()}
+      onDrop={(event) => {
+        const drag = readFieldDrag(event);
+        if (!drag) return;
+        event.preventDefault();
+        event.stopPropagation();
+        onDropSeries(pane.id, drag.seriesId);
+      }}
+    >
+      <header className="rosbag-plot-legend">
+        {pane.seriesIds.map((id) => (
+          <span key={id} data-series={seriesColorIndex(id, pane.seriesIds)}>
+            {id}
+            <ControlButton
+              size="compact"
+              appearance="ghost"
+              aria-label={t('Remove {name}',{ name:id })}
+              dataXgcRole="rosbag-plot-remove"
+              dataXgcId={id}
+              onClick={() => onRemoveSeries(pane.id, id)}
+            >×</ControlButton>
+          </span>
+        ))}
+      </header>
+      <svg
+        className="rosbag-plot-chart"
+        viewBox={`0 0 ${ROSBAG_CHART_GEOMETRY.width} ${ROSBAG_CHART_GEOMETRY.height}`}
+        preserveAspectRatio="none"
+        aria-label={t('Rosbag time series')}
+        onPointerMove={(event) => onHover({ paneId: pane.id,t: timeAtPointer(event, scale) })}
+        onPointerLeave={() => onHover(undefined)}
+      >
+        <rect
+          className="rosbag-plot-plot-area"
+          x={ROSBAG_CHART_GEOMETRY.left}
+          y={ROSBAG_CHART_GEOMETRY.top}
+          width={ROSBAG_CHART_GEOMETRY.width - ROSBAG_CHART_GEOMETRY.left - ROSBAG_CHART_GEOMETRY.right}
+          height={ROSBAG_CHART_GEOMETRY.height - ROSBAG_CHART_GEOMETRY.top - ROSBAG_CHART_GEOMETRY.bottom}
+        />
+        {lines.map((line) => (
+          <polyline
+            key={line.id}
+            className="rosbag-plot-line"
+            data-series={seriesColorIndex(line.id, pane.seriesIds)}
+            fill="none"
+            points={line.points}
+          />
+        ))}
+        <text className="rosbag-plot-axis" x={8} y={16}>{formatTick(scale.vMax)}</text>
+        <text className="rosbag-plot-axis" x={8} y={ROSBAG_CHART_GEOMETRY.height - 28}>{formatTick(scale.vMin)}</text>
+        <text className="rosbag-plot-axis" x={ROSBAG_CHART_GEOMETRY.left} y={ROSBAG_CHART_GEOMETRY.height - 6}>
+          {formatTick(scale.tMin)}s
+        </text>
+        <text
+          className="rosbag-plot-axis"
+          x={ROSBAG_CHART_GEOMETRY.width - 48}
+          y={ROSBAG_CHART_GEOMETRY.height - 6}
+        >
+          {formatTick(scale.tMax)}s
+        </text>
+      </svg>
+      {readout !== undefined && (
+        <p className="rosbag-plot-readout" data-xgc-role="rosbag-plot-readout" data-xgc-id={pane.id}>
+          {readout}
+        </p>
+      )}
+    </article>
+  );
+});
 
 function TopicTree({
   topics,
@@ -264,30 +324,32 @@ function TopicTree({
       {topics.map((topic) => {
         const isCollapsed = collapsed.includes(topic.name);
         return (
-          <li key={topic.name} data-xgc-role="rosbag-plot-topic" data-xgc-id={topic.name}>
-            <button
+          <li key={topic.name} data-xgc-role="rosbag-plot-topic" data-xgc-id={`${panelId}:${topic.name}`}>
+            <Button
+              appearance="ghost"
               type="button"
               className="rosbag-plot-topic-toggle"
               data-xgc-role="rosbag-plot-topic-toggle"
-              data-xgc-id={topic.name}
+              data-xgc-id={`${panelId}:${topic.name}`}
               aria-expanded={!isCollapsed}
               onClick={() => onToggle(topic.name)}
             >
               <span>{topic.name}</span>
               <small>{topic.messageCount}</small>
-            </button>
+            </Button>
             {isCollapsed ? null : (
               <ul className="rosbag-plot-fields">
                 {topic.fields.map((field) => {
                   const seriesId = seriesIdForField(topic.name, field);
                   return (
                     <li key={field}>
-                      <button
+                      <Button
+                        appearance="ghost"
                         type="button"
                         className="rosbag-plot-field"
                         draggable
                         data-xgc-role="rosbag-plot-field"
-                        data-xgc-id={seriesId}
+                        data-xgc-id={`${panelId}:${seriesId}`}
                         onDragStart={(event) => {
                           event.dataTransfer.effectAllowed = 'copy';
                           event.dataTransfer.setData(ROSBAG_FIELD_DRAG_TYPE, JSON.stringify({
@@ -297,7 +359,7 @@ function TopicTree({
                         }}
                       >
                         {field}
-                      </button>
+                      </Button>
                     </li>
                   );
                 })}

@@ -14,10 +14,11 @@ import { checkRobotAssetReachability } from '../../domains/robot/robotAssetPubli
 import type * as RobotAssetPublic from '../../domains/robot/robotAssetPublic';
 
 const listProjectionSpy = vi.hoisted(() => vi.fn());
+const projectionChannelsSpy = vi.hoisted(() => vi.fn());
 const reachabilityProbeSpy = vi.hoisted(() => vi.fn());
 
 vi.mock('./useRobotProjectionChannels',() => ({
-  useRobotProjectionChannels:() => ({
+  useRobotProjectionChannels:(options: unknown) => (projectionChannelsSpy(options),{
     channels:{},healthChannel:undefined,health:{},status:{ online:false,operationalReady:false,status:'offline' },
     flight:false,mocapRotor:false,kindProjection:undefined,
     pose:{},poseChannel:undefined,mocap:undefined,localizationError:{},streamHealth:{},
@@ -79,6 +80,25 @@ describe('RobotProjectionCard selection',() => {
     view.rerender(tree(true));act(() => vi.advanceTimersByTime(ROBOT_INSTRUMENT_DETAIL_SHOW_DELAY_MS));
     expect(screen.queryByRole('tooltip')).toBeNull();
     vi.useRealTimers();
+  });
+
+  it.each(['route','dashboard'])('parks telemetry drawing while its %s is hidden, keeping the card mounted', (scope) => {
+    const tree=(visible: boolean) => <ProductRouteVisibilityProvider visible={scope === 'route' ? visible : true}>
+      <ExperimentSurfaceVisibilityProvider visible={scope === 'dashboard' ? visible : true}>
+        <RobotProjectionCard targetId="local" assetTargetCoreId="local" robot={{ id:'robot',robotAssetId:'asset' } as never} selected={false} instrument onSelect={vi.fn()} />
+      </ExperimentSurfaceVisibilityProvider>
+    </ProductRouteVisibilityProvider>;
+    const view=render(tree(true));
+    const card=view.container.querySelector('[data-xgc-role="run-robot-card"]');
+    expect(projectionChannelsSpy).toHaveBeenLastCalledWith(expect.objectContaining({ parked:false }));
+
+    view.rerender(tree(false));
+    expect(projectionChannelsSpy).toHaveBeenLastCalledWith(expect.objectContaining({ parked:true }));
+    expect(view.container.querySelector('[data-xgc-role="run-robot-card"]')).toBe(card);
+
+    view.rerender(tree(true));
+    expect(projectionChannelsSpy).toHaveBeenLastCalledWith(expect.objectContaining({ parked:false }));
+    expect(view.container.querySelector('[data-xgc-role="run-robot-card"]')).toBe(card);
   });
 
   it('uses the asset catalog Core for Ping independently of the execution target', async () => {
@@ -164,8 +184,13 @@ describe('RobotProjectionCard selection',() => {
     expect(tooltip.style.top).toBe('72px');
     expect(tooltip.querySelector('[data-xgc-role="robot-instrument-detail-row"][data-xgc-id="px4-04:ip"]')?.textContent)
       .toContain('192.168.51.11');
-    expect(tooltip.querySelector('[data-xgc-role="robot-instrument-detail-ping"]')).not.toBeNull();
-    expect(tooltip.querySelector('[data-xgc-role="robot-instrument-detail-ssh"]')).not.toBeNull();
+    expect(tooltip.querySelector('[data-xgc-role="robot-instrument-detail-ping"]'))
+      .toHaveAttribute('data-xgc-icon-only', 'true');
+    expect(tooltip.querySelector('[data-xgc-role="robot-instrument-detail-ping"]'))
+      .toHaveClass('robot-asset-reachability');
+    expect(tooltip.querySelector('[data-xgc-role="robot-instrument-detail-ssh"]'))
+      .toHaveAttribute('data-xgc-icon-only', 'true');
+    expect(tooltip.textContent).not.toMatch(/\bPing\b|\bSSH\b/);
 
     fireEvent.pointerDown(card, { button: 0 });
     expect(onSelect).toHaveBeenCalledWith('px4-04');

@@ -8,6 +8,7 @@ import {
   finalModuleProvenancePlugin,
   parseXgcWebMetafilePath,
 } from './finalModuleProvenancePlugin';
+import { fontPreloadPlugin } from './fontPreloadPlugin';
 import { markPromptHerdrBridgePlugin } from './markPromptHerdrBridgePlugin';
 
 type ForwardedHeaderRequest = {
@@ -30,9 +31,9 @@ export function forwardOriginalRequestAuthority(
   const host = request.headers.host?.trim();
   if (host) proxyRequest.setHeader('X-Forwarded-Host', host);
   // Native clients enforce Host/Origin themselves. Preserve the authority on
-  // Experiment and exact Settings routes; the shared broker does not trust xfwd.
+  // Experiment and exact host routes; the shared broker does not trust xfwd.
   const nativeRoute = /^\/api\/experiments\/[^/?]+\/native-agents(?:[/?]|$)/.test(request.url ?? '')
-    || /^\/api\/native-agents\/settings(?:\/refresh)?$/.test(request.url ?? '');
+    || /^\/api\/native-agents\/(?:settings(?:\/refresh)?|attention)$/.test(request.url ?? '');
   if (host && nativeRoute) {
     proxyRequest.setHeader('Host', host);
   }
@@ -88,7 +89,7 @@ export function productWebCompositionModulePath(
     throw new Error('XGC_WEB_COMPOSITION_MODULE must select a .ts or .tsx module.');
   }
   const normalized = selected.replace(/\\/g, '/');
-  const fixedProductEntry = /(?:^|\/)core-xgc\/\.xgc-products\/(?:core-dev|core-local-fleet-dev|core-release|core-jg-dev|core-jg-release)\/[0-9a-f]{64}\/web\/profile-entry\.tsx$/;
+  const fixedProductEntry = /(?:^|\/)core-xgc\/\.xgc-products\/(?:core-dev|core-local-swarm-dev|core-release|core-jg-dev|core-jg-release)\/[0-9a-f]{64}\/web\/profile-entry\.tsx$/;
   if (productBuild && !fixedProductEntry.test(normalized)) {
     throw new Error(
       'XGC_WEB_COMPOSITION_MODULE must select the fixed generated ProductWorkspace '
@@ -188,15 +189,36 @@ function sha256(content:string|NodeJS.ArrayBufferView) {
   return `sha256:${createHash('sha256').update(content).digest('hex')}`;
 }
 
+/**
+ * @xgc2/agent-runtime ships ESM without a package `sideEffects` field, so
+ * Rollup keeps every module its React entry re-exports wherever that entry is
+ * reached. Its scripts only declare components, contexts and class variants;
+ * let Rollup drop the unused ones (the chat timeline, composer and markdown
+ * stack) from bundles that only need a hook or a card. Its stylesheet keeps
+ * its side effect.
+ */
+export function moduleHasSideEffects(id: string) {
+  return !/\/node_modules\/@xgc2\/agent-runtime\/dist\/.+\.js$/.test(id.replace(/\\/g,'/'));
+}
+
 const webMetafilePath = parseXgcWebMetafilePath();
 const webDevServerPort = parseXgcWebDevServerPort();
 
 export default defineConfig({
+  // Worktrees can share node_modules; each Vite server needs its own
+  // dependency graph so another checkout cannot replace its React chunks.
+  cacheDir: fileURLToPath(new URL('./.vite', import.meta.url)),
   plugins: [
     react(),
+    fontPreloadPlugin(),
     markPromptHerdrBridgePlugin(),
     ...(webMetafilePath ? [finalModuleProvenancePlugin(webMetafilePath)] : []),
   ],
+  build: {
+    rollupOptions: {
+      treeshake: { moduleSideEffects: moduleHasSideEffects },
+    },
+  },
   resolve: {
     // Product profile entries live under core-xgc/.xgc-products rather than
     // beneath web/. Resolve their JSX runtime and icon imports from this Web
@@ -214,12 +236,10 @@ export default defineConfig({
       // Generated product profiles live alongside the Web workspace.
       allow: ['..'],
     },
-    // Pin HMR so the browser always gets a valid ws://127.0.0.1:5173 URL.
-    // Without this, Vite 7 can inject null host/port and the client throws
-    // TypeError: Invalid URL in transformWebSocketUrl / createConnection.
+    // Keep a concrete port to protect against the historical null-port URL and
+    // direct-target fallback. Vite derives host and ws/wss from the loaded
+    // client URL, so LAN and HTTPS browsers use their actual page authority.
     hmr: {
-      protocol: 'ws',
-      host: '127.0.0.1',
       port: webDevServerPort,
       clientPort: webDevServerPort,
     },

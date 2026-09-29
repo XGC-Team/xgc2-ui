@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import type { ExperimentDocument } from '../experimentModel';
 import { getPanelPlugin } from '../../../panels/builtinPanels';
 import { useDashboardEditSession } from './useDashboardEditSession';
@@ -53,5 +54,5 @@ export function useExperimentDashboardEditor({
     addPanel: panels.add,
   });
 
-  return { session,dashboards,panels,drop };
+  return useMemo(() => ({ session,dashboards,panels,drop }),[dashboards,drop,panels,session]);
 }

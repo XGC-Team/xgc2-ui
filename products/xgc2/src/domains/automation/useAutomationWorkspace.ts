@@ -1,4 +1,4 @@
-import { useCallback,useRef,useState,type Dispatch,type SetStateAction } from 'react';
+import { useCallback,useMemo,useRef,useState,type Dispatch,type SetStateAction } from 'react';
 import type { AutomationDocument } from './automationDefinitionContracts';
 import { useAutomationAuthoring } from './useAutomationAuthoring';
 import { useAutomationDefinitionsCatalog } from './useAutomationDefinitionsCatalog';
@@ -157,8 +157,14 @@ export function useAutomationWorkspace(
     || selection.selectionError
     || definitions.documentsError
     || nodeCatalog.catalogError;
+  const hasMoreRuns = history.runHistory.automationResourceId === selection.selected?.head.resourceId
+    && history.runHistory.complete
+    && Boolean(history.runHistory.nextCursor);
 
-  return {
+  // Field-wise memo: every field is a state/snapshot reference or a stable
+  // callback, so an unrelated host re-render keeps this object identical and
+  // does not invalidate downstream render contexts.
+  return useMemo(() => ({
     targetId,
     documents: definitions.documents,
     documentsError: definitions.documentsError,
@@ -176,9 +182,7 @@ export function useAutomationWorkspace(
     historyEntries: history.historyEntries,
     historyComplete: history.runHistory.complete,
     historyUnavailableSources: history.runHistory.unavailableSources,
-    hasMoreRuns: history.runHistory.automationResourceId === selection.selected?.head.resourceId
-      && history.runHistory.complete
-      && Boolean(history.runHistory.nextCursor),
+    hasMoreRuns,
     runsLoadingMore: history.runsLoadingMore,
     retryingIngressEventIds: ingress.retryingIngressEventIds,
     ingressRetryErrors: ingress.ingressRetryErrors,
@@ -237,8 +241,33 @@ export function useAutomationWorkspace(
     cancel: runActions.cancel,
     loadRunDetail: runDetails.loadRunDetail,
     retainRunDetail:runDetails.retainRunDetail,
+    retainRunObservation:runDetails.retainRunObservation,
     refreshRun: runDetails.refreshRun,
     loadRun: runDetails.loadRun,
     close: selection.close,
-  };
+  }),[
+    authoring.addNamespace,authoring.archive,authoring.archiveNamespace,authoring.commit,
+    authoring.create,authoring.duplicate,authoring.move,authoring.renameNamespace,authoring.restore,
+    definitions.documents,definitions.documentsError,definitions.documentsLoaded,
+    definitions.documentsLoading,definitions.namespaces,definitions.namespacesError,
+    definitions.namespacesLoaded,definitions.namespacesLoading,
+    error,executionStreamState,hasMoreRuns,
+    history.historyEntries,history.historyError,history.loadMoreRuns,history.refreshExecutionHistory,
+    history.runHistory,history.runSummaries,history.runsLoadingMore,history.setExecutionHistoryVisible,
+    ingress.ingressRetryErrors,ingress.ingressTransitionLedgers,ingress.loadIngressTransitions,
+    ingress.loadMoreIngressTransitions,ingress.retryExecutionIngress,ingress.retryingIngressEventIds,
+    loading,mcp.discoverMCPCatalog,mcp.mcpCatalogs,mcp.mcpConnections,mcp.mcpConnectionsLoading,
+    mcp.refreshMCPConnections,mcp.removeMCPConnection,mcp.saveMCPConnection,
+    nodeCatalog.catalog,nodeCatalog.catalogError,nodeCatalog.catalogLoaded,nodeCatalog.catalogLoading,
+    refresh,runActions.cancel,runActions.runBoundAutomation,runActions.runDocument,runActions.start,
+    runActions.stop,runActions.stopRunSet,
+    runDetails.loadRun,runDetails.loadRunDetail,runDetails.retainRunDetail,
+    runDetails.retainRunObservation,runDetails.refreshRun,runDetails.runDetailsById,
+    selection.close,selection.open,selection.selected,selection.selectionError,
+    selection.selectionLoading,selection.selectionNotFound,selection.selectionResourceId,
+    targetId,triggers.activate,triggers.activationCredentials,triggers.activations,
+    triggers.activationsError,triggers.activationsLoading,triggers.cancelTestListener,
+    triggers.deactivate,triggers.dismissActivationCredential,triggers.runOnce,
+    triggers.startTestListener,triggers.submitTestEvent,triggers.testListeners,
+  ]);
 }

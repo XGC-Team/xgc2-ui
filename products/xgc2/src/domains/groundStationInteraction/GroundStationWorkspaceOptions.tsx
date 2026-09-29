@@ -1,8 +1,7 @@
-import { useEffect,useState } from 'react';
 import { Notice } from '@xgc2/ui-react';
 import { FormField } from '../../components/FormPrimitives';
 import { SelectControl } from '../../components/controls/SelectControl';
-import { getGroundStationNativeCapabilities,type GroundStationNativeCapabilities } from './groundStationAgentService';
+import { useGroundStationWorkspaceCapabilities } from './useGroundStationWorkspaceCapabilities';
 import { useGroundStationNativeText } from './groundStationAgentMessages';
 
 /** The panel stores a workspace selection; each conversation retains its own binding. */
@@ -10,16 +9,7 @@ export function GroundStationWorkspaceOptions({experimentId,options,onChange}:{
   experimentId?:string; options:Record<string,unknown>; onChange:(options:Record<string,unknown>)=>void;
 }) {
   const t=useGroundStationNativeText();
-  const [capabilities,setCapabilities]=useState<GroundStationNativeCapabilities>();
-  const [error,setError]=useState('');
-  useEffect(() => {
-    if (!experimentId) return;
-    const controller=new AbortController();
-    void getGroundStationNativeCapabilities(experimentId,controller.signal).then(value => {
-      if (!controller.signal.aborted) setCapabilities(value);
-    }).catch(cause => {if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : String(cause));});
-    return () => controller.abort();
-  },[experimentId]);
+  const {capabilities,error}=useGroundStationWorkspaceCapabilities(experimentId);
   const selected=typeof options.workspaceId === 'string' ? options.workspaceId : capabilities?.workspaceBinding?.workspace.id ?? '';
   return <><FormField label={t('Experiment workspace')} description={t('New conversations use this directory. Existing conversations keep their workspace.')}
     dataXgcRole="ground-station-chat-workspace" dataXgcId={experimentId ?? 'new'}>

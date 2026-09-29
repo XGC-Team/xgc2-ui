@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import {
   AutomationGraph,
   projectAutomationGraphRuntime,
@@ -12,15 +13,20 @@ export function CameraCalibrationWorkflowView({
   panelId,
   workflow,
   detail,
-  catalog,
+  catalog,loadRunDetail,
 }: {
   kind: 'intrinsic' | 'extrinsic';
   panelId: string;
   workflow?: AutomationDocument;
   detail?: AutomationRunDetail;
   catalog: AutomationNodeCatalogEntry[];
+  loadRunDetail?:(id:string) => Promise<AutomationRunDetail>;
 }) {
   const t = useCameraText();
+  const runId=detail?.run?.id;
+  useEffect(() => {
+    if (runId && loadRunDetail && !detail?.snapshot && !detail?.loading && !detail?.error) void loadRunDetail(runId);
+  },[detail?.snapshot,detail?.loading,detail?.error,loadRunDetail,runId]);
   if (!workflow) {
     return (
       <div

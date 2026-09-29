@@ -4,6 +4,7 @@ import {
   lichtblickProcessStillLive,
   lichtblickWorkspaceEmptyKind,
   lichtblickWorkspaceIsPreparing,
+  lichtblickWorkspaceStartupPhase,
   nextHeldLichtblickActionRunIds,
   nextHeldLichtblickEmbed,
 } from './lichtblickWorkspaceHold';
@@ -59,8 +60,38 @@ describe('lichtblickWorkspaceHold',() => {
     })).toBe('stopped');
   });
 
+  it('keeps preparing while an active start is disconnected',() => {
+    expect(lichtblickWorkspaceIsPreparing({
+      connected:false,active:true,runtimeLoading:false,
+      hasOwnedLiveProcess:false,runtimeReady:false,
+    })).toBe(true);
+    expect(lichtblickWorkspaceIsPreparing({
+      connected:false,active:false,runtimeLoading:true,
+      hasOwnedLiveProcess:false,runtimeReady:false,
+    })).toBe(false);
+  });
+
   it('marks a live desired process as still owned through starting and stopping',() => {
     expect(lichtblickProcessStillLive({ desiredState:'running',observedState:'starting' })).toBe(true);
     expect(lichtblickProcessStillLive({ desiredState:'stopped',observedState:'stopped' })).toBe(false);
+  });
+
+  it('keeps startup rails in starting while a ready viewer is still handing over',() => {
+    expect(lichtblickWorkspaceIsPreparing({
+      connected:true,active:true,runtimeLoading:false,
+      hasOwnedLiveProcess:true,runtimeReady:true,
+    })).toBe(false);
+    expect(lichtblickWorkspaceEmptyKind({
+      runtimeError:'',stopping:false,preparing:false,
+    })).toBe('stopped');
+    expect(lichtblickWorkspaceStartupPhase({
+      stopping:false,runtimeError:'',active:true,hasOwnedLiveProcess:true,hasEmbed:true,
+    })).toBe('starting');
+    expect(lichtblickWorkspaceStartupPhase({
+      stopping:true,runtimeError:'',active:false,hasOwnedLiveProcess:false,hasEmbed:false,
+    })).toBe('stopping');
+    expect(lichtblickWorkspaceStartupPhase({
+      stopping:false,runtimeError:'',active:false,hasOwnedLiveProcess:false,hasEmbed:false,
+    })).toBe('stopped');
   });
 });

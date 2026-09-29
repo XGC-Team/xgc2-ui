@@ -44,7 +44,7 @@ describe('CameraCalibrationWorkflowView', () => {
     const waiting = container.querySelector('[data-xgc-role="automation-node"][data-xgc-id="read-request"]')!;
     expect(waiting).toHaveAttribute('data-xgc-status', 'running');
     expect(waiting).toHaveAttribute('data-xgc-runtime-state', 'active');
-    expect(waiting.querySelector('[data-xgc-role="automation-node-tile"]')).not.toHaveAttribute('data-running');
+    expect(waiting.querySelector('[data-xgc-role="automation-node-tile"]')).toHaveAttribute('data-running', 'true');
     expect(waiting.querySelector('[data-xgc-role="automation-node-operator-status"]')).toHaveTextContent('running');
 
     const succeeded = container.querySelector('[data-xgc-role="automation-node"][data-xgc-id="managed"]')!;

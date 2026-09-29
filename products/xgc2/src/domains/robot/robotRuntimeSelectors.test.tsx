@@ -6,6 +6,7 @@ import { afterEach,beforeEach,describe,expect,it,vi } from 'vitest';
 import type { RobotChannelProjection,RunRobotProjection } from './robotRuntimeModel';
 import {
   useLiveConnectedRobotIds,
+  useRobotRuns,
   useRobotChannelBundle,
   useRunRobots,
   type RobotChannelBundleRefresh,
@@ -224,6 +225,45 @@ describe('Robot channel bundle snapshot consistency', () => {
     expect(hook.result.current['state.pose']?.sequence).toBe(2);
   });
 
+  it('draws nothing while parked and returns with the latest value in the same render', () => {
+    writeChannel(1);
+    let renders = 0;
+    const hook = renderHook(({ parked }) => {
+      renders += 1;
+      return useRobotChannelBundle('local','run-1','robot-1',poseChannels,'compact',parked);
+    },{ initialProps: { parked: false } });
+    hook.rerender({ parked: true });
+    const parkedRenders = renders;
+    act(() => {
+      for (let sequence = 2; sequence <= 40; sequence += 1) {
+        writeChannel(sequence);
+        vi.advanceTimersByTime(50);
+      }
+    });
+    // Two seconds of 20 Hz patches: no coalesced draw reaches a parked card.
+    expect(renders).toBe(parkedRenders);
+    expect(hook.result.current['state.pose']?.sequence).toBe(1);
+
+    hook.rerender({ parked: false });
+
+    expect(hook.result.current['state.pose']?.sequence).toBe(40);
+    act(() => { writeChannel(41); vi.advanceTimersByTime(200); });
+    expect(hook.result.current['state.pose']?.sequence).toBe(41);
+  });
+
+  it('keeps the parked card mounted and its run retained', async () => {
+    const { retainRobotRun } = await import('./robotConnectionStore');
+    vi.mocked(retainRobotRun).mockClear();
+    writeChannel(1);
+    const hook = renderHook(({ parked }) => (
+      useRobotChannelBundle('local','run-1','robot-1',poseChannels,'compact',parked)
+    ),{ initialProps: { parked: false } });
+    hook.rerender({ parked: true });
+    hook.rerender({ parked: false });
+    // One retention for the mounted hook; parking is not a release.
+    expect(retainRobotRun).toHaveBeenCalledTimes(1);
+  });
+
   it('releases queued work and channel listeners on unmount', () => {
     writeChannel(1);
     const reads = vi.spyOn(runtime, 'getRobotChannelRuntime');
@@ -237,6 +277,38 @@ describe('Robot channel bundle snapshot consistency', () => {
 });
 
 describe('Live robot ID snapshot ownership', () => {
+  it('distinguishes a known disconnected robot from an unrelated pending root', () => {
+    seedRun('local','connected-root');
+    seedRun('local','pending-root',[]);
+    const pending=runtime.getRunRuntimeState('local','pending-root').projection!;
+    runtime.updateRunRuntimeState('local','pending-root',{projection:{...pending,pending:true}});
+    const hook=renderHook(()=>useLiveConnectedRobotIds('local',['connected-root','pending-root']));
+    expect(hook.result.current.pending).toBe(true);
+    expect(hook.result.current.knownIds).toEqual(['robot-1']);
+    expect(hook.result.current.liveIds).toEqual(['robot-1']);
+    act(()=>{
+      const projection=runtime.getRunRuntimeState('local','connected-root').projection!;
+      runtime.updateRunRuntimeState('local','connected-root',{projection:{...projection,
+        robots:projection.robots.map(robot=>({...robot,connectionState:'closed'})),
+      }});
+    });
+    expect(hook.result.current.knownIds).toEqual(['robot-1']);
+    expect(hook.result.current.liveIds).toEqual([]);
+    expect(hook.result.current.disconnectedIds).toEqual(['robot-1']);
+  });
+
+  it('does not present a local observation route as a connected physical Robot', () => {
+    seedRun('local','observation');
+    const projection = runtime.getRunRuntimeState('local','observation').projection!;
+    runtime.updateRunRuntimeState('local','observation',{projection:{...projection,
+      robots:projection.robots.map(robot => ({...robot,online:false,operationalReady:false,status:'offline'})),
+    }});
+    const hook = renderHook(() => useLiveConnectedRobotIds('local',['observation']));
+    expect(hook.result.current.knownIds).toEqual(['robot-1']);
+    expect(hook.result.current.liveIds).toEqual([]);
+    expect(hook.result.current.disconnectedIds).toEqual([]);
+  });
+
   it('does not retain derived snapshots for released target/run sets', () => {
     const maps = new Set<Map<unknown,unknown>>();
     const originalSet = Map.prototype.set;
@@ -286,5 +358,27 @@ describe('Live robot ID snapshot ownership', () => {
     const stable = second.result.current;
     second.rerender();
     expect(second.result.current).toBe(stable);
+  });
+});
+
+
+describe('Robot projection owners across manual connections', () => {
+  it('shows a manual connection while the managed roster is empty, and retains separate owners', () => {
+    seedRun('local','managed',[]);
+    seedRun('local','manual-1');
+    const hook = renderHook(({ ids }) => useRobotRuns('local',ids), {
+      initialProps: { ids:['managed','manual-1'] },
+    });
+    expect(hook.result.current.projection.robots.map(robot => robot.id)).toEqual(['robot-1']);
+    expect(hook.result.current.runIdsByRobotId).toEqual({ 'robot-1':'manual-1' });
+    act(() => { seedRun('local','manual-2',['robot-2']); });
+    hook.rerender({ ids:['managed','manual-1','manual-2'] });
+    expect(hook.result.current.runIdsByRobotId).toEqual({ 'robot-1':'manual-1','robot-2':'manual-2' });
+    const snapshot = hook.result.current;
+    hook.rerender({ ids:['manual-2','manual-1','managed','manual-1'] });
+    expect(hook.result.current).toBe(snapshot);
+    hook.rerender({ ids:[] });
+    expect(hook.result.current.projection.robots).toEqual([]);
+    expect(hook.result.current.runIdsByRobotId).toEqual({});
   });
 });

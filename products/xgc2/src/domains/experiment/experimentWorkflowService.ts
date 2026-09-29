@@ -6,6 +6,7 @@ import { SYSTEM_EXPERIMENT_RUNNER_AUTOMATION_RESOURCE_ID } from '../../shared/wo
 import {
   getAutomationRun,
   isAutomationRunRevisionConflict,
+  listAutomationExecutionHistory,
   startAutomationRun,
   stopAutomationRunSet,
   type AutomationRun,
@@ -15,6 +16,7 @@ import {
 import type { ExperimentDocument } from './experimentModel';
 import type {
   ExperimentConfigRef,
+  ExperimentPlacement,
   ExperimentSessionView,
   ExperimentRunRecord,
   ExperimentRunView,
@@ -36,6 +38,7 @@ export const SYSTEM_EXPERIMENT_RUNNER = Object.freeze({
     runPanel:'run-panel',
     invokePanelAction:'invoke-panel-action',
     stopAll:'stop-all',
+    restart:'restart',
   }),
 });
 
@@ -59,6 +62,53 @@ export function runningExperimentIdsFromSessions(
   return new Set(views.flatMap((view) => isExperimentSessionActive(view)
     ? [view.session.experimentResourceId]
     : []));
+}
+
+const ACTIVE_EXPERIMENT_OCCUPANCY_RUN_STATUSES = [
+  'accepted','queued','running','waiting','stopping',
+] as const;
+
+const LEFTOVER_OCCUPANCY_PAGE_LIMIT = 100;
+const LEFTOVER_OCCUPANCY_PAGE_LIMIT_MAX = 10;
+
+/**
+ * Station-wide Experiment occupancy that is not a live Session: leftover
+ * System Runner roots still accepted/queued/running/waiting/stopping after the
+ * Session has already canceled. Occupancy must not probe Experiments one-by-one.
+ */
+export async function listLeftoverExperimentOccupancyIds(
+  targetId:string,
+  signal?:AbortSignal,
+):Promise<readonly string[]> {
+  const ids = new Set<string>();
+  let cursor:string|undefined;
+  for (let page = 0; page < LEFTOVER_OCCUPANCY_PAGE_LIMIT_MAX; page += 1) {
+    const result = await listAutomationExecutionHistory(targetId,{
+      automationResourceId:SYSTEM_EXPERIMENT_RUNNER.resourceId,
+      runStatuses:[...ACTIVE_EXPERIMENT_OCCUPANCY_RUN_STATUSES],
+      limit:LEFTOVER_OCCUPANCY_PAGE_LIMIT,
+      cursor,
+      signal,
+    });
+    for (const entry of result.entries) {
+      const run = entry.run;
+      if (!run
+        || run.actionId === SYSTEM_EXPERIMENT_RUNNER.actions.stopAll
+        || !isRunStatusActive(run.status)
+        || run.parentRunId
+        || (run.rootRunId && run.rootRunId !== run.id)
+        || run.automationResourceId !== SYSTEM_EXPERIMENT_RUNNER.resourceId
+        || run.sourceKind !== 'experiment'
+        || run.sourceRef?.domain !== 'experiment'
+        || !run.sourceRef.resourceId) {
+        continue;
+      }
+      ids.add(run.sourceRef.resourceId);
+    }
+    if (result.complete || !result.nextCursor) return [...ids];
+    cursor = result.nextCursor;
+  }
+  throw new Error('Leftover Experiment occupancy scan reached its safety limit.');
 }
 
 export function experimentSessionIsRunning(
@@ -142,6 +192,7 @@ export async function startExperimentRun(
   targetId:string,
   experiment:ExperimentDocument,
   runMode:string,
+  placement?:ExperimentPlacement,
 ):Promise<ExperimentRunView> {
   const exactRunMode = runMode.trim();
   if (!exactRunMode) throw new Error('Experiment Run requires a runMode string.');
@@ -149,8 +200,26 @@ export async function startExperimentRun(
     actionId:SYSTEM_EXPERIMENT_RUNNER.actions.run,
     automationRef:systemExperimentRunnerRef(),
     experimentRef:experimentConfigRef(experiment),
-    parameters:{ runMode:exactRunMode },
+    parameters:runnerParameters({ runMode:exactRunMode },placement),
     reason:`Run Experiment ${experiment.spec.name}`,
+  });
+  return experimentRunView(run,experiment,targetId);
+}
+
+export async function restartExperimentRun(
+  targetId:string,
+  experiment:ExperimentDocument,
+  runMode:string,
+  placement?:ExperimentPlacement,
+):Promise<ExperimentRunView> {
+  const exactRunMode = runMode.trim();
+  if (!exactRunMode) throw new Error('Experiment Restart requires a runMode string.');
+  const run = await startAutomationRun(targetId,{
+    actionId:SYSTEM_EXPERIMENT_RUNNER.actions.restart,
+    automationRef:systemExperimentRunnerRef(),
+    experimentRef:experimentConfigRef(experiment),
+    parameters:runnerParameters({ runMode:exactRunMode },placement),
+    reason:`Restart Experiment ${experiment.spec.name}`,
   });
   return experimentRunView(run,experiment,targetId);
 }
@@ -161,6 +230,8 @@ export async function startExperimentPanelRun(
   runMode:string,
   panelId:string,
   inputOverrides:Record<string,unknown> = {},
+  placement?:ExperimentPlacement,
+  presetId?:string,
 ):Promise<ExperimentRunView> {
   const exactRunMode = runMode.trim();
   const exactPanelId = panelId.trim();
@@ -169,11 +240,12 @@ export async function startExperimentPanelRun(
     actionId:SYSTEM_EXPERIMENT_RUNNER.actions.runPanel,
     automationRef:systemExperimentRunnerRef(),
     experimentRef:experimentConfigRef(experiment),
-    parameters:{
+    parameters:runnerParameters({
       panelId:exactPanelId,
       runMode:exactRunMode,
       inputOverridesJson:JSON.stringify(inputOverrides),
-    },
+      ...(presetId ? { presetId } : {}),
+    },placement),
     reason:`Run Panel ${exactPanelId} in Experiment ${experiment.spec.name}`,
   });
   return experimentRunView(run,experiment,targetId);
@@ -229,7 +301,7 @@ export async function stopExperimentRunnerRoot(
   let anchor = root;
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
-      return await stopAutomationRunSet(targetId,anchor.id,{
+      const response = await stopAutomationRunSet(targetId,anchor.id,{
         expectedRevision:anchor.revision,
         includeAnchor:true,
         // This is an explicit operator stop of one Panel/Action root. Total
@@ -237,13 +309,27 @@ export async function stopExperimentRunnerRoot(
         // detached-observed Agent roots.
         includeDetached:true,
         reason,
+        // A CAS retry has a new expectedRevision, hence a new receipt payload.
+        // Transport replay of an accepted command must instead keep its key.
         ...createMutationIdentity('experiment.panel-run-set.stop'),
       });
+      const failures = response.outcomes.filter((outcome) => outcome.error);
+      if (failures.length > 0) {
+        throw new Error(`Panel Stop was incomplete: ${failures.map((outcome) => (
+          `${outcome.runId}: ${outcome.error}`
+        )).join('; ')}`);
+      }
+      // This receipt acknowledges Stop; it is not a resource-cleanup barrier.
+      return response;
     } catch (cause) {
       if (!isAutomationRunRevisionConflict(cause) || attempt === 2) throw cause;
       const refreshed = await getAutomationRun(targetId,anchor.id);
-      if (!isSystemExperimentRunnerRoot(refreshed)) {
-        throw new Error('Panel Runner identity changed while Stop was being reconciled.');
+      // A Panel under Total Run is an ordinary child, not a System root.
+      // Never broaden Stop to its parent merely because the revision changed.
+      if (refreshed.id !== root.id || refreshed.targetId !== targetId
+        || refreshed.revision < anchor.revision
+        || (refreshed.revision === anchor.revision && refreshed.status !== anchor.status)) {
+        throw new Error('Panel Run identity or revision changed while Stop was being reconciled.');
       }
       anchor = refreshed;
     }
@@ -265,6 +351,8 @@ export function experimentRunView(
   const sourceRef = run.sourceRef;
   if (!sourceRef) throw new Error('Experiment System Runner source is unavailable.');
   const parameterSource = exactRun && exactRun.id === run.id ? exactRun : run;
+  const placement = placementFrom(parameterSource);
+  const panelId = panelIdFrom(parameterSource);
   return {
     id:run.id,
     targetId:run.targetId || fallbackTargetId,
@@ -276,7 +364,8 @@ export function experimentRunView(
     automationResourceId:run.automationResourceId,
     actionId:run.actionId,
     runMode:runModeFrom(parameterSource),
-    ...(panelIdFrom(parameterSource) ? { panelId:panelIdFrom(parameterSource) } : {}),
+    ...(placement ? { placement } : {}),
+    ...(panelId ? { panelId } : {}),
     status:run.status,
     revision:run.revision,
     rootRunId:run.rootRunId || run.id,
@@ -377,9 +466,22 @@ function experimentConfigRef(experiment:ExperimentDocument):ExperimentConfigRef 
   };
 }
 
+function runnerParameters(
+  parameters:Record<string,string>,
+  placement?:ExperimentPlacement,
+):Record<string,string> {
+  if (placement !== 'centralized' && placement !== 'per-robot') return parameters;
+  return { ...parameters,placement };
+}
+
 function runModeFrom(run:ExperimentRunRecord):string {
   const value = 'parameters' in run ? run.parameters.runMode : run.experimentSelector?.runMode;
   return typeof value === 'string' ? value : '';
+}
+
+function placementFrom(run:ExperimentRunRecord):ExperimentPlacement | undefined {
+  const value = 'parameters' in run ? run.parameters.placement : run.experimentSelector?.placement;
+  return value === 'centralized' || value === 'per-robot' ? value : undefined;
 }
 
 function panelIdFrom(run:ExperimentRunRecord):string {

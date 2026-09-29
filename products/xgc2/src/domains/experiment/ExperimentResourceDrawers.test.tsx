@@ -110,8 +110,9 @@ function experiment(): ExperimentDocument {
   return {
     ...resource('experiment','exp-1','Experiment'),
     spec: {
-      schemaVersion: 15,name: 'Experiment',description: '',tags: [],
+      schemaVersion:16,name: 'Experiment',description: '',tags: [],
       runModes: ['simulation','physical'],
+      worldBoundary:null,
       localizationOffset:{ x:0,y:0,z:0 },
       dashboards: [{ id: 'gcs',name: 'GCS',description: '',panels: [] }],
       robots: [{

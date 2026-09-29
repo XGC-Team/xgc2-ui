@@ -7,25 +7,48 @@ import {
   lichtblickLayoutModeLabel,
   lichtblickLayoutOptions,
   lichtblickLayoutPresentation,
+  lichtblickPanelOptionsNeedRewrite,
+  persistLichtblickPanelOptions,
   validateLichtblickLayoutOptions,
 } from './lichtblickLayoutOptions';
 
 describe('lichtblickLayoutOptions', () => {
-  it('applies launch defaults while refusing to invent a required marker color', () => {
-    expect(lichtblickLayoutOptions({ dashboard: 'gcs' })).toEqual({
-      ...LICHTBLICK_LAYOUT_DEFAULTS,
-      markerColor: '',
-    });
-    expect(validateLichtblickLayoutOptions({ dashboard: 'gcs' })).toContain('Marker color is required');
+  it('applies launch defaults including the AR11 text color', () => {
+    expect(lichtblickLayoutOptions({ dashboard: 'gcs' })).toEqual(LICHTBLICK_LAYOUT_DEFAULTS);
+    expect(validateLichtblickLayoutOptions({ dashboard: 'gcs' })).toBe('');
+    expect(validateLichtblickLayoutOptions({ markerColor: '' })).toBe('');
+    expect(validateLichtblickLayoutOptions({ markerBackgroundColor: '' })).toBe('');
+    expect(LICHTBLICK_LAYOUT_DEFAULTS.markerColor).toBe('#00a2ff');
+    expect(LICHTBLICK_LAYOUT_DEFAULTS.markerBackgroundColor).toBe('#000000');
+    expect(LICHTBLICK_LAYOUT_DEFAULTS.markerBackgroundVisible).toBe(false);
+    expect(LICHTBLICK_LAYOUT_DEFAULTS.predictionLineWidth).toBe(0.01);
+    expect(LICHTBLICK_LAYOUT_DEFAULTS.predictionAxisScale).toBe(0.15);
+  });
+
+  it('persists Scout history colors without requiring an authored text color', () => {
+    const scoutPalette = [...LICHTBLICK_LAYOUT_DEFAULTS.scoutPalette];
+    scoutPalette[0] = '#123456';
+    const saved = persistLichtblickPanelOptions({ dashboard: 'gcs' }, { scoutPalette });
+    expect(saved.markerColor).toBe(LICHTBLICK_LAYOUT_DEFAULTS.markerColor);
+    expect(saved.scoutPalette).toEqual(scoutPalette);
+    expect(validateLichtblickLayoutOptions(saved)).toBe('');
+    expect(persistLichtblickPanelOptions({ markerColor: '' }).markerColor).toBe(LICHTBLICK_LAYOUT_DEFAULTS.markerColor);
+    expect(persistLichtblickPanelOptions({}, { markerColor: '' }).markerColor).toBe(LICHTBLICK_LAYOUT_DEFAULTS.markerColor);
+    expect(persistLichtblickPanelOptions({ markerBackgroundColor: '' }).markerBackgroundColor).toBe(LICHTBLICK_LAYOUT_DEFAULTS.markerBackgroundColor);
+    expect(persistLichtblickPanelOptions({}, { markerBackgroundColor: '' }).markerBackgroundColor).toBe(LICHTBLICK_LAYOUT_DEFAULTS.markerBackgroundColor);
+    expect(persistLichtblickPanelOptions({ markerBackgroundVisible: false }).markerBackgroundVisible).toBe(false);
   });
 
   it('preserves valid typed layout options and canonicalizes color', () => {
     expect(lichtblickLayoutOptions({
       layoutMode: '3d-camera-ar',gridVisible: true,gridColor: '#A1B2C3',gridSize: 25.5,gridDivisions: 40,gridLineWidth: 2,
-      axesVisible: true,axesScale: 2.5,markerColor: '#DDEEFF',
+      axesVisible: true,axesScale: 2.5,predictionLineWidth: 0.03,predictionAxisScale: 0.25,
+      markerColor: '#DDEEFF',markerBackgroundVisible: false,markerBackgroundColor: '#112233',
     })).toEqual({
+      ...LICHTBLICK_LAYOUT_DEFAULTS,
       layoutMode: '3d-camera-ar',gridVisible: true,gridColor: '#a1b2c3',gridSize: 25.5,gridDivisions: 40,gridLineWidth: 2,
-      axesVisible: true,axesScale: 2.5,markerColor: '#ddeeff',plotPaths:[],
+      axesVisible: true,axesScale: 2.5,predictionLineWidth: 0.03,predictionAxisScale: 0.25,
+      markerColor: '#ddeeff',markerBackgroundVisible: false,markerBackgroundColor: '#112233',plotPaths:[],
     });
   });
 
@@ -96,12 +119,60 @@ describe('lichtblickLayoutOptions', () => {
   });
 
   it('rejects values which cannot enter a protected workflow Run', () => {
+    expect(lichtblickLayoutOptions({ uavHeightProjection:false }).uavHeightProjection).toBe(false);
+    expect(lichtblickLayoutOptions({}).uavHeightProjection).toBe(true);
+    expect(validateLichtblickLayoutOptions({ ...LICHTBLICK_LAYOUT_DEFAULTS,uavHeightProjection:'false' })).toContain('must be boolean');
     expect(validateLichtblickLayoutOptions({ gridColor: 'blue' })).toContain('hexadecimal');
     expect(validateLichtblickLayoutOptions({ gridDivisions: 1.5 })).toContain('integer');
     expect(validateLichtblickLayoutOptions({ gridSize: 0 })).toContain('between');
     expect(validateLichtblickLayoutOptions({ axesScale: 0 })).toContain('World axis size');
+    expect(validateLichtblickLayoutOptions({ worldBoundaryMode: 'ceiling' })).toContain('World fence display');
+    expect(validateLichtblickLayoutOptions({ predictionLineWidth: 0 })).toContain('Prediction line width');
+    expect(validateLichtblickLayoutOptions({ predictionAxisScale: 0 })).toContain('Prediction axis size');
     expect(validateLichtblickLayoutOptions({ layoutMode: 'camera' })).toContain('Initial layout');
-    expect(validateLichtblickLayoutOptions({ markerColor: 'black' })).toContain('Marker color');
+    expect(validateLichtblickLayoutOptions({ markerColor: 'black' })).toContain('Text color');
+    expect(validateLichtblickLayoutOptions({ markerBackgroundColor: 'black' })).toContain('Background color');
+    expect(validateLichtblickLayoutOptions({ markerBackgroundVisible: 'true' })).toContain('Show background');
     expect(validateLichtblickLayoutOptions(LICHTBLICK_LAYOUT_DEFAULTS)).toBe('');
+  });
+
+  it('ignores a retired history window and always projects world axes on', () => {
+    expect(lichtblickLayoutOptions({ historyWindowSec:10,axesVisible:false })).toEqual(LICHTBLICK_LAYOUT_DEFAULTS);
+    expect(lichtblickLayoutOptions({}).axesVisible).toBe(true);
+    expect(validateLichtblickLayoutOptions({ ...LICHTBLICK_LAYOUT_DEFAULTS,historyWindowSec:0 })).toBe('');
+    expect(validateLichtblickLayoutOptions({ ...LICHTBLICK_LAYOUT_DEFAULTS,uavPalette:[] })).toContain('palettes');
+  });
+
+  it('strips the retired history window when persisting panel options', () => {
+    expect(persistLichtblickPanelOptions({
+      ...LICHTBLICK_LAYOUT_DEFAULTS,
+      historyWindowSec:60,
+      axesVisible:false,
+    })).toEqual({ ...LICHTBLICK_LAYOUT_DEFAULTS,axesVisible:true });
+    expect(lichtblickPanelOptionsNeedRewrite({ ...LICHTBLICK_LAYOUT_DEFAULTS,historyWindowSec:60 })).toBe(true);
+    expect(lichtblickPanelOptionsNeedRewrite({ ...LICHTBLICK_LAYOUT_DEFAULTS,axesVisible:false })).toBe(true);
+    expect(lichtblickPanelOptionsNeedRewrite(LICHTBLICK_LAYOUT_DEFAULTS)).toBe(false);
+  });
+
+  it('migrates the retired fence switch into the tri-state display mode', () => {
+    expect(lichtblickLayoutOptions({}).worldBoundaryMode).toBe('walls');
+    expect(lichtblickLayoutOptions({ worldBoundaryVisible:true }).worldBoundaryMode).toBe('walls');
+    expect(lichtblickLayoutOptions({ worldBoundaryVisible:false }).worldBoundaryMode).toBe('off');
+    expect(lichtblickLayoutOptions({ worldBoundaryMode:'ground' }).worldBoundaryMode).toBe('ground');
+    expect(persistLichtblickPanelOptions({ worldBoundaryVisible:false }))
+      .toEqual({ ...LICHTBLICK_LAYOUT_DEFAULTS,worldBoundaryMode:'off' });
+    expect(persistLichtblickPanelOptions({ ...LICHTBLICK_LAYOUT_DEFAULTS,worldBoundaryVisible:false }))
+      .toEqual(LICHTBLICK_LAYOUT_DEFAULTS);
+    expect(lichtblickPanelOptionsNeedRewrite({ ...LICHTBLICK_LAYOUT_DEFAULTS,worldBoundaryVisible:true })).toBe(true);
+    expect(lichtblickPanelOptionsNeedRewrite(LICHTBLICK_LAYOUT_DEFAULTS)).toBe(false);
+  });
+
+  it('validates label units, finite values and zero opacity or offsets', () => {
+    const options = { ...LICHTBLICK_LAYOUT_DEFAULTS,labelScaleInvariant:true,labelFontSizeMeters:0.4,labelFontSizePixels:28,markerOpacity:0,uavLabelOffset:0,mecanumLabelOffset:-0.4 };
+    expect(lichtblickLayoutOptions(options)).toEqual(options);
+    expect(validateLichtblickLayoutOptions(options)).toBe('');
+    for (const patch of [{ labelFontSizeMeters:0 },{ labelFontSizePixels:0.24 },{ markerOpacity:1.01 },{ uavLabelOffset:NaN },{ scoutLabelOffset:Infinity },{ mecanumLabelOffset:-11 },{ labelScaleInvariant:'true' }]) {
+      expect(validateLichtblickLayoutOptions({ ...options,...patch })).not.toBe('');
+    }
   });
 });

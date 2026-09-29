@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { useRobotText } from '../../domains/robot/robotPublic';
 import {
   COMMAND_STREAM_ACTIVE_HZ,
@@ -9,7 +10,7 @@ import {
   isInformationalFrequencyChannel,
 } from './frequencyAlarm';
 
-export function InstrumentFrequencyRow({
+export const InstrumentFrequencyRow = memo(function InstrumentFrequencyRow({
   robotId,
   channelId,
   compactLabel,
@@ -84,4 +85,4 @@ export function InstrumentFrequencyRow({
       </strong>
     </span>
   );
-}
+});

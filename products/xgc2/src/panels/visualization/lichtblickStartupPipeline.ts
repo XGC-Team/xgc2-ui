@@ -27,7 +27,7 @@ export function projectLichtblickStartup(input: {
     status: error ? 'failed'
       : input.phase === 'stopped' ? 'idle'
       : input.phase === 'stopping' ? 'stopping'
-      : input.runActive ? 'ready' : 'pending',
+      : input.runActive || Boolean(input.viewer || input.bridge) ? 'ready' : 'pending',
     ...(error ? { detail: error } : {}),
   };
   return {

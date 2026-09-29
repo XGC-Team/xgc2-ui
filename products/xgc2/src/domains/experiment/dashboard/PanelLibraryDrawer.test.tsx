@@ -42,6 +42,7 @@ describe('PanelLibraryDrawer', () => {
       'camera-intrinsic-calibration',
       'ground-station-activity',
       'rosbag-plot',
+      'scientific-gallery',
     ]) {
       expect(panelItem(container, id)).toBeInTheDocument();
       expect(container.querySelector(`[data-xgc-role="panel-library-item"][data-xgc-id="${id}"] .panel-library-preview`)).toBeNull();
@@ -55,7 +56,10 @@ describe('PanelLibraryDrawer', () => {
     expect(screen.getByRole('button', { name: /Camera extrinsic calibration/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Camera intrinsic calibration/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Rosbag plot/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Scientific plots/ })).toBeInTheDocument();
     expect(panelItem(container, 'unknown')).toBeNull();
+    expect(panelItem(container, 'recording-control')).toBeNull();
+    expect(panelItem(container, 'experiment-video-production')).toBeNull();
     expect(getPanelPlugin('unknown')).toBeUndefined();
     expect(screen.getByRole('dialog', { name: 'Panel library for GCS' })).not.toHaveTextContent('Add a panel to GCS');
     expect(container.querySelector('[data-xgc-role="panel-library-drawer"]')).not.toHaveTextContent('Drag a panel into the dashboard');

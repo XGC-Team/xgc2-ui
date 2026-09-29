@@ -2,43 +2,29 @@ import { describe,expect,it } from 'vitest';
 import type { CameraExtrinsicPoint,CameraExtrinsicState } from './cameraExtrinsicCalibrationService';
 import { cameraExtrinsicSolvePreflight } from './cameraExtrinsicCalibrationModel';
 
-describe('cameraExtrinsicSolvePreflight', () => {
-  it('rejects a collinear selection before calling the ROS solver', () => {
-    const state = frozenState();
-    const reason = cameraExtrinsicSolvePreflight(state, points('uav1','uav2','uav3','uav4'));
-
-    expect(reason).toMatch(/selected robot poses are collinear/);
+const state={ mode:'live',markers:[{ name:'wand',position:[999,999,999] }],samples:[] } as unknown as CameraExtrinsicState;
+const points=(positions:readonly (readonly [number,number,number])[]):CameraExtrinsicPoint[] => positions.map((world,index) => ({
+  sampleId:String(index),marker:'wand',pixel:[index*100,index*100],world,
+}));
+describe('independent sample geometry',() => {
+  it('accepts one rigid body captured at different non-collinear positions in live mode',() => {
+    expect(cameraExtrinsicSolvePreflight(state,points([[0,0,0],[1,0,0],[1,1,0],[0,1,0]]))).toBe('');
   });
-
-  it('accepts non-collinear correspondences without classifying marker names', () => {
-    const state = frozenState();
-    expect(cameraExtrinsicSolvePreflight(state, points('uav1','uav4','uav5','uav6'))).toBe('');
+  it('rejects repeated positions and collinear poses without reading the latest marker map',() => {
+    expect(cameraExtrinsicSolvePreflight(state,points([[0,0,0],[0,0,0],[0,0,0],[0,0,0]]))).toMatch(/collinear/);
+    expect(cameraExtrinsicSolvePreflight(state,points([[0,0,0],[1,0,0],[2,0,0],[3,0,0]]))).toMatch(/collinear/);
   });
-
-  it('accepts a geometrically valid selection with only one marker from another named group', () => {
-    const state = frozenState();
-    expect(cameraExtrinsicSolvePreflight(state, points('uav1','uav2','uav3','ugv1'))).toBe('');
+  it('accepts non-planar mixed marker samples without imposing a vehicle family',() => {
+    const mixed=points([[0,0,0],[1,0,0],[1,1,0],[0,1,1]]).map((point,index) => ({ ...point,marker:index%2 ? 'fixture':'wand' }));
+    expect(cameraExtrinsicSolvePreflight(state,mixed)).toBe('');
+  });
+  it('rejects insufficient or missing/nonfinite captured evidence',() => {
+    expect(cameraExtrinsicSolvePreflight(undefined)).toMatch(/Waiting/);
+    expect(cameraExtrinsicSolvePreflight(state,points([[0,0,0]]))).toMatch(/at least four/);
+    const invalid=points([[0,0,0],[1,0,0],[1,1,0],[0,1,0]]);
+    invalid[0]={ ...invalid[0]!,world:undefined };
+    expect(cameraExtrinsicSolvePreflight(state,invalid)).toMatch(/unavailable/);
+    invalid[0]={ ...invalid[0]!,world:[NaN,0,0] };
+    expect(cameraExtrinsicSolvePreflight(state,invalid)).toMatch(/unavailable/);
   });
 });
-
-function points(...markers: string[]): CameraExtrinsicPoint[] {
-  return markers.map((marker,index) => ({ marker,pixel: [index * 10,index * 10] }));
-}
-
-function frozenState(): CameraExtrinsicState {
-  const positions: Record<string,readonly [number,number,number]> = {
-    uav1: [0,2,0.05],uav2: [2,2,0.05],uav3: [4,2,0.05],uav4: [6,2,0.05],
-    uav5: [0,-2,0.18],uav6: [6,-2,0.18],
-    ugv1: [0,-2,0.18],ugv4: [6,-2,0.18],
-  };
-  return {
-    resultRestored:false,
-    mode: 'frozen',generation: 1,outputFile: '/tmp/extrinsics.yaml',parentFrame: 'world',childFrame: 'camera',
-    source: {
-      imageTopic: '/camera/image',intrinsicFile: '/camera/sim/usb_cam/intrinsics-20260830T010203.000000Z.yaml',posePrefix: '/vrpn',
-      imageReady: true,intrinsicReady: true,markerCount: 5,markerNames: Object.keys(positions),
-    },
-    frame: { stampSec: 1,frameId: 'camera',width: 1280,height: 720 },
-    markers: Object.entries(positions).map(([name,position]) => ({ name,position })),
-  };
-}

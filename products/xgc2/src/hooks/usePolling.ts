@@ -1,6 +1,8 @@
 import { useEffect,useRef } from 'react';
 
-/** Runs one task at a time; task rejection is reported through onError and does not stop the schedule. */
+/** Runs one task at a time, including across effect restarts. Obsolete schedules
+ * cannot report errors or queue more work. Tasks still own cancellation and
+ * fencing their result writes; disabling polling does not abort an active task. */
 export function usePolling({
   enabled,
   intervalMs,
@@ -18,26 +20,41 @@ export function usePolling({
 }) {
   const taskRef = useRef(task);
   const onErrorRef = useRef(onError);
+  // A task can outlive the effect that started it. Keep its slot until it
+  // settles, with at most one refresh owed to the latest enabled schedule.
+  const flightRef = useRef<{ running: boolean; pending: (() => Promise<void>) | undefined }>({
+    running: false,pending: undefined,
+  });
   taskRef.current = task;
   onErrorRef.current = onError;
 
   useEffect(() => {
     if (!enabled || !Number.isFinite(intervalMs) || intervalMs <= 0) return undefined;
 
+    const flight = flightRef.current;
     let cancelled = false;
     let timer: number | undefined;
 
     const tick = async () => {
+      timer = undefined;
+      if (cancelled) return;
+      if (flight.running) {
+        flight.pending = tick;
+        return;
+      }
+      flight.running = true;
       const currentTask = taskRef.current;
       const currentOnError = onErrorRef.current;
       try {
         await currentTask();
       } catch (cause) {
-        currentOnError?.(cause);
+        if (!cancelled) currentOnError?.(cause);
       } finally {
-        if (!cancelled) {
-          timer = window.setTimeout(tick, intervalMs);
-        }
+        flight.running = false;
+        const pending = flight.pending;
+        flight.pending = undefined;
+        if (pending) void pending();
+        else if (!cancelled) timer = window.setTimeout(tick, intervalMs);
       }
     };
 
@@ -46,6 +63,7 @@ export function usePolling({
 
     return () => {
       cancelled = true;
+      if (flight.pending === tick) flight.pending = undefined;
       if (timer !== undefined) window.clearTimeout(timer);
     };
   }, [enabled,immediate,intervalMs,pollKey]);

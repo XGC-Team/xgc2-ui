@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { useRobotText } from '../../domains/robot/robotPublic';
 import {
   FCU_ROUND_TRIP_ALARM_MS,
@@ -14,6 +15,14 @@ import {
   frequencyValueTone,
 } from './frequencyAlarm';
 import { InstrumentFrequencyRow } from './InstrumentFrequencyRow';
+import {
+  InstrumentCenterMark,
+  InstrumentCompassDirection,
+  InstrumentCompassTicks,
+  InstrumentMetricRuler,
+  InstrumentPitchMarks,
+  InstrumentRollScale,
+} from './InstrumentHudMarks';
 import { RobotInstrumentStatusGlyph } from './RobotInstrumentStatus';
 import {
   adapterPositioningStatus,
@@ -22,10 +31,8 @@ import {
   VRPN_LOCAL_POSITION_ERROR_ALARM_CM,
   vrpnLocalPositionErrorTone,
 } from './RobotListHeaderStatusModel';
+import { RobotInstrumentIdentity } from './RobotInstrumentIdentity';
 import { unsignedZeroFixed } from './robotTelemetryValues';
-
-const pitchMarks = [-30,-20,-10,0,10,20,30] as const;
-const compassTicks = [15,30,45,60,75,105,120,135,150,165,195,210,225,240,255,285,300,315,330,345];
 
 export function FlightRobotInstrument({ robotId,name,telemetry,embedded = false }: {
   robotId: string;
@@ -35,12 +42,17 @@ export function FlightRobotInstrument({ robotId,name,telemetry,embedded = false 
 }) {
   const t = useRobotText();
   const value = flightRobotInstrumentReadout(telemetry);
-  const rollRadians = value.roll * Math.PI / 180;
+  const attitudeKnown = value.roll != null && value.pitch != null && value.yaw != null;
+  const roll = value.roll ?? 0;
+  const pitch = value.pitch ?? 0;
+  const yaw = value.yaw ?? 0;
+  const rollRadians = roll * Math.PI / 180;
   const deltaHeight = 75 * Math.tan(rollRadians);
-  const pitchOffset = value.pitch * 0.8 / Math.max(Math.cos(rollRadians),0.2);
+  const pitchOffset = pitch * 0.8 / Math.max(Math.cos(rollRadians),0.2);
   const left = 75 - deltaHeight - pitchOffset;
   const right = 75 + deltaHeight - pitchOffset;
   const headerItems = listHeaderStatusItems({
+    connection: value.connectionPresentation,
     communication: px4CommunicationStatus({
       roundTripTimeMs: value.roundTripTimeMs,
       connected: value.connected,
@@ -51,7 +63,6 @@ export function FlightRobotInstrument({ robotId,name,telemetry,embedded = false 
       source: 'state.power.voltageV+percentageState+percentage',
     },
     position: adapterPositioningStatus(telemetry.health),
-    idle: value.healthTone === 'idle',
   }, t);
   const frequencyRows = value.presentation === 'mocap_rotor'
     ? [
@@ -77,14 +88,15 @@ export function FlightRobotInstrument({ robotId,name,telemetry,embedded = false 
       data-xgc-id={robotId}
       data-xgc-embedded={embedded ? 'true' : undefined}
       data-xgc-health={value.healthTone}
-      data-xgc-connection={value.online ? 'online' : 'offline'}
-      data-roll={value.roll.toFixed(2)}
-      data-pitch={value.pitch.toFixed(2)}
-      data-yaw={value.yaw.toFixed(2)}
+      data-xgc-connection={value.connectionPresentation}
+      data-xgc-attitude={attitudeKnown ? 'measured' : 'unknown'}
+      data-roll={attitudeKnown ? roll.toFixed(2) : undefined}
+      data-pitch={attitudeKnown ? pitch.toFixed(2) : undefined}
+      data-yaw={attitudeKnown ? yaw.toFixed(2) : undefined}
       aria-label={t('{name} flight instrument',{ name })}
     >
       <div className="robot-flight-instrument-header">
-        <strong>{name}</strong>
+        <RobotInstrumentIdentity robotId={robotId} name={name} />
         <div
           className="robot-instrument-status-icons"
           data-xgc-role="robot-instrument-status"
@@ -110,48 +122,17 @@ export function FlightRobotInstrument({ robotId,name,telemetry,embedded = false 
       <div className="robot-flight-instrument-attitude" data-xgc-role="robot-flight-hud" data-xgc-id={robotId}>
         <div className="robot-flight-sky" style={{ clipPath: `polygon(0% 0%, 100% 0%, 100% ${(right / 150) * 100 + 0.35}%, 0% ${(left / 150) * 100 + 0.35}%)` }} />
         <div className="robot-flight-ground" style={{ clipPath: `polygon(0% ${(left / 150) * 100 - 0.35}%, 100% ${(right / 150) * 100 - 0.35}%, 100% 100%, 0% 100%)` }} />
-        <svg className="robot-flight-pitch-ladder" viewBox="0 0 150 150" style={{ transform: `translate(-50%, -50%) translateY(${-pitchOffset}px) rotate(${value.roll}deg)` }}>
-          {pitchMarks.map((angle) => {
-            const yMark = 75 + angle * 0.8;
-            const zero = angle === 0;
-            return (
-              <g
-                key={angle}
-                className="robot-flight-pitch-mark"
-                data-xgc-role="robot-flight-pitch-mark"
-                data-xgc-id={`${robotId}:${angle}`}
-                data-xgc-region={angle > 0 ? 'sky' : zero ? 'horizon' : 'ground'}
-                transform={`translate(0 ${yMark})`}
-              >
-                {!zero && <text x="62" y="2" textAnchor="end">{Math.abs(angle)}</text>}
-                <line x1={zero ? 55 : 65} x2="85" y1="0" y2="0" />
-                {zero && <line x1="85" x2="95" y1="0" y2="0" />}
-                {!zero && <text x="88" y="2" textAnchor="start">{Math.abs(angle)}</text>}
-                <rect className="robot-flight-pitch-mark-hit" x="50" y="-8" width="50" height="16" />
-              </g>
-            );
-          })}
+        <svg className="robot-flight-pitch-ladder" viewBox="0 0 150 150" style={{ transform: `translate(-50%, -50%) translateY(${-pitchOffset}px) rotate(${roll}deg)` }}>
+          <InstrumentPitchMarks robotId={robotId} />
         </svg>
-        <svg className="robot-flight-center-mark" width="44" height="8" viewBox="0 0 44 8">
-          <line x1="7" y1="4" x2="15" y2="4" />
-          <circle cx="22" cy="4" r="2" />
-          <line x1="29" y1="4" x2="37" y2="4" />
-        </svg>
+        <InstrumentCenterMark />
         <div className="robot-flight-roll-indicator">
-          <svg className="robot-flight-roll-arc" width="100" height="100" viewBox="0 0 100 100">
-            <path d="M 28 11.9 A 44 44 0 0 1 72 11.9" fill="none" stroke="white" strokeWidth="1.2" opacity="0.8" />
-          </svg>
-          {pitchMarks.map((angle) => <span
-            key={angle}
-            className="robot-flight-roll-tick"
-            data-xgc-emphasis={angle % 30 === 0 ? 'major' : 'minor'}
-            style={{ transform: `rotate(${angle}deg)` }}
-          />)}
-          <span className="robot-flight-roll-arrow" style={{ transform: `rotate(${value.roll}deg)` }} />
+          <InstrumentRollScale />
+          <span className="robot-flight-roll-arrow" style={{ transform: `rotate(${roll}deg)` }} />
         </div>
       </div>
 
-      <MetricRuler
+      <InstrumentMetricRuler
         robotId={robotId}
         side="left"
         value={fixedValue(value.speed,1)}
@@ -159,7 +140,7 @@ export function FlightRobotInstrument({ robotId,name,telemetry,embedded = false 
         title={t('VRPN twist linear speed (2-norm)')}
         source={speedSource}
       />
-      <MetricRuler
+      <InstrumentMetricRuler
         robotId={robotId}
         side="right"
         value={fixedValue(value.altitude,1)}
@@ -175,7 +156,7 @@ export function FlightRobotInstrument({ robotId,name,telemetry,embedded = false 
           data-xgc-id={robotId}
           data-xgc-tone="normal"
           title={t('Flight stage: {stage}',{ stage:value.flightStage })}
-        >{compactFlightStage(value.flightStage)}</span>
+        >{value.presentation === 'mocap_rotor' ? compactFlightStage(value.flightStage) : value.flightStage}</span>
         <span data-xgc-role="robot-flight-armed" data-xgc-id={robotId} data-xgc-tone={flightArmedTone(value.armed)} title={armedStatus}>{armedStatus}</span>
       </div>
 
@@ -288,23 +269,18 @@ export function FlightRobotInstrument({ robotId,name,telemetry,embedded = false 
 
       <div className="robot-flight-yaw-compass" data-xgc-role="robot-flight-yaw-compass" data-xgc-id={robotId}>
         <div className="robot-flight-compass-bg" />
-        <div className="robot-flight-compass-dial" style={{ transform: `rotate(${-value.yaw}deg)` }}>
-          {(['N','E','S','W'] as const).map((label) => <Direction key={label} label={label} yaw={value.yaw} />)}
-          {compassTicks.map((angle) => <span
-            key={angle}
-            className="robot-flight-compass-tick"
-            data-xgc-emphasis={angle % 45 === 0 ? 'major' : 'minor'}
-            style={{ transform: `rotate(${angle}deg)` }}
-          />)}
+        <div className="robot-flight-compass-dial" style={{ transform: `rotate(${-yaw}deg)` }}>
+          {(['N','E','S','W'] as const).map((label) => <InstrumentCompassDirection key={label} label={label} yaw={yaw} />)}
+          <InstrumentCompassTicks />
         </div>
         <span className="robot-flight-heading-triangle" />
-        <strong data-xgc-role="robot-flight-heading" data-xgc-id={robotId} data-xgc-tone="normal">{Math.round(value.yaw)}°</strong>
+        <strong data-xgc-role="robot-flight-heading" data-xgc-id={robotId} data-xgc-tone="normal">{attitudeKnown ? `${Math.round(yaw)}°` : '--'}</strong>
       </div>
     </div>
   );
 }
 
-function InstrumentStatus({ robotId,role,label,value,title,id,tone,alarmHz,alarmMs,alarmCm }: {
+const InstrumentStatus = memo(function InstrumentStatus({ robotId,role,label,value,title,id,tone,alarmHz,alarmMs,alarmCm }: {
   robotId: string;
   role: string;
   label: string;
@@ -329,7 +305,7 @@ function InstrumentStatus({ robotId,role,label,value,title,id,tone,alarmHz,alarm
       <strong className="robot-flight-status-value" data-xgc-tone={tone ?? 'normal'}>{value}</strong>
     </span>
   );
-}
+});
 
 function armedLabel(armed: boolean | null) {
   if (armed == null) return '--';
@@ -357,31 +333,4 @@ function fixedValue(value: number | null,digits: number) {
 
 function absoluteFixedValue(value: number | null,digits: number) {
   return value == null ? '--' : Math.abs(value).toFixed(digits);
-}
-
-function Direction({ label,yaw }: { label: 'N' | 'E' | 'S' | 'W';yaw: number }) {
-  return <span className="robot-flight-direction" data-xgc-direction={label.toLowerCase()}><b style={{ transform: `rotate(${yaw}deg)` }}>{label}</b></span>;
-}
-
-function MetricRuler({ robotId,side,value,unit,title,source }: {
-  robotId: string;
-  side: 'left' | 'right';
-  value: string;
-  unit: string;
-  title?: string;
-  source?: string;
-}) {
-  return (
-    <div
-      className="robot-flight-metric-ruler"
-      data-xgc-role="robot-flight-metric-ruler"
-      data-xgc-id={`${robotId}:${side}`}
-      data-xgc-side={side}
-      data-xgc-source={source}
-      data-xgc-tone="normal"
-      title={title}
-    >
-      <span><strong>{value}</strong><small>{unit}</small></span>
-    </div>
-  );
 }

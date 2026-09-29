@@ -4,7 +4,7 @@ import { useTargetCore } from '../../app/useTargetCore';
 import { selectedExecutionTargetId } from '../execution/executionPublic';
 
 export function AppStoreRoute() {
-  const nav = useNavigation();
+  const nav = useNavigation((state) => ({ managedHostId: state.managedHostId }));
   const { routedTargetCoreId,selectedTargetCore } = useTargetCore('appStore');
   const targetId = selectedExecutionTargetId({ managedHostId: nav.managedHostId,selectedTargetCore });
 

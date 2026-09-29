@@ -37,16 +37,3 @@
   background: transparent;
   container: ros-panel / size;
 }
-
-/*
- * PanelFrame defaults min-height: 220/240px on the body. Default ROS Control is
- * only ~5 dashboard rows (~227px total), so that floor overflows the frame and
- * clips the bottom control row (gzserver / gzclient). Keep the body inside the
- * frame and let the 2x2 grid share the real remaining height.
- * Specificity must beat `.dashboard-grid .xgc-panel-frame-body`.
- */
-.xgc-panel-frame:has(> .xgc-panel-frame-body > .ros-panel-shell) > .xgc-panel-frame-body {
-  min-height: 0;
-  max-height: 100%;
-  overflow: hidden;
-}

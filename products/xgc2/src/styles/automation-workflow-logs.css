@@ -39,7 +39,7 @@
 .automation-workflow-job-logs > header > span,
 .automation-workflow-orchestration-lifecycle > header > span {
   color: var(--color-text-muted);
-  font-size: var(--font-xs);
+  font-size: var(--type-meta-size);
 }
 
 .automation-workflow-orchestration-lifecycle {

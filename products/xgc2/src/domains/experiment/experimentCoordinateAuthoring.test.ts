@@ -1,214 +1,118 @@
 import { afterEach,beforeEach,describe,expect,it,vi } from 'vitest';
 import { getRunRobots,type RunRobot,type RunRobotProjection } from '../robot/robotPublic';
-import { getExperimentAtCommit } from './experimentService';
-import {
-  computeExperimentSimulationInitialPoses,
-  computeExperimentWorldOrigin,
-  loadExperimentCoordinateSamples,
-} from './experimentCoordinateAuthoring';
-import {
-  newExperimentSpec,
-  type ExperimentDocument,
-  type ExperimentRobotBinding,
-} from './experimentModel';
-
+import { type ProcessROS1PoseSamples } from '../execution/executionPublic';
+import { getExperimentAtCommit,getExperimentSessionROS1Poses } from './experimentService';
+import { newExperimentSpec,type ExperimentDocument,type ExperimentRobotBinding } from './experimentModel';
+import { loadExperimentCoordinateSamples,computeExperimentWorldOrigin,computeExperimentSimulationInitialPoses } from './experimentCoordinateAuthoring';
 vi.mock('../robot/robotPublic',() => ({ getRunRobots:vi.fn() }));
-vi.mock('./experimentService',() => ({ getExperimentAtCommit:vi.fn() }));
-
+vi.mock('./experimentService',() => ({ getExperimentAtCommit:vi.fn(),getExperimentSessionROS1Poses:vi.fn() }));
 const NOW = Date.parse('2026-09-06T00:00:00Z');
 const initialBindings = [binding('one'),binding('two',true)];
-
-describe('Experiment coordinate authoring',() => {
+function snapshot(root = '/vrpn_client_node'):ProcessROS1PoseSamples {
+  return { instanceId:'vrpn',roots:[root],samples:['one','two','origin-board'].map((name,index) => ({
+    topic:`${root}/${name}/pose`,frameId:'world',sourceStamp:new Date(NOW).toISOString(),observedAt:new Date(NOW).toISOString(),
+    position:{ x:2+index*4,y:4+index*4,z:1+index*2 },orientation:{ x:0,y:0,z:Math.sin(0.25),w:Math.cos(0.25) },
+  })) };
+}
+describe('Experiment direct VRPN coordinate authoring',() => {
   beforeEach(() => {
-    vi.useFakeTimers();
-    vi.setSystemTime(NOW);
-    vi.clearAllMocks();
+    vi.useFakeTimers();vi.setSystemTime(NOW);vi.clearAllMocks();
     vi.mocked(getRunRobots).mockResolvedValue(projection());
     vi.mocked(getExperimentAtCommit).mockResolvedValue(frozenExperiment());
+    vi.mocked(getExperimentSessionROS1Poses).mockResolvedValue(response(snapshot()));
   });
   afterEach(() => vi.useRealTimers());
-
-  it('reconstructs raw tracking coordinates from the immutable nonzero Session offset',async () => {
-    const controller = new AbortController();
-    const result = await load({ signal:controller.signal,expectedCommitId:'frozen-commit' });
-    expect(getRunRobots).toHaveBeenCalledWith('local','robot-run',controller.signal);
-    expect(getExperimentAtCommit).toHaveBeenCalledWith('experiment','frozen-commit',controller.signal,undefined);
+  it('reads unassigned bodies even when the Robot observer projection is pending',async () => {
+    vi.mocked(getRunRobots).mockResolvedValue({ ...projection(),pending:true,robots:[] });
+    const result = await load();
+    expect(result.samples).toHaveLength(3);
+    const marker = result.samples.find((sample) => sample.name === 'origin-board')!;
+    expect(computeExperimentWorldOrigin(result.samples,[marker.bindingId],7).offset).toEqual({ x:-10,y:-12,z:-7 });
+    expect(getExperimentSessionROS1Poses).toHaveBeenCalledWith('local','session',undefined);
+  });
+  it('does not gate tracking on physical connection, battery, adapter health, or channel cache',async () => {
+    const disconnected = projection();
+    disconnected.robots.forEach((robot) => { robot.online=false;robot.connectionState='inactive';robot.channels={}; });
+    vi.mocked(getRunRobots).mockResolvedValue(disconnected);
+    const result=await load();
+    expect(computeExperimentWorldOrigin(result.samples,['one','two'],7)).toMatchObject({ rawOrigin:{ x:4,y:6,z:7 },offset:{ x:-4,y:-6,z:-7 } });
+  });
+  it('uses raw XY plus the next authored offset exactly once and preserves slot height and heading',async () => {
+    const result=await load();
+    expect(result.samples[0]!.pose).toMatchObject({ x:102,y:-16,z:6 });
+    const next=computeExperimentSimulationInitialPoses(initialBindings,result.samples,['one'],{ x:-2,y:-4,z:900 });
+    expect(next[0]!.initialPose).toEqual({ x:0,y:0,z:1.25,yaw:0.5 });
+    expect(next[1]).toBe(initialBindings[1]);
     expect(result.frozenOffset).toEqual({ x:100,y:-20,z:5 });
-    expect(result.capturedAt).toBe(NOW);
-    expect(result.samples.map((sample) => sample.rawPosition)).toEqual([
-      { x:2,y:4,z:1 },{ x:6,y:8,z:3 },
-    ]);
-    const origin = computeExperimentWorldOrigin(result.samples,['one','two']);
-    expect(origin).toEqual({
-      rawOrigin:{ x:4,y:6,z:2 },offset:{ x:-4,y:-6,z:-2 },sampleIds:['one','two'],
-    });
-    // Reopening after draft edits still reads the Run's old commit. The newly
-    // authored origin must never become the offset used to undo this sample.
-    const editedBindings = initialBindings.map((item) => ({
-      ...item,initialPose:{ ...item.initialPose,x:999,y:-999 },
+  });
+  it('accepts stationary and zero XY tracking and never picks the tracker height',async () => {
+    const current=snapshot();current.samples[0]!.position={ x:0,y:0,z:12 };
+    vi.mocked(getExperimentSessionROS1Poses).mockResolvedValue(response(current));
+    for (let i=0;i<2;i++) expect(computeExperimentWorldOrigin((await load()).samples,['one'],0).offset).toEqual({ x:0,y:0,z:0 });
+  });
+  it('uses canonical simulation XY without applying the physical offset',async () => {
+    const result=await load({ runMode:'simulation' });
+    expect(result.samples[0]!.physical).toBe(false);
+    expect(computeExperimentSimulationInitialPoses(initialBindings,result.samples,['one'],{ x:100,y:100,z:100 })[0]!.initialPose).toEqual({ x:2,y:4,z:1.25,yaw:0.5 });
+    expect(() => computeExperimentWorldOrigin(result.samples,['one'],0)).toThrow(/physical/);
+  });
+  it('matches simulation namespace pose and ground-truth topics',async () => {
+    vi.mocked(getExperimentSessionROS1Poses).mockResolvedValue(response({
+      instanceId:'scout',roots:['/one'],samples:[{
+        topic:'/one/simulation/ground_truth/pose',frameId:'world',sourceStamp:new Date(NOW).toISOString(),observedAt:new Date(NOW).toISOString(),
+        position:{ x:3,y:5,z:0.2 },orientation:{ x:0,y:0,z:0,w:1 },
+      }],
     }));
-    const repeated = await load({ bindings:editedBindings });
-    expect(computeExperimentWorldOrigin(repeated.samples,['one','two'])).toEqual(origin);
-    expect(computeExperimentWorldOrigin(repeated.samples,['two','two']).rawOrigin).toEqual({ x:6,y:8,z:3 });
+    const result=await load({ runMode:'simulation',bindings:[binding('one')] });
+    expect(result.samples).toHaveLength(1);
+    expect(result.samples[0]!.bindingId).toBe('one');
+    expect(result.samples[0]!.physical).toBe(false);
+    expect(computeExperimentSimulationInitialPoses([binding('one')],result.samples,['one'],{ x:9,y:9,z:9 })[0]!.initialPose)
+      .toMatchObject({ x:3,y:5,z:1.25,yaw:0 });
   });
-
-  it('uses the frozen Session mode and runtime hybrid source instead of draft hybrid fields',async () => {
-    const draft = initialBindings.map((item) => ({ ...item,hybridSource:'simulation' as const }));
-    expect((await load({ bindings:draft,runMode:'physical' })).samples.every((sample) => sample.physical)).toBe(true);
-    const mixed = projection();
-    mixed.robots[1]!.hybridSource = 'simulation';
+  it('isolates hybrid physical and simulation roots using frozen assignment metadata',async () => {
+    const mixed=projection();mixed.robots[1]!.hybridSource='simulation';
     vi.mocked(getRunRobots).mockResolvedValue(mixed);
-    const hybrid = await load({ bindings:draft,runMode:'hybrid' });
-    expect(hybrid.samples.map((sample) => sample.physical)).toEqual([true,false]);
-    expect(() => computeExperimentWorldOrigin(hybrid.samples,['two'])).toThrow(/physical Robots/);
-    for (const runMode of ['simulation','custom-mode']) {
-      const result = await load({ runMode });
-      expect(result.samples).toHaveLength(2);
-      expect(result.samples.every((sample) => !sample.physical && !sample.rawPosition)).toBe(true);
-      expect(() => computeExperimentWorldOrigin(result.samples,['one'])).toThrow(/physical Robots/);
-    }
+    vi.mocked(getExperimentSessionROS1Poses).mockResolvedValue(response(snapshot('/vrpn_client_node_physical')));
+    const result=await load({ runMode:'hybrid',bindings:initialBindings.map((item) => ({ ...item,hybridSource:'simulation' })) });
+    expect(result.samples.find((item) => item.bindingId==='one')?.physical).toBe(true);
+    expect(result.samples.some((item) => item.bindingId==='two')).toBe(false);
   });
-
-  it('rejects projections for another Experiment or frozen commit',async () => {
-    vi.mocked(getRunRobots).mockResolvedValueOnce({ ...projection(),experimentResourceId:'another' });
+  it('rejects foreign Session metadata and frozen commit mismatch',async () => {
+    vi.mocked(getRunRobots).mockResolvedValue({ ...projection(),experimentCommitId:'foreign' });
     await expect(load()).rejects.toThrow(/selected Experiment Session/);
-    await expect(load({ expectedCommitId:'different-commit' })).rejects.toThrow(/selected Experiment Session/);
-    vi.mocked(getRunRobots).mockResolvedValueOnce({ ...projection(),pending:true });
+    expect(getExperimentSessionROS1Poses).not.toHaveBeenCalled();
+    vi.mocked(getExperimentAtCommit).mockResolvedValue({ ...frozenExperiment(),head:{ ...frozenExperiment().head,digest:'foreign' } });
+    await expect(load()).rejects.toThrow(/frozen Experiment/);
+  });
+  it('rejects missing provenance rather than silently treating it as no tracking',async () => {
+    await expect(load({ expectedCommitId:'' })).rejects.toThrow(/frozen tracking configuration/);
+    vi.mocked(getExperimentSessionROS1Poses).mockResolvedValue({ ...response(snapshot()),sessionId:'foreign' });
     await expect(load()).rejects.toThrow(/selected Experiment Session/);
-    expect(getExperimentAtCommit).not.toHaveBeenCalled();
   });
-
-  it('excludes offline, expired, stale, invalid, duplicate and mismatched samples',async () => {
-    const cases:((robot:RunRobot) => void)[] = [
-      (robot) => { robot.online = false; },
-      (robot) => { robot.connectionState = 'closed'; },
-      (robot) => { robot.onlineUntil = new Date(NOW).toISOString(); },
-      (robot) => { robot.onlineUntil = undefined; },
-      (robot) => { robot.channels['vrpn.position']!.stale = true; },
-      (robot) => { robot.channels['vrpn.position']!.staleAt = new Date(NOW - 1).toISOString(); },
-      (robot) => { robot.channels['vrpn.position']!.value.position = { x:NaN,y:1,z:2 }; },
-      (robot) => { robot.channels['vrpn.position']!.value.orientation = { x:0,y:0,z:0,w:0 }; },
-      (robot) => { robot.robotAssetId = 'another'; },
-      (robot) => { robot.namespace = '/another'; },
-      (robot) => { robot.channels = { 'state.pose':robot.channels['vrpn.position']! }; },
-    ];
-    for (const change of cases) {
-      const current = projection();
-      change(current.robots[0]!);
-      vi.mocked(getRunRobots).mockResolvedValue(current);
-      expect((await load()).samples.map((sample) => sample.bindingId)).toEqual(['two']);
-    }
-    const duplicate = projection();
-    duplicate.robots.push(duplicate.robots[0]!);
-    vi.mocked(getRunRobots).mockResolvedValue(duplicate);
-    expect((await load()).samples.map((sample) => sample.bindingId)).toEqual(['two']);
+  it('ignores malformed or foreign-root poses',async () => {
+    const invalid=snapshot();invalid.samples[0]!.position.x=NaN;invalid.samples[1]!.topic='/foreign/two/pose';
+    vi.mocked(getExperimentSessionROS1Poses).mockResolvedValue(response(invalid));
+    expect((await load()).samples.map((item) => item.name)).toEqual(['origin-board']);
   });
-
-  it('accepts online tracking even if unrelated operational capabilities are limited',async () => {
-    const current = projection();
-    current.robots[0]!.operationalReady = false;
-    current.robots[0]!.status = 'limited';
-    vi.mocked(getRunRobots).mockResolvedValue(current);
-    expect((await load()).samples).toHaveLength(2);
+  it('does not apply an unassigned body or reassigned Robot as a simulation slot',async () => {
+    const result=await load();
+    expect(() => computeExperimentSimulationInitialPoses(initialBindings,result.samples,[result.samples[2]!.bindingId],{ x:0,y:0,z:0 })).toThrow(/assignment changed/);
+    expect(() => computeExperimentWorldOrigin(result.samples,[],0)).toThrow(/at least one/);
+    expect(() => computeExperimentWorldOrigin(result.samples,['gone'],0)).toThrow(/unavailable/);
+    expect(() => computeExperimentWorldOrigin(result.samples,['one'],NaN)).toThrow(/finite/);
   });
-
-  it('keeps canonical simulation samples available when frozen origin lookup fails or mismatches',async () => {
-    vi.mocked(getExperimentAtCommit).mockRejectedValueOnce(new Error('Snapshot unavailable'));
-    const result = await load();
-    expect(result.originUnavailableReason).toBe('Snapshot unavailable');
-    expect(result.samples).toHaveLength(2);
-    expect(result.samples.every((sample) => !sample.rawPosition)).toBe(true);
-    const copied = computeExperimentSimulationInitialPoses(initialBindings,result.samples,['one']);
-    expect(copied[0]!.initialPose).toEqual({ x:102,y:-16,z:1.25,yaw:0.5 });
-    expect(copied[1]).toBe(initialBindings[1]);
-    expect(() => computeExperimentWorldOrigin(result.samples,['one'])).toThrow(/physical Robots/);
-    vi.mocked(getExperimentAtCommit).mockResolvedValueOnce({
-      ...frozenExperiment(),branch:{ ...frozenExperiment().branch,headCommitId:'latest-edited-commit' },
-    });
-    const mismatched = await load();
-    expect(mismatched.originUnavailableReason).toMatch(/does not match/);
-    expect(mismatched.samples.every((sample) => !sample.rawPosition)).toBe(true);
-  });
-
-  it('rechecks sample deadlines and assignment identity before calculating authored changes',async () => {
-    const result = await load();
-    expect(result.samples[0]!.expiresAt).toBe(NOW + 500);
-    expect(() => computeExperimentWorldOrigin(result.samples,[])).toThrow(/at least one/);
-    expect(() => computeExperimentWorldOrigin(result.samples,['missing'])).toThrow(/unavailable or expired/);
-    expect(() => computeExperimentWorldOrigin(result.samples,['one'],NOW + 500)).toThrow(/unavailable or expired/);
-    const changed = initialBindings.map((item) => ({ ...item,namespace:'/changed' }));
-    expect(() => computeExperimentSimulationInitialPoses(changed,result.samples,['one'])).toThrow(/assignment changed/);
-    expect(() => computeExperimentSimulationInitialPoses(initialBindings,result.samples,['two'],NOW + 500))
-      .toThrow(/unavailable or expired/);
-  });
-
-  it('keeps captured previews reproducible while rejecting them for a later save',async () => {
-    const result = await load();
-    vi.setSystemTime(NOW + 2000);
-    expect(computeExperimentWorldOrigin(result.samples,['one'],result.capturedAt).rawOrigin)
-      .toEqual({ x:2,y:4,z:1 });
-    expect(() => computeExperimentWorldOrigin(result.samples,['one'])).toThrow(/unavailable or expired/);
-  });
-
-  it('samples again after a slow immutable document lookup and records that final capture time',async () => {
-    const fresh = projection();
-    fresh.robots.forEach((robot) => {
-      robot.onlineUntil = new Date(NOW + 2000).toISOString();
-      Object.values(robot.channels).forEach((channel) => {
-        channel.staleAt = new Date(NOW + 1500).toISOString();
-        channel.value.position = { x:120,y:-10,z:7 };
-      });
-    });
-    vi.mocked(getRunRobots).mockResolvedValueOnce(projection()).mockResolvedValueOnce(fresh);
-    vi.mocked(getExperimentAtCommit).mockImplementationOnce(async () => {
-      vi.setSystemTime(NOW + 1000);
-      return frozenExperiment();
-    });
-    const result = await load();
-    expect(result.capturedAt).toBe(NOW + 1000);
-    expect(result.samples).toHaveLength(2);
-    expect(result.samples[0]).toMatchObject({
-      rawPosition:{ x:20,y:10,z:2 },expiresAt:NOW + 1500,
-    });
-    expect(computeExperimentWorldOrigin(result.samples,['one']).offset).toEqual({ x:-20,y:-10,z:-2 });
-    expect(getRunRobots).toHaveBeenCalledTimes(2);
-    const reads = vi.mocked(getRunRobots).mock.invocationCallOrder;
-    expect(reads[0]).toBeLessThan(vi.mocked(getExperimentAtCommit).mock.invocationCallOrder[0]!);
-    expect(reads[1]).toBeGreaterThan(vi.mocked(getExperimentAtCommit).mock.invocationCallOrder[0]!);
-  });
-
-  it('rejects a different Experiment, commit or pending projection on the final sample read',async () => {
-    for (const changed of [
-      { ...projection(),experimentCommitId:'successor-commit' },
-      { ...projection(),experimentResourceId:'another-experiment' },
-      { ...projection(),pending:true },
-    ]) {
-      vi.mocked(getRunRobots).mockResolvedValueOnce(projection()).mockResolvedValueOnce(changed);
-      await expect(load()).rejects.toThrow(/selected Experiment Session/);
-    }
-  });
-
-  it('does not substitute the first projection if the final positions remain stale',async () => {
-    const stale = projection();
-    stale.robots.forEach((robot) => { robot.online = false; });
-    vi.mocked(getRunRobots).mockResolvedValueOnce(projection()).mockResolvedValueOnce(stale);
-    expect((await load()).samples).toEqual([]);
-  });
-
-  it('does not turn cancellation into a recoverable origin lookup failure',async () => {
-    const controller = new AbortController();
-    vi.mocked(getExperimentAtCommit).mockImplementationOnce(async () => {
-      controller.abort();
-      throw new Error('Cancelled snapshot read');
-    });
+  it('propagates cancellation without reading or saving tracking data',async () => {
+    const controller=new AbortController();controller.abort();
     await expect(load({ signal:controller.signal })).rejects.toMatchObject({ name:'AbortError' });
+    expect(getExperimentSessionROS1Poses).not.toHaveBeenCalled();
   });
 });
 
 function load(overrides:Partial<Parameters<typeof loadExperimentCoordinateSamples>[0]> = {}) {
   return loadExperimentCoordinateSamples({
     targetId:'local',runId:'robot-run',experimentResourceId:'experiment',
-    bindings:initialBindings,runMode:'physical',...overrides,
+    bindings:initialBindings,runMode:'physical',expectedCommitId:'frozen-commit',expectedDigest:'a'.repeat(64),sessionId:'session',...overrides,
   });
 }
 
@@ -232,6 +136,7 @@ function projection():RunRobotProjection {
 function robot(binding:ExperimentRobotBinding,index:number):RunRobot {
   const channelId = binding.px4 ? 'state.mocap.pose' : 'vrpn.position';
   return {
+    ...(binding.px4 ? { px4:{ modelId:'fs150',mavSystemId:1,managementIp:'',mocapRigidBodyName:binding.id } } : { scout:{ managementAddress:'',mocapRigidBodyName:binding.id } }),
     id:binding.id,robotAssetId:binding.ref.resourceId,robotAssetCommitId:'asset-commit',robotAssetDigest:'digest',
     name:binding.id,kind:binding.px4 ? 'px4_multirotor' : 'scout_mini',hybridSource:'physical',
     profileId:'profile',namespace:binding.namespace,operationContracts:[],adapterDefinitionId:'adapter',
@@ -254,9 +159,11 @@ function frozenExperiment():ExperimentDocument {
       currentVersion:2,digest:'a'.repeat(64),revision:2,createdAt:'',updatedAt:'',
     },
     branch:{
-      domain:'experiment',resourceId:'experiment',name:'main',headCommitId:'frozen-commit',headVersion:1,
+      domain:'experiment',resourceId:'experiment',name:'main',headCommitId:'newer-authored-commit',headVersion:1,
       revision:1,createdAt:'',updatedAt:'',
     },
     spec:newExperimentSpec({ name:'Experiment',robots:initialBindings,localizationOffset:{ x:100,y:-20,z:5 } }),
   };
 }
+
+function response(...sources:ProcessROS1PoseSamples[]) { return {sessionId:'session',experimentCommitId:'frozen-commit',sources}; }

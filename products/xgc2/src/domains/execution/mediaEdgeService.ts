@@ -1,4 +1,4 @@
-import { requestExternalJSON } from '../../api/http';
+import { HTTPError,requestCookieResponse,requestExternalJSON,requestStationResponse } from '../../api/http';
 
 export const MEDIA_EDGE_CONTROL_DATA_CHANNEL = 'xgc-media-control.v1';
 
@@ -8,6 +8,26 @@ const absoluteHTTPOrigin = /^https?:\/\/[^/?#]+\/?$/i;
 
 export type MediaEdgeSessionReference = {
   edgeUrl: string;
+  sourceId: string;
+};
+
+/**
+ * Signaling channel abstraction: how the browser opens/closes one Media Edge
+ * WebRTC session. The classic channel posts to an absolute edge origin; the
+ * same-origin channel (Core visualization proxy or shared access listener)
+ * keeps guests off loopback edgeUrl values. Signaling success only means the
+ * HTTP answer arrived — ICE connectivity is established separately.
+ */
+export type MediaEdgeSignalingChannel = {
+  open: (offerSDP: string, signal?: AbortSignal) => Promise<MediaEdgeSessionAnswer>;
+  close: (sessionId: string, signal?: AbortSignal) => Promise<void>;
+};
+
+export type MediaEdgeSameOriginSignalingReference = {
+  /** Same-origin relative API path that accepts the SDP offer POST. */
+  sessionsPath: string;
+  /** Same-origin relative API path prefix; DELETE {prefix}/{sessionId}. */
+  sessionPathPrefix: string;
   sourceId: string;
 };
 
@@ -28,7 +48,10 @@ export type MediaEdgeSessionAnswer = {
 };
 
 export type MediaEdgeSessionControllerOptions = {
-  reference: MediaEdgeSessionReference;
+  /** Absolute-edge signaling; exactly one of reference / signaling is required. */
+  reference?: MediaEdgeSessionReference;
+  /** Pre-built signaling channel (e.g. same-origin station transport). */
+  signaling?: MediaEdgeSignalingChannel;
   onStream: (stream: MediaStream,track: MediaStreamTrack) => void;
   onConnectionState?: (state: RTCPeerConnectionState) => void;
   iceGatheringTimeoutMs?: number;
@@ -44,7 +67,12 @@ export type MediaEdgeSessionControllerDependencies = {
 export type MediaEdgeSessionState = 'connecting' | 'connected' | 'failed' | 'closed';
 export type MediaEdgeSessionCloseReason = 'consumer-unmounted' | 'owner-stopping' | 'connection-failed';
 
-export type CreateMediaEdgeSessionOptions = MediaEdgeSessionReference & {
+export type CreateMediaEdgeSessionOptions = {
+  /** Required without a signaling channel. */
+  edgeUrl?: string;
+  /** Required without a signaling channel. */
+  sourceId?: string;
+  signaling?: MediaEdgeSignalingChannel;
   onTrack: (stream: MediaStream,track: MediaStreamTrack) => void;
   onStateChange?: (state: MediaEdgeSessionState) => void;
   signal?: AbortSignal;
@@ -91,6 +119,121 @@ export async function closeMediaEdgeSession(
   );
 }
 
+/**
+ * Same-origin signaling channel: the browser talks to the station's own API
+ * (Core visualization media-edge proxy or a shared access listener) instead
+ * of an absolute Media Edge origin, so LAN guests never resolve a loopback
+ * edgeUrl against their own device. Authorization rides the same-origin
+ * transport (HttpOnly cookie where required); no X-XGC headers are attached.
+ */
+export function createSameOriginMediaEdgeSignaling(
+  reference: MediaEdgeSameOriginSignalingReference,
+): MediaEdgeSignalingChannel {
+  return createRelativeMediaEdgeSignaling(reference,requestCookieResponse);
+}
+
+/** Station identity stays in the existing station transport, never the guest channel. */
+export function createStationMediaEdgeSignaling(
+  targetId: string,
+  processInstanceId: string,
+  sourceId: string,
+): MediaEdgeSignalingChannel {
+  if (targetId !== 'local') throw new Error('Station Media Edge requires the local target.');
+  return createRelativeMediaEdgeSignaling(
+    visualizationMediaEdgeSignalingReference(targetId,processInstanceId,sourceId),
+    requestStationResponse,
+  );
+}
+
+function createRelativeMediaEdgeSignaling(
+  reference: MediaEdgeSameOriginSignalingReference,
+  transport: (path: string,init: RequestInit) => Promise<Response>,
+): MediaEdgeSignalingChannel {
+  const sessionsPath = sameOriginApiPath(reference.sessionsPath, 'sessionsPath');
+  const sessionPathPrefix = sameOriginApiPath(reference.sessionPathPrefix, 'sessionPathPrefix');
+  const sourceId = mediaID(reference.sourceId, 'sourceId');
+  return {
+    open: async (offerSDP, signal) => {
+      const sdp = boundedSDP(offerSDP, 'offer.sdp');
+      const payload = await sameOriginSignalingFetch(transport,sessionsPath, {
+        method: 'POST',cache: 'no-store',body: JSON.stringify({ sdp }),signal,
+      });
+      return decodeMediaEdgeSessionAnswer(payload, sourceId);
+    },
+    close: async (sessionId, signal) => {
+      await sameOriginSignalingFetch(
+        transport,
+        `${sessionPathPrefix}/${encodeURIComponent(mediaID(sessionId, 'sessionId'))}`,
+        { method: 'DELETE',cache: 'no-store',signal },
+      );
+    },
+  };
+}
+
+/**
+ * Main-station visualization media-edge proxy paths
+ * (core-xgc/internal/api/visualization.go): both open and close stay under
+ * the owned instance's /sources/{sourceId}/sessions collection.
+ */
+export function visualizationMediaEdgeSignalingReference(
+  targetId: string,
+  processInstanceId: string,
+  sourceId: string,
+): MediaEdgeSameOriginSignalingReference {
+  const target = mediaID(targetId, 'targetId');
+  const instance = mediaID(processInstanceId, 'processInstanceId');
+  const source = mediaID(sourceId, 'sourceId');
+  const prefix = `/api/visualization/targets/${encodeURIComponent(target)}/media-edge/${encodeURIComponent(instance)}/sources/${encodeURIComponent(source)}/sessions`;
+  return {
+    sessionsPath: prefix,
+    sessionPathPrefix: prefix,
+    sourceId: source,
+  };
+}
+
+const sameOriginApiPathPattern = /^\/api\/[A-Za-z0-9][A-Za-z0-9/_.:-]{0,511}$/;
+
+function sameOriginApiPath(value: unknown, path: string): string {
+  const result = boundedString(value, path, 512);
+  if (!sameOriginApiPathPattern.test(result)) {
+    throw new Error(`${path} must be a same-origin relative /api path`);
+  }
+  return result;
+}
+
+async function sameOriginSignalingFetch(
+  transport: (path: string,init: RequestInit) => Promise<Response>,
+  path: string, init: RequestInit,
+): Promise<unknown> {
+  const headers = new Headers(init.headers);
+  if (!headers.has('Accept')) headers.set('Accept', 'application/json');
+  if (init.body !== undefined && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+  const response = await transport(path, {
+    ...init,
+    credentials: 'include',
+    redirect: 'error',
+    referrerPolicy: 'no-referrer',
+    headers,
+  });
+  if (!response.ok) {
+    throw new HTTPError(response.status, response.statusText, await readSignalingErrorBody(response));
+  }
+  if (response.status === 204) return undefined;
+  const text = await response.text();
+  return text ? JSON.parse(text) : undefined;
+}
+
+async function readSignalingErrorBody(response: Response): Promise<unknown> {
+  try {
+    const text = await response.text();
+    return text ? JSON.parse(text) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export function decodeMediaEdgeSessionAnswer(
   value: unknown,
   expectedSourceId?: string,
@@ -127,7 +270,8 @@ export function decodeMediaEdgeSessionAnswer(
 }
 
 export class MediaEdgeSessionController {
-  private readonly reference: MediaEdgeSessionReference;
+  private readonly reference?: MediaEdgeSessionReference;
+  private readonly signaling?: MediaEdgeSignalingChannel;
   private readonly onStream: MediaEdgeSessionControllerOptions['onStream'];
   private readonly onConnectionState: MediaEdgeSessionControllerOptions['onConnectionState'];
   private readonly iceGatheringTimeoutMs: number;
@@ -151,7 +295,11 @@ export class MediaEdgeSessionController {
     options: MediaEdgeSessionControllerOptions,
     dependencies: MediaEdgeSessionControllerDependencies = {},
   ) {
-    this.reference = validateReference(options.reference);
+    if (options.signaling ? Boolean(options.reference) : !options.reference) {
+      throw new Error('media session controller requires exactly one reference or signaling channel');
+    }
+    this.reference = options.reference ? validateReference(options.reference) : undefined;
+    this.signaling = options.signaling;
     this.onStream = options.onStream;
     this.onConnectionState = options.onConnectionState;
     this.iceGatheringTimeoutMs = boundedNumber(
@@ -214,11 +362,13 @@ export class MediaEdgeSessionController {
       // Consumer teardown retains an accepted POST so the exact remote session
       // can be deleted. Owner teardown aborts negotiation because the Media
       // Edge process is already responsible for removing its own sessions.
-      const answer = await this.openSession(
-        this.reference,
-        localSDP,
-        this.remoteNegotiationAbort.signal,
-      );
+      const answer = this.signaling
+        ? await this.signaling.open(localSDP, this.remoteNegotiationAbort.signal)
+        : await this.openSession(
+            this.reference as MediaEdgeSessionReference,
+            localSDP,
+            this.remoteNegotiationAbort.signal,
+          );
       this.sessionId = answer.sessionId;
       assertActive(this.closed, signal);
       await peer.setRemoteDescription({ type: 'answer',sdp: answer.sdp });
@@ -272,7 +422,9 @@ export class MediaEdgeSessionController {
   private releaseRemoteSession(): Promise<void> {
     if (!this.sessionId) return Promise.resolve();
     if (!this.remoteClosePromise) {
-      this.remoteClosePromise = this.closeSession(this.reference, this.sessionId);
+      this.remoteClosePromise = this.signaling
+        ? this.signaling.close(this.sessionId)
+        : this.closeSession(this.reference as MediaEdgeSessionReference, this.sessionId);
     }
     return this.remoteClosePromise;
   }
@@ -289,13 +441,17 @@ export async function createMediaEdgeSession(
   options: CreateMediaEdgeSessionOptions,
   dependencies?: MediaEdgeSessionControllerDependencies,
 ): Promise<MediaEdgeSessionHandle> {
-  const reference = {
-    edgeUrl: options.edgeUrl,
-    sourceId: options.sourceId,
-  };
+  const sessionTarget = options.signaling
+    ? { signaling: options.signaling }
+    : {
+        reference: {
+          edgeUrl: requiredSessionOption(options.edgeUrl, 'edgeUrl'),
+          sourceId: requiredSessionOption(options.sourceId, 'sourceId'),
+        },
+      };
   const controller = createMediaEdgeSessionController(
     {
-      reference,
+      ...sessionTarget,
       onStream: options.onTrack,
       onConnectionState: (state) => {
         if (state !== 'failed') return;
@@ -354,6 +510,13 @@ function closeReason(value: unknown): MediaEdgeSessionCloseReason {
   return value === 'owner-stopping' || value === 'connection-failed' || value === 'consumer-unmounted'
     ? value
     : 'consumer-unmounted';
+}
+
+function requiredSessionOption(value: string | undefined, path: string): string {
+  if (typeof value !== 'string' || !value.trim()) {
+    throw new Error(`${path} is required without a signaling channel`);
+  }
+  return value;
 }
 
 function waitForICEGathering(

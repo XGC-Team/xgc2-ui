@@ -7,10 +7,33 @@ export function validRobotOperationID(value: unknown): value is string {
     && canonicalRobotOperationID.test(value);
 }
 
+// A coalesced telemetry patch repeats the same instants: every changed channel
+// of a robot carries that robot's authority deadlines, and each channel's own
+// times are read by validation, staging and freshness. Parse each distinct
+// string once; the bounded table is dropped whole when it fills.
+type ParsedInstant = { rfc3339: boolean;time: number };
+const parsedInstants = new Map<string,ParsedInstant>();
+const parsedInstantLimit = 4096;
+
+function parsedInstant(value: string) {
+  let parsed = parsedInstants.get(value);
+  if (!parsed) {
+    parsed = { rfc3339: rfc3339DateTime.test(value),time: Date.parse(value) };
+    if (parsedInstants.size >= parsedInstantLimit) parsedInstants.clear();
+    parsedInstants.set(value, parsed);
+  }
+  return parsed;
+}
+
+/** Date.parse(value), memoized per distinct string. */
+export function parseInstant(value: string) {
+  return parsedInstant(value).time;
+}
+
 export function validDateTime(value: unknown): value is string {
-  return typeof value === 'string'
-    && rfc3339DateTime.test(value)
-    && Number.isFinite(Date.parse(value));
+  if (typeof value !== 'string') return false;
+  const parsed = parsedInstant(value);
+  return parsed.rfc3339 && Number.isFinite(parsed.time);
 }
 
 export function safeInteger(value: unknown, minimum: number) {

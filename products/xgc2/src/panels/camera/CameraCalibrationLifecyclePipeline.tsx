@@ -6,6 +6,7 @@ import {
   workflowStartupIdentityFactSamples,
   type WorkflowStartupStage,
 } from '../../components/workflowStartupPipelineModel';
+import { useExperimentSurfaceVisible } from '../../domains/experiment/experimentPublic';
 import { useCameraText } from './cameraMessages';
 import type {
   IntrinsicLifecyclePhase,
@@ -26,20 +27,33 @@ export function CameraCalibrationLifecyclePipeline({
   title = 'Calibration pipeline',
   phase,
   stages,
+  generation,
+  paused = false,
+  hidden = false,
+  onPresentationComplete,
 }: {
   panelId: string;
   role?: string;
   title?: string;
   phase: IntrinsicLifecyclePhase;
   stages: readonly IntrinsicLifecycleStage[];
+  generation?: string;
+  paused?: boolean;
+  hidden?: boolean;
+  onPresentationComplete?: (generation: string) => void;
 }) {
   const t = useCameraText();
+  const surfaceVisible = useExperimentSurfaceVisible();
   return (
     <WorkflowStartupPipeline
       id={panelId}
       role={role}
       title={t(title)}
       phase={phase}
+      paused={paused || !surfaceVisible}
+      hidden={hidden}
+      generation={generation}
+      onPresentationComplete={onPresentationComplete}
       stages={stages.map((stage) => presentStage(stage,t))}
     />
   );

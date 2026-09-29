@@ -10,6 +10,7 @@ export type TerminalSession = {
   status: SessionStatus;
   refresh: number;
   resumeOnly?: boolean;
+  initialDirectory?: string;
 };
 
 export type TerminalHandle = {
@@ -30,13 +31,14 @@ export function terminalSessionAttention(session: Pick<TerminalSession, 'status'
   return null;
 }
 
-export function createTerminalSession(host: TerminalHost): TerminalSession {
+export function createTerminalSession(host: TerminalHost,initialDirectory?: string): TerminalSession {
   return {
     id: `ssh-${host.id}-${Date.now()}`,
     title: host.name || `${host.user}@${host.address}`,
     hostId: host.id,
     status: 'connecting',
     refresh: 0,
+    ...(initialDirectory ? { initialDirectory } : {}),
   };
 }
 
@@ -54,6 +56,7 @@ export function isTerminalSessions(value: unknown): value is TerminalSession[] {
       && (session.status === 'connecting' || session.status === 'online' || session.status === 'closed')
       && typeof session.refresh === 'number'
       && Number.isFinite(session.refresh)
-      && (session.resumeOnly === undefined || typeof session.resumeOnly === 'boolean');
+      && (session.resumeOnly === undefined || typeof session.resumeOnly === 'boolean')
+      && (session.initialDirectory === undefined || typeof session.initialDirectory === 'string');
   });
 }

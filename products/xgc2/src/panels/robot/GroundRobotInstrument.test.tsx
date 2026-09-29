@@ -21,12 +21,14 @@ function telemetry(overrides: Partial<GroundRobotInstrumentTelemetry> = {}): Gro
       percentageState:'PERCENTAGE_STATE_AVAILABLE',percentage:0.88,voltageV:12.348,
     },
     chassis: { controlMode: 'CONTROL_MODE_COMMAND_CAN',nativeControlMode: 1 },
+    controller: { text: 'Ready' },
     health: { summary: 'nominal' },
     streamHealth: { channels: [
       { channelId: 'state.imu',sourceRateHz: 20,sourceAgeMs: 40,stale: false },
       { channelId: 'state.power',sourceRateHz: 1.67 },
       { channelId: 'vrpn.position',sourceRateHz: 20 },
       { channelId: 'command.velocity',sourceRateHz: 10 },
+      { channelId: 'state.controller',sourceRateHz: 5,stale: false },
     ] },
     ...overrides,
   };
@@ -39,11 +41,18 @@ describe('GroundRobotInstrument', () => {
     );
     const face = container.querySelector('[data-xgc-role="robot-ground-instrument"]');
     expect(face).toHaveClass('robot-flight-instrument');
-    expect(container.querySelector('.robot-ground-identity')?.textContent).toBe('Scout 01');
+    const identity = container.querySelector('[data-xgc-role="robot-instrument-identity"]');
+    expect(identity).toHaveClass('robot-ground-identity');
+    expect(identity).toHaveAttribute('data-xgc-id', 'scout-01');
+    expect(identity?.textContent).toBe('Scout 01');
     expect(container.querySelector('[data-xgc-role="robot-ground-kind-glyph"]')).toBeNull();
     expect(container.querySelector('.robot-flight-instrument-header small')).toBeNull();
     expect(container.querySelector('[data-xgc-role="robot-power-indicator"]')?.getAttribute('title'))
-      .toMatch(/Battery 88%/);
+      .toMatch(/Battery estimated from voltage: 88%/);
+    expect(container.querySelector('[data-xgc-role="robot-power-indicator"] text')?.textContent)
+      .toBe('88');
+    expect(container.querySelector('[data-xgc-role="robot-power-indicator"] text')?.textContent)
+      .not.toContain('≈');
     expect(container.querySelector('[data-xgc-role="robot-ground-power"] strong')?.textContent)
       .toBe('12.3 V');
     expect(container.querySelector('[data-xgc-role="robot-ground-power"] strong')?.textContent)
@@ -151,7 +160,7 @@ describe('GroundRobotInstrument', () => {
     )).toHaveAttribute('data-xgc-tone','normal');
   });
 
-  it('paints Ground IMU red strictly below 10 Hz', () => {
+  it('paints Ground IMU red strictly below 5 Hz and keeps 9.9 Hz white', () => {
     const slow = render(
       <GroundRobotInstrument
         robotId="mecanum-02"
@@ -160,7 +169,7 @@ describe('GroundRobotInstrument', () => {
         telemetry={telemetry({
           chassis: {},
           streamHealth: { channels: [
-            { channelId: 'state.imu',sourceRateHz: 9.9,sourceAgeMs: 40,stale: false },
+            { channelId: 'state.imu',sourceRateHz: 4.9,sourceAgeMs: 40,stale: false },
             { channelId: 'state.power',sourceRateHz: 1 },
             { channelId: 'vrpn.position',sourceRateHz: 100 },
             { channelId: 'command.velocity',sourceRateHz: 10 },
@@ -172,8 +181,8 @@ describe('GroundRobotInstrument', () => {
       '[data-xgc-role="robot-ground-imu"][data-xgc-id="mecanum-02:state.imu"]',
     );
     expect(imu).toHaveAttribute('data-xgc-stream','sensor');
-    expect(imu).toHaveAttribute('data-xgc-alarm-hz','10');
-    expect(imu).toHaveAttribute('title','IMU 9.9 Hz; alarm below 10 Hz');
+    expect(imu).toHaveAttribute('data-xgc-alarm-hz','5');
+    expect(imu).toHaveAttribute('title','IMU 4.9 Hz; alarm below 5 Hz');
     expect(imu?.querySelector('strong')).toHaveAttribute('data-xgc-tone','danger');
     slow.unmount();
     const live = render(
@@ -182,7 +191,7 @@ describe('GroundRobotInstrument', () => {
         name="Scout 01"
         telemetry={telemetry({
           streamHealth: { channels: [
-            { channelId: 'state.imu',sourceRateHz: 10,sourceAgeMs: 40,stale: false },
+            { channelId: 'state.imu',sourceRateHz: 9.9,sourceAgeMs: 40,stale: false },
             { channelId: 'state.power',sourceRateHz: 1 },
             { channelId: 'vrpn.position',sourceRateHz: 100 },
             { channelId: 'command.velocity',sourceRateHz: 10 },
@@ -190,6 +199,9 @@ describe('GroundRobotInstrument', () => {
         })}
       />,
     );
+    expect(live.container.querySelector(
+      '[data-xgc-role="robot-ground-imu"][data-xgc-id="scout-01:state.imu"]',
+    )).toHaveAttribute('data-xgc-alarm-hz','5');
     expect(live.container.querySelector(
       '[data-xgc-role="robot-ground-imu"][data-xgc-id="scout-01:state.imu"] strong',
     )).toHaveAttribute('data-xgc-tone','normal');
@@ -254,7 +266,8 @@ describe('GroundRobotInstrument', () => {
     expect(container.querySelector('.robot-ground-identity')?.textContent).not.toMatch(/UGV|MECANUM|CAN/);
     expect(container.querySelector('[data-xgc-role="robot-control-indicator"]')).toBeNull();
     expect(container.querySelector('[data-xgc-role="robot-ground-chassis-mode"]')).toBeNull();
-    expect(container.querySelector('[data-xgc-pedestal="none"]')).not.toBeNull();
+    expect(container.querySelector('[data-xgc-pedestal="controller"]')).not.toBeNull();
+    expect(container.querySelector('[data-xgc-role="robot-controller-state"]')?.textContent).toBe('Ready');
     expect(container.querySelector('[data-xgc-role="robot-ground-power"] strong')?.textContent)
       .toBe('12.3 V');
     expect(container.querySelector('[data-xgc-chassis="none"]')).not.toBeNull();
@@ -277,6 +290,87 @@ describe('GroundRobotInstrument', () => {
     expect(container.textContent).not.toMatch(/\bRC\b/);
   });
 
+  it('keeps Scout chassis+controller columns and a Mecanum controller pedestal', () => {
+    const scout = render(
+      <GroundRobotInstrument robotId="scout-01" name="Scout 01" telemetry={telemetry()} />,
+    );
+    const scoutFace = scout.container.querySelector('[data-xgc-role="robot-ground-instrument"]')!;
+    expect(scoutFace).toHaveAttribute('data-xgc-pedestal', 'chassis');
+    expect(scoutFace.querySelector('.robot-flight-bottom-status')).toHaveAttribute('data-xgc-columns', '2');
+    expect(scoutFace.querySelector('[data-xgc-role="robot-ground-chassis-mode"]')?.textContent).toBe('CMD');
+    expect(scoutFace.querySelector('[data-xgc-role="robot-controller-state"]')?.textContent).toBe('Ready');
+    scout.unmount();
+
+    const mecanum = render(
+      <GroundRobotInstrument
+        robotId="mecanum-01"
+        name="Mecanum 01"
+        chassisChrome="none"
+        telemetry={telemetry({ chassis: {} })}
+      />,
+    );
+    const mecanumFace = mecanum.container.querySelector('[data-xgc-role="robot-ground-instrument"]')!;
+    expect(mecanumFace).toHaveAttribute('data-xgc-pedestal', 'controller');
+    expect(mecanumFace.querySelector('.robot-flight-bottom-status')).toHaveAttribute('data-xgc-columns', '1');
+    expect(mecanumFace.querySelector('[data-xgc-role="robot-ground-chassis-mode"]')).toBeNull();
+    expect(mecanumFace.querySelector('[data-xgc-role="robot-controller-state"]')?.textContent).toBe('Ready');
+    mecanum.unmount();
+
+    const missing = render(
+      <GroundRobotInstrument
+        robotId="scout-01"
+        name="Scout 01"
+        telemetry={telemetry({
+          controller: {},
+          streamHealth: { channels: [
+            { channelId: 'state.imu',sourceRateHz: 20,sourceAgeMs: 40,stale: false },
+            { channelId: 'state.controller',stale: true },
+          ] },
+        })}
+      />,
+    );
+    expect(missing.container.querySelector('[data-xgc-role="robot-ground-instrument"]'))
+      .toHaveAttribute('data-xgc-connection', 'connected');
+    expect(missing.container.querySelector('[data-xgc-role="robot-controller-state"]')?.textContent)
+      .toBe('--');
+  });
+
+  it('keeps a connected Ground HUD when IMU is live and VRPN attitude is missing', () => {
+    const { container } = render(
+      <GroundRobotInstrument
+        robotId="mecanum-01"
+        name="Mecanum 01"
+        chassisChrome="none"
+        telemetry={telemetry({
+          chassis: {},
+          poseFresh: false,
+          pose: {},
+          velocity: {},
+          speed: {},
+          streamHealth: { channels: [
+            { channelId: 'state.imu',sourceRateHz: 20,sourceAgeMs: 40,stale: false },
+            { channelId: 'state.power',sourceRateHz: 1.67 },
+            { channelId: 'command.velocity',sourceRateHz: 10 },
+          ] },
+        })}
+      />,
+    );
+    const face = container.querySelector('[data-xgc-role="robot-ground-instrument"]');
+    expect(face).toHaveAttribute('data-xgc-connection', 'connected');
+    expect(face).toHaveAttribute('data-xgc-attitude', 'unknown');
+    expect(face).not.toHaveAttribute('data-roll');
+    expect(face).not.toHaveAttribute('data-pitch');
+    expect(face).not.toHaveAttribute('data-heading');
+    expect(container.querySelector('[data-xgc-role="robot-ground-heading"]')?.textContent)
+      .toBe('--');
+    expect(container.querySelector('[data-xgc-role="robot-network-indicator"]'))
+      .toHaveAttribute('data-xgc-tone', 'success');
+    expect(container.querySelector('[data-xgc-role="robot-ground-imu"]'))
+      .toHaveAttribute('data-xgc-id', 'mecanum-01:state.imu');
+    expect(container.querySelector('[data-xgc-role="robot-ground-imu-rate"]')?.textContent)
+      .toMatch(/20/);
+  });
+
   it('paints Scout chassis mode red for remote and green for program control', () => {
     const command = render(
       <GroundRobotInstrument
@@ -285,7 +379,7 @@ describe('GroundRobotInstrument', () => {
         telemetry={telemetry()}
       />,
     );
-    const commandMode = command.container.querySelector('[data-xgc-role="robot-ground-chassis-mode"] span');
+    const commandMode = command.container.querySelector('[data-xgc-role="robot-ground-chassis-mode"]');
     expect(commandMode?.textContent).toBe('CMD');
     expect(commandMode?.textContent).not.toBe('CAN');
     expect(commandMode).toHaveAttribute('data-xgc-tone','success');
@@ -300,7 +394,7 @@ describe('GroundRobotInstrument', () => {
         })}
       />,
     );
-    const remoteMode = remote.container.querySelector('[data-xgc-role="robot-ground-chassis-mode"] span');
+    const remoteMode = remote.container.querySelector('[data-xgc-role="robot-ground-chassis-mode"]');
     expect(remoteMode?.textContent).toBe('RC');
     expect(remoteMode).toHaveAttribute('data-xgc-tone','danger');
     remote.unmount();
@@ -314,22 +408,98 @@ describe('GroundRobotInstrument', () => {
         })}
       />,
     );
-    const uartMode = uart.container.querySelector('[data-xgc-role="robot-ground-chassis-mode"] span');
+    const uartMode = uart.container.querySelector('[data-xgc-role="robot-ground-chassis-mode"]');
     expect(uartMode?.textContent).toBe('UART');
     expect(uartMode).toHaveAttribute('data-xgc-tone','danger');
     uart.unmount();
 
-    const unknown = render(
+    const remoteNative = render(
       <GroundRobotInstrument
         robotId="scout-04"
         name="Scout 04"
         telemetry={telemetry({ chassis: { nativeControlMode: 3 } })}
       />,
     );
-    const unknownMode = unknown.container.querySelector('[data-xgc-role="robot-ground-chassis-mode"] span');
-    expect(unknownMode?.textContent).toBe('MODE 3');
-    expect(unknownMode).toHaveAttribute('data-xgc-tone','normal');
-    unknown.unmount();
+    const remoteNativeMode = remoteNative.container.querySelector('[data-xgc-role="robot-ground-chassis-mode"]');
+    expect(remoteNativeMode?.textContent).toBe('RC');
+    expect(remoteNativeMode).toHaveAttribute('data-xgc-tone','danger');
+    remoteNative.unmount();
+
+    const commandNative = render(
+      <GroundRobotInstrument
+        robotId="scout-05"
+        name="Scout 05"
+        telemetry={telemetry({ chassis: { nativeControlMode: 0 } })}
+      />,
+    );
+    const commandNativeMode = commandNative.container.querySelector('[data-xgc-role="robot-ground-chassis-mode"]');
+    expect(commandNativeMode?.textContent).toBe('CMD');
+    expect(commandNativeMode).toHaveAttribute('data-xgc-tone','success');
+    commandNative.unmount();
+  });
+
+  it('returns the idle dark HUD after disconnect instead of recovering chrome', () => {
+    const { container } = render(
+      <GroundRobotInstrument
+        robotId="scout-02"
+        name="Scout 02"
+        telemetry={telemetry({
+          online: false,
+          operationalReady: false,
+          connectionState: 'closed',
+          healthTone: 'unavailable',
+          power: {
+            percentageState:'PERCENTAGE_STATE_AVAILABLE',percentage:0.88,voltageV:12.348,currentA:0,
+          },
+        })}
+      />,
+    );
+    const face = container.querySelector('[data-xgc-role="robot-ground-instrument"]');
+    expect(face).toHaveAttribute('data-xgc-connection', 'disconnected');
+    expect(container.querySelector('[data-xgc-role="robot-ground-hud"]'))
+      .toHaveAttribute('data-xgc-id', 'scout-02');
+    expect(container.querySelector('[data-xgc-role="robot-network-indicator"]'))
+      .toHaveAttribute('data-xgc-tone', 'neutral');
+    const chassis = container.querySelector('[data-xgc-role="robot-ground-chassis-mode"]');
+    expect(chassis?.textContent).toBe('--');
+    expect(chassis).toHaveAttribute('data-xgc-tone', 'normal');
+    expect(container.querySelector('[data-xgc-role="robot-controller-state"]')?.textContent).toBe('--');
+    const cmd = container.querySelector(
+      '[data-xgc-role="robot-flight-frequency"][data-xgc-id="scout-02:command.velocity"]',
+    );
+    expect(cmd?.querySelector('.robot-flight-frequency-value-compact')?.textContent).toBe('-- Hz');
+    expect(cmd?.querySelector('strong')).toHaveAttribute('data-xgc-tone', 'normal');
+    expect(container.querySelector('[data-xgc-role="robot-ground-instrument-command-linear"]')?.textContent)
+      .toMatch(/--/);
+    const volt = container.querySelector('[data-xgc-role="robot-ground-power"]');
+    expect(volt?.querySelector('strong')?.textContent).toBe('-- V');
+    expect(volt).toHaveAttribute('title', 'Battery voltage: -- V');
+    expect(volt?.textContent).not.toContain('12.3');
+    expect(container.querySelector(
+      '[data-xgc-role="robot-flight-frequency"][data-xgc-id="scout-02:state.power"] .robot-flight-frequency-value-compact',
+    )?.textContent).toBe('-- Hz');
+  });
+
+  it('keeps recovering chrome while the connection is opening and not yet in place', () => {
+    const { container } = render(
+      <GroundRobotInstrument
+        robotId="scout-02"
+        name="Scout 02"
+        telemetry={telemetry({
+          online: false,
+          operationalReady: false,
+          connectionState: 'opening',
+          healthTone: 'unavailable',
+          streamHealth: { channels: [
+            { channelId: 'command.velocity',sourceRateHz: 10 },
+          ] },
+        })}
+      />,
+    );
+    expect(container.querySelector('[data-xgc-role="robot-ground-instrument"]'))
+      .toHaveAttribute('data-xgc-connection', 'recovering');
+    expect(container.querySelector('[data-xgc-role="robot-network-indicator"]'))
+      .toHaveAttribute('data-xgc-tone', 'danger');
   });
 
   it('puts signed current in the voltage tooltip, not the HUD value', () => {
@@ -408,13 +578,17 @@ describe('GroundRobotInstrument', () => {
     expect(face.querySelector('[data-xgc-role="robot-power-indicator"]')).not.toBeNull();
     expect(face.querySelector('[data-xgc-role="robot-control-indicator"]')).toBeNull();
     expect(face.querySelector('[data-xgc-role="robot-ground-chassis-mode"]')?.textContent).toMatch(/CMD/);
+    expect(face.querySelector('.robot-flight-bottom-status')).toHaveAttribute('data-xgc-columns', '2');
+    expect(face.querySelector('[data-xgc-role="robot-controller-state"]')?.textContent).toBe('Ready');
+    expect(face.querySelector('[data-xgc-role="robot-controller-state"]'))
+      .toHaveAttribute('data-xgc-tone','normal');
     expect(face.querySelector('[data-xgc-role="robot-flight-metric-ruler"][data-xgc-id="scout-01:left"]'))
       .toHaveAttribute('data-xgc-tone','normal');
     expect(face.querySelector('[data-xgc-role="robot-flight-metric-ruler"][data-xgc-id="scout-01:right"]'))
       .toHaveAttribute('data-xgc-tone','normal');
     expect(face.querySelector('[data-xgc-role="robot-ground-heading"]'))
       .toHaveAttribute('data-xgc-tone','normal');
-    expect(face.querySelector('[data-xgc-role="robot-ground-chassis-mode"] span'))
+    expect(face.querySelector('[data-xgc-role="robot-ground-chassis-mode"]'))
       .toHaveAttribute('data-xgc-tone','success');
     expect(face.querySelector('[data-xgc-role="robot-ground-instrument-command-linear"] strong'))
       .toHaveAttribute('data-xgc-tone','normal');
@@ -438,6 +612,7 @@ describe('GroundRobotInstrument', () => {
       positioning: { state: 'POSITIONING_STATE_STABLE' },
     };
     const items = listHeaderStatusItems({
+      connection: 'connected',
       communication: {
         measurement: 'imu-age',
         milliseconds: 40,
@@ -445,6 +620,7 @@ describe('GroundRobotInstrument', () => {
       },
       battery: {
         percentage: 88,
+        estimated: true,
         voltageV: 12.348,
         source: 'state.power.voltageV+percentageState+percentage',
       },
@@ -510,7 +686,9 @@ describe('GroundRobotInstrument', () => {
       );
       const mecanumFace = mecanum.container.querySelector('[data-xgc-role="robot-ground-instrument"]');
       expect(mecanumFace).toHaveAttribute('data-xgc-chassis', 'none');
-      expect(mecanumFace).toHaveAttribute('data-xgc-pedestal', 'none');
+      expect(mecanumFace).toHaveAttribute('data-xgc-pedestal', 'controller');
+      expect(mecanumFace?.querySelector('.robot-flight-bottom-status')).toHaveAttribute('data-xgc-columns', '1');
+      expect(mecanumFace?.querySelector('[data-xgc-role="robot-controller-state"]')?.textContent).toBe('Ready');
       expect(mecanumFace?.querySelector('.robot-ground-identity')?.textContent).toBe('Mecanum 01');
       expect(mecanumFace?.querySelector('[data-xgc-role="robot-control-indicator"]')).toBeNull();
       expect(mecanumFace?.querySelector('[data-xgc-role="robot-ground-chassis-mode"]')).toBeNull();
@@ -764,7 +942,8 @@ describe('GroundRobotInstrument', () => {
     expect(mecanumFace.querySelector('[data-xgc-role="robot-ground-hud"]')).not.toBeNull();
     expect(mecanumFace.querySelector('[data-xgc-role="robot-control-indicator"]')).toBeNull();
     expect(mecanumFace.querySelector('[data-xgc-role="robot-ground-chassis-mode"]')).toBeNull();
-    expect(mecanumFace).toHaveAttribute('data-xgc-pedestal', 'none');
+    expect(mecanumFace).toHaveAttribute('data-xgc-pedestal', 'controller');
+    expect(mecanumFace.querySelector('[data-xgc-role="robot-controller-state"]')?.textContent).toBe('Ready');
     expect(mecanumFace.querySelector('.robot-instrument-status-icons')).not.toBeNull();
     expect(mecanumFace.querySelectorAll('.robot-instrument-status-icons [data-xgc-role$="-indicator"]'))
       .toHaveLength(3);
@@ -858,6 +1037,72 @@ describe('GroundRobotInstrument', () => {
     empty.unmount();
   });
 
+  it('keeps Ground command sign slots the same width when polarity flips', () => {
+    const plus = render(
+      <GroundRobotInstrument
+        robotId="scout-02"
+        name="Scout 02"
+        telemetry={telemetry({
+          commandVelocity: { linear: { x: 0.4 },angular: { z: 0.14 } },
+        })}
+      />,
+    );
+    const plusAngular = plus.container.querySelector(
+      '[data-xgc-role="robot-ground-instrument-command-angular"]',
+    );
+    const plusSign = plusAngular?.querySelector('.robot-flight-status-sign');
+    expect(plusAngular?.parentElement).toHaveClass('robot-flight-status-list');
+    expect(plusSign?.parentElement).toHaveClass('robot-flight-status-value');
+    expect(plusSign?.parentElement?.tagName).toBe('STRONG');
+    expect(plusAngular?.querySelector('strong')?.textContent).toBe('+0.1 rad/s');
+    expect(plusSign?.textContent).toBe('+');
+    expect(plusSign).toHaveAttribute('data-xgc-sign', 'plus');
+    expect(plusSign?.nextSibling?.textContent).toBe('0.1 rad/s');
+    expect(plus.container.querySelector('[data-xgc-role="robot-ground-power"] .robot-flight-status-sign'))
+      .toBeNull();
+    plus.unmount();
+
+    const minus = render(
+      <GroundRobotInstrument
+        robotId="scout-02"
+        name="Scout 02"
+        telemetry={telemetry({
+          commandVelocity: { linear: { x: -0.4 },angular: { z: -0.14 } },
+        })}
+      />,
+    );
+    const minusAngular = minus.container.querySelector(
+      '[data-xgc-role="robot-ground-instrument-command-angular"]',
+    );
+    const minusSign = minusAngular?.querySelector('.robot-flight-status-sign');
+    expect(minusAngular?.querySelector('strong')?.textContent).toBe('-0.1 rad/s');
+    expect(minusSign?.textContent).toBe('-');
+    expect(minusSign).toHaveAttribute('data-xgc-sign', 'minus');
+    expect(minusAngular?.querySelector('strong')?.textContent).not.toMatch(/- 0\.1/);
+    expect(minus.container.querySelector(
+      '[data-xgc-role="robot-ground-instrument-command-linear"] .robot-flight-status-sign',
+    )?.textContent).toBe('-');
+    minus.unmount();
+
+    const missing = render(
+      <GroundRobotInstrument
+        robotId="scout-02"
+        name="Scout 02"
+        telemetry={telemetry({
+          connectionState: 'closed',
+          healthTone: 'unavailable',
+          commandVelocity: { linear: { x: 0.4 },angular: { z: -0.14 } },
+        })}
+      />,
+    );
+    const missingAngular = missing.container.querySelector(
+      '[data-xgc-role="robot-ground-instrument-command-angular"]',
+    );
+    expect(missingAngular?.querySelector('strong')?.textContent).toBe('-- rad/s');
+    expect(missingAngular?.querySelector('.robot-flight-status-sign')).toBeNull();
+    missing.unmount();
+  });
+
   it('does not paint a minus on HUD VRPN height that rounds to 0.0', () => {
     const parked = render(
       <GroundRobotInstrument
@@ -913,11 +1158,13 @@ describe('GroundRobotInstrument', () => {
     );
     const glyphs = [...container.querySelectorAll('.robot-instrument-status-glyph')];
     expect(glyphs.map((glyph) => glyph.getAttribute('data-xgc-tone')))
-      .toEqual(['muted','muted','muted']);
+      .toEqual(['neutral','neutral','neutral']);
     expect(container.querySelector('[data-xgc-role="robot-position-indicator"][data-xgc-id="mecanum-01"]'))
       .toHaveAttribute('aria-label', 'VRPN position unavailable');
     expect(container.querySelector('[data-xgc-role="robot-position-indicator"]'))
       .not.toHaveAttribute('data-xgc-tone', 'danger');
+    expect(container.querySelector('[data-xgc-role="robot-position-indicator"] path'))
+      .toHaveAttribute('opacity', '0.65');
     expect(container.querySelector('[data-xgc-role="robot-ground-instrument-command-linear"]')?.textContent)
       .toMatch(/Vx/);
     expect(container.querySelector('[data-xgc-role="robot-ground-instrument-command-lateral"]')?.textContent)

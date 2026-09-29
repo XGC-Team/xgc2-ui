@@ -143,3 +143,20 @@ function decodeRobotAssetReachability(value: unknown): RobotAssetReachability {
     checkedAt: item.checkedAt,
   };
 }
+
+export type RobotSimulationImage = {
+  profile: string;
+  label: string;
+  os: string;
+  version: string;
+  ros: string;
+  image: string;
+  installed: boolean;
+};
+
+export function listRobotSimulationImages(kind: string, model: string | undefined, signal?: AbortSignal): Promise<RobotSimulationImage[]> {
+  return request<RobotSimulationImage[]>(
+    `/robot-assets/simulation-images${queryString({ kind, model })}`,
+    { signal },
+  );
+}

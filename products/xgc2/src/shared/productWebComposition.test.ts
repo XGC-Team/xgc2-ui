@@ -42,6 +42,32 @@ function baseComposition(): ProductWebComposition {
 }
 
 describe('assembleProductWebComposition', () => {
+  it('composes immutable owner surfaces without importing or mounting their components', () => {
+    const load = vi.fn(async () => ({ default: () => null }));
+    const component = lazy(load);
+    const base = baseComposition();
+    const sharedSurfaces = [{ moduleId: 'fixture.camera',viewContractVersion: 1,component }];
+    const assembled = assembleProductWebComposition(base,contribution({ sharedSurfaces }));
+    expect(assembled.sharedSurfaces).toEqual(sharedSurfaces);
+    expect(Object.isFrozen(assembled.sharedSurfaces)).toBe(true);
+    expect(Object.isFrozen(assembled.sharedSurfaces?.[0])).toBe(true);
+    expect(base.sharedSurfaces).toBeUndefined();
+    expect(load).not.toHaveBeenCalled();
+    sharedSurfaces[0]!.moduleId = 'changed';
+    expect(assembled.sharedSurfaces?.[0]?.moduleId).toBe('fixture.camera');
+  });
+
+  it('rejects duplicate module ownership and invalid surface versions at assembly', () => {
+    const component = lazy(async () => ({ default: () => null }));
+    const sharedSurface = { moduleId: 'fixture.camera',viewContractVersion: 1,component };
+    const base = { ...baseComposition(),sharedSurfaces: [sharedSurface] };
+    expect(() => assembleProductWebComposition(base,contribution({ sharedSurfaces: [sharedSurface] })))
+      .toThrow('Duplicate shared surface');
+    expect(() => assembleProductWebComposition(baseComposition(),contribution({
+      sharedSurfaces: [{ ...sharedSurface,viewContractVersion: 0 }],
+    }))).toThrow('Invalid shared surface');
+  });
+
   it('deduplicates preload work and renders the resolved component without another suspension', async () => {
     const loader = vi.fn(async () => ({ default: FixtureRoute }));
     const route = createPreloadableProductRoute(loader);

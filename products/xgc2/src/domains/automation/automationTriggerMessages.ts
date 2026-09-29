@@ -14,6 +14,7 @@ export const automationTriggerZhMessages: MessageCatalog = {
   'When called': '被调用时',
   'Run now': '立即运行',
   'Start listening': '开始监听',
+  'Start when Agent starts': 'Agent 启动时运行',
   'Activate': '激活',
   'Activated version {version} differs from this draft. Update activation to pin the current commit.': '已激活版本 {version} 与此草稿不同。请更新激活状态以固定当前提交。',
   'Activating…': '正在激活…',

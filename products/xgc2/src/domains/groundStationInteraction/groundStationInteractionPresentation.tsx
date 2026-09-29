@@ -1,4 +1,5 @@
 import type { GroundStationInteraction } from './groundStationInteractionTypes';
+import { formatOperatorDateTime } from '../../shared/operatorTime';
 
 export function groundStationInteractionOrigin(interaction: GroundStationInteraction) {
   const source = interaction.origin.displayName || interaction.origin.ref || interaction.origin.type;
@@ -23,8 +24,7 @@ export function groundStationActivitySummary(interaction: GroundStationInteracti
 }
 
 export function formatGroundStationTimestamp(value: string) {
-  const timestamp = new Date(value);
-  return Number.isNaN(timestamp.getTime()) ? value : timestamp.toLocaleString();
+  return formatOperatorDateTime(value);
 }
 
 export function groundStationErrorMessage(cause: unknown) {

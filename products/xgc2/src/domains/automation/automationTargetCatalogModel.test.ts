@@ -95,7 +95,7 @@ describe('automationTargetCatalogModel', () => {
       resourceId: 'run-robots',
       mode: 'inherit',
       system: false,
-      tags: ['bounded-fan-out', 'mixed-fleet', 'robot', 'runtime'],
+      tags: ['bounded-fan-out', 'mixed-swarm', 'robot', 'runtime'],
     });
 
     for (const document of [leakedRos,leakedSession,leakedPx4Panel,leakedRobotRuntime]) {

@@ -12,8 +12,10 @@ import {
   experimentSessionIsRunning,
   invokeExperimentPanelAction,
   listActiveExperimentSessions,
+  listLeftoverExperimentOccupancyIds,
   runningExperimentIds,
   runningExperimentIdsFromSessions,
+  restartExperimentRun,
   startExperimentRun,
   startExperimentPanelRun,
   stopExperimentRun,
@@ -51,6 +53,63 @@ describe('experimentWorkflowService',() => {
     }));
   });
 
+  it('sends optional placement on Run, Run Panel, and Restart and drops any other token',async () => {
+    vi.mocked(request).mockResolvedValue({ run:automationRun('run-1','experiment-a',{ runMode:'field-custom' }),receipt:{} });
+    await startExperimentRun('local',experiment(),'field-custom','per-robot');
+    expect(requestParameters()).toEqual({ runMode:'field-custom',placement:'per-robot' });
+    expect(requestActionId()).toBe('run');
+
+    vi.mocked(request).mockClear();
+    const panel = automationRun('panel-root','experiment-a',{ panelId:'panel-a',runMode:'field-custom',placement:'centralized' });
+    panel.actionId = SYSTEM_EXPERIMENT_RUNNER.actions.runPanel;
+    vi.mocked(request).mockResolvedValue({ run:panel,receipt:{} });
+    await startExperimentPanelRun('local',experiment(),'field-custom','panel-a',{ selected:['robot-a'] },'centralized');
+    expect(requestActionId()).toBe('run-panel');
+    expect(requestParameters()).toEqual({
+      panelId:'panel-a',runMode:'field-custom',inputOverridesJson:'{"selected":["robot-a"]}',placement:'centralized',
+    });
+
+    vi.mocked(request).mockClear();
+    const restart = automationRun('restart-root','experiment-a',{ runMode:'field-custom',placement:'per-robot' });
+    restart.actionId = SYSTEM_EXPERIMENT_RUNNER.actions.restart;
+    vi.mocked(request).mockResolvedValue({ run:restart,receipt:{} });
+    await restartExperimentRun('local',experiment(),'field-custom','per-robot');
+    expect(requestActionId()).toBe('restart');
+    expect(requestParameters()).toEqual({ runMode:'field-custom',placement:'per-robot' });
+
+    vi.mocked(request).mockClear();
+    vi.mocked(request).mockResolvedValue({ run:automationRun('run-2','experiment-a',{ runMode:'field-custom' }),receipt:{} });
+    await startExperimentRun('local',experiment(),'field-custom');
+    expect(requestParameters()).toEqual({ runMode:'field-custom' });
+    await startExperimentRun('local',experiment(),'field-custom',undefined);
+    expect(requestParameters()).not.toHaveProperty('placement');
+  });
+
+  it('projects placement only from the Runner input, not from runMode',() => {
+    const named = activeExperimentRun([
+      automationRun('run-1','experiment-a',{ runMode:'physical',placement:'per-robot' }),
+    ],experiment(),'local');
+    expect(named?.placement).toBe('per-robot');
+    expect(named?.runMode).toBe('physical');
+
+    const omitted = activeExperimentRun([
+      automationRun('run-2','experiment-a',{ runMode:'simulation' }),
+    ],experiment(),'local');
+    expect(omitted).not.toHaveProperty('placement');
+
+    const otherToken = activeExperimentRun([
+      automationRun('run-3','experiment-a',{ runMode:'simulation',placement:'core' }),
+    ],experiment(),'local');
+    expect(otherToken).not.toHaveProperty('placement');
+
+    const summary = automationRun('run-4','experiment-a',{});
+    delete (summary as { parameters?:unknown }).parameters;
+    (summary as { experimentSelector?:{ runMode:string;placement?:string } }).experimentSelector = {
+      runMode:'simulation',placement:'centralized',
+    };
+    expect(activeExperimentRun([summary],experiment(),'local')?.placement).toBe('centralized');
+  });
+
   it('starts one unmanaged-capable Panel only through the protected panel selector Action',async () => {
     const run = automationRun('panel-root','experiment-a',{ panelId:'panel-a',runMode:'field-custom' });
     run.actionId = SYSTEM_EXPERIMENT_RUNNER.actions.runPanel;
@@ -67,6 +126,24 @@ describe('experimentWorkflowService',() => {
       },
     }));
     expect(body).not.toHaveProperty('targetId');
+  });
+
+  it('adds an explicitly selected preset to Run Panel parameters after placement',async () => {
+    const run = automationRun('panel-root','experiment-a',{
+      panelId:'panel-a',presetId:'archive',runMode:'field-custom',placement:'centralized',
+    });
+    run.actionId = SYSTEM_EXPERIMENT_RUNNER.actions.runPanel;
+    vi.mocked(request).mockResolvedValueOnce({ run,receipt:{} });
+
+    await startExperimentPanelRun(
+      'local',experiment(),'field-custom','panel-a',{ speed:2 },'centralized','archive',
+    );
+
+    const body=JSON.parse(String(vi.mocked(request).mock.calls[0]?.[1]?.body));
+    expect(body.parameters).toEqual({
+      panelId:'panel-a',presetId:'archive',runMode:'field-custom',
+      inputOverridesJson:'{"speed":2}',placement:'centralized',
+    });
   });
 
   it('invokes a frozen Panel preset with value-only overrides and no executable identity',async () => {
@@ -130,6 +207,16 @@ describe('experimentWorkflowService',() => {
     ]));
   });
 
+  it('reads leftover occupancy from active System Runner history without probing Experiments',async () => {
+    vi.mocked(request).mockResolvedValueOnce({ entries:[],complete:true });
+    await expect(listLeftoverExperimentOccupancyIds('local')).resolves.toEqual([]);
+    const [path,init]=vi.mocked(request).mock.calls[0]!;
+    expect(path).toContain('/execution-targets/local/automation-execution-history?');
+    expect(path).toContain(`automationResourceId=${SYSTEM_EXPERIMENT_RUNNER.resourceId}`);
+    expect(path).toContain('runStatus=accepted%2Cqueued%2Crunning%2Cwaiting%2Cstopping');
+    expect(init).toEqual({ signal:undefined });
+  });
+
   it('derives occupancy only from active Experiment-sourced System Runner roots',() => {
     const active = automationRun('run-active','experiment-a',{ runMode:'simulation' });
     const terminal = {
@@ -182,6 +269,14 @@ describe('experimentWorkflowService',() => {
     expect(view).not.toHaveProperty('runtime');
   });
 });
+
+function requestParameters() {
+  return JSON.parse(String(vi.mocked(request).mock.calls.at(-1)?.[1]?.body)).parameters;
+}
+
+function requestActionId() {
+  return JSON.parse(String(vi.mocked(request).mock.calls.at(-1)?.[1]?.body)).actionId;
+}
 
 function sessionView(
   id:string,

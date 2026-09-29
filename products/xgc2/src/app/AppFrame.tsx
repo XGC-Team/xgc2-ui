@@ -67,23 +67,28 @@ export function AppFrame({ children }: { children: ReactNode }) {
     if (page === nav.page && page === 'automations') breadcrumbs.showAutomationList();
     else if (page === nav.page && page === 'experiment') breadcrumbs.showExperimentList();
     else if (page === nav.page && page === 'robotAssets') breadcrumbs.showRobotList();
+    else if (page === nav.page && page === 'venueAssets') breadcrumbs.showVenueList();
     else nav.navigatePage(page);
   },[breadcrumbs,nav]);
   const returnCatalogToList = useCallback(() => {
     if (nav.page === 'automations') breadcrumbs.showAutomationList();
     else if (nav.page === 'experiment') breadcrumbs.showExperimentList();
     else if (nav.page === 'robotAssets') breadcrumbs.showRobotList();
+    else if (nav.page === 'venueAssets') breadcrumbs.showVenueList();
   }, [breadcrumbs,nav.page]);
   const catalogTitleReturnsToList = nav.page === 'automations'
     || nav.page === 'experiment'
-    || nav.page === 'robotAssets';
+    || nav.page === 'robotAssets'
+    || nav.page === 'venueAssets';
   const experimentDashboard = nav.page === 'experiment'
     && (breadcrumbs.experiment.view === 'detail' || Boolean(experimentHashResourceId));
   const catalogResourceName = nav.page === 'automations' && breadcrumbs.automation.view === 'detail'
     ? breadcrumbs.automation.name
     : nav.page === 'experiment' && breadcrumbs.experiment.view === 'detail'
       ? breadcrumbs.experiment.name
-      : undefined;
+      : nav.page === 'venueAssets' && breadcrumbs.venue.view === 'detail'
+        ? breadcrumbs.venue.name
+        : undefined;
 
   const shell = (
     <AppShell

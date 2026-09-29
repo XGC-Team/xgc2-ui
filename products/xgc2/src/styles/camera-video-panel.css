@@ -68,26 +68,15 @@
   align-items: center;
   gap: var(--space-2xs);
   color: var(--color-text-muted);
-  font: var(--font-xs)/var(--line-height-normal) var(--font-mono);
+  font: var(--type-caption-caps-size)/var(--line-height-normal) var(--font-sans);
   text-shadow: 0 1px 2px var(--color-bg-canvas);
-  text-transform: uppercase;
+  text-transform: var(--type-caption-caps-transform);
+  letter-spacing: var(--type-caption-caps-tracking);
 }
 
-.camera-video-panel-lifecycle-item strong {
-  color: var(--color-text);
-  font-weight: 600;
-}
-
-.camera-video-panel-lifecycle-item[data-state='playing'] strong,
-.camera-video-panel-lifecycle-item[data-state='ready'] strong,
-.camera-video-panel-lifecycle-item[data-state='running'] strong,
-.camera-video-panel-lifecycle-item[data-state='attached'] strong {
-  color: var(--color-success);
-}
-
-.camera-video-panel-lifecycle-item[data-state='failed'] strong,
-.camera-video-panel-lifecycle-item[data-state='offline'] strong {
-  color: var(--color-danger);
+.camera-video-panel-lifecycle-value {
+  font-size: inherit;
+  text-shadow: inherit;
 }
 
 .camera-video-panel-error {
@@ -140,7 +129,8 @@
   align-items: center;
   gap: var(--space-sm);
   color: color-mix(in srgb, var(--color-text) 84%, transparent);
-  font: var(--font-xs)/var(--line-height-normal) var(--font-mono);
-  font-weight: var(--weight-semibold);
+  font: var(--type-caption-caps-size)/var(--line-height-normal) var(--font-sans);
+  font-variant-numeric: var(--type-numeric-variant);
+  font-weight: var(--type-caption-caps-weight);
   text-shadow: 0 1px 2px var(--color-bg-canvas);
 }

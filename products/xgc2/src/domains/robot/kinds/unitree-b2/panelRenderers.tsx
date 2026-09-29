@@ -2,8 +2,14 @@ import { StatusText } from '@xgc2/ui-react';
 import type { RobotKindPanelRenderProps } from '../../robotAssetKindComposition';
 import { UnitreeB2RobotInstrument } from './UnitreeB2RobotInstrument';
 import { b2LocomotionLabel } from './instrumentModel';
+import { RobotInstrumentIdentity } from '../../../../panels/robot/RobotInstrumentIdentity';
 import { RobotListHeaderStatus } from '../../../../panels/robot/RobotListHeaderStatus';
 import { listHeaderStatusItems } from '../../../../panels/robot/RobotListHeaderStatusModel';
+import {
+  b2CoreSubscriptionReady,
+  connectionPresentationTone,
+  robotConnectionPresentation,
+} from '../../../../panels/robot/robotConnectionPresentation';
 import {
   RobotListMetric,
   RobotListScalarValue,
@@ -39,6 +45,7 @@ export function UnitreeB2InstrumentProjection({ robot,status,channels,healthTone
       online: status.online,
       operationalReady: status.operationalReady,
       connectionState: robot.connectionState,
+      connectionDetail: robot.connectionDetail,
       poseFresh: Boolean(channels[POSE_CHANNEL] && !channels[POSE_CHANNEL]?.stale),
       velocityStale: channels[VELOCITY_CHANNEL]?.stale ?? true,
       speedStale: channels[SPEED_CHANNEL]?.stale ?? true,
@@ -55,6 +62,7 @@ export function UnitreeB2InstrumentProjection({ robot,status,channels,healthTone
       jointsStale: channels[JOINTS_CHANNEL]?.stale ?? true,
       streamHealth: value(STREAM_HEALTH_CHANNEL),
       link: value(LINK_CHANNEL),
+      linkStale: channels[LINK_CHANNEL]?.stale,
       poseSequence: channels[POSE_CHANNEL]?.sequence,
       speedSequence: channels[SPEED_CHANNEL]?.sequence,
       powerSequence: channels[POWER_CHANNEL]?.sequence,
@@ -65,7 +73,9 @@ export function UnitreeB2InstrumentProjection({ robot,status,channels,healthTone
   />;
 }
 
-export function UnitreeB2ListProjection({ robot,status,channels,showSimulationSourceMark = false }: RobotKindPanelRenderProps) {
+export function UnitreeB2ListProjection({
+  robot,channels,healthTone,showSimulationSourceMark = false,
+}: RobotKindPanelRenderProps) {
   const t = useRobotText();
   const poseChannel = channels[POSE_CHANNEL];
   const speedChannel = channels[SPEED_CHANNEL];
@@ -73,9 +83,12 @@ export function UnitreeB2ListProjection({ robot,status,channels,showSimulationSo
   const powerChannel = channels[POWER_CHANNEL];
   const locomotionChannel = channels[LOCOMOTION_CHANNEL];
   const linkChannel = channels[LINK_CHANNEL];
-  const pose = poseChannel?.value ?? {};
-  const velocity = velocityChannel?.value ?? {};
-  const speed = speedChannel?.value ?? {};
+  const poseLive = poseChannel != null && poseChannel.stale !== true;
+  const speedLive = speedChannel != null && speedChannel.stale !== true;
+  const velocityLive = velocityChannel != null && velocityChannel.stale !== true;
+  const pose = poseLive ? poseChannel.value ?? {} : {};
+  const velocity = velocityLive ? velocityChannel.value ?? {} : {};
+  const speed = speedLive ? speedChannel.value ?? {} : {};
   const power = powerChannel?.value ?? {};
   const locomotionValue = locomotionChannel?.value ?? {};
   const streamHealth = channels[STREAM_HEALTH_CHANNEL]?.value ?? {};
@@ -84,8 +97,13 @@ export function UnitreeB2ListProjection({ robot,status,channels,showSimulationSo
   const speedValue = firstNumber(speed, 'metersPerSecond', 'meters_per_second') ?? null;
   const yawRate = numberValue(angular.z) ?? null;
   const linkSourceAgeMs = firstNumber(linkChannel?.value ?? {}, 'sourceAgeMs') ?? null;
-  const connectionLive = robot.connectionState === 'live' && status.online;
-  const powerAvailable = connectionLive && powerChannel != null && powerChannel.stale !== true;
+  const powerAvailable = powerChannel != null && powerChannel.stale !== true;
+  const connection = robotConnectionPresentation({
+    connectionState: robot.connectionState,
+    connectionDetail: robot.connectionDetail,
+    hasRun: healthTone !== 'idle',
+    coreReady: b2CoreSubscriptionReady(linkChannel),
+  });
   const batteryVoltage = powerAvailable
     ? firstNumber(power, 'voltageV', 'voltage_v') ?? null
     : null;
@@ -103,6 +121,7 @@ export function UnitreeB2ListProjection({ robot,status,channels,showSimulationSo
     : 0);
   const locomotion = b2LocomotionLabel(locomotionValue);
   const headerStatusItems = listHeaderStatusItems({
+    connection,
     battery: {
       percentage: batteryPercentage,
       source: `${POWER_CHANNEL}.percentage`,
@@ -112,20 +131,19 @@ export function UnitreeB2ListProjection({ robot,status,channels,showSimulationSo
     if (item.kind === 'latency') {
       const stale = linkChannel?.stale === true;
       const activeAgeMs = linkChannel && !stale ? linkSourceAgeMs : null;
+      const measurement = !linkChannel
+        ? t('B2 forwarder link unavailable')
+        : stale
+          ? t('B2 forwarder link stale')
+          : linkSourceAgeMs == null
+            ? t('B2 forwarder link fresh')
+            : t('B2 forwarder heartbeat age {age} ms',{ age:Math.round(linkSourceAgeMs) });
       return {
-        kind: 'latency' as const,
-        role: 'robot-network-indicator' as const,
-        label: !linkChannel
-          ? t('B2 forwarder link unavailable')
-          : stale
-            ? t('B2 forwarder link stale')
-            : linkSourceAgeMs == null
-              ? t('B2 forwarder link fresh')
-              : t('B2 forwarder heartbeat age {age} ms',{ age:Math.round(linkSourceAgeMs) }),
-        tone: stale ? 'danger' as const : 'neutral' as const,
+        ...item,
+        label: t('{connection}; {detail}',{ connection:item.label,detail:measurement }),
+        tone: connectionPresentationTone(connection),
         source: `${LINK_CHANNEL}.sourceAgeMs`,
         value: activeAgeMs,
-        active: activeAgeMs != null,
       };
     }
     if (item.kind === 'position') {
@@ -150,7 +168,7 @@ export function UnitreeB2ListProjection({ robot,status,channels,showSimulationSo
   return <>
     <header>
       <div className="robot-card-identity" data-xgc-gap="sm">
-        <strong>{robot.name}</strong>
+        <RobotInstrumentIdentity robotId={robot.id} name={robot.name} />
         {showSimulationSourceMark && (
           <StatusText
             status="error"

@@ -2,7 +2,10 @@ import { useLocalizedText,type MessageCatalog } from '../../shared/localization/
 import { automationSharedZhMessages } from './automationSharedMessages';
 
 export const automationExecutionZhMessages: MessageCatalog = {
+  'Screen record': '录屏',
   'Stop service': '停止服务',
+  "Saves under this station's Documents/XGC/Data. After Stop, listed as a data file on Analysis plots.":
+    '保存在本站文档目录 XGC/Data。停止后出现在分析面板数据文件列表。',
   'Open source execution': '查看来源执行',
   'Input lineage': '输入来源',
   'Invocation': '调用',

@@ -1,4 +1,18 @@
 export const commonZhMessages: Readonly<Record<string,string>> = {
+  // Owned here, not per domain: robot panels, camera panels and ground-station
+  // decisions were translating the same words ('Arm'/'Disarm'/'Set mode',
+  // 'Simulation', 'Browse', 'disconnected') from several catalogs. One owner
+  // keeps the wording identical everywhere; formatLocalizedText falls back to
+  // this catalog so every domain resolves them without duplicating the key.
+  'Arm': '解锁',
+  'Disarm': '上锁',
+  'Set mode': '设置模式',
+  'Simulation': '仿真',
+  'Physical': '实物',
+  'Browse': '浏览',
+  'disconnected': '未连接',
+  'Zoom in': '放大',
+  'Zoom out': '缩小',
   'VRPN': 'VRPN',
   'This Experiment is read only.': '此实验为只读。',
   'Close drawer': '关闭侧栏',
@@ -82,6 +96,8 @@ export const commonZhMessages: Readonly<Record<string,string>> = {
   'Stop': '停止',
   'Tag name': '标签名称',
   'Type': '类型',
+  'User': '用户',
+  'Video': '视频',
   // Owned here, not per domain: the Experiment session and an Automation run were
   // translating the same word two ways ('停止中' / '正在停止'). The shorter form wins
   // because it remains legible as compact plain status text. formatLocalizedText falls back to this

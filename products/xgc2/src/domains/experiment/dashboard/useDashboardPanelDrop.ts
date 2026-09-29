@@ -1,4 +1,5 @@
-import type { DragEvent } from 'react';
+import { useMemo,type DragEvent } from 'react';
+import { useStableCallback } from '../../../hooks/useStableCallback';
 import { availablePanelPlugins } from '../../../panels/builtinPanels';
 import type { PanelPluginDefinition } from '../../../panels/types';
 import type { GridPos } from '../../../types/common';
@@ -77,7 +78,9 @@ export function useDashboardPanelDrop({
     );
   }
 
-  return { onDragOver,onDrop };
+  const stableDragOver = useStableCallback(onDragOver);
+  const stableDrop = useStableCallback(onDrop);
+  return useMemo(() => ({ onDragOver:stableDragOver,onDrop:stableDrop }),[stableDragOver,stableDrop]);
 }
 
 function clampGridValue(value: number, min: number, max: number) {

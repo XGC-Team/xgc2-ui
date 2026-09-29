@@ -14,9 +14,9 @@ describe('product navigation composition contract', () => {
     expect(validPages.has('containers')).toBe(false);
 
     for (const page of [
-      'home',
       'experiment',
       'robotAssets',
+      'venueAssets',
       'automations',
       'operations',
       'system',
@@ -81,6 +81,6 @@ describe('product navigation composition contract', () => {
     const terminalWithoutHosts = (sections.terminal ?? []).filter((section) => section.id !== 'hosts');
     expect(navSectionsForPage(productWebComposition, 'terminal', undefined, terminalWithoutHosts))
       .toBe(terminalWithoutHosts);
-    expect(navSectionsForPage(productWebComposition, 'home')).toEqual([]);
+    expect(navSectionsForPage(productWebComposition, 'experiment')).toEqual([]);
   });
 });

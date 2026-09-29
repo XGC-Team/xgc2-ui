@@ -7,7 +7,9 @@ import {
   newAutomationSpec,
   type AutomationAction,
   type AutomationDocument,
+  type AutomationRunDetail,
   type AutomationRun,
+  type AutomationRunSnapshot,
   type AutomationRunSummaryView,
 } from '../../automation/automationPublic';
 import {
@@ -15,15 +17,18 @@ import {
   experimentProcessRuntimeProjection,
   type ExperimentProcessRuntimeProjection,
 } from '../experimentPublic';
-import { newExperimentSpec,type ExperimentDocument,type PanelInstance } from '../experimentModel';
+import { defaultDashboard,newExperimentSpec,type ExperimentDocument,type ExperimentScene,type PanelInstance } from '../experimentModel';
 import { definePanelPlugin } from '../../../panels/types';
+import { experimentRobotAssetsPanelPlugin } from '../../../panels/robot/experimentRobotAssetsPanelManifest';
 import { workflowRuntimeDatasources } from '../../../shared/workflowRuntimeProtocol';
 import { createPanelContext,type PanelContextActions } from './panelContextFactory';
 import { createExperimentRobotBindingActions } from './experimentRobotBindingActions';
+import { createPanelInstance } from './dashboardModel';
 import {
-  ROS_BASIC_SERVICE_CALL_NODE_ID,
   projectRosBasicServices,
 } from '../../../panels/ros/rosBasicServicesPanelProjection';
+import { GAZEBO_SCENE_PANEL_PLUGIN_ID } from '../../../panels/gazebo/gazeboScenePanelModel';
+import { testPanelExecution } from '../../../test/panelExecutionTestSupport';
 
 const plugin = definePanelPlugin({
   id:'test-panel',name:'Test',category:'Custom',description:'',capabilities:['experiment'] as const,
@@ -48,7 +53,32 @@ const offsetPlugin = definePanelPlugin({
   component:() => null,
 });
 
+const scenePlugin = definePanelPlugin({
+  id:GAZEBO_SCENE_PANEL_PLUGIN_ID,name:'Scene',category:'Control',description:'',capabilities:['experiment'] as const,
+  actionPorts:[{ id:'start',label:'Place',required:true }],
+  component:() => null,
+});
+
 describe('createPanelContext',() => {
+  it.each([
+    { cameraSource:'replay',replayAssetDir:'' },
+    { cameraSource:'auto',replayAssetDir:'/archive/Shared/Scenes/empty-yard' },
+  ])('keeps the Gazebo scene composer ports editable for cameraSource=$cameraSource and replayAssetDir=$replayAssetDir',({ cameraSource,replayAssetDir }) => {
+    const target=experiment();
+    target.spec.workflowInstances.push({
+      id:'panel-world-camera',ref:{ domain:'automation',resourceId:'world-camera',branch:'main' },
+      actionPresets:[{ id:'start',actionId:'start-for-experiment',inputs:{ cameraSource,replayAssetDir },parameterBindings:[] }],
+    });
+    const context=createPanelContext(scenePlugin,panel(),{},host({},{ experiment:target }));
+    expect(context.ports.actions.start?.disabledReason).toBe('');
+    expect(context.ports.actions.start?.connected).toBe(true);
+  });
+
+  it('keeps the Gazebo scene composer unlocked without a world camera preset',() => {
+    const context=createPanelContext(scenePlugin,panel(),{},host());
+    expect(context.ports.actions.start?.disabledReason).toBe('');
+  });
+
   it('projects every explicit dynamic Action binding without admitting undeclared ports',async () => {
     const invokeAction = vi.fn(async () => ({ id:'dynamic-run',status:'running',revision:1 }) as const);
     const value = panel();
@@ -68,17 +98,107 @@ describe('createPanelContext',() => {
     expect(invokeAction).toHaveBeenCalledWith('panel','default',{},'fallback');
   });
 
-  it('starts a tile bound to the resident workflow through the same Panel lifecycle owner as the header',async () => {
+  it('opens a Panel Session when the resident service tile starts with no Experiment Session',async () => {
     const document=automation();
     document.spec.actions[0]!.kind='service';
     const start=vi.fn(async () => ({ id:'panel-owner',status:'running' as const,revision:1 }));
     const invokeAction=vi.fn();
     const context=createPanelContext(plugin,panel(),{},host({ documents:[document] },{
-      experimentLifecycle:{ ...host().experimentLifecycle,start,invokeAction },
+      experimentLifecycle:{
+        activeRun:undefined,activeRuns:[],runMode:'simulation',start,stop:vi.fn(),invokeAction,
+      },
     }));
     expect(await context.ports.actions.start!.invoke()).toEqual({ id:'panel-owner',status:'running',revision:1 });
     expect(start).toHaveBeenCalledTimes(1);
     expect(invokeAction).not.toHaveBeenCalled();
+  });
+
+  it('starts any no-Session service preset with only that Action’s merged overrides',async () => {
+    const document=automation();
+    document.spec.actions[0]!.kind='service';
+    document.spec.actions[0]!.inputSchema.fields=[
+      { name:'runMode',kind:'string' },
+      { name:'speed',kind:'number' },
+    ];
+    const target=experiment();
+    target.spec.workflowInstances[0]!.actionPresets=[
+      { id:'default',actionId:'run',inputs:{ robotId:'scout-01',robotIds:['scout-01'],selectionKey:'selected:["scout-01"]' },parameterBindings:[] },
+      { id:'archive',actionId:'run',inputs:{ panelDefault:'archive' },parameterBindings:[] },
+    ];
+    const value=panel();
+    value.portBindings=value.portBindings.map((binding) => (
+      binding.kind==='action' && binding.portId==='start'
+        ? { ...binding,presetId:'archive' }
+        : binding
+    ));
+    const start=vi.fn(async () => ({ id:'archive-panel-root',status:'running' as const,revision:1 }));
+    const invokeAction=vi.fn();
+    const context=createPanelContext(plugin,value,{},host({ documents:[document] },{
+      experiment:target,
+      experimentLifecycle:{
+        activeRun:undefined,activeRuns:[],sessionViews:[],runMode:'simulation',start,stop:vi.fn(),invokeAction,
+      },
+    }));
+
+    await context.ports.actions.start!.invoke({ speed:2 },'save archive scene');
+
+    expect(start).toHaveBeenCalledWith({ runMode:'simulation',speed:2 },'archive');
+    expect(invokeAction).not.toHaveBeenCalled();
+  });
+
+  it('invokes the resident Algorithm tile after Total Run has opened the Session',async () => {
+    const document=automation();
+    document.spec.actions[0]!.kind='service';
+    document.spec.actions[0]!.inputSchema.fields=[{ name:'runMode',kind:'string' }];
+    const start=vi.fn();
+    const invokeAction=vi.fn(async () => ({ id:'algorithm-run',status:'waiting' as const,revision:1 }));
+    const context=createPanelContext(plugin,panel(),{},host({ documents:[document] },{
+      experimentLifecycle:{
+        ...host().experimentLifecycle,
+        start,
+        invokeAction,
+        sessionViews:[{
+          session:{
+            id:'session-a',targetId:'local',experimentResourceId:'experiment-a',
+            state:'active',mode:'full',runMode:'simulation',revision:1,
+          },
+          members:[],
+        }],
+      },
+    }));
+    expect(await context.ports.actions.start!.invoke()).toEqual({
+      id:'algorithm-run',status:'waiting',revision:1,
+    });
+    expect(start).not.toHaveBeenCalled();
+    expect(invokeAction).toHaveBeenCalledWith('panel','default',{ runMode:'simulation' },expect.any(String));
+  });
+
+  it('invokes a nested Algorithm tile that is not the Panel Workflow',async () => {
+    const document=automation();
+    document.spec.actions[0]!.kind='service';
+    const start=vi.fn();
+    const invokeAction=vi.fn(async () => ({ id:'algorithm-run',status:'running' as const,revision:1 }));
+    const value=panel();
+    value.portBindings = [
+      { portId:'panel-workflow',kind:'workflow',workflowInstanceId:'worker',presetId:'scene',managed:true,relation:'supervised',failurePolicy:'keep-experiment' },
+      { portId:'start',kind:'action',presetId:'default' },
+      { portId:'robots',kind:'data',projection:'experiment.robots.v1' },
+      { portId:'robots-editor',kind:'authoring',target:'experiment.robots' },
+    ];
+    const target=experiment();
+    target.spec.workflowInstances[0]!.actionPresets = [
+      { id:'scene',actionId:'run',inputs:{},parameterBindings:[] },
+      { id:'default',actionId:'run',inputs:{},parameterBindings:[] },
+    ];
+    const context=createPanelContext(plugin,value,{},host({ documents:[document] },{
+      experiment:target,
+      experimentLifecycle:{ ...host().experimentLifecycle,start,invokeAction },
+    }));
+    expect(await context.ports.actions.start!.invoke()).toEqual({
+      id:'algorithm-run',status:'running',revision:1,
+    });
+    expect(start).not.toHaveBeenCalled();
+    expect(invokeAction).toHaveBeenCalledWith('panel','default',{},expect.any(String));
   });
 
   it('keeps non-root child Actions in the Automation authoring domain',async () => {
@@ -92,8 +212,9 @@ describe('createPanelContext',() => {
 
   it('keeps a connected Panel Action invocable before a full Experiment Run starts',async () => {
     const invokeAction = vi.fn(async () => ({ id:'run-panel-action',status:'running',revision:1 }) as const);
+    const start = vi.fn();
     const context = createPanelContext(plugin,panel(),{},host({}, {
-      experimentLifecycle:{ activeRun:undefined,runMode:'simulation',start:vi.fn(),stop:vi.fn(),invokeAction },
+      experimentLifecycle:{ activeRun:undefined,activeRuns:[],sessionViews:[],runMode:'simulation',start,stop:vi.fn(),invokeAction },
     }));
     const action = context.ports.actions.start!;
     expect(action.connected).toBe(true);
@@ -101,6 +222,7 @@ describe('createPanelContext',() => {
     expect(action.disabledReason).not.toContain('Start the Experiment before invoking Panel Actions.');
     await action.invoke({ speed:2 },'operator start');
     expect(invokeAction).toHaveBeenCalledWith('panel','default',{ speed:2 },'operator start');
+    expect(start).not.toHaveBeenCalled();
   });
 
   it('projects host-owned Experiment data and commits through an Authoring port',async () => {
@@ -170,6 +292,77 @@ describe('createPanelContext',() => {
       'worker','default',{ physicalIntrinsicFile:'/calibration/phy/usb_cam/intrinsics-new.yaml' },
       'commit-1','Update Experiment camera intrinsics',
     );
+  });
+
+  it('connects world fence authoring even when the saved panel omitted the binding',async () => {
+    const updateExperimentWorldBoundary = vi.fn(async () => experiment());
+    const fencePlugin = definePanelPlugin({
+      id:'robot-assets-panel',name:'Robots',category:'Custom',description:'',capabilities:['experiment'] as const,
+      authoringPorts:[
+        { id:'world-boundary-editor',label:'World fence',target:'experiment.worldBoundary',required:true },
+      ],
+      component:() => null,
+    });
+    const value = panel();
+    value.portBindings = value.portBindings.filter((binding) => binding.portId !== 'world-boundary-editor');
+    const current = experiment();
+    const boundary = {
+      schemaVersion:1 as const,frameId:'world' as const,unit:'m' as const,groundZ:0,
+      controlBounds:{ xMin:-12,xMax:12,yMin:-7,yMax:7,zMin:-1,zMax:1 },
+    };
+    current.spec.worldBoundary = boundary;
+    const context = createPanelContext(fencePlugin,value,{},host({}, {
+      experiment:current,
+      updateExperimentWorldBoundary,
+    }));
+    const fence = context.ports.authoring['world-boundary-editor'];
+    expect(fence?.connected).toBe(true);
+    expect(fence?.disabledReason).toBe('');
+    expect(fence?.value).toEqual(boundary);
+    await fence!.commit(boundary,'commit-1','Update Experiment world fence');
+    expect(updateExperimentWorldBoundary).toHaveBeenCalledWith(boundary,'commit-1','Update Experiment world fence');
+  });
+
+  it('projects and commits the explicitly bound Experiment scene through its current head',async () => {
+    const current = experiment();
+    const scene:ExperimentScene = {
+      asset:'warehouse',simulator:'gazebo',parameters:{ camera:{ width:640,height:480 } },
+    };
+    current.spec.scene = scene;
+    const updateExperimentScene = vi.fn(async () => current);
+    const value = panel();
+    value.pluginId = experimentRobotAssetsPanelPlugin.id;
+    value.portBindings = [{ portId:'scene-editor',kind:'authoring',target:'experiment.scene' }];
+    const context = createPanelContext(experimentRobotAssetsPanelPlugin,value,{},host({}, {
+      experiment:current,updateExperimentScene,updateExperimentSceneDisabledReason:() => '',
+    }));
+    const authoring = context.ports.authoring['scene-editor']!;
+    const projected = authoring.value as ExperimentScene;
+    expect(authoring.connected).toBe(true);
+    expect(projected).toEqual(scene);
+    expect(projected).not.toBe(scene);
+    expect(projected.parameters).not.toBe(scene.parameters);
+    expect(projected.parameters?.camera).not.toBe(scene.parameters?.camera);
+    await authoring.commit(scene,current.branch.headCommitId,'Update Experiment scene');
+    expect(updateExperimentScene).toHaveBeenCalledWith(scene,'commit-1','Update Experiment scene');
+  });
+
+  it('keeps an unbound Experiment scene authoring port unconnected',() => {
+    const value = panel();
+    value.pluginId = experimentRobotAssetsPanelPlugin.id;
+    value.portBindings = [];
+    const authoring = createPanelContext(experimentRobotAssetsPanelPlugin,value,{},host())
+      .ports.authoring['scene-editor']!;
+    expect(authoring.connected).toBe(false);
+    expect(authoring.value).toBeUndefined();
+    expect(authoring.disabledReason).toBe('Authoring port "Scene" is not connected.');
+  });
+
+  it('stores the Scene authoring binding in the default and newly created Robot assets panels',() => {
+    const binding = { portId:'scene-editor',kind:'authoring',target:'experiment.scene' };
+    expect(defaultDashboard.panels[0]?.portBindings).toContainEqual(binding);
+    expect(createPanelInstance(experimentRobotAssetsPanelPlugin,[],'config').portBindings)
+      .toContainEqual(binding);
   });
 
   it('connects world origin offset authoring even when the saved panel omitted the binding',async () => {
@@ -280,6 +473,41 @@ describe('createPanelContext',() => {
     expect(experimentProcessRuntimeProjection(port.value)).toBeUndefined();
   });
 
+  it('projects the host run-mode selection as read-only selectedRunMode',() => {
+    const runtimePlugin = definePanelPlugin({
+      id:'ros-runtime',name:'ROS',category:'Control',description:'',capabilities:['experiment'] as const,
+      dataPorts:[{ id:'service-health',label:'Health',contract:EXPERIMENT_PROCESS_RUNTIME_DATASOURCE }],
+      component:() => null,
+    });
+    const value = panel();
+    value.portBindings = [
+      { portId:'service-health',kind:'data',projection:EXPERIMENT_PROCESS_RUNTIME_DATASOURCE },
+    ];
+    const projected = createPanelContext(runtimePlugin,value,{},host({}, {
+      experimentLifecycle:{ activeRun:undefined,runMode:'hybrid',start:vi.fn(),stop:vi.fn() },
+    })).ports.data['service-health']!;
+    expect(projected.connected).toBe(true);
+    expect(experimentProcessRuntimeProjection(projected.value)?.selectedRunMode).toBe('hybrid');
+  });
+
+  it('projects the host placement selection as read-only selectedPlacement',() => {
+    const runtimePlugin = definePanelPlugin({
+      id:'ros-runtime',name:'ROS',category:'Control',description:'',capabilities:['experiment'] as const,
+      dataPorts:[{ id:'service-health',label:'Health',contract:EXPERIMENT_PROCESS_RUNTIME_DATASOURCE }],
+      component:() => null,
+    });
+    const value = panel();
+    value.portBindings = [
+      { portId:'service-health',kind:'data',projection:EXPERIMENT_PROCESS_RUNTIME_DATASOURCE },
+    ];
+    const projected = createPanelContext(runtimePlugin,value,{},host({}, {
+      experimentLifecycle:{
+        activeRun:undefined,runMode:'simulation',placement:'per-robot',start:vi.fn(),stop:vi.fn(),
+      },
+    })).ports.data['service-health']!;
+    expect(experimentProcessRuntimeProjection(projected.value)?.selectedPlacement).toBe('per-robot');
+  });
+
   it('routes motion intent through an Experiment-owned public Automation Action',async () => {
     const target = experiment();
     target.spec.workflowInstances[0]!.actionPresets[0] = {
@@ -380,6 +608,246 @@ describe('createPanelContext',() => {
     }));
     expect(context.ports.actions.start?.activeInvocation).toEqual({
       id:'panel-child',status:'waiting',revision:1,
+    });
+  });
+
+  it('keeps a waiting Panel Action child after invoke-panel-action join-later succeeds',() => {
+    const context=createPanelContext(plugin,panel(),{},host({
+      runSummaries:[
+        { ...systemRootSummary('invoke-root','invoke-panel-action','panel','default'),status:'succeeded',revision:4 },
+        panelChildSummary('panel-child','invoke-root'),
+      ],
+    },{
+      experimentLifecycle:{
+        activeRun:undefined,activeRuns:[],runMode:'simulation',start:vi.fn(),stop:vi.fn(),
+      },
+    }));
+    expect(context.ports.actions.start?.activeInvocation).toEqual({
+      id:'panel-child',status:'waiting',revision:1,
+    });
+  });
+
+  it('releases Algorithm after invoke-panel-action stop even if a historical child summary is still waiting',() => {
+    const context=createPanelContext(plugin,panel(),{},host({
+      runSummaries:[
+        { ...systemRootSummary('invoke-root','invoke-panel-action','panel','default'),status:'stopped',revision:4 },
+        panelChildSummary('panel-child','invoke-root'),
+      ],
+    },{
+      experimentLifecycle:{
+        activeRun:undefined,activeRuns:[],runMode:'simulation',start:vi.fn(),stop:vi.fn(),
+      },
+    }));
+    expect(context.ports.actions.start?.activeInvocation).toBeUndefined();
+  });
+
+  it('occupies a waiting invoke-panel-action from summaries after Total Run, without taking the lifecycle lock',() => {
+    const document=automation();
+    document.spec.actions[0]!.kind='service';
+    const context=createPanelContext(plugin,panel(),{},host({
+      documents:[document],
+      runSummaries:[systemRootSummary('invoke-root','invoke-panel-action','panel','default')],
+    },{
+      experimentLifecycle:{
+        activeRun:undefined,activeRuns:[],runMode:'simulation',start:vi.fn(),stop:vi.fn(),
+      },
+    }));
+    expect(context.ports.actions.start?.activeInvocation).toEqual({
+      id:'invoke-root',status:'waiting',revision:2,
+    });
+  });
+
+  it('keeps the resident Panel Workflow occupied by its waiting run-panel owner',() => {
+    const owner=experimentRun('panel-owner','run-panel','panel');
+    const document=automation();
+    document.spec.actions[0]!.kind='service';
+    const context=createPanelContext(plugin,panel(),{},host({ documents:[document] },{
+      experimentLifecycle:{
+        activeRun:owner,activeRuns:[owner],runMode:'simulation',start:vi.fn(),stop:vi.fn(),
+      },
+    }));
+    expect(context.ports.actions.start?.activeInvocation).toEqual({
+      id:'panel-owner',status:'waiting',revision:7,
+    });
+  });
+
+  it('keeps a waiting invoke-panel-action root occupied until its Panel Action finishes',() => {
+    const owner=experimentRun('invoke-root','invoke-panel-action','panel');
+    const document=automation();
+    document.spec.actions[0]!.kind='service';
+    const context=createPanelContext(plugin,panel(),{},host({
+      documents:[document],
+      runSummaries:[systemRootSummary('invoke-root','invoke-panel-action','panel','default')],
+    },{
+      experimentLifecycle:{
+        activeRun:owner,activeRuns:[owner],runMode:'simulation',start:vi.fn(),stop:vi.fn(),
+      },
+    }));
+    expect(context.ports.actions.start?.activeInvocation).toEqual({
+      id:'invoke-root',status:'waiting',revision:2,
+    });
+  });
+
+  it('keeps a nested Algorithm tile occupied by the same waiting invoke-panel-action root',() => {
+    const owner=experimentRun('invoke-root','invoke-panel-action','panel');
+    const document=automation();
+    document.spec.actions[0]!.kind='service';
+    const value=panel();
+    value.portBindings = [
+      { portId:'panel-workflow',kind:'workflow',workflowInstanceId:'worker',presetId:'scene',managed:true,relation:'supervised',failurePolicy:'keep-experiment' },
+      { portId:'start',kind:'action',presetId:'default' },
+      { portId:'robots',kind:'data',projection:'experiment.robots.v1' },
+      { portId:'robots-editor',kind:'authoring',target:'experiment.robots' },
+    ];
+    const target=experiment();
+    target.spec.workflowInstances[0]!.actionPresets = [
+      { id:'scene',actionId:'run',inputs:{},parameterBindings:[] },
+      { id:'default',actionId:'run',inputs:{},parameterBindings:[] },
+    ];
+    const context=createPanelContext(plugin,value,{},host({
+      documents:[document],
+      runSummaries:[systemRootSummary('invoke-root','invoke-panel-action','panel','default')],
+    },{
+      experiment:target,
+      experimentLifecycle:{
+        activeRun:owner,activeRuns:[owner],runMode:'simulation',start:vi.fn(),stop:vi.fn(),
+      },
+    }));
+    expect(context.ports.actions.start?.activeInvocation).toEqual({
+      id:'invoke-root',status:'waiting',revision:2,
+    });
+  });
+
+  it.each([
+    { swarm:'4 Scout',workflowPreset:'scene',tile:'run' },
+    { swarm:'PX4 swarm',workflowPreset:'scene',tile:'run' },
+    { swarm:'SCE1 5+2',workflowPreset:'run',tile:'run' },
+    { swarm:'5+4',workflowPreset:'scene',tile:'run' },
+    { swarm:'4 Scout',workflowPreset:'scene',tile:'record' },
+    { swarm:'PX4 swarm',workflowPreset:'scene',tile:'record' },
+    { swarm:'SCE1 5+2',workflowPreset:'run',tile:'record' },
+    { swarm:'5+4',workflowPreset:'scene',tile:'record' },
+  ])('keeps $swarm $tile occupied by waiting invoke-panel-action',({ workflowPreset,tile }) => {
+    const total=experimentRun('full-root','run');
+    const owner=experimentRun('invoke-root','invoke-panel-action','panel');
+    const context=createPanelContext(dynamicPlugin,swarmControlPanel(workflowPreset),{},host({
+      documents:[swarmControlDocument()],
+      runSummaries:[systemRootSummary('invoke-root','invoke-panel-action','panel',tile)],
+    },{
+      experiment:swarmExperiment(workflowPreset),
+      experimentLifecycle:{
+        activeRun:total,activeRuns:[total,owner],runMode:'simulation',start:vi.fn(),stop:vi.fn(),
+      },
+    }));
+    expect(context.ports.actions[tile]?.activeInvocation).toEqual({
+      id:'invoke-root',status:'waiting',revision:2,
+    });
+    expect(context.ports.actions.start?.activeInvocation).toBeUndefined();
+    if (tile!=='run') expect(context.ports.actions.run?.activeInvocation).toBeUndefined();
+    if (tile!=='record') expect(context.ports.actions.record?.activeInvocation).toBeUndefined();
+  });
+
+  it.each([
+    { swarm:'4 Scout',workflowPreset:'scene',tile:'run' },
+    { swarm:'PX4 swarm',workflowPreset:'scene',tile:'run' },
+    { swarm:'SCE1 5+2',workflowPreset:'run',tile:'run' },
+    { swarm:'5+4',workflowPreset:'scene',tile:'run' },
+    { swarm:'4 Scout',workflowPreset:'scene',tile:'record' },
+    { swarm:'PX4 swarm',workflowPreset:'scene',tile:'record' },
+    { swarm:'SCE1 5+2',workflowPreset:'run',tile:'record' },
+    { swarm:'5+4',workflowPreset:'scene',tile:'record' },
+  ])('invokes $swarm $tile after Total Run has opened the Session',async ({ workflowPreset,tile }) => {
+    const start=vi.fn();
+    const invokeAction=vi.fn(async () => ({ id:`${tile}-run`,status:'waiting' as const,revision:1 }));
+    const context=createPanelContext(dynamicPlugin,swarmControlPanel(workflowPreset),{},host({
+      documents:[swarmControlDocument()],
+    },{
+      experiment:swarmExperiment(workflowPreset),
+      experimentLifecycle:{
+        ...host().experimentLifecycle,
+        start,
+        invokeAction,
+        sessionViews:[{
+          session:{
+            id:'session-a',targetId:'local',experimentResourceId:'experiment-a',
+            state:'active',mode:'full',runMode:'simulation',revision:1,
+          },
+          members:[],
+        }],
+      },
+    }));
+    expect(await context.ports.actions[tile]!.invoke()).toEqual({
+      id:`${tile}-run`,status:'waiting',revision:1,
+    });
+    expect(start).not.toHaveBeenCalled();
+    expect(invokeAction).toHaveBeenCalledWith('panel',tile,{},expect.any(String));
+  });
+
+  it.each([
+    { swarm:'SCE1 5+2',workflowPreset:'run' },
+    { swarm:'4 Scout',workflowPreset:'scene' },
+  ])('releases $swarm Start after the command invoke-panel-action succeeds',({ workflowPreset }) => {
+    const total=experimentRun('full-root','run');
+    const owner={ ...experimentRun('invoke-root','invoke-panel-action','panel'),status:'succeeded' as const };
+    const context=createPanelContext(dynamicPlugin,swarmControlPanel(workflowPreset),{},host({
+      documents:[swarmControlDocument()],
+      runSummaries:[{ ...systemRootSummary('invoke-root','invoke-panel-action','panel','start'),status:'succeeded',revision:4 }],
+    },{
+      experiment:swarmExperiment(workflowPreset),
+      experimentLifecycle:{
+        activeRun:total,activeRuns:[total,owner],runMode:'simulation',start:vi.fn(),stop:vi.fn(),
+      },
+    }));
+    expect(context.ports.actions.start?.activeInvocation).toBeUndefined();
+    expect(context.ports.actions.run?.activeInvocation).toBeUndefined();
+    expect(context.ports.actions.record?.activeInvocation).toBeUndefined();
+  });
+
+  it.each([
+    { swarm:'SCE1 5+2',workflowPreset:'run' },
+    { swarm:'4 Scout',workflowPreset:'scene' },
+  ])('marks $swarm Start failed when the command invoke-panel-action fails',({ workflowPreset }) => {
+    const total=experimentRun('full-root','run');
+    const owner={ ...experimentRun('invoke-root','invoke-panel-action','panel'),status:'failed' as const };
+    const context=createPanelContext(dynamicPlugin,swarmControlPanel(workflowPreset),{},host({
+      documents:[swarmControlDocument()],
+      runSummaries:[{ ...systemRootSummary('invoke-root','invoke-panel-action','panel','start'),status:'failed',revision:4 }],
+    },{
+      experiment:swarmExperiment(workflowPreset),
+      experimentLifecycle:{
+        activeRun:total,activeRuns:[total,owner],runMode:'simulation',start:vi.fn(),stop:vi.fn(),
+      },
+    }));
+    expect(context.ports.actions.start?.activeInvocation).toBeUndefined();
+    expect(context.ports.actions.start?.latestInvocation?.status).toBe('failed');
+  });
+
+  it('projects a waiting called service after the Panel Action parent succeeds',() => {
+    const root={ ...experimentRun('invoke-root','invoke-panel-action','panel'),status:'succeeded' as const };
+    const combo={ ...panelChildSummary('combo-child','invoke-root','succeeded'),status:'succeeded' as const };
+    const grandchild:AutomationRunSummaryView={
+      ...panelChildSummary('algo-child','combo-child'),
+      automationResourceId:'inner-algorithm',
+      sourceRef:{
+        domain:'automation',resourceId:'inner-algorithm',branch:'main',
+        commitId:'commit-inner',version:1,digest:'f'.repeat(64),
+      },
+      parentRunId:'combo-child',
+      rootRunId:'invoke-root',
+    };
+    const context=createPanelContext(plugin,panel(),{},host({
+      runSummaries:[
+        { ...systemRootSummary('invoke-root','invoke-panel-action','panel','default'),status:'succeeded',revision:4 },
+        combo,
+        grandchild,
+      ],
+    },{
+      experimentLifecycle:{
+        activeRun:root,activeRuns:[root],runMode:'simulation',start:vi.fn(),stop:vi.fn(),
+      },
+    }));
+    expect(context.ports.actions.start?.activeInvocation).toEqual({
+      id:'algo-child',status:'waiting',revision:1,
     });
   });
 
@@ -542,6 +1010,85 @@ describe('createPanelContext',() => {
     });
   });
 
+  it.each([
+    { loading:true,error:'' },
+    { loading:false,error:'The request timed out.' },
+  ])('keeps exact Panel ownership when the authoring catalog is $loading/$error',async (catalogState) => {
+    const root=experimentRun('full-root','run');
+    const context=createPanelContext(plugin,panel(),{},host({
+      ...catalogState,documents:[],
+    },{
+      experimentLifecycle:{
+        activeRun:root,activeRuns:[root],runMode:'simulation',start:vi.fn(),stop:vi.fn(),
+        panelWorkflowInvocationFallback:{
+          rootRunId:'full-root',targetId:'local',id:'full-panel-child',status:'waiting',revision:9,
+        },
+      },
+    }));
+    const port=context.ports.actions.start!;
+    expect(port.activeInvocation).toEqual({ id:'full-panel-child',status:'waiting',revision:9 });
+    expect(port.trace).toMatchObject({ automationResourceId:'worker',actionId:'run' });
+    expect(port.connected).toBe(false);
+    expect(port.action).toBeUndefined();
+    expect(port.disabledReason).toBe('Workflow details have not been loaded.');
+    await expect(port.invoke()).rejects.toThrow('Workflow details have not been loaded.');
+  });
+
+  it('does not project another target or Session as a missing-catalog Panel owner',() => {
+    const root=experimentRun('full-root','run');
+    const context=createPanelContext(plugin,panel(),{},host({ documents:[],loading:true },{
+      experimentLifecycle:{
+        activeRun:root,activeRuns:[root],runMode:'simulation',start:vi.fn(),stop:vi.fn(),
+        panelWorkflowInvocationFallback:{
+          rootRunId:'other-root',targetId:'agent/other',id:'other-panel-child',status:'running',revision:9,
+        },
+      },
+    }));
+    expect(context.ports.actions.start?.activeInvocation).toBeUndefined();
+  });
+
+  it('requires the full-Run itemKey relation before assigning a shared Workflow to either Panel instance',() => {
+    const root=experimentRun('full-root','run');
+    const target=experiment();
+    target.spec.workflowInstances.push({ ...target.spec.workflowInstances[0]!,id:'second' });
+    const second=panel();
+    second.id='second-panel';
+    second.portBindings[0]={ ...second.portBindings[0]!,kind:'workflow',workflowInstanceId:'second' } as typeof second.portBindings[0];
+    const state=host({ runSummaries:[
+      systemRootSummary('full-root','run'),panelChildSummary('first-instance-child','full-root'),
+    ] },{ experiment:target,experimentLifecycle:{
+      activeRun:root,activeRuns:[root],runMode:'simulation',start:vi.fn(),stop:vi.fn(),
+    } });
+    expect(createPanelContext(plugin,panel(),{},state).ports.actions.start?.activeInvocation).toBeUndefined();
+    expect(createPanelContext(plugin,second,{},state).ports.actions.start?.activeInvocation).toBeUndefined();
+    const selected=createPanelContext(plugin,panel(),{},{
+      ...state,experimentLifecycle:{ ...state.experimentLifecycle,panelWorkflowInvocationFallback:{
+        rootRunId:'full-root',targetId:'local',id:'first-instance-child',status:'waiting',revision:1,
+      } },
+    });
+    expect(selected.ports.actions.start?.activeInvocation?.id).toBe('first-instance-child');
+  });
+
+  it('retains frozen invocation identity when the current definition removes its Action',async () => {
+    const root=experimentRun('full-root','run');
+    const document=automation();
+    document.spec.actions=[];
+    const context=createPanelContext(plugin,panel(),{},host({ documents:[document] },{
+      experimentLifecycle:{
+        activeRun:root,activeRuns:[root],runMode:'simulation',start:vi.fn(),stop:vi.fn(),
+        panelWorkflowInvocationFallback:{
+          rootRunId:'full-root',targetId:'local',id:'frozen-child',status:'waiting',revision:9,
+        },
+      },
+    }));
+    const port=context.ports.actions.start!;
+    expect(port.activeInvocation).toEqual({ id:'frozen-child',status:'waiting',revision:9 });
+    expect(port.trace).toMatchObject({ automationResourceId:'worker',actionId:'run' });
+    expect(port.connected).toBe(false);
+    expect(port.action).toBeUndefined();
+    await expect(port.invoke()).rejects.toThrow('does not export Action');
+  });
+
   it('fails closed when two exact System roots own active children for one port',() => {
     const first=experimentRun('invoke-a','invoke-panel-action','panel');
     const second=experimentRun('invoke-b','invoke-panel-action','panel');
@@ -558,6 +1105,126 @@ describe('createPanelContext',() => {
       },
     }));
     expect(context.ports.actions.start?.activeInvocation).toBeUndefined();
+  });
+
+  it('fills Algorithm occupancy from owned Processes when wait nodes have no summaries',() => {
+    const root=experimentRun('owner','invoke-panel-action','panel');
+    const document=algorithmWaitDocument();
+    const child={ ...rosPanelChildRun('child','owner','run'),...panelChildSummary('child','owner','waiting'),
+      parameters:{} };
+    const actionHost=host({
+      documents:[document],
+      runSummaries:[
+        systemRootSummary('owner','invoke-panel-action','panel','default'),
+        panelChildSummary('child','owner','waiting'),
+      ],
+      runDetailsById:{ child:{ invocations:[],loading:false,error:'',run:child,nodeSummaries:[] } },
+    },{
+      executionRuntime:{ targetId:'local',loading:false,error:'',processInstances:[readyProcess('child')] },
+      experimentLifecycle:{
+        activeRun:root,activeRuns:[root],runMode:'simulation',start:vi.fn(),stop:vi.fn(),
+      },
+    });
+    const port=createPanelContext(plugin,panel(),{},actionHost).ports.actions.start;
+    expect(port?.activeInvocation).toEqual({ id:'child',status:'waiting',revision:1 });
+    expect(port?.serviceStatus).toEqual({ state:'running',ready:1,total:1 });
+  });
+
+  it('keeps the newest Algorithm child occupied after an earlier invoke cycle still looks waiting',() => {
+    const current=experimentRun('invoke-new','invoke-panel-action','panel');
+    const document=algorithmWaitDocument();
+    const oldRoot={
+      ...systemRootSummary('invoke-old','invoke-panel-action','panel','default'),
+      status:'succeeded' as const,revision:4,
+    };
+    const newRoot={
+      ...systemRootSummary('invoke-new','invoke-panel-action','panel','default'),
+      createdAt:'2026-01-01T00:00:09Z',updatedAt:'2026-01-01T00:00:09Z',
+    };
+    const oldChild={
+      ...panelChildSummary('child-old','invoke-old'),
+      createdAt:'2026-01-01T00:00:01Z',updatedAt:'2026-01-01T00:00:01Z',
+    };
+    const newChildSummary={
+      ...panelChildSummary('child-new','invoke-new'),
+      createdAt:'2026-01-01T00:00:10Z',updatedAt:'2026-01-01T00:00:10Z',
+    };
+    const newChild={ ...rosPanelChildRun('child-new','invoke-new','run'),...newChildSummary,parameters:{} };
+    const actionHost=host({
+      documents:[document],
+      runSummaries:[oldRoot,oldChild,newRoot,newChildSummary],
+      runDetailsById:{
+        'child-new':{ invocations:[],loading:false,error:'',run:newChild,nodeSummaries:[] },
+      },
+    },{
+      executionRuntime:{ targetId:'local',loading:false,error:'',processInstances:[readyProcess('child-new')] },
+      experimentLifecycle:{
+        activeRun:current,activeRuns:[current],runMode:'simulation',start:vi.fn(),stop:vi.fn(),
+      },
+    });
+    const port=createPanelContext(plugin,panel(),{},actionHost).ports.actions.start;
+    expect(port?.activeInvocation).toEqual({ id:'child-new',status:'waiting',revision:1 });
+    expect(port?.serviceStatus).toEqual({ state:'running',ready:1,total:1 });
+  });
+
+  it('keeps an active Algorithm child when a different invocation is later stopped',() => {
+    const context=createPanelContext(plugin,panel(),{},host({
+      runSummaries:[
+        {
+          ...systemRootSummary('invoke-old','invoke-panel-action','panel','default'),
+          status:'succeeded',revision:4,
+          createdAt:'2026-01-01T00:00:00Z',updatedAt:'2026-01-01T00:00:01Z',
+        },
+        {
+          ...panelChildSummary('child-old','invoke-old'),
+          createdAt:'2026-01-01T00:00:01Z',updatedAt:'2026-01-01T00:00:01Z',
+        },
+        {
+          ...systemRootSummary('invoke-stopped','invoke-panel-action','panel','default'),
+          status:'stopped',revision:6,
+          createdAt:'2026-01-01T00:00:08Z',updatedAt:'2026-01-01T00:00:09Z',
+        },
+      ],
+    },{
+      experimentLifecycle:{
+        activeRun:undefined,activeRuns:[],runMode:'simulation',start:vi.fn(),stop:vi.fn(),
+      },
+    }));
+    expect(context.ports.actions.start?.activeInvocation).toEqual({ id:'child-old',status:'waiting',revision:1 });
+  });
+
+  it('occupies Algorithm from an invoke relation child before that child appears in summaries',() => {
+    const document=algorithmWaitDocument();
+    const child={ ...rosPanelChildRun('child','invoke-root','run'),...panelChildSummary('child','invoke-root'),
+      automationResourceId:'worker',
+      sourceRef:{ domain:'automation' as const,resourceId:'worker',branch:'main',commitId:'commit-worker',version:1,digest:'e'.repeat(64) },
+      parameters:{} };
+    const actionHost=host({
+      documents:[document],
+      runSummaries:[systemRootSummary('invoke-root','invoke-panel-action','panel','default')],
+      runDetailsById:{
+        'invoke-root':{
+          invocations:[],loading:false,error:'',nodeSummaries:[],
+          relations:{
+            runId:'invoke-root',
+            childRuns:[algorithmInvokeChildRelation('invoke-root','child')],
+            childRunGroups:[],childRunGroupMembers:[],waits:[],effects:[],
+            runtimeGroups:[],runtimes:[],resources:[],
+          },
+        },
+        child:{
+          invocations:[],loading:false,error:'',run:child,
+          nodeSummaries:[nodeSummary('child','wait','wait.process','waiting')],
+        },
+      },
+    },{
+      experimentLifecycle:{
+        activeRun:undefined,activeRuns:[],runMode:'simulation',start:vi.fn(),stop:vi.fn(),
+      },
+    });
+    const port=createPanelContext(plugin,panel(),{},actionHost).ports.actions.start;
+    expect(port?.activeInvocation).toEqual({ id:'child',status:'waiting',revision:1 });
+    expect(port?.serviceStatus).toEqual({ state:'running',ready:1,total:1 });
   });
 
   it('keeps exact relation identity while same-Automation workflow instances share one full root',() => {
@@ -579,6 +1246,41 @@ describe('createPanelContext',() => {
     expect(context.ports.actions.start?.activeInvocation).toEqual({
       id:'selected-child',status:'waiting',revision:1,
     });
+  });
+
+  it('stops the dedicated Panel root to release its next-start admission, but never the full Experiment root',async () => {
+    for(const { actionId,presetId,stopId } of [
+      { actionId:'run-panel',presetId:undefined as string|undefined,stopId:'owner' },
+      { actionId:'invoke-panel-action',presetId:'default',stopId:'owner' },
+      { actionId:'run',presetId:undefined,stopId:'child' },
+    ]) {
+      const root=experimentRun('owner',actionId,'panel');
+      const stopAction=vi.fn();
+      const document=automation();
+      document.spec.actions[0]!.controls=['stop'];
+      const value=createPanelContext(plugin,panel(),{},host({
+        documents:[document],runSummaries:[
+          systemRootSummary('owner',actionId,'panel',presetId),
+          panelChildSummary('child','owner','waiting',1),
+        ],
+      },{ experimentLifecycle:{ activeRun:root,activeRuns:[root],runMode:'simulation',start:vi.fn(),stop:vi.fn(),stopAction } }));
+      await value.ports.actions.start!.control({id:'child',status:'waiting',revision:1},'stop','Stop algorithm');
+      expect(stopAction).toHaveBeenCalledWith(expect.objectContaining({id:stopId}),'Stop algorithm','local');
+    }
+  });
+
+  it('stops the waiting Panel Action child after invoke-panel-action join-later succeeds',async () => {
+    const stopAction=vi.fn();
+    const document=automation();
+    document.spec.actions[0]!.controls=['stop'];
+    const value=createPanelContext(plugin,panel(),{},host({
+      documents:[document],runSummaries:[
+        { ...systemRootSummary('owner','invoke-panel-action','panel','default'),status:'succeeded',revision:4 },
+        panelChildSummary('child','owner','waiting',1),
+      ],
+    },{ experimentLifecycle:{ activeRun:undefined,activeRuns:[],runMode:'simulation',start:vi.fn(),stop:vi.fn(),stopAction } }));
+    await value.ports.actions.start!.control({id:'child',status:'waiting',revision:1},'stop','Stop algorithm');
+    expect(stopAction).toHaveBeenCalledWith(expect.objectContaining({id:'child'}),'Stop algorithm','local');
   });
 
   it('reprojects a mounted Panel from current child truth through stop and explicit restart',() => {
@@ -633,12 +1335,13 @@ describe('createPanelContext',() => {
     expect(result.current).toEqual({ id:'replacement-child',status:'waiting',revision:1 });
   });
 
-  it('keeps robot instruments on the full parent while a selected restart root is active',() => {
+  it.each([true,false])('keeps robot instruments on the full parent with catalog available=%s while a selected restart root is active',(catalogAvailable) => {
     const fullRoot=experimentRun('full-root','run');
     const panelRoot=experimentRun('panel-root','run-panel','panel');
     const robotPanel=panel();
     robotPanel.pluginId='robot-instruments-grid';
     const context=createPanelContext(plugin,robotPanel,{},host({
+      documents:catalogAvailable ? [automation()] : [],loading:!catalogAvailable,
       runSummaries:[
         panelChildSummary('full-child','full-root','waiting',2),
         systemRootSummary('panel-root','run-panel','panel'),
@@ -657,10 +1360,10 @@ describe('createPanelContext',() => {
     });
   });
 
-  it('projects Total Run ROS service tiles onto exact call-node grandchildren',async () => {
+  it.each([true,false])('projects Total Run ROS service tiles onto exact call-node grandchildren with catalog available=%s',async (catalogAvailable) => {
     const stopAction = vi.fn(async () => undefined);
     const context = createPanelContext(rosPlugin(),rosPanel(),{},host({
-      documents:[rosControlDocument()],
+      documents:catalogAvailable ? [rosControlDocument()] : [],loading:!catalogAvailable,
       runSummaries:[
         systemRootSummary('full-root','run'),
         rosPanelChildSummary('panel-run','full-root','start-for-experiment'),
@@ -683,10 +1386,16 @@ describe('createPanelContext',() => {
       });
     }
     const invocation = context.ports.actions.roscore!.activeInvocation!;
-    await context.ports.actions.roscore!.control(invocation,'stop','Stop ROS');
-    expect(stopAction).toHaveBeenCalledWith(invocation,'Stop ROS');
+    if (catalogAvailable) {
+      await context.ports.actions.roscore!.control(invocation,'stop','Stop ROS');
+      expect(stopAction).toHaveBeenCalledWith(invocation,'Stop ROS','local');
+    } else {
+      expect(context.ports.actions.roscore?.connected).toBe(false);
+      expect(context.ports.actions.roscore?.trace.automationResourceId).toBe('ros-panel');
+      expect(stopAction).not.toHaveBeenCalled();
+    }
     const runtime:ExperimentProcessRuntimeProjection = {
-      targetId:'local',loading:false,error:'',processInstances:[],documents:[rosControlDocument()],catalog:[],
+      targetId:'local',loading:false,error:'',processInstances:[],documents:catalogAvailable ? [rosControlDocument()] : [],catalog:[],
       runSummaries:[
         systemRootSummary('full-root','run'),
         rosPanelChildSummary('panel-run','full-root','start-for-experiment'),
@@ -719,6 +1428,7 @@ describe('createPanelContext',() => {
       documents:[rosControlDocument()],
       runSummaries:[
         systemRootSummary('panel-root','run-panel','ros-control'),
+        rosPanelChildSummary('panel-run','panel-root','start-for-experiment'),
       ],
       runDetailsById:{ 'panel-run':panelDetail },
     },{
@@ -736,6 +1446,203 @@ describe('createPanelContext',() => {
     for (const service of totalRunServices.slice(3)) {
       expect(context.ports.actions[service.id]?.activeInvocation).toBeUndefined();
     }
+  });
+
+  it('projects ROS exact call-node children from relation-only hydration without synthesizing a source pin',() => {
+    const root=experimentRun('full-root','run');
+    const state=host({
+      documents:[],loading:true,
+      runSummaries:[
+        systemRootSummary('full-root','run'),
+        rosPanelChildSummary('panel-run','full-root','start-for-experiment'),
+      ],
+      runDetailsById:{ 'panel-run':rosPanelRunDetail() },
+    },{ experiment:rosExperiment(),experimentLifecycle:{
+      activeRun:root,activeRuns:[root],runMode:'simulation',start:vi.fn(),stop:vi.fn(),
+      panelWorkflowInvocationFallback:{
+        rootRunId:'full-root',targetId:'local',id:'panel-run',status:'waiting',revision:9,
+      },
+    } });
+    const context=createPanelContext(rosPlugin(),rosPanel(),{},state);
+    for (const service of totalRunServices) {
+      expect(context.ports.actions[service.id]?.activeInvocation).toEqual({
+        id:service.childRunId,status:'waiting',revision:1,
+      });
+      expect(context.ports.actions[service.id]?.connected).toBe(false);
+    }
+    const unselected={ ...state,automation:{ ...state.automation,runSummaries:[systemRootSummary('full-root','run')] },experimentLifecycle:{ ...state.experimentLifecycle,panelWorkflowInvocationFallback:undefined } };
+    expect(createPanelContext(rosPlugin(),rosPanel(),{},unselected).ports.actions.roscore?.activeInvocation).toBeUndefined();
+    const contradicted={ ...state,automation:{ ...state.automation,runDetailsById:{
+      'panel-run':{ ...rosPanelRunDetail(),run:rosPanelChildRun('panel-run','another-root','start-for-experiment') },
+    } } };
+    expect(createPanelContext(rosPlugin(),rosPanel(),{},contradicted).ports.actions.roscore?.activeInvocation).toBeUndefined();
+    const terminalChild={ ...state,automation:{ ...state.automation,runSummaries:[
+      systemRootSummary('full-root','run'),
+      { ...rosServiceChildSummary('ros-child','panel-run','roscore-automation'),status:'stopped' as const,revision:2 },
+    ] } };
+    expect(createPanelContext(rosPlugin(),rosPanel(),{},terminalChild).ports.actions.roscore?.activeInvocation).toBeUndefined();
+  });
+
+  it('does not guess a Total Run call from mutable workflow documents when the frozen Run snapshot is missing',() => {
+    const panelRunDetail = rosPanelRunDetail();
+    delete panelRunDetail.snapshot;
+    const root=experimentRun('full-root','run');
+    const context=createPanelContext(rosPlugin(),rosPanel(),{},host({
+      documents:[rosControlDocument()],
+      runSummaries:[systemRootSummary('full-root','run')],
+      runDetailsById:{ 'panel-run':panelRunDetail },
+    },{ experiment:rosExperiment(),experimentLifecycle:{
+      activeRun:root,activeRuns:[root],runMode:'simulation',start:vi.fn(),stop:vi.fn(),
+      panelWorkflowInvocationFallback:{ rootRunId:'full-root',targetId:'local',id:'panel-run',status:'waiting',revision:1 },
+    } }));
+    expect(context.ports.actions.roscore?.activeInvocation).toBeUndefined();
+  });
+
+  it('projects and stops the service child owned by the Session world-services dispatcher',async () => {
+    const root=experimentRun('full-root','run');
+    const service=totalRunServices.find((item) => item.id==='gzserver')!;
+    const panelDetail=rosPanelRunDetail(totalRunServices.filter((item) => item.id!=='gzserver'));
+    panelDetail.snapshot=rosPanelRunSnapshot('panel-run',rosPanelManualSpec());
+    const stopAction=vi.fn(async () => undefined);
+    const dispatcher=worldWorkflowSummary('world-services-run','world-services-automation','run','full-root','full-root','succeeded');
+    const worldRuntime={
+      ...worldWorkflowSummary('world-runtime-run','world-runtime-automation','run','world-services-run','full-root','succeeded'),
+      targetId:'agent-a',
+    };
+    const serviceChild=rosServiceChildSummary('world-gzserver-child','world-runtime-run',service.automationId,'agent-a');
+    const targetRootRelation={
+      ...workflowChildRelation('call-world-runtime','world-runtime-run','world-runtime-automation','world-services-run','full-root'),
+      targetId:'agent-a',targetRoot:true,targetRootBindingId:'xgc-world-runtime',
+      observedStatus:'succeeded' as const,observedRevision:1,boundAt:'t',
+    };
+    const unrelatedRuntime={
+      ...worldWorkflowSummary('unrelated-world-runtime','world-runtime-automation','run','world-services-run','full-root','succeeded'),
+      targetId:'agent-a',
+    };
+    const unrelatedChild=rosServiceChildSummary('unrelated-gzserver-child','unrelated-world-runtime',service.automationId,'agent-a');
+    const agentAutomation={ ...host({
+      runSummaries:[worldRuntime,serviceChild,unrelatedRuntime,unrelatedChild],
+      runDetailsById:{
+        'world-runtime-run':{
+          ...runDetailForWorkflow('world-runtime-run',[
+            workflowChildRelation(service.callNodeId,'world-gzserver-child',service.automationId,'world-runtime-run','full-root'),
+          ]),
+          snapshot:rosPanelRunSnapshot('world-runtime-run'),
+        },
+        'unrelated-world-runtime':{
+          ...runDetailForWorkflow('unrelated-world-runtime',[
+            workflowChildRelation(service.callNodeId,'unrelated-gzserver-child',service.automationId,'unrelated-world-runtime','full-root'),
+          ]),
+          snapshot:rosPanelRunSnapshot('unrelated-world-runtime'),
+        },
+      },
+    }).automation,targetId:'agent-a' };
+    const localAutomation=host({
+      documents:[rosControlDocument()],
+      runSummaries:[systemRootSummary('full-root','run'),rosPanelChildSummary('panel-run','full-root','start-for-experiment'),dispatcher],
+      runDetailsById:{
+        'panel-run':panelDetail,
+        'world-services-run':runDetailForWorkflow('world-services-run',[targetRootRelation,workflowChildRelation('call-unrelated-runtime','unrelated-world-runtime','world-runtime-automation','world-services-run','full-root')]),
+      },
+    }).automation;
+    const context=createPanelContext(rosPlugin(),rosPanel(),{},host({
+      documents:[rosControlDocument()],
+      runSummaries:[
+        systemRootSummary('full-root','run'),
+        rosPanelChildSummary('panel-run','full-root','start-for-experiment'),
+        dispatcher,
+      ],
+      runDetailsById:{
+        'panel-run':panelDetail,
+        'world-services-run':runDetailForWorkflow('world-services-run',[targetRootRelation,workflowChildRelation('call-unrelated-runtime','unrelated-world-runtime','world-runtime-automation','world-services-run','full-root')]),
+      },
+    },{ experiment:rosExperiment(),automationRuntimes:new Map([['local',localAutomation],['agent-a',agentAutomation]]),experimentLifecycle:{
+      activeRun:root,activeRuns:[root],
+      runMode:'simulation',start:vi.fn(),stop:vi.fn(),stopAction,
+    } }));
+    const invocation=context.ports.actions.gzserver?.activeInvocation;
+    expect(invocation).toEqual({ id:'world-gzserver-child',status:'waiting',revision:1 });
+    await context.ports.actions.gzserver!.control(invocation!,'stop','Stop Gazebo server');
+    expect(stopAction).toHaveBeenCalledWith(invocation,'Stop Gazebo server','agent-a');
+
+    const failedChildId='world-gzserver-child';
+    const failedAgentAutomation={
+      ...agentAutomation,
+      runSummaries:agentAutomation.runSummaries.map((run) => run.id===failedChildId
+        ? { ...run,status:'failed' as const,revision:2 } : run),
+      runDetailsById:{
+        ...agentAutomation.runDetailsById,
+        'world-runtime-run':{
+          ...agentAutomation.runDetailsById['world-runtime-run']!,
+          relations:{
+            ...agentAutomation.runDetailsById['world-runtime-run']!.relations!,
+            childRuns:agentAutomation.runDetailsById['world-runtime-run']!.relations!.childRuns.map((relation) => (
+              relation.childRunId===failedChildId ? { ...relation,runStatus:'failed' as const,runRevision:2 } : relation
+            )),
+          },
+        },
+      },
+    };
+    const failedStopAction=vi.fn(async () => undefined);
+    const failedContext=createPanelContext(rosPlugin(),rosPanel(),{},host({ documents:[rosControlDocument()] },{
+      experiment:rosExperiment(),automationRuntimes:new Map([['local',localAutomation],['agent-a',failedAgentAutomation]]),
+      experimentLifecycle:{ activeRun:root,activeRuns:[root],runMode:'simulation',start:vi.fn(),stop:vi.fn(),stopAction:failedStopAction },
+    }));
+    expect(failedContext.ports.actions.gzserver?.activeInvocation).toBeUndefined();
+    expect(failedStopAction).not.toHaveBeenCalled();
+  });
+
+  it('resolves a manually started service through its new Agent world-runtime child',() => {
+    const root=experimentRun('manual-root','run');
+    const service=totalRunServices[0]!;
+    const rosChild=rosPanelChildSummary('manual-roscore','manual-root','roscore','succeeded');
+    const worldRuntime={
+      ...worldWorkflowSummary('manual-world-runtime','world-runtime-automation','run','manual-roscore','manual-root','succeeded'),
+      targetId:'agent-b',
+    };
+    const serviceChild=rosServiceChildSummary('manual-world-roscore-child','manual-world-runtime',service.automationId,'agent-b');
+    const targetRootRelation={
+      ...workflowChildRelation('call-manual-world-runtime','manual-world-runtime','world-runtime-automation','manual-roscore','manual-root'),
+      targetId:'agent-b',targetRoot:true,targetRootBindingId:'xgc-world-runtime',
+      observedStatus:'succeeded' as const,observedRevision:1,boundAt:'t',
+    };
+    const agentAutomation={ ...host({
+      runSummaries:[worldRuntime,serviceChild],
+      runDetailsById:{
+        'manual-world-runtime':{
+          ...runDetailForWorkflow('manual-world-runtime',[
+            workflowChildRelation(service.callNodeId,'manual-world-roscore-child',service.automationId,'manual-world-runtime','manual-root'),
+          ]),
+          snapshot:rosPanelRunSnapshot('manual-world-runtime'),
+        },
+      },
+    }).automation,targetId:'agent-b' };
+    const localAutomation=host({
+      runSummaries:[systemRootSummary('manual-root','run'),rosChild],
+      runDetailsById:{
+        'manual-roscore':{
+          ...rosPanelRunDetail([service],'manual-root','manual-roscore'),
+          snapshot:rosPanelRunSnapshot('manual-roscore',rosPanelManualSpec()),
+          relations:runDetailForWorkflow('manual-roscore',[targetRootRelation]).relations,
+        },
+      },
+    }).automation;
+    const context=createPanelContext(rosPlugin(),rosPanel(),{},host({
+      runSummaries:[systemRootSummary('manual-root','run'),rosChild],
+      runDetailsById:{
+        'manual-roscore':{
+          ...rosPanelRunDetail([service],'manual-root','manual-roscore'),
+          snapshot:rosPanelRunSnapshot('manual-roscore',rosPanelManualSpec()),
+          relations:runDetailForWorkflow('manual-roscore',[targetRootRelation]).relations,
+        },
+      },
+    },{
+      experiment:rosExperiment(),automationRuntimes:new Map([['local',localAutomation],['agent-b',agentAutomation]]),
+      experimentLifecycle:{ activeRun:root,activeRuns:[root],runMode:'simulation',start:vi.fn(),stop:vi.fn() },
+    }));
+    expect(context.ports.actions.roscore?.activeInvocation).toEqual({
+      id:'manual-world-roscore-child',status:'waiting',revision:1,
+    });
   });
 
   it('keeps invoke-panel-action on the parent Action Run instead of the Total Run grandchild',() => {
@@ -764,10 +1671,10 @@ describe('createPanelContext',() => {
       status:'succeeded' as const,revision:9,
     };
     const service=totalRunServices[0]!;
-    const detail=rosPanelRunDetail([service],'invoke-root');
-    detail.relations.runId='invoke-roscore';
-    detail.relations.childRuns[0]!.parentRunId='invoke-roscore';
-    detail.relations.childRuns[0]!.ownerRunId='invoke-roscore';
+    const detail=rosPanelRunDetail([service],'invoke-root','invoke-roscore');
+    detail.relations!.runId='invoke-roscore';
+    detail.relations!.childRuns[0]!.parentRunId='invoke-roscore';
+    detail.relations!.childRuns[0]!.ownerRunId='invoke-roscore';
     const exactParent=rosPanelChildRun('invoke-roscore','invoke-root','roscore');
     exactParent.status='succeeded';
     exactParent.revision=4;
@@ -776,6 +1683,7 @@ describe('createPanelContext',() => {
       documents:[rosControlDocument()],
       runSummaries:[
         { ...systemRootSummary('invoke-root','invoke-panel-action','ros-control','roscore'),status:'succeeded',revision:9 },
+        rosPanelChildSummary('invoke-roscore','invoke-root','roscore'),
       ],
       runDetailsById:{ 'invoke-roscore':{ ...detail,run:exactParent } },
     },{
@@ -791,7 +1699,7 @@ describe('createPanelContext',() => {
     });
     const invocation=context.ports.actions.roscore!.activeInvocation!;
     await context.ports.actions.roscore!.control(invocation,'stop','Stop ROS');
-    expect(stopAction).toHaveBeenCalledWith(invocation,'Stop ROS');
+    expect(stopAction).toHaveBeenCalledWith(invocation,'Stop ROS','local');
   });
 });
 
@@ -843,6 +1751,64 @@ function panelChildSummary(
   };
 }
 
+function algorithmInvokeChildRelation(rootId:string,childId:string) {
+  return {
+    id:`rel-${childId}`,targetId:'local',rootRunId:rootId,parentRunId:rootId,
+    parentInvocationId:`invoke-${rootId}`,callNodeId:'invoke-selected-action',ordinal:0,
+    childRunId:childId,ownerRunId:rootId,childDefinitionId:'worker',
+    childDefinitionVersion:1,childConfigDigest:'a'.repeat(64),childExecutionPlanDigest:'b'.repeat(64),
+    childRegistryDigest:'c'.repeat(64),childDefinitionDigest:'e'.repeat(64),triggerNodeId:'trigger',
+    relation:'attached' as const,waitPolicy:'wait' as const,cancelPolicy:'cascade' as const,
+    resultPolicy:'propagate' as const,createdAt:'2026-01-01T00:00:02Z',updatedAt:'2026-01-01T00:00:02Z',
+    boundAt:'2026-01-01T00:00:02Z',runStatus:'waiting' as const,runRevision:1,revision:1,
+  };
+}
+
+function swarmControlDocument():AutomationDocument {
+  const document=automation();
+  const base=document.spec.actions[0]!;
+  const recordEntry=newAutomationNode('trigger.manual',{},'Record',2);
+  recordEntry.id='record-entry';
+  const startEntry=newAutomationNode('trigger.manual',{},'Start',2);
+  startEntry.id='start-entry';
+  const sceneEntry=newAutomationNode('trigger.manual',{},'Scene',2);
+  sceneEntry.id='scene-entry';
+  document.spec.nodes.push(recordEntry,startEntry,sceneEntry);
+  document.spec.actions=[
+    { ...base,id:'run',label:'Algorithm',kind:'service' },
+    { ...base,id:'record',label:'Record',entryNodeId:'record-entry',kind:'service' },
+    { ...base,id:'start',label:'Start',entryNodeId:'start-entry',kind:'command' },
+    { ...base,id:'scene',label:'Scene',entryNodeId:'scene-entry',kind:'service' },
+  ];
+  return document;
+}
+
+function swarmControlPanel(workflowPreset:string):PanelInstance {
+  const value=panel();
+  value.pluginId=dynamicPlugin.id;
+  value.portBindings=[
+    {
+      portId:'panel-workflow',kind:'workflow',workflowInstanceId:'worker',presetId:workflowPreset,
+      managed:workflowPreset!=='run',relation:'supervised',failurePolicy:'keep-experiment',
+    },
+    { portId:'run',kind:'action',presetId:'run' },
+    { portId:'record',kind:'action',presetId:'record' },
+    { portId:'start',kind:'action',presetId:'start' },
+    { portId:'robots',kind:'data',projection:'experiment.robots.v1' },
+    { portId:'robots-editor',kind:'authoring',target:'experiment.robots' },
+  ];
+  return value;
+}
+
+function swarmExperiment(workflowPreset:string):ExperimentDocument {
+  const presetIds=workflowPreset==='scene' ? ['scene','run','record','start'] : ['run','record','start'];
+  const target=experiment();
+  target.spec.workflowInstances[0]!.actionPresets=presetIds.map((id) => (
+    { id,actionId:id,inputs:{},parameterBindings:[] }
+  ));
+  return target;
+}
+
 function panel():PanelInstance {
   return { id:'panel',pluginId:'test-panel',title:'Test',gridPos:{ x:0,y:0,w:4,h:4 },query:{},options:{},fieldConfig:{},portBindings:[
     { portId:'panel-workflow',kind:'workflow',workflowInstanceId:'worker',presetId:'default',managed:true,relation:'supervised',failurePolicy:'keep-experiment' },
@@ -863,6 +1829,26 @@ function automation(resourceId='worker'):AutomationDocument {
   return { head:head('automation',resourceId),branch:branch('automation',resourceId),spec:newAutomationSpec(resourceId) };
 }
 
+function algorithmWaitDocument():AutomationDocument {
+  const document=automation();
+  document.spec.actions[0]!.kind='service';
+  const wait=newAutomationNode('wait.process',{},'Wait algorithm',1);
+  wait.id='wait';
+  document.spec.nodes=[document.spec.nodes[0]!,wait];
+  document.spec.edges=[{ id:'run-wait',from:document.spec.nodes[0]!.id,to:'wait',condition:'success' }];
+  return document;
+}
+
+function readyProcess(ownerId:string) {
+  return {
+    id:'owned',targetId:'local',definitionId:'algorithm',definitionVersion:'1',definitionDigest:'a'.repeat(64),
+    ownerType:'orchestration-run' as const,ownerId,scope:'run' as const,parameters:{},driver:'host' as const,
+    desiredState:'running' as const,observedState:'running' as const,
+    readiness:{ status:'passing' as const },liveness:{ status:'passing' as const },
+    revision:1,restartCount:0,createdAt:'t',updatedAt:'t',
+  };
+}
+
 function host(
   automationOverrides:Partial<PanelContextActions['automation']> = {},
   overrides:Partial<PanelContextActions> = {},
@@ -872,11 +1858,12 @@ function host(
     runDocument:vi.fn(),runBoundAutomation:vi.fn(),stop:vi.fn(),stopRunSet:vi.fn(),loadRunDetail:vi.fn(),refreshExecutionHistory:vi.fn(),
     ...automationOverrides,
   } as unknown as PanelContextActions['automation'];
-  return {
+  const value = {
     experiment:experiment(),automation:automationHost,
     experimentLifecycle:{ activeRun:experimentRun(),runMode:'simulation',start:vi.fn(),stop:vi.fn() },
     ...overrides,
   };
+  return { ...value,execution:overrides.execution ?? testPanelExecution(value.automation.runDetailsById,value.automation) };
 }
 
 function experimentRun(
@@ -898,11 +1885,11 @@ function branch(domain:string,resourceId:string) {
 }
 
 const totalRunServices = [
-  { id:'roscore',callNodeId:ROS_BASIC_SERVICE_CALL_NODE_ID.roscore,childRunId:'ros-child',automationId:'roscore-automation' },
-  { id:'gzserver',callNodeId:ROS_BASIC_SERVICE_CALL_NODE_ID.gzserver,childRunId:'gzs-child',automationId:'gzserver-automation' },
-  { id:'gzclient',callNodeId:ROS_BASIC_SERVICE_CALL_NODE_ID.gzclient,childRunId:'gzc-child',automationId:'gzclient-automation' },
-  { id:'rviz',callNodeId:ROS_BASIC_SERVICE_CALL_NODE_ID.rviz,childRunId:'rviz-child',automationId:'rviz-automation' },
-  { id:'vrpn',callNodeId:ROS_BASIC_SERVICE_CALL_NODE_ID.vrpn,childRunId:'vrpn-child',automationId:'vrpn-automation' },
+  { id:'roscore',callNodeId:'call-ros',childRunId:'ros-child',automationId:'roscore-automation',childActionId:'start-from-ros-control' },
+  { id:'gzserver',callNodeId:'call-gzserver',childRunId:'gzs-child',automationId:'gzserver-automation',childActionId:'start-from-ros-control' },
+  { id:'gzclient',callNodeId:'call-gzclient',childRunId:'gzc-child',automationId:'gzclient-automation',childActionId:'start-from-ros-control' },
+  { id:'rviz',callNodeId:'call-rviz',childRunId:'rviz-child',automationId:'rviz-automation',childActionId:'start-from-ros-control' },
+  { id:'vrpn',callNodeId:'call-vrpn-diagnostic',childRunId:'vrpn-child',automationId:'vrpn-automation',childActionId:'start-from-ros-control' },
 ] as const;
 
 function rosPlugin() {
@@ -951,7 +1938,9 @@ function rosControlDocument():AutomationDocument {
     { ...newAutomationNode('trigger.automation-call',{},'Called'),id:'called' },
     ...totalRunServices.flatMap((service) => [
       { ...newAutomationNode('trigger.manual',{},service.id),id:`panel-${service.id}` },
-      { ...newAutomationNode('automation.call',{},service.callNodeId),id:service.callNodeId },
+      { ...newAutomationNode('automation.call',{
+        automationId:service.automationId,actionId:service.childActionId,
+      },service.callNodeId,4),id:service.callNodeId },
     ]),
   ];
   spec.edges = totalRunServices.flatMap((service) => [
@@ -959,6 +1948,44 @@ function rosControlDocument():AutomationDocument {
     { id:`${service.id}-called`,from:'called',to:service.callNodeId,condition:'success' as const },
   ]);
   return { head:head('automation','ros-panel'),branch:branch('automation','ros-panel'),spec };
+}
+
+function rosPanelRunSnapshot(runId:string,spec=rosControlDocument().spec):AutomationRunSnapshot {
+  const automationRef={
+    domain:'automation' as const,resourceId:'ros-panel',branch:'main',commitId:'commit-ros',version:1,digest:'e'.repeat(64),
+  };
+  return {
+    runId,targetId:'local',sourceKind:'automation',sourceRef:automationRef,automationRef,
+    assetContext:{ schemaVersion:1 },automationSpec:spec,
+    definitionDigest:'d'.repeat(64),digest:'f'.repeat(64),createdAt:'2026-01-01T00:00:00Z',
+  };
+}
+
+function worldWorkflowSummary(
+  id:string,automationResourceId:string,actionId:string,parentRunId:string,rootRunId:string,
+  status:AutomationRunSummaryView['status'],
+):AutomationRunSummaryView {
+  return {
+    id,targetId:'local',automationResourceId,actionId,actionVersion:1,
+    sourceKind:'automation',sourceRef:{
+      domain:'automation',resourceId:automationResourceId,branch:'main',commitId:'commit-1',version:1,digest:'b'.repeat(64),
+    },
+    status,revision:1,parentRunId,rootRunId,createdAt:'2026-01-01T00:00:01Z',updatedAt:'2026-01-01T00:00:01Z',
+  };
+}
+
+function workflowChildRelation(
+  callNodeId:string,childRunId:string,childDefinitionId:string,parentRunId:string,rootRunId:string,
+) {
+  return {
+    id:`rel-${callNodeId}`,targetId:'local',rootRunId,parentRunId,
+    parentInvocationId:`invoke-${callNodeId}`,callNodeId,ordinal:0,childRunId,ownerRunId:parentRunId,
+    childDefinitionId,childDefinitionVersion:1,childConfigDigest:'a'.repeat(64),
+    childExecutionPlanDigest:'b'.repeat(64),childRegistryDigest:'c'.repeat(64),
+    childDefinitionDigest:'d'.repeat(64),triggerNodeId:'trigger',relation:'supervised' as const,
+    waitPolicy:'wait' as const,cancelPolicy:'cascade' as const,resultPolicy:'propagate' as const,
+    createdAt:'t',updatedAt:'t',boundAt:'t',runStatus:'waiting' as const,runRevision:1,revision:1,
+  };
 }
 
 function serviceAction(id:string,entryNodeId:string):AutomationAction {
@@ -996,9 +2023,9 @@ function rosPanelChildRun(id:string,rootRunId:string,actionId:string):Automation
   };
 }
 
-function rosServiceChildSummary(id:string,parentRunId:string,automationResourceId:string):AutomationRunSummaryView {
+function rosServiceChildSummary(id:string,parentRunId:string,automationResourceId:string,targetId='local'):AutomationRunSummaryView {
   return {
-    id,targetId:'local',automationResourceId,actionId:'start-from-ros-control',actionVersion:1,
+    id,targetId,automationResourceId,actionId:'start-from-ros-control',actionVersion:1,
     sourceKind:'automation',sourceRef:{ domain:'automation',resourceId:automationResourceId,branch:'main',commitId:'commit-child',version:1,digest:'f'.repeat(64) },
     status:'waiting',revision:1,parentRunId,rootRunId:'full-root',
     createdAt:'2026-01-01T00:00:02Z',updatedAt:'2026-01-01T00:00:02Z',
@@ -1008,11 +2035,14 @@ function rosServiceChildSummary(id:string,parentRunId:string,automationResourceI
 function rosPanelRunDetail(
   services:readonly (typeof totalRunServices)[number][] = totalRunServices,
   rootRunId='full-root',
-) {
+  runId='panel-run',
+):AutomationRunDetail {
   return {
+    run:rosPanelChildRun(runId,rootRunId,'start-for-experiment'),
     invocations:[],nodeSummaries:[],loading:false,error:'',
+    snapshot:rosPanelRunSnapshot(runId),
     relations:{
-      runId:'panel-run',
+      runId,
       childRuns:services.map((service,ordinal) => ({
         id:`rel-${service.callNodeId}`,targetId:'local',rootRunId,parentRunId:'panel-run',
         parentInvocationId:`invoke-${service.callNodeId}`,callNodeId:service.callNodeId,ordinal,
@@ -1024,6 +2054,26 @@ function rosPanelRunDetail(
         runStatus:'waiting' as const,runRevision:1,revision:1,
       })),
       childRunGroups:[],childRunGroupMembers:[],waits:[],effects:[],runtimeGroups:[],runtimes:[],resources:[],
+    },
+  };
+}
+
+function rosPanelManualSpec() {
+  const spec=rosControlDocument().spec;
+  const callNodeIds=new Set(spec.nodes.filter((node) => node.kind==='automation.call').map((node) => node.id));
+  spec.nodes=spec.nodes.filter((node) => !callNodeIds.has(node.id));
+  spec.edges=spec.edges.filter((edge) => !callNodeIds.has(edge.from) && !callNodeIds.has(edge.to));
+  return spec;
+}
+
+function runDetailForWorkflow(
+  runId:string,
+  childRuns:ReturnType<typeof workflowChildRelation>[],
+) {
+  return {
+    invocations:[],nodeSummaries:[],loading:false,error:'',
+    relations:{
+      runId,childRuns,childRunGroups:[],childRunGroupMembers:[],waits:[],effects:[],runtimeGroups:[],runtimes:[],resources:[],
     },
   };
 }

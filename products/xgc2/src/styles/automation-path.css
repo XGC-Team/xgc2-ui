@@ -34,7 +34,7 @@
 
 .automation-path-picker-title > small {
   color: var(--color-text-muted);
-  font-size: var(--font-base);
+  font-size: var(--type-body-size);
   line-height: var(--line-height-tight);
 }
 
@@ -63,12 +63,15 @@
 
 .automation-path-picker-entry {
   min-width: 0;
-  min-height: calc(var(--size-control-default) + var(--space-xs));
+  height: auto;
+  min-height: var(--size-control-default);
   display: grid;
   grid-template-columns: var(--size-icon-sm) minmax(0, 1fr);
   align-items: center;
   gap: var(--space-md);
+  padding-block: var(--space-xs);
   padding-inline: var(--space-md);
+  line-height: var(--line-height-control);
   color: var(--color-text-heading);
   text-align: left;
 }
@@ -84,9 +87,11 @@
 }
 
 .automation-path-picker-entry > span {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  line-height: var(--line-height-control);
 }
 
 .automation-path-picker-status {

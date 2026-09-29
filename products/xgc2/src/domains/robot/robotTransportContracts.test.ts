@@ -187,7 +187,7 @@ describe('Robot transport contracts', () => {
     await expect(getRunRobots('local', 'run-1')).rejects.toThrow('invalid run robot projection');
   });
 
-  it('delivers the channels that decoded instead of withholding the whole fleet', async () => {
+  it('delivers the channels that decoded instead of withholding the whole swarm', async () => {
     const partial = snapshot();
     partial.robots.push({
       ...structuredClone(partial.robots[0]!),
@@ -527,26 +527,30 @@ describe('Robot transport contracts', () => {
     }
   });
 
-  it('rejects non-live connections that expose online authority, deadlines, or channels', async () => {
-    const contradictions = [
-      () => {
-        const value = snapshot();
-        Object.assign(value.robots[0]!, { connectionState: 'opening',connectionRevision: 3 });
-        return value;
-      },
-      () => {
-        const value = snapshot();
-        Object.assign(value.robots[0]!, {
-          connectionState: 'closed',connectionRevision: 3,online: false,operationalReady: false,status: 'offline',
-          onlineUntil: undefined,operationalReadyUntil: undefined,
-        });
-        return value;
-      },
-    ];
-    for (const contradiction of contradictions) {
-      vi.mocked(request).mockResolvedValueOnce(contradiction());
-      await expect(getRunRobots('local', 'run-1')).rejects.toThrow('invalid run robot projection');
-    }
+  it('accepts observer channels on non-live connections and still rejects authority contradictions', async () => {
+    const closedWithChannels = snapshot();
+    Object.assign(closedWithChannels.robots[0]!, {
+      connectionState: 'closed',connectionRevision: 3,online: false,operationalReady: false,status: 'offline',
+      onlineUntil: undefined,operationalReadyUntil: undefined,
+    });
+    vi.mocked(request).mockResolvedValueOnce(closedWithChannels);
+    await expect(getRunRobots('local', 'run-1')).resolves.toMatchObject({
+      robots: [{ connectionState: 'closed',online: false }],
+    });
+
+    const openingWithChannels = snapshot();
+    Object.assign(openingWithChannels.robots[0]!, { connectionState: 'opening',connectionRevision: 3 });
+    vi.mocked(request).mockResolvedValueOnce(openingWithChannels);
+    await expect(getRunRobots('local', 'run-1')).resolves.toMatchObject({
+      robots: [{ connectionState: 'opening' }],
+    });
+
+    const contradiction = snapshot();
+    Object.assign(contradiction.robots[0]!, {
+      connectionState: 'closed',connectionRevision: 3,online: true,status: 'offline',
+    });
+    vi.mocked(request).mockResolvedValueOnce(contradiction);
+    await expect(getRunRobots('local', 'run-1')).rejects.toThrow('invalid run robot projection');
   });
 
   it('validates authoritative channel status and deadlines before delivering an SSE patch', () => {

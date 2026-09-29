@@ -47,7 +47,7 @@ describe('RosbagPlotPanel', () => {
     await waitFor(() => expect(listROSBagRecordings).toHaveBeenCalled());
     selectControlOption('Recorded bag', 'run-1/demo.bag');
     await waitFor(() => expect(getROSBagRecordingPlot).toHaveBeenCalledWith('bag-1', [], expect.anything()));
-    expect(document.querySelector('[data-xgc-role="rosbag-plot-topic"][data-xgc-id="/cmd_vel"]')).not.toBeNull();
+    expect(document.querySelector('[data-xgc-role="rosbag-plot-topic"][data-xgc-id="plot:/cmd_vel"]')).not.toBeNull();
     expect(screen.getByRole('button', { name: 'linear.x' })).toBeInTheDocument();
     fireEvent.drop(document.querySelector('[data-xgc-role="rosbag-plot-stage"]')!, {
       dataTransfer: {

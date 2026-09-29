@@ -183,7 +183,12 @@ export const gazeboWorldCameraPanelPlugin = definePanelPlugin({
   actionDefaultsEditor: GazeboWorldCameraActionDefaultsEditor,
   sharedActionDefaults: {
     title:'Camera calibration inputs',
-    fieldNames:['simulationIntrinsicFile','physicalIntrinsicFile'],
+    fieldNames:[
+      'simulationIntrinsicFile','physicalIntrinsicFile','simulationPoseSource','simulationExtrinsicFile',
+      'simulationExtrinsicSelectionJson','physicalExtrinsicSelectionJson',
+      'cameraSource',
+      'x','y','z','roll','pitch','yaw',
+    ],
   },
   authoringPorts: [{
     id:'workflow-parameters',label:'Camera calibration defaults',
@@ -195,6 +200,7 @@ export const gazeboWorldCameraPanelPlugin = definePanelPlugin({
   frameProvider: GazeboWorldCameraFrameProvider,
   headerLeading: GazeboWorldCameraHeaderLeading,
   headerActions: GazeboWorldCameraHeaderActions,
+  fillBody: true,
   dataPorts: [
     { id:'video',label:'World camera video',contract:EXPERIMENT_PROCESS_RUNTIME_DATASOURCE },
     { id:'calibration',label:'Extrinsic calibration',contract:'camera.calibration.extrinsic.v1' },
@@ -207,22 +213,22 @@ export const gazeboWorldCameraPanelPlugin = definePanelPlugin({
   optionSchema: {
     dashboard: { type:'string' },
     gridColumns: { type:'number' },
-    x: { type:'number',required:true },
-    y: { type:'number',required:true },
-    z: { type:'number',required:true },
-    rollDegrees: { type:'number',required:true },
-    pitchDegrees: { type:'number',required:true },
-    yawDegrees: { type:'number',required:true },
+    x: { type:'number' },
+    y: { type:'number' },
+    z: { type:'number' },
+    rollDegrees: { type:'number' },
+    pitchDegrees: { type:'number' },
+    yawDegrees: { type:'number' },
     edgeUrl: { type:'string',required:true },
     sourceId: { type:'string',required:true },
-    iceServerUrls: { type:'string',required:true },
-    publicIPs: { type:'string',required:true },
+    iceServerUrls: { type:'string' },
+    publicIPs: { type:'string' },
   },
   defaultOptions: { ...GAZEBO_WORLD_CAMERA_DEFAULTS },
   validatePanel: (panel) => validateGazeboWorldCameraOptions(panel.options),
   defaultPanel: {
     title: 'Gazebo world camera',
-    // Same right-column slot as the fleet GCS seed (under ROS Control).
+    // Same right-column slot as the swarm GCS seed (under ROS Control).
     gridPos: { x:23,y:5,w:7,h: cameraStreamPanelDefaultRows({ panelWidthCols: 7 }) },
     query: {},
     options: { dashboard:'gcs',...GAZEBO_WORLD_CAMERA_DEFAULTS },

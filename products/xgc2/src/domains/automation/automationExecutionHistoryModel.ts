@@ -29,6 +29,26 @@ import {
   sameValue,
 } from './automationHistoryValidation';
 import { parseAutomationExecutionRunSummary } from './automationRunSummaryModel';
+import { SYSTEM_EXPERIMENT_RUNNER_AUTOMATION_RESOURCE_ID } from '../../shared/workflowRuntimeProtocol';
+
+/**
+ * SSE lifecycle summaries never carry source metadata; only the enriched
+ * history read attributes experiment-sourced roots. Standalone Panel Action
+ * runs are recognized by their frozen panelAction/sourceRef, so a new
+ * source-less root must be enriched from the history read instead of merged
+ * straight from SSE. The System Experiment Runner additionally requires its
+ * experiment selector for Total Run projection.
+ */
+export function summaryNeedsHistoryEnrichment(
+  summary:AutomationExecutionRunSummary,
+) {
+  if (summary.parentRunId) return false;
+  if (summary.automationResourceId===SYSTEM_EXPERIMENT_RUNNER_AUTOMATION_RESOURCE_ID) {
+    return summary.sourceKind!=='experiment' || summary.sourceRef?.domain!=='experiment'
+      || !summary.experimentSelector;
+  }
+  return !summary.sourceKind && !summary.sourceRef;
+}
 
 const pageKeys = new Set(['entries','nextCursor','complete','unavailableSources']);
 const transitionPageKeys = new Set(['transitions','nextAfterRevision','complete','unavailableSources']);
@@ -52,7 +72,7 @@ const transitionActors = new Set<AutomationIngressTransitionActor>([
 ]);
 const triggerKindBySourceKind: Partial<Record<AutomationTriggerSourceKind,AutomationTriggerKind>> = {
   manual: 'trigger.manual',schedule: 'trigger.schedule',chat: 'trigger.chat-message',form: 'trigger.form-submission',
-  startup: 'trigger.target-startup',webhook: 'trigger.webhook',call: 'trigger.automation-call',
+  startup: 'trigger.target-startup',webhook: 'trigger.webhook',
 };
 
 export function parseAutomationExecutionHistoryPage(
@@ -288,13 +308,23 @@ export function compareAutomationExecutionHistoryEntries(
 export function mergeAutomationExecutionHistoryEntries(
   current: readonly AutomationExecutionHistoryEntry[],
   incoming: readonly AutomationExecutionHistoryEntry[],
-) {
+): AutomationExecutionHistoryEntry[] {
   const byID = new Map(current.map((entry) => [entry.id,entry]));
+  let changed = false;
   for (const entry of incoming) {
     const previous = byID.get(entry.id);
-    byID.set(entry.id, previous ? mergeHistoryEntry(previous, entry) : entry);
+    const merged = previous ? mergeHistoryEntry(previous, entry) : entry;
+    if (merged !== previous) changed = true;
+    byID.set(entry.id, merged);
   }
-  return [...byID.values()].sort(compareAutomationExecutionHistoryEntries);
+  const merged = [...byID.values()].sort(compareAutomationExecutionHistoryEntries);
+  // Content-stable merges return the previous array so memoized consumers
+  // (run summaries, panel contexts) are not re-rendered by a no-op sync.
+  if (!changed && merged.length === current.length
+    && merged.every((entry,index) => entry === current[index])) {
+    return current as AutomationExecutionHistoryEntry[];
+  }
+  return merged;
 }
 
 function mergeHistoryEntry(
@@ -307,13 +337,15 @@ function mergeHistoryEntry(
   }
   const ingress = chooseIngress(current.ingress, incoming.ingress);
   const run = chooseRun(current.run, incoming.run);
+  const phase = run ? 'run' : 'ingress';
+  if (ingress === current.ingress && run === current.run && phase === current.phase) return current;
   return {
     id: current.id,
     runId: current.runId,
     targetId: current.targetId,
     automationResourceId: current.automationResourceId,
     acceptedAt: current.acceptedAt,
-    phase: run ? 'run' : 'ingress',
+    phase,
     ...(ingress ? { ingress } : {}),
     ...(run ? { run } : {}),
   };
@@ -357,6 +389,7 @@ function withoutRunHistoryEnrichment(run: AutomationExecutionRunSummary) {
   delete result.sourceKind;
   delete result.sourceRef;
   delete result.experimentSelector;
+  delete result.panelAction;
   return result;
 }
 
@@ -371,13 +404,16 @@ function mergeRunHistoryEnrichment(
     incoming.experimentSelector,
     current.revision,
   );
+  const panelAction=mergeOptionalRunEnrichment(current.panelAction,incoming.panelAction,current.revision);
   const selectedHasSource = selected.sourceKind !== undefined && selected.sourceRef !== undefined;
   if ((!source || selectedHasSource)
-    && (experimentSelector === undefined || selected.experimentSelector !== undefined)) return selected;
+    && (experimentSelector === undefined || selected.experimentSelector !== undefined)
+    && (panelAction === undefined || selected.panelAction !== undefined)) return selected;
   return {
     ...selected,
     ...(source ?? {}),
     ...(experimentSelector === undefined ? {} : { experimentSelector }),
+    ...(panelAction === undefined ? {} : { panelAction }),
   };
 }
 

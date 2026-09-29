@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import type * as ExperimentWorkflowServiceModule from './experimentWorkflowService';
 import { act,renderHook,waitFor } from '@testing-library/react';
 import { beforeEach,describe,expect,it,vi } from 'vitest';
 import type { ExecutionEvent } from '../execution/executionPublic';
@@ -10,16 +11,29 @@ import { useStationExperimentOccupancy } from './useExperimentListRunningIds';
 const execution=vi.hoisted(() => ({
   listener:undefined as ((event:ExecutionEvent) => void)|undefined,
   streamState:'connected',
+  streamId:'test',
 }));
 vi.mock('../execution/executionPublic',() => ({
   useExecutionEventChannel:(_targetId:string,listener:(event:ExecutionEvent) => void) => {
     execution.listener=listener;
-    return { streamId:'test',streamState:execution.streamState,error:'' };
+    return { streamId:execution.streamId,streamState:execution.streamState,error:'' };
   },
 }));
 
+const leftover=vi.hoisted(() => ({
+  load:vi.fn(async () => [] as readonly string[]),
+}));
+vi.mock('./experimentWorkflowService',async (importOriginal) => {
+  const actual=await importOriginal<typeof ExperimentWorkflowServiceModule>();
+  return { ...actual,listLeftoverExperimentOccupancyIds:leftover.load };
+});
+
 describe('useExperimentListRunningIds',() => {
-  beforeEach(() => { execution.listener=undefined;execution.streamState='connected'; });
+  beforeEach(() => {
+    execution.listener=undefined;execution.streamState='connected';execution.streamId='test';
+    leftover.load.mockReset();
+    leftover.load.mockResolvedValue([]);
+  });
 
   it('recovers a single dropped snapshot fetch without reporting a persistent Experiment failure',async () => {
     const load=vi.fn().mockRejectedValueOnce(new TypeError('Failed to fetch'))
@@ -78,36 +92,43 @@ describe('useExperimentListRunningIds',() => {
     expect(load).toHaveBeenCalledTimes(2);
   });
 
-  it('does not let an older imperative Session snapshot overwrite newer SSE truth',async () => {
+  it('serializes an imperative read and newer SSE refresh without losing intermediate progress',async () => {
     const staleRefresh=deferred<ExperimentSessionView[]>();
     const currentRefresh=deferred<ExperimentSessionView[]>();
     const load=vi.fn()
       .mockResolvedValueOnce([sessionView('session-a','exp-user')])
       .mockImplementationOnce(() => staleRefresh.promise)
       .mockImplementationOnce(() => currentRefresh.promise);
-    const { result }=renderHook(() => useStationExperimentOccupancy('local',load));
+    const { result,unmount }=renderHook(() => useStationExperimentOccupancy('local',load));
     await waitFor(() => expect(result.current.runningExperimentIds).toEqual(new Set(['exp-user'])));
 
-    let olderRequest!:Promise<void>;
-    act(() => { olderRequest=result.current.refresh(); });
-    await waitFor(() => expect(load).toHaveBeenCalledTimes(2));
-    act(() => { execution.listener?.(workflowEvent(2)); });
-    await waitFor(() => expect(load).toHaveBeenCalledTimes(3));
+    vi.useFakeTimers();
+    try {
+      let olderRequest!:Promise<void>;
+      act(() => { olderRequest=result.current.refresh(); });
+      expect(load).toHaveBeenCalledTimes(2);
+      act(() => { execution.listener?.(workflowEvent(2)); });
+      await act(async () => { await vi.advanceTimersByTimeAsync(40); });
+      expect(load).toHaveBeenCalledTimes(2);
 
-    await act(async () => {
-      currentRefresh.resolve([]);
-      await currentRefresh.promise;
-    });
-    await waitFor(() => expect(result.current.sessions).toEqual([]));
-
-    await act(async () => {
-      staleRefresh.resolve([stoppingSessionView('session-a','exp-user')]);
-      await olderRequest;
-    });
-    expect(result.current.sessions).toEqual([]);
-    expect(result.current.runningExperimentIds.size).toBe(0);
-    expect(result.current.error).toBe('');
-    expect(result.current.resolved).toBe(true);
+      await act(async () => {
+        staleRefresh.resolve([stoppingSessionView('session-a','exp-user')]);
+        await olderRequest;
+      });
+      expect(load).toHaveBeenCalledTimes(3);
+      expect(result.current.sessions[0]?.session.state).toBe('stopping');
+      await act(async () => {
+        currentRefresh.resolve([]);
+        await currentRefresh.promise;
+      });
+      expect(result.current.sessions).toEqual([]);
+      expect(result.current.runningExperimentIds.size).toBe(0);
+      expect(result.current.error).toBe('');
+      expect(result.current.resolved).toBe(true);
+    } finally {
+      unmount();
+      vi.useRealTimers();
+    }
   });
 
   it('converges a stopped Experiment from stopping to absent and preserves other Sessions',async () => {
@@ -186,9 +207,14 @@ describe('useExperimentListRunningIds',() => {
       let genericRefresh!:Promise<void>;
       act(() => { genericRefresh=result.current.refresh(); });
       expect(load).toHaveBeenCalledTimes(2);
+      let queuedGeneric!:Promise<void>;
+      act(() => { queuedGeneric=result.current.refresh(); });
+      expect(load).toHaveBeenCalledTimes(2);
       let convergence!:Promise<void>;
       act(() => { convergence=result.current.convergeStoppedExperiment('exp-selected'); });
       expect(load).toHaveBeenCalledTimes(3);
+      expect((load.mock.calls[1]?.[2] as AbortSignal).aborted).toBe(true);
+      await act(async () => { await Promise.all([genericRefresh,queuedGeneric]); });
 
       for (let revision=2;revision<=6;revision+=1) {
         execution.listener?.(workflowEvent(revision));
@@ -301,35 +327,44 @@ describe('useExperimentListRunningIds',() => {
     }
   });
 
-  it('does not let an older rejected refresh replace a newer successful snapshot',async () => {
+  it('does not publish or retry an obsolete failure before its queued fresh snapshot',async () => {
     const staleRefresh=deferred<ExperimentSessionView[]>();
     const currentRefresh=deferred<ExperimentSessionView[]>();
     const load=vi.fn()
       .mockResolvedValueOnce([sessionView('session-a','exp-user')])
       .mockImplementationOnce(() => staleRefresh.promise)
       .mockImplementationOnce(() => currentRefresh.promise);
-    const { result }=renderHook(() => useStationExperimentOccupancy('local',load));
+    const { result,unmount }=renderHook(() => useStationExperimentOccupancy('local',load));
     await waitFor(() => expect(result.current.runningExperimentIds).toEqual(new Set(['exp-user'])));
 
-    let olderRequest!:Promise<void>;
-    act(() => { olderRequest=result.current.refresh(); });
-    await waitFor(() => expect(load).toHaveBeenCalledTimes(2));
-    act(() => { execution.listener?.(workflowEvent(2)); });
-    await waitFor(() => expect(load).toHaveBeenCalledTimes(3));
+    vi.useFakeTimers();
+    try {
+      let olderRequest!:Promise<void>;
+      act(() => { olderRequest=result.current.refresh(); });
+      expect(load).toHaveBeenCalledTimes(2);
+      act(() => { execution.listener?.(workflowEvent(2)); });
+      await act(async () => { await vi.advanceTimersByTimeAsync(40); });
+      expect(load).toHaveBeenCalledTimes(2);
 
-    await act(async () => {
-      currentRefresh.resolve([]);
-      await currentRefresh.promise;
-    });
-    await waitFor(() => expect(result.current.sessions).toEqual([]));
-
-    await act(async () => {
-      staleRefresh.reject(new Error('stale sessions unavailable'));
-      await olderRequest;
-    });
-    expect(result.current.sessions).toEqual([]);
-    expect(result.current.error).toBe('');
-    expect(result.current.resolved).toBe(true);
+      await act(async () => {
+        staleRefresh.reject(new TypeError('Failed to fetch'));
+        await olderRequest;
+      });
+      expect(load).toHaveBeenCalledTimes(3);
+      expect(load.mock.calls[2]?.[2]).not.toBe(load.mock.calls[1]?.[2]);
+      expect(result.current.error).toBe('');
+      expect(result.current.resolved).toBe(true);
+      await act(async () => {
+        currentRefresh.resolve([]);
+        await currentRefresh.promise;
+      });
+      expect(result.current.sessions).toEqual([]);
+      expect(result.current.error).toBe('');
+      expect(result.current.resolved).toBe(true);
+    } finally {
+      unmount();
+      vi.useRealTimers();
+    }
   });
 
   it('fails closed and rejects when the current imperative refresh fails',async () => {
@@ -354,7 +389,7 @@ describe('useExperimentListRunningIds',() => {
     expect(result.current.resolved).toBe(false);
   });
 
-  it('invalidates an unsignaled refresh when the execution target changes',async () => {
+  it('aborts an ordinary refresh when the execution target changes',async () => {
     const staleLocalRefresh=deferred<ExperimentSessionView[]>();
     const agentRefresh=deferred<ExperimentSessionView[]>();
     const load=vi.fn()
@@ -369,7 +404,9 @@ describe('useExperimentListRunningIds',() => {
     let localRequest!:Promise<void>;
     act(() => { localRequest=result.current.refresh(); });
     await waitFor(() => expect(load).toHaveBeenCalledTimes(2));
+    const localSignal=load.mock.calls[1]?.[2] as AbortSignal;
     rerender({ targetId:'agent-a' });
+    expect(localSignal.aborted).toBe(true);
     await waitFor(() => expect(load).toHaveBeenCalledTimes(3));
 
     await act(async () => {
@@ -408,6 +445,139 @@ describe('useExperimentListRunningIds',() => {
     expect(signal.aborted).toBe(true);
   });
 
+  it('keeps the provider value and derived IDs stable for an identical snapshot or unrelated rerender',async () => {
+    const load=vi.fn(async () => [sessionView('session-a','exp-user')]);
+    const { result,rerender }=renderHook(() => useStationExperimentOccupancy('local',load));
+    await waitFor(() => expect(result.current.resolved).toBe(true));
+    const previous=result.current;
+    rerender();
+    expect(result.current).toBe(previous);
+    await act(async () => { await result.current.refresh(); });
+    expect(load).toHaveBeenCalledTimes(2);
+    expect(result.current).toBe(previous);
+    expect(result.current.sessions).toBe(previous.sessions);
+    expect(result.current.runningExperimentIds).toBe(previous.runningExperimentIds);
+  });
+
+  it('publishes a changed member without requiring an aggregate Session revision change',async () => {
+    const initial=sessionView('session-a','exp-user');
+    const changed={ ...initial,members:initial.members.map((member) => ({ ...member,revision:2 })) };
+    const load=vi.fn().mockResolvedValueOnce([initial]).mockResolvedValueOnce([changed]);
+    const { result }=renderHook(() => useStationExperimentOccupancy('local',load));
+    await waitFor(() => expect(result.current.resolved).toBe(true));
+    const previous=result.current;
+    await act(async () => { await result.current.refresh(); });
+    expect(result.current).not.toBe(previous);
+    expect(result.current.sessions[0]?.session.revision).toBe(initial.session.revision);
+    expect(result.current.sessions[0]?.members[0]?.revision).toBe(2);
+  });
+
+  it('refreshes successful pre-disconnect truth after reconnect without waiting for another lifecycle event',async () => {
+    const load=vi.fn().mockResolvedValueOnce([sessionView('session-a','exp-user')]).mockResolvedValue([]);
+    const { result,rerender }=renderHook(() => useStationExperimentOccupancy('local',load));
+    await waitFor(() => expect(result.current.resolved).toBe(true));
+    expect(result.current.error).toBe('');
+    execution.streamState='reconnecting';rerender();
+    execution.streamState='connected';rerender();
+    await waitFor(() => expect(result.current.sessions).toEqual([]));
+    expect(load).toHaveBeenCalledTimes(2);
+    rerender();
+    expect(load).toHaveBeenCalledTimes(2);
+  });
+
+  it('refreshes when a replacement stream ID is already connected',async () => {
+    const load=vi.fn().mockResolvedValueOnce([sessionView('session-a','exp-user')]).mockResolvedValue([]);
+    const { result,rerender }=renderHook(() => useStationExperimentOccupancy('local',load));
+    await waitFor(() => expect(result.current.resolved).toBe(true));
+    execution.streamId='replacement';rerender();
+    await waitFor(() => expect(result.current.sessions).toEqual([]));
+    expect(load).toHaveBeenCalledTimes(2);
+  });
+
+  it('shares initial, imperative and SSE reads without starving callers or intermediate progress',async () => {
+    vi.useFakeTimers();
+    const initial=deferred<ExperimentSessionView[]>();
+    const second=deferred<ExperimentSessionView[]>();
+    const third=deferred<ExperimentSessionView[]>();
+    const load=vi.fn()
+      .mockImplementationOnce(() => initial.promise)
+      .mockImplementationOnce(() => second.promise)
+      .mockImplementationOnce(() => third.promise);
+    const { result,unmount }=renderHook(() => useStationExperimentOccupancy('local',load));
+    try {
+      const waiting:Promise<void>[]=[];
+      act(() => {
+        for (let index=0;index<20;index+=1) waiting.push(result.current.refresh());
+        execution.listener?.(workflowEvent(2));
+      });
+      await act(async () => { await vi.advanceTimersByTimeAsync(40); });
+      expect(load).toHaveBeenCalledTimes(1);
+      await act(async () => {
+        initial.resolve([sessionView('session-a','exp-user')]);
+        await initial.promise;
+      });
+      expect(load).toHaveBeenCalledTimes(2);
+      expect(result.current.resolved).toBe(true);
+      expect(result.current.sessions[0]?.session.state).toBe('active');
+
+      act(() => { execution.listener?.(workflowEvent(3)); });
+      await act(async () => { await vi.advanceTimersByTimeAsync(40); });
+      expect(load).toHaveBeenCalledTimes(2);
+      await act(async () => {
+        second.resolve([stoppingSessionView('session-a','exp-user')]);
+        await Promise.all(waiting);
+      });
+      expect(load).toHaveBeenCalledTimes(3);
+      expect(result.current.sessions[0]?.session.state).toBe('stopping');
+      await act(async () => {
+        third.resolve([]);
+        await third.promise;
+      });
+      expect(result.current.sessions).toEqual([]);
+      await act(async () => { await vi.advanceTimersByTimeAsync(5_000); });
+      expect(load).toHaveBeenCalledTimes(3);
+    } finally {
+      unmount();
+      vi.useRealTimers();
+    }
+  });
+
+  it('aborts ordinary reads and settles pending callers on unmount even if the transport ignores cancellation',async () => {
+    const stalled=deferred<ExperimentSessionView[]>();
+    const load=vi.fn().mockResolvedValueOnce([]).mockImplementationOnce(() => stalled.promise);
+    const { result,unmount }=renderHook(() => useStationExperimentOccupancy('local',load));
+    await waitFor(() => expect(result.current.resolved).toBe(true));
+    let current!:Promise<void>;
+    let pending!:Promise<void>;
+    act(() => {
+      current=result.current.refresh();
+      pending=result.current.refresh();
+    });
+    expect(load).toHaveBeenCalledTimes(2);
+    const signal=load.mock.calls[1]?.[2] as AbortSignal;
+    unmount();
+    await act(async () => { await Promise.all([current,pending]); });
+    expect(signal.aborted).toBe(true);
+    await act(async () => {
+      stalled.reject(new Error('late unmounted failure'));
+      await Promise.resolve();
+    });
+    expect(load).toHaveBeenCalledTimes(2);
+  });
+
+  it('recreates the reader for StrictMode effect replay without retaining canceled work',async () => {
+    const load=vi.fn(async (_targetId:string,_experimentId?:string,_signal?:AbortSignal) => (
+      [sessionView('session-a','exp-user')]
+    ));
+    const { result,rerender }=renderHook(() => useStationExperimentOccupancy('local',load),{ reactStrictMode:true });
+    await waitFor(() => expect(result.current.resolved).toBe(true));
+    expect(load).toHaveBeenCalledTimes(2);
+    expect(load.mock.calls[0]?.[2]?.aborted).toBe(true);
+    expect(load.mock.calls[1]?.[2]?.aborted).toBe(false);
+    rerender();
+    expect(load).toHaveBeenCalledTimes(2);
+  });
+
   it('does not refresh on visibility changes',async () => {
     const load = vi.fn(async () => []);
     const { result } = renderHook(() => useStationExperimentOccupancy('local',load));
@@ -422,6 +592,35 @@ describe('useExperimentListRunningIds',() => {
     await waitFor(() => expect(result.current.error).toBe('sessions unavailable'));
     expect(result.current.resolved).toBe(false);
     expect(result.current.runningExperimentIds.size).toBe(0);
+  });
+
+  it('occupies an Experiment from leftover System Runner roots without a live Session',async () => {
+    leftover.load.mockResolvedValue(['exp-orphan']);
+    const load=vi.fn(async () => []);
+    const { result }=renderHook(() => useStationExperimentOccupancy('local',load));
+    await waitFor(() => expect(result.current.resolved).toBe(true));
+    expect(result.current.sessions).toEqual([]);
+    expect(result.current.runningExperimentIds).toEqual(new Set(['exp-orphan']));
+  });
+
+  it('converges leftover occupancy after Sessions are already absent',async () => {
+    vi.useFakeTimers();
+    leftover.load.mockResolvedValue(['exp-orphan']);
+    const load=vi.fn(async () => []);
+    const { result,unmount }=renderHook(() => useStationExperimentOccupancy('local',load));
+    try {
+      await act(async () => { await Promise.resolve(); });
+      expect(result.current.runningExperimentIds).toEqual(new Set(['exp-orphan']));
+      leftover.load.mockResolvedValue([]);
+      let convergence!:Promise<void>;
+      act(() => { convergence=result.current.convergeStoppedExperiment('exp-orphan'); });
+      await act(async () => { await Promise.resolve(); });
+      await act(async () => { await convergence; });
+      expect(result.current.runningExperimentIds.size).toBe(0);
+    } finally {
+      unmount();
+      vi.useRealTimers();
+    }
   });
 });
 
@@ -456,7 +655,7 @@ function deferred<T>() {
 function workflowEvent(revision:number):ExecutionEvent {
   return {
     offset:revision,entityType:'orchestration',entityId:'external-system-root',
-    type:workflowRuntimeEvents.invocationSucceeded,seq:revision,
-    level:'info',payload:{ nodeId:'open-session' },createdAt:'2026-01-01T00:00:00Z',
+    type:workflowRuntimeEvents.runAccepted,seq:revision,
+    level:'info',payload:{},createdAt:'2026-01-01T00:00:00Z',
   };
 }

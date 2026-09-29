@@ -26,7 +26,7 @@ export function AppTopbar({
   experimentDetail?: boolean;
   notifications?: ReactNode;
 }) {
-  const nav = useNavigation();
+  const nav = useNavigation((state) => ({ page: state.page,language: state.language,gcsMode: state.gcsMode }));
   const composition = useProductWebComposition();
   const pageLabel = productPageLabel(composition, nav.page, nav.language);
   const inExperimentDetail = nav.page === 'experiment'

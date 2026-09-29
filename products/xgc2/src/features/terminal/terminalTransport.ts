@@ -16,6 +16,7 @@ export type TerminalConnection = {
 export async function connectTerminalTransport({
   hostId,
   sessionId,
+  initialDirectory,
   cols,
   rows,
   targetCoreId,
@@ -31,6 +32,7 @@ export async function connectTerminalTransport({
 }: {
   hostId: string;
   sessionId: string;
+  initialDirectory?: string;
   cols: number;
   rows: number;
   targetCoreId?: string;
@@ -69,6 +71,7 @@ export async function connectTerminalTransport({
     query: {
       hostId,
       sessionId,
+      ...(initialDirectory ? { initialDirectory } : {}),
       cols,
       rows,
       ticket: result.ticket,

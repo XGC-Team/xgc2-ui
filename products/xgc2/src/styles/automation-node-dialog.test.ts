@@ -45,7 +45,8 @@ describe('Automation editor form chrome',() => {
   });
 
   it('keeps Wait for completion at the normal FormField label size',() => {
-    expect(parameterCss).toMatch(/\[data-xgc-role="automation-call-wait"\]\s*\{[^}]*font-size:\s*var\(--font-sm\);/s);
+    // The wait toggle keeps the meta role (12px from ui-react 0.16.19), never the caption floor.
+    expect(parameterCss).toMatch(/\[data-xgc-role="automation-call-wait"\]\s*\{[^}]*font-size:\s*var\(--type-meta-size\);/s);
   });
 
   it('uses the Settings label typography for Parameters fields',() => {

@@ -2,7 +2,7 @@ import type { LayoutItem } from 'react-grid-layout';
 import {
   DASHBOARD_COLUMNS,
   DASHBOARD_MAX_ROWS,
-  DASHBOARD_ROW_HEIGHT,
+  dashboardFillRowHeightPx,
   dashboardPanelWidthPx,
   dashboardRowsExactForHeightPx,
 } from '../../../shared/dashboardGeometry';
@@ -37,11 +37,7 @@ export type GcsLayoutMetrics = {
  * accepts fractional row heights and rounds per-item edges consistently.
  */
 export function gcsRowHeightPx(availableHeightPx: number, maxRow: number): number {
-  const rows = Math.max(1, maxRow);
-  if (!Number.isFinite(availableHeightPx) || availableHeightPx <= 0) {
-    return DASHBOARD_ROW_HEIGHT;
-  }
-  return Math.max(24, availableHeightPx / rows);
+  return dashboardFillRowHeightPx(availableHeightPx, maxRow);
 }
 
 /**

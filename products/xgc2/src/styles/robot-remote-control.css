@@ -33,38 +33,6 @@
   outline: 0;
 }
 
-.robot-remote-window .robot-remote-control-key {
-  transition: none;
-}
-
-.robot-remote-window .robot-remote-control-key:focus,
-.robot-remote-window .robot-remote-control-key:focus-visible {
-  outline: 0;
-  box-shadow: none;
-  border-color: var(--xgc-control-border-color, var(--color-border));
-}
-
-/*
- * Shared .xgc-button only paints :active, then 120ms-transitions back to idle.
- * Latch/gear selection lives on aria-pressed; keep that inset down for the
- * whole hold, including hover, so the pad does not flash like a web click.
- */
-.robot-remote-window .robot-remote-control-key:active:not(:disabled):not([data-tone='danger']),
-.robot-remote-window .robot-remote-control-key[aria-pressed='true'],
-.robot-remote-window .robot-remote-control-key[aria-pressed='true']:hover:not(:disabled),
-.robot-remote-window .robot-remote-control-key[aria-pressed='true']:active:not(:disabled),
-.robot-remote-window .robot-remote-control-key[aria-pressed='true']:focus,
-.robot-remote-window .robot-remote-control-key[aria-pressed='true']:focus-visible {
-  background: var(--color-bg-active);
-  border-color: var(--color-border-hover);
-  box-shadow: inset 0 var(--stroke-thin) var(--stroke-strong) var(--color-shadow-overlay-soft);
-}
-
-.robot-remote-window .robot-remote-control-key:active:not(:disabled):not([data-tone='danger']),
-.robot-remote-window .robot-remote-control-key[aria-pressed='true']:not([data-tone='danger']) {
-  color: var(--color-text-strong);
-}
-
 .robot-remote-window > header,
 .robot-remote-window > header > div {
   display: flex;
@@ -100,8 +68,11 @@
 .robot-remote-window-message {
   --remote-key-foreground: var(--color-text-inverse);
   --remote-key-selected-foreground: var(--color-text-strong);
+  --remote-key-hover-background: color-mix(in srgb, var(--remote-key-foreground) 12%, transparent);
   box-sizing: border-box;
-  width: min(var(--remote-window-width, 16rem), 100%);
+  width: min(16rem, 100%);
+  max-width: 100%;
+  min-width: 0;
   padding: var(--space-sm);
   gap: var(--space-sm);
   grid-template-rows: var(--size-control-compact) var(--size-control-compact) auto;
@@ -118,13 +89,6 @@
 
 .robot-remote-window-message > header > div {
   min-width: 0;
-}
-
-.robot-remote-target-title {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: var(--font-sm);
 }
 
 .robot-remote-window-message .robot-remote-gears,
@@ -230,35 +194,59 @@
   min-height: 42px;
 }
 
-/* Inverse control surfaces always pair their foreground and background. */
+/*
+ * Docked keys sit under `.xgc-agent-chat` @scope Tailwind preflight
+ * (`button { background-color: transparent; color: inherit }` in @layer base).
+ * Product layer order is `vendor` then `base`, so shared inverse pressed fill
+ * loses inside the composer. Floating outside @scope still looks correct —
+ * that is not proof this pairing is redundant.
+ * Paint with product-owned properties. Do not fork shared control appearance
+ * tokens or icon color variables (that review wrongly deleted this skin).
+ * Do not restore `--color-bg-active`. Stop uses the same pressed white fill
+ * as gears/directions (chat and floating share this class); danger stays on
+ * the icon, not a transparent hole.
+ */
 .robot-remote-window-message .robot-remote-control-key {
-  --xgc-control-background: transparent;
-  --xgc-control-color: var(--remote-key-foreground);
-  --xgc-control-hover-background: color-mix(in srgb, var(--remote-key-foreground) 12%, transparent);
-  --xgc-control-hover-color: var(--remote-key-foreground);
-  --xgc-control-border-color: color-mix(in srgb, var(--remote-key-foreground) 24%, transparent);
-  --xgc-control-hover-border-color: var(--xgc-control-border-color);
-  --control-icon-color: var(--remote-key-foreground);
+  color: var(--remote-key-foreground);
+  background: transparent;
+  background-color: transparent;
   border: 0;
   border-radius: var(--radius-control);
 }
+.robot-remote-window-message .robot-remote-control-key svg {
+  color: inherit;
+}
 .robot-remote-window-message .robot-remote-control-key:hover:not(:disabled):not([aria-pressed='true']):not(:active) {
   color: var(--remote-key-foreground);
-  background: var(--xgc-control-hover-background);
+  background: var(--remote-key-hover-background);
+  background-color: var(--remote-key-hover-background);
 }
 .robot-remote-window-message .robot-remote-control-key:active:not(:disabled),
 .robot-remote-window-message .robot-remote-control-key[aria-pressed='true'],
-.robot-remote-window-message .robot-remote-control-key[aria-pressed='true']:not([data-tone='danger']),
 .robot-remote-window-message .robot-remote-control-key[aria-pressed='true']:hover:not(:disabled),
 .robot-remote-window-message .robot-remote-control-key[aria-pressed='true']:active:not(:disabled),
 .robot-remote-window-message .robot-remote-control-key[aria-pressed='true']:focus-visible {
   background: var(--remote-key-foreground);
+  background-color: var(--remote-key-foreground);
   color: var(--remote-key-selected-foreground);
-  --control-icon-color: var(--remote-key-selected-foreground);
   border-color: var(--remote-key-foreground);
 }
-.robot-remote-window-message .robot-remote-control-key[aria-pressed='true'] svg {
-  color: inherit;
+.robot-remote-window-message .robot-remote-control-key[data-tone='danger']:not(:disabled) {
+  color: var(--color-danger-strong);
+}
+.robot-remote-window-message .robot-remote-control-key[data-tone='danger']:hover:not(:disabled):not([aria-pressed='true']):not(:active) {
+  color: var(--color-danger-strong);
+  background: var(--remote-key-hover-background);
+  background-color: var(--remote-key-hover-background);
+}
+.robot-remote-window-message .robot-remote-control-key[data-tone='danger']:is(:active, [aria-pressed='true']):not(:disabled),
+.robot-remote-window-message .robot-remote-control-key[data-tone='danger'][aria-pressed='true']:hover:not(:disabled),
+.robot-remote-window-message .robot-remote-control-key[data-tone='danger'][aria-pressed='true']:active:not(:disabled),
+.robot-remote-window-message .robot-remote-control-key[data-tone='danger'][aria-pressed='true']:focus-visible {
+  background: var(--remote-key-foreground);
+  background-color: var(--remote-key-foreground);
+  color: var(--color-danger-strong);
+  border-color: var(--remote-key-foreground);
 }
 
 [data-skin='dark'] .robot-remote-window-message {

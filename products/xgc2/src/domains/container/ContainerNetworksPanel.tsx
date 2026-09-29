@@ -1,7 +1,9 @@
+import { formatOperatorDateTime } from '../../shared/operatorTime';
 import { Plus,RefreshCw,Search,Trash2 } from 'lucide-react';
-import { Input,Pagination,Panel,SortableDataTable,StatusText,Toolbar } from '@xgc2/ui-react';
+import { Input,Pagination,Panel,StatusText,Toolbar } from '@xgc2/ui-react';
 import { ControlButton } from '../../components/controls/ControlButton';
 import { CheckboxControl } from '../../components/FormPrimitives';
+import { SortableDataTable } from '../../components/SortableDataTable';
 import type { DockerNetworkInfo } from './containerModel';
 import { containerTableRangeSummary } from './containerTableRangeSummary';
 import { NetworkCreateDrawer } from './NetworkCreateDrawer';
@@ -132,6 +134,7 @@ export function ContainerNetworksPanel({
       <div className="container-table-panel" data-xgc-role="container-network-table-panel" data-xgc-id="container-network-table-panel">
         <SortableDataTable
           className="container-data-table-shell"
+          data-xgc-id="container-networks"
           columns={[
             {
               id: 'select',
@@ -288,6 +291,5 @@ function isSystem(network: DockerNetworkInfo) {
 
 function formatCreated(value: string) {
   if (!value) return '-';
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+  return formatOperatorDateTime(value);
 }

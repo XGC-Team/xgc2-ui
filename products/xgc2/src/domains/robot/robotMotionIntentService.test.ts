@@ -31,7 +31,27 @@ describe('postRobotMotionIntent',() => {
         longitudinal:1,
         lateral:-1,
         yaw:0,
+        release:false,
+        generation:0,
+        takeover:false,
       }),
+    });
+  });
+
+  it('posts release when the remote window closes',async () => {
+    await postRobotMotionIntent('local',{
+      experimentId:'experiment-a',
+      sessionId:'session-a',
+      controllerId:'window-1',
+      robotIds:['scout-01'],
+      gear:1,
+      longitudinal:0,
+      lateral:0,
+      yaw:0,
+      release:true,
+    });
+    expect(JSON.parse(String((request as ReturnType<typeof vi.fn>).mock.calls[0][1].body))).toMatchObject({
+      release:true,
     });
   });
 });

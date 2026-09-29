@@ -7,6 +7,7 @@ import {
   DASHBOARD_COLUMNS,
   DASHBOARD_GAP,
   DASHBOARD_ROW_HEIGHT,
+  dashboardFillRowHeightPx,
   dashboardPanelWidthPx,
   dashboardRowsForHeightPx,
   dashboardRowsForSquareControlGrid,
@@ -30,6 +31,27 @@ describe('dashboardRowsForSquareControlGrid', () => {
     const narrow = dashboardRowsForSquareControlGrid({ panelWidthCols: 6,itemCount: 4 });
     const wide = dashboardRowsForSquareControlGrid({ panelWidthCols: 16,itemCount: 4 });
     expect(wide).toBeGreaterThanOrEqual(narrow);
+  });
+});
+
+describe('dashboardFillRowHeightPx', () => {
+  it('divides the available height evenly when there are no gutters', () => {
+    expect(dashboardFillRowHeightPx(1000, 15) * 15).toBeCloseTo(1000, 10);
+    expect(dashboardFillRowHeightPx(732, 12)).toBe(61);
+  });
+
+  it('subtracts Config padding and inter-row gaps before dividing', () => {
+    const available = 600;
+    const rows = 16;
+    const gap = 8;
+    const padding = 8;
+    const rowHeight = dashboardFillRowHeightPx(available, rows, { gapPx: gap,paddingY: padding });
+    expect(padding * 2 + rows * rowHeight + (rows - 1) * gap).toBeCloseTo(available, 10);
+  });
+
+  it('falls back to the authored row height before the shell is measured', () => {
+    expect(dashboardFillRowHeightPx(0, 16)).toBe(DASHBOARD_ROW_HEIGHT);
+    expect(dashboardFillRowHeightPx(Number.NaN, 16, { gapPx: 8,paddingY: 8 })).toBe(DASHBOARD_ROW_HEIGHT);
   });
 });
 

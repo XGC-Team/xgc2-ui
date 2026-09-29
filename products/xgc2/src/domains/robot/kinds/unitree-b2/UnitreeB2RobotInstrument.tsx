@@ -4,6 +4,7 @@
  */
 
 import { b2RobotInstrumentReadout, type B2RobotInstrumentTelemetry } from './instrumentModel';
+import { RobotInstrumentIdentity } from '../../../../panels/robot/RobotInstrumentIdentity';
 import {
   BatteryGlyph,
   RobotCommunicationStatusIcon,
@@ -55,7 +56,7 @@ export function UnitreeB2RobotInstrument({
       data-xgc-embedded={embedded ? 'true' : undefined}
       data-xgc-id={robotId}
       data-xgc-health={telemetry.healthTone}
-      data-xgc-connection={value.online ? 'online' : 'offline'}
+      data-xgc-connection={value.connectionPresentation}
       data-xgc-stream-state={value.streamState}
       data-xgc-command-stale={value.commandStale ? 'true' : undefined}
       data-heading={value.heading == null ? undefined : value.heading.toFixed(2)}
@@ -64,13 +65,13 @@ export function UnitreeB2RobotInstrument({
     >
       <header className="robot-b2-instrument-header">
         <span className="robot-b2-identity">
-          <strong>{name}</strong>
+          <RobotInstrumentIdentity robotId={robotId} name={name} />
           <small>Unitree B2 · {motionLabel}</small>
         </span>
         <span className="robot-b2-header-status">
           <RobotCommunicationStatusIcon
             robotId={robotId}
-            online={value.online}
+            presentation={value.connectionPresentation}
             roundTripTimeMs={value.roundTripTimeMs}
             placement="ground-header"
           />
@@ -195,11 +196,11 @@ export function UnitreeB2RobotInstrument({
         </div>
         <div data-xgc-role="robot-b2-health" data-xgc-id={robotId}>
           <small>{t('HEALTH')}</small>
-          <strong data-xgc-tone={value.operationalReady ? 'healthy' : 'danger'}>{t(value.health)}</strong>
+          <StatusText status={value.health} tone={value.operationalReady ? 'success' : 'danger'}><strong>{t(value.health)}</strong></StatusText>
         </div>
         <div data-xgc-role="robot-b2-link" data-xgc-id={robotId}>
           <small>{t('LINK')}</small>
-          <strong data-xgc-tone={value.online ? 'healthy' : 'danger'}>{linkLabel}</strong>
+          <StatusText status={value.link} tone={value.connectionPresentation === 'connected' ? 'success' : 'danger'}><strong>{linkLabel}</strong></StatusText>
         </div>
       </footer>
     </div>

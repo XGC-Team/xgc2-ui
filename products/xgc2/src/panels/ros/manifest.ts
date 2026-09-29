@@ -111,6 +111,7 @@ export const rosBasicServicesPanelPlugin = definePanelPlugin({
   frameProvider: RosBasicServicesPanelFrameProvider,
   headerLeading: RosBasicServicesPanelHeaderLeading,
   headerActions: RosBasicServicesPanelHeaderActions,
+  fillBody: true,
   optionsEditor: RosBasicServicesPanelOptionsEditor,
   component: RosBasicServicesPanel,
 });

@@ -31,6 +31,7 @@ export const workflowRuntimeEvents = {
   queuedRunStopped: workflowRuntimeValue('queued-run-stopped'),
   queuedRunCanceled: workflowRuntimeValue('queued-run-canceled'),
   stopRequested: workflowRuntimeValue('stop-requested'),
+  invocationProgress: workflowRuntimeValue('invocation-progress'),
   invocationWaiting: workflowRuntimeValue('invocation-waiting'),
   invocationSucceeded: workflowRuntimeValue('invocation-succeeded'),
   invocationRetry: workflowRuntimeValue('invocation-retry'),

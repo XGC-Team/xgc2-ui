@@ -2,13 +2,13 @@ import { useMemo } from 'react';
 import { useNavigation } from '../../app/navigationContext';
 import { useTargetCore } from '../../app/useTargetCore';
 import { selectedExecutionTargetId } from '../execution/executionPublic';
-import { HostSettingsPanel,resolveHostSystemContext } from '../host/hostPublic';
+import { resolveHostSystemContext } from '../host/hostPublic';
 import { isLocalManagedHost,useManagedHosts } from '../managedHost/managedHostPublic';
 import { ToolboxPage } from './ToolboxPage';
 import '../../styles/toolbox.css';
 
 export function ToolboxRoute() {
-  const nav = useNavigation();
+  const nav = useNavigation((state) => ({ managedHostId: state.managedHostId,language: state.language }));
   const { routedTargetCoreId,selectedTargetCore } = useTargetCore('maintenance');
   const managedHosts = useManagedHosts();
   const targetId = selectedExecutionTargetId({ managedHostId: nav.managedHostId,selectedTargetCore });
@@ -30,16 +30,6 @@ export function ToolboxRoute() {
       maintenanceEnabled={maintenanceEnabled}
       requestsAllowed={system.requestsAllowed}
       managementConnection={system.managementConnection}
-      performanceControl={system.requestsAllowed && (!isRemote || system.systemProfile.Overview) ? (
-        <HostSettingsPanel
-          apiTarget={{
-            ...(routedTargetCoreId ? { targetCoreId: routedTargetCoreId } : {}),
-            ...(isRemote ? { managedHostId: nav.managedHostId } : {}),
-          }}
-          actionsEnabled={system.requestsAllowed}
-          presentation="performance"
-        />
-      ) : undefined}
     />
   );
 }

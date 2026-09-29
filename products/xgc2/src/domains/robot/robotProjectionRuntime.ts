@@ -1,9 +1,11 @@
 import type {
   RobotChannelChange,
+  RobotChannelProjection,
   RobotConnectionReset,
   RobotPatchEvent,
   RunRobot,
 } from './robotRuntimeModel';
+import { parseInstant } from './robotContractPrimitives';
 import {
   normalizeRobotAuthority,
   normalizeRobotChannelFreshness,
@@ -133,6 +135,20 @@ function stageRobotResets(
   return staged;
 }
 
+/**
+ * One robot's accepted channel changes within a patch. A coalesced Core patch
+ * carries every changed channel of every robot, so the robot and its channel
+ * map are copied once per patch, not once per change.
+ */
+type PendingRobotChanges = {
+  robot: RunRobot;
+  stage?: StagedRobotChange;
+  channels?: Record<string,RobotChannelProjection>;
+  channelIds?: Set<string>;
+  /** Robot authority of the last accepted change; a later change replaces it. */
+  authority?: Pick<RunRobot,'online' | 'operationalReady' | 'status' | 'onlineUntil' | 'operationalReadyUntil'>;
+};
+
 function stageRobotChanges(
   targetId: string,
   runId: string,
@@ -140,25 +156,34 @@ function stageRobotChanges(
   now: number,
   staged: Map<string,StagedRobotChange>,
 ) {
+  const pending = new Map<string,PendingRobotChanges>();
   changes.forEach((change) => {
     const robotId = change.robotId.trim();
     const channelId = change.channelId.trim();
     if (!robotId || !channelId) throw new Error('robot patch contains an empty robot or channel ID');
-    const stage = staged.get(robotId);
-    const currentRobot = stage?.after ?? getRobotRuntime(targetId, runId, robotId);
-    if (!currentRobot) throw new Error(`robot patch references unknown robot "${robotId}"`);
+    let robot = pending.get(robotId);
+    if (!robot) {
+      const stage = staged.get(robotId);
+      const current = stage?.after ?? getRobotRuntime(targetId, runId, robotId);
+      if (!current) throw new Error(`robot patch references unknown robot "${robotId}"`);
+      robot = { robot: current,stage };
+      pending.set(robotId, robot);
+    }
+    // Channel changes never move the connection epoch or state, so the robot
+    // this patch started from answers both checks for every change.
+    const currentRobot = robot.robot;
     if (change.connectionEpoch < currentRobot.connectionEpoch) return;
     if (change.connectionEpoch > currentRobot.connectionEpoch) {
       throw new Error(`robot patch references future connection epoch for "${robotId}"`);
     }
-    if (currentRobot.connectionState !== 'live') return;
-    const currentChannel = currentRobot.channels[channelId];
+    if (currentRobot.connectionState === 'inactive') return;
+    const currentChannel = (robot.channels ?? currentRobot.channels)[channelId];
     if (currentChannel && currentChannel.messageId !== change.messageId) {
       throw new Error(`robot patch changes message ID for channel "${channelId}"`);
     }
     if (currentChannel
       && change.sequence <= currentChannel.sequence
-      && Date.parse(change.observedAt) <= Date.parse(currentChannel.observedAt)) return;
+      && parseInstant(change.observedAt) <= parseInstant(currentChannel.observedAt)) return;
     const {
       robotId: _robotId,
       connectionEpoch: _connectionEpoch,
@@ -169,20 +194,20 @@ function stageRobotChanges(
       operationalReadyUntil,
       ...channel
     } = change;
-    const nextChannel = normalizeRobotChannelFreshness(channel, now);
-    const nextRobot = normalizeRobotAuthority({
-      ...currentRobot,
-      online,
-      operationalReady,
-      status,
-      onlineUntil,
-      operationalReadyUntil,
-      channels: { ...currentRobot.channels,[channelId]: nextChannel },
-    }, now);
+    robot.channels ??= { ...currentRobot.channels };
+    robot.channels[channelId] = normalizeRobotChannelFreshness(channel, now);
+    robot.channelIds ??= new Set(robot.stage?.channelIds);
+    robot.channelIds.add(channelId);
+    robot.authority = { online,operationalReady,status,onlineUntil,operationalReadyUntil };
+  });
+  pending.forEach(({ robot,stage,channels,channelIds,authority },robotId) => {
+    if (!channels || !channelIds || !authority) return;
+    // Authority is normalized from the last accepted change's own fields,
+    // exactly as applying the changes one at a time would leave it.
     staged.set(robotId, {
       robotId,
-      after: nextRobot,
-      channelIds: new Set([...(stage?.channelIds ?? []),channelId]),
+      after: normalizeRobotAuthority({ ...robot,...authority,channels }, now),
+      channelIds,
       connectionReset: stage?.connectionReset ?? false,
     });
   });

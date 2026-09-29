@@ -1,20 +1,27 @@
 import {
-  ArrowDown,ArrowLeft,ArrowRight,ArrowUp,Gamepad2,GripVertical,RotateCcw,RotateCw,Square,X,
+  Gamepad2,GripVertical,X,
 } from 'lucide-react';
 import { memo,useCallback,useEffect,useLayoutEffect,useMemo,useRef,useState,type ReactElement,type MouseEvent,type PointerEvent,cloneElement } from 'react';
 import { createPortal } from 'react-dom';
 import { ControlButton } from '../../components/controls/ControlButton';
-import { useExperimentSurfaceVisible,useStationExperimentOccupancy,type ExperimentDocument } from '../../domains/experiment/experimentPublic';
+import { robotInstrumentSessionRunIds,useExperimentSurfaceVisible,useExperimentStationOccupancy,type ExperimentDocument } from '../../domains/experiment/experimentPublic';
+import {
+  ensureOperatorControlSession,
+  operatorControlSessionReady,
+  OperatorControlSessionNotice,
+  useOperatorControlSession,
+} from '../../domains/operatorAccess/operatorAccessPublic';
 import {
   useGroundStationErrorNotification,
   useGroundStationRemoteDock,
   useGroundStationNativeAgentRegistry,
   useGroundStationRemoteRequests,
+  useGroundStationRemoteMessages,
   syncGroundStationRemoteMessages,
   remoteConversationScope,
   isGroundStationRemoteMessageClosed,
 } from '../../domains/groundStationInteraction/groundStationInteractionPublic';
-import { postRobotMotionIntent,useRobotSelection,useRobotText } from '../../domains/robot/robotPublic';
+import { postRobotMotionIntent,useLiveConnectedRobotIds,useRobotSelection,useRobotText } from '../../domains/robot/robotPublic';
 import { panelDashboardId } from '../../shared/panelDashboard';
 import { useProductRouteVisible } from '../../shared/routeReady';
 import type { PanelPluginProps } from '../types';
@@ -25,9 +32,7 @@ import {
 } from './robotControlSelectionModel';
 import { useRobotControlFrame } from './robotPanelFrameContext';
 import {
-  clearPersistedRemoteControllers,
   patchPersistedRemoteController,
-  persistPressed,
   readPersistedRemoteController,
   readPersistedRemoteControllers,
   syncPersistedRemoteControllers,
@@ -35,59 +40,34 @@ import {
 } from './robotRemoteControlPersistence';
 import { robotRemoteSpringReturn } from './robotRemoteControlOptions';
 import {
-  stoppedRemoteIntent,
-  useRobotRemoteControlController,
+  releasedRemoteIntent,
   type RemoteControlAxis,
   type RemoteControlGear,
   type RemoteControlIntent,
   type SubmitRemoteControlIntent,
 } from './useRobotRemoteControlController';
+import { RobotRemoteControlSurface } from './RobotRemoteControlSurface';
 import '../../styles/robot-remote-control.css';
 
 type Direction = RemoteControlDirection;
-type ControllerInstance = { id:string;sessionId?:string;interactionId?:string;robots:Array<{ id:string;name:string }> };
+type ControllerInstance = { id:string;sessionId?:string;interactionId?:string;conversationId?:string;robots:Array<{ id:string;name:string }> };
 type PersistScope = { experimentId:string;panelId:string };
 const noRobots: Array<{ id:string;px4?: unknown;scout?: unknown;mecanum?: unknown }> = [];
+const idSets = new WeakMap<readonly string[],ReadonlySet<string>>();
 
-const oppositeDirection: Record<Direction, Direction> = {
-  forward: 'backward',
-  backward: 'forward',
-  left: 'right',
-  right: 'left',
-  'yaw-left': 'yaw-right',
-  'yaw-right': 'yaw-left',
-};
-
-const speedGears: Array<{
-  id: RemoteControlGear;
-  label: string;
-  title: string;
-}> = [
-  { id: 1,label: 'Slow',title: 'Slow' },
-  { id: 2,label: 'Medium',title: 'Medium' },
-  { id: 3,label: 'Fast',title: 'Fast' },
-];
-
-const directions:Array<{ id:Direction;label:string;icon:typeof ArrowUp }> = [
-  { id:'forward',label:'Forward',icon:ArrowUp },
-  { id:'left',label:'Left',icon:ArrowLeft },
-  { id:'right',label:'Right',icon:ArrowRight },
-  { id:'backward',label:'Backward',icon:ArrowDown },
-  { id:'yaw-left',label:'Yaw left',icon:RotateCcw },
-  { id:'yaw-right',label:'Yaw right',icon:RotateCw },
-];
-
-/** xgc1 XRemoteControlDialog: arrows + Z/X, hold while the key is down. */
-const holdKeys: Record<string, Direction> = {
-  ArrowUp: 'forward',
-  ArrowDown: 'backward',
-  ArrowLeft: 'left',
-  ArrowRight: 'right',
-  z: 'yaw-left',
-  Z: 'yaw-left',
-  x: 'yaw-right',
-  X: 'yaw-right',
-};
+/**
+ * Membership view of an immutable connection id list (live/known/disconnected).
+ * Checks run per robot on every render, request and joystick intent, so a
+ * fleet-sized list is turned into a Set once per snapshot instead of scanned.
+ */
+function idSet(ids:readonly string[]) {
+  let set = idSets.get(ids);
+  if (!set) {
+    set = new Set(ids);
+    idSets.set(ids,set);
+  }
+  return set;
+}
 
 export function RobotRemoteControlManager({ panel,context }:PanelPluginProps<readonly ['visualization','experiment','automation']>) {
   const t = useRobotText();
@@ -104,16 +84,21 @@ export function RobotRemoteControlManager({ panel,context }:PanelPluginProps<rea
   experimentRef.current = experiment;
   const targetId = context.executionTargetId || 'local';
   const experimentId = experiment?.head.resourceId ?? '';
-  const occupancy = useStationExperimentOccupancy(targetId);
-  const activeSessionId = occupancy.sessions.find(({session}) => (
+  const occupancy = useExperimentStationOccupancy();
+  const activeSession = occupancy.sessions.find(({session}) => (
     session.experimentResourceId === experimentId && session.state === 'active'
-  ))?.session.id;
+  ));
+  const activeSessionId = activeSession?.session.id;
+  const connectionRuns = robotInstrumentSessionRunIds(experiment?.spec.dashboards ?? [],activeSession);
+  const connections = useLiveConnectedRobotIds(targetId,connectionRuns);
+  const connectionsRef = useRef(connections);
+  connectionsRef.current = connections;
   const runtimeRef = useRef({ resolved:occupancy.resolved,activeSessionId });
   runtimeRef.current = { resolved:occupancy.resolved,activeSessionId };
   const dockHost = useGroundStationRemoteDock(experimentId);
   const {requests:remoteRequests,closeRequest} = useGroundStationRemoteRequests(targetId,experimentId);
   const nativeRegistry = useGroundStationNativeAgentRegistry();
-  const conversationId = nativeRegistry?.selected[experimentId] ?? undefined;
+  const remoteMessages = useGroundStationRemoteMessages(experimentId);
   const messageScope = remoteConversationScope(experimentId,nativeRegistry?.selected[experimentId]);
   const persistIdentity = `${experimentId}:${panel.id}`;
   const [controllers,setControllers] = useState<ControllerInstance[]>(() => (
@@ -132,26 +117,36 @@ export function RobotRemoteControlManager({ panel,context }:PanelPluginProps<rea
   const [selectedRobotIds] = useRobotSelection({
     experimentId:experiment?.head.resourceId,dashboardId:panelDashboardId(panel),panelId:panel.id,shared:context.sharedStateScope,
   });
-  const fleetRobots = useMemo(
+  const swarmRobots = useMemo(
     () => robots.map((robot) => ({
       id:robot.id,name:robot.id,px4:robot.px4,scout:robot.scout,mecanum:robot.mecanum,
     })),
     [robots],
   );
   const targetIds = useMemo(
-    () => robotIdsForRemoteControl(selectedRobotIds, fleetRobots),
-    [fleetRobots,selectedRobotIds],
+    () => robotIdsForRemoteControl(selectedRobotIds, swarmRobots),
+    [swarmRobots,selectedRobotIds],
   );
-  const targetRobots = useMemo(
-    () => fleetRobots.filter((robot) => targetIds.includes(robot.id)).map((robot) => ({ id:robot.id,name:robot.name })),
-    [fleetRobots,targetIds],
-  );
-  const selectionRefusal = t(remoteControlSelectionRefusal(selectedRobotIds, fleetRobots));
-  const refusal = context.disabledReason || selectionRefusal
+  const targetRobots = useMemo(() => {
+    const targets = new Set(targetIds);
+    return swarmRobots.filter((robot) => targets.has(robot.id)).map((robot) => ({ id:robot.id,name:robot.name }));
+  },[swarmRobots,targetIds]);
+  const controlSession = useOperatorControlSession();
+  const controlSessionRefusal = controlSession.phase === 'denied'
+    ? t('Robot control needs a signed-in operator session on this browser.')
+    : controlSession.phase === 'unavailable'
+      ? t('The station could not confirm this browser; robot control is paused.')
+      : '';
+  const controlSessionBlockedRef = useRef(controlSession.blocked);
+  controlSessionBlockedRef.current = controlSession.blocked;
+  const selectionRefusal = t(remoteControlSelectionRefusal(selectedRobotIds, swarmRobots));
+  const refusal = context.disabledReason || selectionRefusal || controlSessionRefusal
     || (!occupancy.resolved || !activeSessionId ? t('Remote control is unavailable.') : '')
+    || (!connections.loaded || targetRobots.some(robot => !idSet(connections.liveIds).has(robot.id))
+      ? t('Remote control is unavailable.') : '')
     || (targetRobots.length === 0 ? t('Remote control is unavailable for the selected robots.') : '');
   const selectedAlreadyControlled = controllers.some((controller) => (
-    controller.robots.some((robot) => targetIds.includes(robot.id))
+    controller.robots.some((robot) => idSet(targetIds).has(robot.id))
   ));
   const launcherRefusal = refusal || (selectedAlreadyControlled
     ? t('A selected robot already has a remote controller.')
@@ -159,10 +154,12 @@ export function RobotRemoteControlManager({ panel,context }:PanelPluginProps<rea
   const snapshot = useRef({ controllers,targetRobots,refusal });
   snapshot.current = { controllers,targetRobots,refusal };
   const finishers = useRef(new Map<string,()=>Promise<void>>());
+  const generations = useRef(new Map<string,number>());
   const registerFinish = useCallback((controllerId:string,finish:()=>Promise<void>) => {
     finishers.current.set(controllerId,finish);
   },[]);
   const springReturn = robotRemoteSpringReturn(panel.options);
+  const closingTargets = useRef(new Map<string,ReadonlySet<string>>());
 
   const submit = useCallback<SubmitRemoteControlIntent>(async (controllerId,robotIds,intent) => {
     if (!experimentId) throw new Error(textRef.current('Remote control is unavailable.'));
@@ -170,13 +167,29 @@ export function RobotRemoteControlManager({ panel,context }:PanelPluginProps<rea
     // An ended Session has already torn down its adapters; never send a final
     // stop (or a restored direction) into a different Session.
     if (!runtime.resolved || !activeSessionId || activeSessionId !== runtime.activeSessionId) return;
-    await postRobotMotionIntent(targetId,{ experimentId,sessionId:activeSessionId,controllerId,robotIds,...intent });
+    const live = connectionsRef.current;
+    if (!live.loaded) return;
+    const stopping = intent.longitudinal === 0 && intent.lateral === 0 && intent.yaw === 0;
+    // Stop intents always go out; motion intents wait on the operator session.
+    if (!stopping && controlSessionBlockedRef.current) return;
+    const finalTargets = closingTargets.current.get(controllerId);
+    if (finalTargets && !stopping) return;
+    const liveIds = idSet(live.liveIds);
+    const connectedIds = robotIds.filter(id => liveIds.has(id) && (!finalTargets || finalTargets.has(id)));
+    if (!connectedIds.length || (!stopping && connectedIds.length !== robotIds.length)) return;
+    const accepted = await postRobotMotionIntent(targetId,{
+      experimentId,sessionId:activeSessionId,controllerId,robotIds:connectedIds,...intent,
+      generation:generations.current.get(controllerId) ?? 0,
+    });
+    if (accepted?.generation && accepted.generation > 0) {
+      generations.current.set(controllerId,accepted.generation);
+    }
   },[activeSessionId,experimentId,targetId]);
   const finishController = useCallback(async (controller:ControllerInstance) => {
     const finish = finishers.current.get(controller.id);
     try {
       if (finish) await finish();
-      else await submit(controller.id,controller.robots.map((robot) => robot.id),stoppedRemoteIntent);
+      else await submit(controller.id,controller.robots.map((robot) => robot.id),releasedRemoteIntent);
     } finally {
       if (finishers.current.get(controller.id) === finish) finishers.current.delete(controller.id);
     }
@@ -196,11 +209,24 @@ export function RobotRemoteControlManager({ panel,context }:PanelPluginProps<rea
     if (current.controllers.some((controller) => controller.robots.some((robot) => targetSet.has(robot.id)))) {
       return setError(t('A robot already has a remote controller.'));
     }
-    const id = window.crypto?.randomUUID?.() ?? `remote-${Date.now()}`;
-    const next = [...current.controllers,{ id,sessionId:runtimeRef.current.activeSessionId,robots:current.targetRobots }];
-    persistControllerIdentities(experimentRef.current?.head.resourceId,panel.id,next);
-    setControllers(next);
-  },[operatorPresent,panel.id,t]);
+    const create = () => {
+      const latest = snapshot.current;
+      if (latest.refusal) return setError(latest.refusal);
+      const id = window.crypto?.randomUUID?.() ?? `remote-${Date.now()}`;
+      const next = [...latest.controllers,{ id,sessionId:runtimeRef.current.activeSessionId,conversationId:messageScope,robots:latest.targetRobots }];
+      persistControllerIdentities(experimentRef.current?.head.resourceId,panel.id,next);
+      snapshot.current = {...latest,controllers:next};
+      setControllers(next);
+    };
+    // Remote control moves robots; verify the operator session first. A refusal
+    // stays inline (error notice + disabled launcher), never a page gate. Once
+    // the session is verified, later openings stay synchronous.
+    if (operatorControlSessionReady()) return create();
+    void ensureOperatorControlSession().then((granted) => {
+      if (!granted) return setError(snapshot.current.refusal || textRef.current('Remote control is unavailable.'));
+      create();
+    });
+  },[messageScope,operatorPresent,panel.id,t]);
   const launcher = useMemo(() => ({
     open,disabled:Boolean(launcherRefusal),
     title:launcherRefusal || t('Start remote control for the selected robots.'),
@@ -208,6 +234,9 @@ export function RobotRemoteControlManager({ panel,context }:PanelPluginProps<rea
   }),[controllers.length,launcherRefusal,open,t]);
   usePanelFrameControl(frame.setRemoteControl,launcher);
 
+  // A stable scope keeps the memoized controller windows from re-rendering
+  // (and re-reading their persisted view) whenever this manager renders.
+  const persistScope = useMemo<PersistScope>(() => ({ experimentId,panelId:panel.id }),[experimentId,panel.id]);
   const robotIdsKey = JSON.stringify(experiment?.spec.robots.map((robot) => robot.id) ?? []);
   useEffect(() => {
     const available = new Set<string>(JSON.parse(robotIdsKey));
@@ -232,52 +261,71 @@ export function RobotRemoteControlManager({ panel,context }:PanelPluginProps<rea
     // paths close the same historical controller and must share one cleanup.
     if (closingControllers.current.has(controller.id)) return;
     closingControllers.current.add(controller.id);
+    const liveIds = idSet(connectionsRef.current.liveIds);
+    closingTargets.current.set(controller.id,new Set(controller.robots
+      .filter(robot => liveIds.has(robot.id)).map(robot => robot.id)));
     const remaining = snapshot.current.controllers.filter((item) => item.id !== controller.id);
-    persistControllerIdentities(experimentRef.current?.head.resourceId,panel.id,remaining);
-    try {
-      await finishController(controller);
-      if (controller.interactionId) await closeRequest(controller.interactionId);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
-    } finally {
-      setControllers((items) => items.filter((item) => item.id !== controller.id));
+    snapshot.current = {...snapshot.current,controllers:remaining};
+    persistControllerIdentities(experimentId,panel.id,remaining);
+    syncGroundStationRemoteMessages(experimentId,panel.id,remaining,messageScope);
+    const finishing = finishController(controller);
+    setControllers(remaining);
+    const results = await Promise.allSettled([
+      finishing,
+      controller.interactionId ? closeRequest(controller.interactionId) : Promise.resolve(),
+    ]);
+    for (const result of results) {
+      if (result.status === 'rejected') setError(result.reason instanceof Error ? result.reason.message : String(result.reason));
     }
-  },[closeRequest,finishController,panel.id]);
+  },[closeRequest,experimentId,finishController,messageScope,panel.id]);
 
   useEffect(() => {
-    if (!occupancy.resolved || !operatorPresent) return;
+    if (!connections.loaded) return;
+    const disconnectedIds = idSet(connections.disconnectedIds);
+    for (const controller of snapshot.current.controllers) {
+      if (controller.robots.some(robot => disconnectedIds.has(robot.id))) void close(controller);
+    }
+  },[close,connections]);
+
+  const rejectedRequests = useRef(new Set<string>());
+  useEffect(() => {
+    if (!occupancy.resolved || !operatorPresent || !connections.loaded) return;
+    const disconnectedIds = idSet(connections.disconnectedIds);
+    const liveIds = idSet(connections.liveIds);
+    const robotsById = new Map(swarmRobots.map((robot) => [robot.id,robot] as const));
     for (const request of remoteRequests) {
       const remote=request.payload.context.remoteController!;
       const existing=snapshot.current.controllers.find(item=>item.id===request.id);
       const ended=request.status!=='open' || remote.sessionId!==activeSessionId
-        || isGroundStationRemoteMessageClosed(experimentId,request.id);
-      if (ended) {
+        || isGroundStationRemoteMessageClosed(experimentId,request.id)
+        || remote.robotIds.some(id=>disconnectedIds.has(id));
+      const overlaps=!existing && snapshot.current.controllers.some(controller =>
+        controller.robots.some(robot => remote.robotIds.includes(robot.id)));
+      if (ended || overlaps) {
         if(existing) void close(existing);
-        else if(request.status==='open') void closeRequest(request.id).catch(cause=>setError(String(cause)));
+        else if(request.status==='open' && !closingControllers.current.has(request.id) && !rejectedRequests.current.has(request.id)) {
+          rejectedRequests.current.add(request.id);
+          void closeRequest(request.id).catch(cause=>setError(String(cause)));
+        }
         continue;
       }
-      if(remote.conversationId!==conversationId || existing) continue;
-      const selected=remote.robotIds.map(id=>fleetRobots.find(robot=>robot.id===id));
+      if(existing || rejectedRequests.current.has(request.id) || remote.robotIds.some(id=>!liveIds.has(id))) continue;
+      const selected=remote.robotIds.map(id=>robotsById.get(id));
       if(selected.some(robot=>!robot)) continue;
-      setControllers(items=>items.some(item=>item.id===request.id)?items:[...items,{
-        id:request.id,sessionId:remote.sessionId,interactionId:request.id,
+      const next=[...snapshot.current.controllers,{
+        id:request.id,sessionId:remote.sessionId,interactionId:request.id,conversationId:remote.conversationId,
         robots:selected.map(robot=>({id:robot!.id,name:robot!.name})),
-      }]);
+      }];
+      snapshot.current={...snapshot.current,controllers:next};
+      persistControllerIdentities(experimentId,panel.id,next);
+      setControllers(next);
     }
-  },[activeSessionId,close,closeRequest,conversationId,experimentId,fleetRobots,occupancy.resolved,operatorPresent,remoteRequests]);
+  },[activeSessionId,close,closeRequest,connections,experimentId,swarmRobots,occupancy.resolved,operatorPresent,panel.id,remoteRequests]);
 
   useEffect(() => {
     if (operatorPresent) return;
-    const openControllers = snapshot.current.controllers;
-    if (openControllers.length === 0) return;
-    const currentExperimentId = experimentRef.current?.head.resourceId;
-    if (currentExperimentId) clearPersistedRemoteControllers(currentExperimentId,panel.id);
-    setControllers([]);
-    for (const controller of openControllers) {
-      void finishController(controller)
-        .catch((cause) => setError(cause instanceof Error ? cause.message : String(cause)));
-    }
-  },[finishController,operatorPresent,panel.id]);
+    for (const controller of snapshot.current.controllers) void close(controller);
+  },[close,operatorPresent]);
 
   useEffect(() => () => {
     const currentExperimentId = experimentRef.current?.head.resourceId;
@@ -292,32 +340,33 @@ export function RobotRemoteControlManager({ panel,context }:PanelPluginProps<rea
     }
   },[finishController,panel.id]);
 
-  const windows = controllers.filter(controller => occupancy.resolved && controller.sessionId
+  const knownIds = idSet(connections.knownIds);
+  const windows = controllers.filter(controller => connections.loaded && occupancy.resolved && controller.sessionId
+    && controller.robots.every(robot => knownIds.has(robot.id))
     && controller.sessionId === activeSessionId
     && (!controller.interactionId || remoteRequests.some(request=>request.id===controller.interactionId
       && request.status==='open'))).map((controller,index) => (
-    <RemoteMessagePortal key={controller.id} experimentId={experimentId} controllerId={controller.id} floatingHost={layerHost} fallbackDock={dockHost}><RobotRemoteControlWindow controller={controller} index={index}
-      persistScope={{ experimentId,panelId:panel.id }}
+    <RemoteMessagePortal key={controller.id} experimentId={experimentId} controllerId={controller.id} floatingHost={layerHost} fallbackDock={dockHost} inCurrentConversation={remoteMessages.some(message => message.id === controller.id && message.conversationId === messageScope)}><RobotRemoteControlWindow controller={controller} index={index}
+      persistScope={persistScope}
       docked={false}
       springReturn={springReturn} submit={submit} onFinishReady={registerFinish} onClose={close} onError={setError} /></RemoteMessagePortal>
   ));
   return <>
     <span ref={layerAnchorRef} hidden />
+    <OperatorControlSessionNotice />
     {operatorPresent && windows}
   </>;
 }
 
-function RemoteMessagePortal({experimentId,controllerId,floatingHost,fallbackDock,children}:{experimentId:string;controllerId:string;floatingHost:HTMLElement|null;fallbackDock:HTMLElement|null;children:ReactElement<{docked:boolean}>}) {
+function RemoteMessagePortal({experimentId,controllerId,floatingHost,fallbackDock,inCurrentConversation,children}:{experimentId:string;controllerId:string;floatingHost:HTMLElement|null;fallbackDock:HTMLElement|null;inCurrentConversation:boolean;children:ReactElement<{docked:boolean}>}) {
   const messageDock = useGroundStationRemoteDock(`${experimentId}:${controllerId}`);
-  const dock = messageDock ?? fallbackDock;
+  const dock = inCurrentConversation ? messageDock ?? fallbackDock : null;
   const host = dock ?? floatingHost;
   const [container] = useState(() => document.createElement('div'));
   useLayoutEffect(() => {
     container.className = dock ? 'robot-remote-message-host' : 'robot-remote-window-layer';
     host?.appendChild(container);
     return () => {
-      const width = dock ? container.firstElementChild?.getBoundingClientRect().width : undefined;
-      if (width) container.style.setProperty('--remote-window-width',`${width}px`);
       container.remove();
     };
   },[container,dock,host]);
@@ -336,138 +385,27 @@ const RobotRemoteControlWindow = memo(function RobotRemoteControlWindow({
   const t = useRobotText();
   const shellRef = useRef<HTMLElement>(null);
   const dragRef = useRef<{ dx:number;dy:number } | null>(null);
-  const stored = useRef(readPersistedRemoteController(
+  // Read the persisted view once per window, not on every render/drag move.
+  const [stored] = useState(() => readPersistedRemoteController(
     persistScope.experimentId,persistScope.panelId,controller.id,
-  )).current;
+  ));
   const restoredGear = stored?.gear ?? 1;
   const restoredPressed = springReturn || controller.interactionId ? [] : stored?.pressed ?? [];
   const [origin,setOrigin] = useState<{ left:number;top:number } | null>(stored?.origin ?? null);
   const [dragging,setDragging] = useState(false);
-  const [gear,setGear] = useState<RemoteControlGear>(restoredGear);
-  const [pressed,setPressed] = useState<Set<Direction>>(() => new Set(restoredPressed));
-  const pointerCommitted = useRef(false);
   const robotIds = useMemo(() => controller.robots.map((robot) => robot.id),[controller.robots]);
   const persistView = useCallback((patch:Parameters<typeof patchPersistedRemoteController>[3]) => {
     patchPersistedRemoteController(persistScope.experimentId,persistScope.panelId,controller.id,patch);
   },[controller.id,persistScope.experimentId,persistScope.panelId]);
-  const delivery = useRobotRemoteControlController({
-    identity:`${controller.id}:${robotIds.join(',')}`,controllerId:controller.id,robotIds,submit,onFinishReady,
-    initialIntent:intentFrom(restoredGear,new Set(restoredPressed)),
-    activateOnMount:!controller.interactionId,
-  });
-  const live = useRef({ gear,pressed,delivery,onError,springReturn:false });
-  live.current.delivery = delivery;
-  live.current.onError = onError;
-  live.current.springReturn = springReturn;
-  useEffect(() => { if (delivery.error) onError(delivery.error); },[delivery.error,onError]);
+  const persistIntent = useCallback((intent:RemoteControlIntent) => {
+    const pressed:Direction[] = [];
+    if (intent.longitudinal) pressed.push(intent.longitudinal > 0 ? 'forward' : 'backward');
+    if (intent.lateral) pressed.push(intent.lateral > 0 ? 'left' : 'right');
+    if (intent.yaw) pressed.push(intent.yaw > 0 ? 'yaw-left' : 'yaw-right');
+    persistView({ gear:intent.gear,pressed });
+  },[persistView]);
   useEffect(() => { shellRef.current?.focus({ preventScroll:true }); },[]);
-
-  const applyPressed = useCallback((next: Set<Direction>, nextGear = live.current.gear) => {
-    live.current.pressed = next;
-    live.current.gear = nextGear;
-    setPressed(next);
-    persistView({ gear:nextGear,pressed:persistPressed(next) });
-    live.current.delivery.send(intentFrom(nextGear, next));
-  }, [persistView]);
-  const setDirection = useCallback((direction: Direction, down: boolean) => {
-    const next = new Set(live.current.pressed);
-    if (down) {
-      next.add(direction);
-      next.delete(oppositeDirection[direction]);
-    } else {
-      next.delete(direction);
-    }
-    applyPressed(next);
-  }, [applyPressed]);
-  const stop = useCallback(() => {
-    applyPressed(new Set());
-    live.current.delivery.send({ ...stoppedRemoteIntent,gear:live.current.gear },true);
-  }, [applyPressed]);
-
-  useEffect(() => {
-    if (springReturn && live.current.pressed.size > 0) applyPressed(new Set());
-  }, [applyPressed,springReturn]);
-
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.repeat) return;
-      const direction = holdKeys[event.key];
-      if (direction) {
-        if (menuBlocksRemoteKeys(event.target)) return;
-        event.preventDefault();
-        event.stopPropagation();
-        setDirection(direction, true);
-        return;
-      }
-      if (typingInField(event.target)) return;
-      if (event.key === ' ' || event.key === 'Escape') {
-        event.preventDefault();
-        if (event.key === 'Escape') onClose(controller);
-        else stop();
-      }
-    }
-    function onKeyUp(event: KeyboardEvent) {
-      const direction = holdKeys[event.key];
-      if (direction) {
-        if (menuBlocksRemoteKeys(event.target)) return;
-        event.preventDefault();
-        event.stopPropagation();
-        setDirection(direction, false);
-        return;
-      }
-    }
-    document.addEventListener('keydown', onKeyDown, true);
-    document.addEventListener('keyup', onKeyUp, true);
-    return () => {
-      document.removeEventListener('keydown', onKeyDown, true);
-      document.removeEventListener('keyup', onKeyUp, true);
-    };
-  }, [controller,onClose,setDirection,stop]);
-
-  function chooseGear(next:RemoteControlGear) {
-    live.current.gear = next;
-    setGear(next);
-    persistView({ gear:next,pressed:persistPressed(live.current.pressed) });
-    live.current.delivery.send(intentFrom(next,live.current.pressed));
-  }
-  function toggleDirection(direction:Direction) {
-    const next = new Set(live.current.pressed);
-    if (next.has(direction)) {
-      next.delete(direction);
-    } else {
-      next.add(direction);
-      next.delete(oppositeDirection[direction]);
-    }
-    applyPressed(next);
-  }
-  function consumePointerCommit() {
-    if (!pointerCommitted.current) return false;
-    pointerCommitted.current = false;
-    return true;
-  }
-  function directionPointerDown(event: PointerEvent<HTMLButtonElement>, direction: Direction) {
-    event.preventDefault();
-    pointerCommitted.current = true;
-    if (live.current.springReturn) {
-      event.currentTarget.setPointerCapture?.(event.pointerId);
-      setDirection(direction, true);
-      return;
-    }
-    toggleDirection(direction);
-  }
-  function directionPointerUp(event: PointerEvent<HTMLButtonElement>, direction: Direction) {
-    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
-    if (live.current.springReturn) setDirection(direction, false);
-  }
-  function directionClick(direction: Direction) {
-    if (consumePointerCommit() || live.current.springReturn) return;
-    toggleDirection(direction);
-  }
-  function suppressButtonFocus(event: MouseEvent) {
-    event.preventDefault();
-  }
+  function suppressButtonFocus(event:MouseEvent) { event.preventDefault(); }
   function beginDrag(event: PointerEvent<HTMLElement>) {
     if (docked || event.button !== 0) return;
     if (event.target instanceof Element && event.target.closest('button')) return;
@@ -519,60 +457,20 @@ const RobotRemoteControlWindow = memo(function RobotRemoteControlWindow({
       aria-label={t('Remote controller for {robots}',{ robots:robotIds.join(', ') })}
       onPointerDown={beginDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag}>
       <header data-xgc-role="robot-remote-control-drag" data-xgc-id={controller.id}>
-        <div>{docked ? <Gamepad2 size={15} aria-hidden="true" /> : <GripVertical size={15} aria-hidden="true" data-xgc-role="robot-remote-drag-handle" data-xgc-id={controller.id} />}<strong
-          className="robot-remote-target-title"
-          title={controller.robots.map((robot) => robot.name).join(' · ')}
-          data-xgc-role="robot-remote-control-title" data-xgc-id={controller.id}
-        >{controller.robots.map((robot) => robot.name).join(' · ')}</strong></div>
-        <ControlButton className="robot-remote-control-key" iconOnly size="compact" tabIndex={-1} aria-label={t('Close remote controller')} dataXgcRole="robot-remote-control-close" dataXgcId={controller.id}
+        <div data-xgc-role="robot-remote-drag-handle" data-xgc-id={controller.id}>{docked ? <Gamepad2 size={15} aria-hidden="true" /> : <GripVertical size={15} aria-hidden="true" />}</div>
+        <ControlButton appearance="inverse" className="robot-remote-control-key" iconOnly size="compact" tabIndex={-1} aria-label={t('Close remote controller')} dataXgcRole="robot-remote-control-close" dataXgcId={controller.id}
           onMouseDown={suppressButtonFocus} onClick={() => onClose(controller)}>
           <X size={14} />
         </ControlButton>
       </header>
-      <div className="robot-remote-gears" role="group" aria-label={t('Speed')}>
-        {speedGears.map((option) => (
-          <ControlButton key={option.id} className="robot-remote-control-key" size="compact" tabIndex={-1}
-            dataXgcRole="robot-remote-speed-gear" dataXgcId={`${controller.id}:${option.id}`}
-            aria-label={t(option.title)}
-            title={t(option.title)}
-            aria-pressed={gear === option.id}
-            onPointerDown={(event) => { event.preventDefault(); chooseGear(option.id); }}
-            onMouseDown={suppressButtonFocus} onClick={() => chooseGear(option.id)}>
-            {t(option.label)}
-          </ControlButton>
-        ))}
-      </div>
-      <div className="robot-remote-directions" role="group" aria-label={t('Motion intentions')}>
-        {directions.map(({ id,label,icon:Icon }) => (
-          <ControlButton key={id} className={`robot-remote-control-key robot-remote-${id}`} size="compact" tabIndex={-1}
-            dataXgcRole="robot-remote-motion-intent"
-            dataXgcId={`${controller.id}:${id}`} aria-label={t(label)} aria-pressed={pressed.has(id)}
-            onPointerDown={(event) => directionPointerDown(event, id)}
-            onPointerUp={(event) => directionPointerUp(event, id)}
-            onPointerCancel={(event) => directionPointerUp(event, id)}
-            onMouseDown={suppressButtonFocus}
-            onClick={() => directionClick(id)}>
-            <Icon size={18} />
-          </ControlButton>
-        ))}
-        <ControlButton className="robot-remote-control-key robot-remote-stop" size="compact" tone="danger" iconOnly tabIndex={-1}
-          dataXgcRole="robot-remote-motion-intent"
-          dataXgcId={`${controller.id}:stop`} aria-label={t('Stop')}
-          aria-pressed={pressed.size === 0}
-          onPointerDown={(event) => { event.preventDefault(); pointerCommitted.current = true; stop(); }}
-          onMouseDown={suppressButtonFocus}
-          onClick={() => { if (!consumePointerCommit()) stop(); }}>
-          <Square size={16} />
-        </ControlButton>
-        <table className="robot-remote-shortcuts" data-xgc-role="robot-remote-shortcuts" data-xgc-id={controller.id}>
-          <tbody>
-            <tr><th scope="row">↑↓←→</th><td>{t('move')}</td></tr>
-            <tr><th scope="row">Z/X</th><td>{t('yaw')}</td></tr>
-            <tr><th scope="row">Space</th><td>{t('Stop')}</td></tr>
-            <tr><th scope="row">Esc</th><td>{t('Close')}</td></tr>
-          </tbody>
-        </table>
-      </div>
+      <RobotRemoteControlSurface
+        identity={JSON.stringify([persistScope.experimentId,persistScope.panelId,controller.sessionId,controller.id])}
+        controllerId={controller.id} robots={controller.robots} canMotion
+        submit={submit} springReturn={springReturn}
+        initialIntent={intentFrom(restoredGear,new Set(restoredPressed))}
+        activateOnMount={!controller.interactionId}
+        onIntentChange={persistIntent} onFinishReady={onFinishReady}
+        onClose={() => onClose(controller)} onError={onError} />
     </section>
   );
 });
@@ -594,18 +492,11 @@ function intentFrom(gear:RemoteControlGear,pressed:ReadonlySet<Direction>):Remot
     longitudinal:axis(pressed.has('forward'),pressed.has('backward')),
     lateral:axis(pressed.has('left'),pressed.has('right')),
     yaw:axis(pressed.has('yaw-left'),pressed.has('yaw-right')),
+    release: false,
   };
 }
 function axis(positive:boolean,negative:boolean):RemoteControlAxis {
   return positive === negative ? 0 : positive ? 1 : -1;
-}
-function typingInField(target: EventTarget | null) {
-  if (!(target instanceof HTMLElement)) return false;
-  return Boolean(target.closest('input, textarea, select, [contenteditable="true"]'));
-}
-function menuBlocksRemoteKeys(target: EventTarget | null) {
-  if (!(target instanceof HTMLElement)) return false;
-  return Boolean(target.closest('[role="listbox"], [role="menu"], [role="option"], [role="combobox"][aria-expanded="true"]'));
 }
 function experimentDocument(value:unknown):ExperimentDocument|undefined {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
@@ -613,7 +504,12 @@ function experimentDocument(value:unknown):ExperimentDocument|undefined {
   return candidate.head && candidate.branch && candidate.spec ? candidate as ExperimentDocument : undefined;
 }
 function identitiesFromPersisted(controllers:ReturnType<typeof readPersistedRemoteControllers>) {
-  return controllers.map((controller) => ({ id:controller.id,sessionId:controller.sessionId,interactionId:controller.interactionId,robots:controller.robots }));
+  const claimed = new Set<string>();
+  return controllers.filter(controller => {
+    if (controller.robots.some(robot => claimed.has(robot.id))) return false;
+    controller.robots.forEach(robot => claimed.add(robot.id));
+    return true;
+  }).map((controller) => ({ id:controller.id,sessionId:controller.sessionId,interactionId:controller.interactionId,conversationId:controller.conversationId,robots:controller.robots }));
 }
 function persistControllerIdentities(
   experimentId:string|undefined,

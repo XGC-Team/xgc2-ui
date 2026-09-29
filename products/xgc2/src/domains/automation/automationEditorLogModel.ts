@@ -1,4 +1,5 @@
 import type { ProcessInstance } from '../execution/executionPublic';
+import { formatOperatorDateTime } from '../../shared/operatorTime';
 import type {
   AutomationNode,
   AutomationSpec,
@@ -108,14 +109,12 @@ export function shortAutomationEditorRunId(value: string) {
 
 export function formatAutomationEditorTimestamp(value?: string) {
   if (!value) return '—';
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+  return formatOperatorDateTime(value);
 }
 
 export function formatAutomationEditorTime(value?: string) {
   if (!value) return '—';
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleTimeString([], { hour: '2-digit',minute: '2-digit',second: '2-digit' });
+  return formatOperatorDateTime(value, undefined, { hour: '2-digit',minute: '2-digit',second: '2-digit' });
 }
 
 export function automationEditorPanelID(resourceId: string) {

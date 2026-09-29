@@ -1,7 +1,9 @@
+import { formatOperatorDateTime } from '../../shared/operatorTime';
 import { Info,Search,Trash2 } from 'lucide-react';
-import { Input,Pagination,Panel,SortableDataTable,Toolbar } from '@xgc2/ui-react';
+import { Input,Pagination,Panel,Toolbar } from '@xgc2/ui-react';
 import { ControlButton } from '../../components/controls/ControlButton';
 import { CheckboxControl } from '../../components/FormPrimitives';
+import { SortableDataTable } from '../../components/SortableDataTable';
 import type { DockerVolumeInfo } from './containerModel';
 import { containerTableRangeSummary } from './containerTableRangeSummary';
 import { VOLUME_PAGE_SIZE_OPTIONS,type VolumeDraft } from './containerViewModel';
@@ -118,6 +120,7 @@ export function ContainerVolumesPanel({
       <div className="container-table-panel" data-xgc-role="container-volume-table-panel" data-xgc-id="container-volume-table-panel">
         <SortableDataTable
           className="container-data-table-shell"
+          data-xgc-id="container-volumes"
           columns={[
             {
               id: 'select',
@@ -279,8 +282,7 @@ export function ContainerVolumesPanel({
 
 function formatCreated(value?: string) {
   if (!value) return '-';
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+  return formatOperatorDateTime(value);
 }
 
 function formatMap(map?: Record<string,string>): string {

@@ -20,7 +20,7 @@ describe('Unitree B2 panel projection contribution', () => {
     const list = render(<RenderList {...props} />);
     expect(list.container.querySelector('[data-xgc-role="robot-list-b2-state"]'))
       .not.toBeNull();
-    expect(screen.getByText('Odom pos (m)')).toBeTruthy();
+    expect(screen.getByText('Odom pos')).toBeTruthy();
     expect(screen.getByText('Battery I')).toBeTruthy();
     expect(screen.getByText('Odom spd')).toBeTruthy();
     expect(screen.getByText('Battery vol')).toBeTruthy();
@@ -114,8 +114,8 @@ describe('Unitree B2 panel projection contribution', () => {
       ...disconnected,
       status:{ online:false,operationalReady:false,status:'offline' },
     }} />);
-    expect(tile()?.querySelector('.robot-list-metric-digits')?.textContent).toBe('--');
-    expect(tile()?.querySelector('.robot-list-metric-rate')?.textContent).toBe('-- Hz');
+    expect(tile()?.querySelector('.robot-list-metric-digits')?.textContent).toBe('52.0');
+    expect(tile()?.querySelector('.robot-list-metric-rate')?.textContent).toBe('5.0 Hz');
 
     rerender(<RenderList {...renderProps()} />);
     expect(tile()?.querySelector('.robot-list-metric-digits')?.textContent).toBe('52.0');
@@ -127,7 +127,7 @@ describe('Unitree B2 panel projection contribution', () => {
     expect(tile()?.querySelector('.robot-list-metric-rate')?.textContent).toBe('-- Hz');
   });
 
-  it('uses B2 channel freshness for header states without local-fleet semantic fields', () => {
+  it('uses B2 channel freshness for header states without local-swarm semantic fields', () => {
     const RenderList = unitreeB2RobotAssetKindContribution.panelProjection!.RenderList;
     const props = renderProps();
     const { container } = render(<RenderList {...{
@@ -143,7 +143,7 @@ describe('Unitree B2 panel projection contribution', () => {
     }} />);
 
     expect(container.querySelector('[data-xgc-role="robot-network-indicator"]'))
-      .toHaveAttribute('title', 'B2 forwarder link stale');
+      .toHaveAttribute('title', 'Robot connection recovering; B2 forwarder link stale');
     expect(container.querySelector('[data-xgc-role="robot-network-indicator"]'))
       .toHaveAttribute('data-xgc-tone', 'danger');
     expect(container.querySelector('[data-xgc-role="robot-position-indicator"]'))
@@ -171,7 +171,7 @@ function expectListHeaderStatus(container: HTMLElement) {
   expect(cluster?.querySelector('[data-xgc-role="robot-network-indicator"]'))
     .toHaveAttribute('data-xgc-source', 'diagnostic.link.sourceAgeMs');
   expect(cluster?.querySelector('[data-xgc-role="robot-network-indicator"]'))
-    .toHaveAttribute('title', 'B2 forwarder heartbeat age 4 ms');
+    .toHaveAttribute('title', 'Robot connection normal; B2 forwarder heartbeat age 4 ms');
   expect(cluster?.querySelector('[data-xgc-role="robot-power-indicator"]'))
     .toHaveAttribute('data-xgc-source', 'state.power.percentage');
   expect(cluster?.querySelector('[data-xgc-role="robot-power-indicator"]'))
@@ -195,7 +195,7 @@ function expectSharedB2List(container: HTMLElement) {
   const titles = [...container.querySelectorAll('dl > div > dt .robot-list-metric-title')]
     .map((node) => node.textContent);
   expect(titles).toEqual([
-    'Odom pos (m)','Odom spd','Battery vol','Battery I',
+    'Odom pos','Odom spd','Battery vol','Battery I',
     'Yaw','Yaw rate','Mode',
   ]);
   expect(container.querySelector('[data-xgc-role="robot-b2-odom-speed"] [data-xgc-role="robot-list-metric-readout"]')?.textContent)

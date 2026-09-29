@@ -2,7 +2,6 @@
 @import './robot-projection-card.css';
 @import './robot-instrument-base.css';
 @import './robot-instrument-list.css';
-@import './robot-ground-response.css';
 @import './robot-instrument-status.css';
 @import './robot-simulation.css';
 @import './robot-control-shell.css';
@@ -11,4 +10,3 @@
 @import './robot-flight.css';
 @import './robot-ground.css';
 @import './robot-b2.css';
-@import './preflight-status.css';

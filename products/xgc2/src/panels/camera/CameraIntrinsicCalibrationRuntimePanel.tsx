@@ -94,16 +94,22 @@ export function CameraIntrinsicCalibrationRuntimePanel({
   useEffect(() => {
     if (!documentVisible || !enabled) return;
     setStateStreamError('');
+    let closed = false;
     const stream = openCameraIntrinsicStateStream(
-      targetId,processInstanceId,setServerState,
+      targetId,processInstanceId,(state) => {
+        if (closed) return;
+        setStateStreamError('');
+        setServerState(state);
+      },
       (cause) => {
-        if (runtimeEnabledRef.current && !isCameraCalibrationTeardownError(cause)) {
+        if (!closed && runtimeEnabledRef.current && !isCameraCalibrationTeardownError(cause)) {
           setStateStreamError(messageOf(cause));
+          void refreshState();
         }
       },
     );
-    return () => stream.close();
-  }, [documentVisible,enabled,processInstanceId,setServerState,targetId]);
+    return () => { closed = true;stream.close(); };
+  }, [documentVisible,enabled,processInstanceId,refreshState,setServerState,targetId]);
 
   useEffect(() => {
     if (!enabled) setStateStreamError('');

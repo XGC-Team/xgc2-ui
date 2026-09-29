@@ -9,6 +9,37 @@ import {
 import { robotAssetKindCompositionWithUnitreeB2 } from '../../../test-fixtures/robot-kinds/with-unitree-b2';
 
 describe('Experiment Robot bindings', () => {
+  it('preserves the PX4 camera switch and rejects non-boolean settings', () => {
+    const camera = { ...px4Binding('camera','robot-1'),px4:{ imageSimulationEnabled:true } };
+    expect(validateExperimentSpec(spec([camera]))).toBe('');
+    expect(normalizeExperimentSpec(spec([camera])).robots[0]?.px4).toEqual({ imageSimulationEnabled:true });
+    for (const value of [null,'true',1,{}]) {
+      expect(validateExperimentSpec(spec([
+        invalidPX4Binding('camera','robot-1',{ imageSimulationEnabled:value }),
+      ]))).toContain('camera simulation switch');
+    }
+  });
+  it('defaults the common simple lidar switch to false and preserves normalized values',() => {
+    const omitted = normalizeExperimentSpec(spec([binding('leader','robot-1','/uav1')])).robots[0];
+    expect(omitted?.simulationSensors).toEqual({ simpleLidar:false });
+
+    const fs150 = { ...px4Binding('fs150on','robot-fs150-on'),simulationSensors:{ simpleLidar:true } };
+    const scout = {
+      ...scoutBinding('scoutoff','robot-scout-off','/scout_off'),
+      simulationSensors:{ simpleLidar:false },
+    };
+    const mecanum = {
+      ...mecanumBinding('mecanumon','robot-mecanum-on'),
+      simulationSensors:{ simpleLidar:true },
+    };
+    const normalized = normalizeExperimentSpec(spec([fs150,scout,mecanum])).robots;
+    expect(normalized.map((item) => item.simulationSensors)).toEqual([
+      { simpleLidar:true },
+      { simpleLidar:false },
+      { simpleLidar:true },
+    ]);
+    expect(normalized[0]?.simulationSensors).not.toBe(fs150.simulationSensors);
+  });
   it('keeps the authored Robot list and permits an empty Robot selection', () => {
     const ordered = spec([
       binding('wingman','robot-2','/uav2'),
@@ -71,7 +102,6 @@ describe('Experiment Robot bindings', () => {
       'scout overrides may only set lidar/image simulation switches',
     );
   });
-
   it('accepts empty PX4 kind markers and rejects residual transport fields', () => {
     expect(validateExperimentSpec(spec([
       px4Binding('leader','robot-1'),
@@ -82,7 +112,7 @@ describe('Experiment Robot bindings', () => {
       experimentLocalPort: 9010,
     });
     expect(validateExperimentSpec(spec([polluted]))).toContain(
-      'px4 overrides must be empty',
+      'px4 overrides may only set the camera simulation switch',
     );
   });
 
@@ -128,7 +158,10 @@ describe('Experiment Robot bindings', () => {
   it('preserves empty Mecanum markers when normalizing', () => {
     expect(normalizeExperimentSpec(spec([
       mecanumBinding('mecanum-a','robot-m1'),
-    ])).robots[0]).toEqual(mecanumBinding('mecanum-a','robot-m1'));
+    ])).robots[0]).toEqual({
+      ...mecanumBinding('mecanum-a','robot-m1'),
+      simulationSensors:{ simpleLidar:false },
+    });
   });
 
   it('normalizes and validates a leaf-owned marker only through its composition', () => {
@@ -177,6 +210,14 @@ function px4Binding(id: string,resourceId: string): ExperimentRobotBinding {
   };
 }
 
+function scoutBinding(id: string,resourceId: string,namespace: string): ExperimentRobotBinding {
+  const { px4: _dropPx4,...base } = binding(id,resourceId,namespace);
+  return {
+    ...base,
+    scout:{ lidarSimulationEnabled:false,imageSimulationEnabled:false },
+  };
+}
+
 function mecanumBinding(id: string,resourceId: string): ExperimentRobotBinding {
   // Namespace must be a valid absolute ROS name (hyphens are not allowed).
   const namespace = `/${id.replace(/-/g,'_')}`;
@@ -203,6 +244,7 @@ function spec(robots: ExperimentRobotBinding[]): ExperimentSpec {
     description: '',
     tags: [],
     runModes: ['simulation','physical'],
+    worldBoundary:null,
     localizationOffset:{ x:0,y:0,z:0 },
     robots,workflowInstances: [],
     dashboards: [{ id: 'gcs',name: 'GCS',description: '',panels: [] }],

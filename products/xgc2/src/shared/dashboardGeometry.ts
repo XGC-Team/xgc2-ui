@@ -15,6 +15,25 @@ export const DASHBOARD_ROW_HEIGHT = 39;
 export const DASHBOARD_GAP = 8;
 export const DASHBOARD_MARGIN: [number, number] = [DASHBOARD_GAP, DASHBOARD_GAP];
 export const DASHBOARD_ROW_PITCH = DASHBOARD_ROW_HEIGHT + DASHBOARD_GAP;
+
+/**
+ * Row height that fills `availableHeightPx` across `maxRow` rows after
+ * container padding and inter-row gaps. Uses real division so the last row
+ * lands on the container edge instead of leaving a remainder strip.
+ * react-grid-layout item height is `h * rowHeight + (h - 1) * gap`.
+ */
+export function dashboardFillRowHeightPx(
+  availableHeightPx: number,
+  maxRow: number,
+  { gapPx = 0,paddingY = 0 }: { gapPx?: number; paddingY?: number } = {},
+): number {
+  const rows = Math.max(1, maxRow);
+  if (!Number.isFinite(availableHeightPx) || availableHeightPx <= 0) {
+    return DASHBOARD_ROW_HEIGHT;
+  }
+  const chrome = paddingY * 2 + Math.max(0, rows - 1) * gapPx;
+  return Math.max(24, (availableHeightPx - chrome) / rows);
+}
 /**
  * GCS wall keeps zero RGL gutters. Seams are drawn as trailing-edge borders on
  * every PanelFrame (see PanelFrame.css) so full-bleed panels like Lichtblick

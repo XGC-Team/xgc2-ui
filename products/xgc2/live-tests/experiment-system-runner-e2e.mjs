@@ -3,6 +3,7 @@
 import { writeFileSync } from 'node:fs';
 import { execFile as execFileCallback } from 'node:child_process';
 import { promisify } from 'node:util';
+import { expect } from '@playwright/test';
 
 const execFile = promisify(execFileCallback);
 
@@ -15,21 +16,23 @@ export const SYSTEM_EXPERIMENT_RUNNER = Object.freeze({
 
 export const EXPERIMENT_START_BOUNDARY_TIMEOUT_MS = 10_000;
 
+const ROS_CONTROL_AUTOMATION_ID='8933a70a-ddc6-5e43-914b-25e19341fcb1';
+const WORLD_SERVICES_BINDING_ID='xgc-world-services';
 const activeStatuses = new Set(['accepted','queued','running','waiting','stopping']);
 const terminalStatuses = new Set(['succeeded','failed','canceled','stopped','rejected']);
 
-export async function resolveLocalFleetCoreContainer(environmentName) {
+export async function resolveLocalSwarmCoreContainer(environmentName) {
   const explicit=process.env[environmentName]?.trim() || '';
   if (explicit) return canonicalContainerName(explicit,environmentName);
   const { stdout }=await execFile('docker',[
     'ps',
-    '--filter','label=com.docker.compose.project=xgc2-local-fleet-lab',
+    '--filter','label=com.docker.compose.project=xgc2-local-swarm-lab',
     '--filter','label=com.docker.compose.service=core',
     '--format','{{.Names}}',
   ],{ timeout:10_000,maxBuffer:64*1024 });
   const matches=[...new Set(stdout.split('\n').map((value) => value.trim()).filter(Boolean))];
   if (matches.length!==1) {
-    throw new Error(`expected one running local-fleet Core container, found ${matches.length}`);
+    throw new Error(`expected one running local-swarm Core container, found ${matches.length}`);
   }
   return canonicalContainerName(matches[0],environmentName);
 }
@@ -59,12 +62,12 @@ export async function resolveManagedFixture(context,webUrl,{ key,name,resourceId
 }
 
 export function assertPublicExperimentContract(experiment,marker='') {
-  if (experiment?.spec?.schemaVersion !== 15
+  if (experiment?.spec?.schemaVersion !== 16
     || experiment?.head?.domain !== 'experiment'
     || typeof experiment?.head?.resourceId !== 'string'
     || experiment.head.resourceId.length === 0
     || experiment?.branch?.name !== 'main') {
-    throw new Error('Experiment is not one exact public schema-v15 main-branch document');
+    throw new Error('Experiment is not one exact public schema-v16 main-branch document');
   }
   for (const legacy of ['compositionProfile','processPlacements','bindings','planRef']) {
     if (Object.hasOwn(experiment.spec,legacy)) {
@@ -89,13 +92,15 @@ export function assertPublicExperimentContract(experiment,marker='') {
 }
 
 export function managedWorkflowBindingIds(experiment) {
-  return [...new Set((experiment.spec.dashboards ?? []).flatMap((dashboard) => (
+  const bindingIds=new Set((experiment.spec.dashboards ?? []).flatMap((dashboard) => (
     (dashboard.panels ?? []).flatMap((panel) => (
       (panel.portBindings ?? [])
         .filter((binding) => binding.kind === 'workflow' && binding.managed === true)
         .map((binding) => binding.workflowInstanceId)
     ))
-  )))].sort();
+  )));
+  if (experimentUsesROSControl(experiment)) bindingIds.add(WORLD_SERVICES_BINDING_ID);
+  return [...bindingIds].sort();
 }
 
 export function managedWorkflowPolicies(experiment) {
@@ -111,7 +116,16 @@ export function managedWorkflowPolicies(experiment) {
       }
     }
   }
+  if (experimentUsesROSControl(experiment) && !result.has(WORLD_SERVICES_BINDING_ID)) {
+    result.set(WORLD_SERVICES_BINDING_ID,{ relation:'supervised',cancelPolicy:'cascade' });
+  }
   return result;
+}
+
+function experimentUsesROSControl(experiment) {
+  return (experiment.spec.workflowInstances ?? []).some((instance) => (
+    instance.ref?.resourceId===ROS_CONTROL_AUTOMATION_ID
+  ));
 }
 
 export async function assertNoActiveSystemRunner(context,webUrl) {
@@ -342,12 +356,11 @@ export async function startExperimentThroughUI({
   page,context,webUrl,experiment,runMode,timeoutMs=EXPERIMENT_START_BOUNDARY_TIMEOUT_MS,onAccepted,
 }) {
   const experimentId = experiment.head.resourceId;
+  const expectedPlacement=experiment.spec.deployment?.placement;
   const path = '/api/execution-targets/local/orchestration-runs';
   const runButton = page.locator(`[data-xgc-role="experiment-run"][data-xgc-id="${experimentId}"]`);
   await runButton.waitFor({ state:'visible',timeout:30_000 });
-  if (await runButton.isDisabled()) {
-    throw new Error(`Experiment Run is disabled: ${await runButton.getAttribute('title') || 'no reason'}`);
-  }
+  await expect(runButton,'Experiment Run becomes available after its assets load').toBeEnabled({ timeout:30_000 });
   assertPageOpen(page,'after the Run control was ready');
   const startedAt = Date.now();
   let clickCompletedAt=startedAt;
@@ -355,7 +368,7 @@ export async function startExperimentThroughUI({
     timeoutMs,
     match:(candidate) => (
       candidate.request().method() === 'POST' && new URL(candidate.url()).pathname === path
-        && requestStartsSystemRunner(candidate.request(),experimentId,runMode)
+        && requestStartsSystemRunner(candidate.request(),experimentId,runMode,expectedPlacement)
     ),
     click:async () => {
       await runButton.click({ timeout:30_000 });
@@ -368,7 +381,7 @@ export async function startExperimentThroughUI({
     throw new Error(`System Runner Start HTTP ${response.status()}: ${JSON.stringify(body)}`);
   }
   const request = response.request().postDataJSON();
-  assertSystemRunnerStartRequest(request,experimentId,runMode);
+  assertSystemRunnerStartRequest(request,experimentId,runMode,expectedPlacement);
   assertSystemRunnerRoot(body.run,experimentId,runMode,true);
   onAccepted?.(body.run);
   const boundary = await waitForStartBoundary(
@@ -664,19 +677,20 @@ export async function waitFor(probe,timeoutMs,message,intervalMs=100) {
   throw new Error(lastError ? `${message}: ${lastError.message || lastError}` : message);
 }
 
-function requestStartsSystemRunner(request,experimentId,runMode) {
+function requestStartsSystemRunner(request,experimentId,runMode,placement) {
   try {
     const body = request.postDataJSON();
-    assertSystemRunnerStartRequest(body,experimentId,runMode);
+    assertSystemRunnerStartRequest(body,experimentId,runMode,placement);
     return true;
   } catch {
     return false;
   }
 }
 
-function assertSystemRunnerStartRequest(body,experimentId,runMode) {
+function assertSystemRunnerStartRequest(body,experimentId,runMode,placement) {
   const keys=Object.keys(body ?? {}).sort();
   const expected=['actionId','automationRef','experimentRef','idempotencyKey','parameters','reason','requestId'].sort();
+  const parameterKeys=['runMode',...(placement===undefined ? [] : ['placement'])].sort();
   if (JSON.stringify(keys)!==JSON.stringify(expected)
     || body?.automationRef?.domain!==SYSTEM_EXPERIMENT_RUNNER.domain
     || body.automationRef.resourceId!==SYSTEM_EXPERIMENT_RUNNER.resourceId
@@ -685,7 +699,8 @@ function assertSystemRunnerStartRequest(body,experimentId,runMode) {
     || body.experimentRef.resourceId!==experimentId
     || body.experimentRef.branch!=='main'
     || body.actionId!==SYSTEM_EXPERIMENT_RUNNER.actions.run
-    || Object.keys(body.parameters ?? {}).length!==1 || body.parameters.runMode!==runMode
+    || JSON.stringify(Object.keys(body.parameters ?? {}).sort())!==JSON.stringify(parameterKeys)
+    || body.parameters.runMode!==runMode || body.parameters.placement!==placement
     || typeof body.requestId!=='string' || body.requestId.length===0
     || body.idempotencyKey!==body.requestId
     || typeof body.reason!=='string' || body.reason.trim().length===0

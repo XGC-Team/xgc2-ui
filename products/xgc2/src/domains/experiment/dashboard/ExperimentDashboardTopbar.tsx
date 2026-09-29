@@ -2,14 +2,12 @@ import { Columns3,LoaderCircle,Maximize2,Minimize2,Play,Plus,Save,Square } from 
 import { ControlButton } from '../../../components/controls/ControlButton';
 import { SelectControl } from '../../../components/controls/SelectControl';
 import { DashboardTabs } from '../../../components/DashboardTabs';
-import { StatusText } from '@xgc2/ui-react';
 import {
   type ExperimentDashboard,
   type ExperimentDocument,
   type ExperimentRunMode,
 } from '../experimentModel';
 import { useExperimentText } from '../experimentMessages';
-import { experimentRobotComposition } from '../experimentRunModePresentation';
 import type { ExperimentDashboardActions } from './useExperimentDashboardActions';
 import type { ExperimentRunModeControl } from './useExperimentRunMode';
 
@@ -77,13 +75,6 @@ export function ExperimentDashboardTopbar({
       mode: `"${runMode}"`,
     })
     : undefined;
-  const robotComposition = experimentRobotComposition(
-    runMode,
-    session.visibleExperiment?.spec.robots ?? [],
-  );
-  const mixedCompositionTitle = robotComposition === 'mixed'
-    ? t('Hybrid Experiment Run: each robot uses its frozen simulation or physical source partition.')
-    : undefined;
 
   const canManageDashboards = Boolean(session.visibleExperiment)
     && !session.readOnly
@@ -129,15 +120,18 @@ export function ExperimentDashboardTopbar({
   };
   // A disabled Run has to name its blocker; a held panel command token used to
   // leave this control enabled and inert.
+  const idleRunTitle = actions.startDisabledReason.startsWith('The Experiment state is unavailable: ')
+    ? t('The Experiment state is unavailable: {error}', {
+      error: actions.startDisabledReason.slice('The Experiment state is unavailable: '.length),
+    })
+    : actions.startDisabledReason
+      ? t(actions.startDisabledReason)
+      : actions.actionError || t('Run this Experiment');
   const runStopTitle = showStop
     ? (runStopping
       ? t('The Experiment is stopping.')
       : t('Stop this Experiment Run and its owned process closure'))
-    : actions.startDisabledReason.startsWith('The Experiment state is unavailable: ')
-      ? t('The Experiment state is unavailable: {error}', {
-        error: actions.startDisabledReason.slice('The Experiment state is unavailable: '.length),
-      })
-      : t(actions.startDisabledReason || 'Run this Experiment');
+    : idleRunTitle;
   const runStopLabel = t(restoringState ? 'Checking' : showStop ? 'Stop' : 'Run');
 
   return (
@@ -181,16 +175,6 @@ export function ExperimentDashboardTopbar({
             menuAlign="end"
           />
         </div>
-        {robotComposition === 'mixed' && (
-          <StatusText
-            status="mixed"
-            data-xgc-role="experiment-run-mode-composition"
-            data-xgc-id={experimentId || undefined}
-            title={mixedCompositionTitle}
-          >
-            {t('Mixed')}
-          </StatusText>
-        )}
         <ControlButton
           className="experiment-topbar-command"
           tone={showStop ? 'default' : 'primary'}

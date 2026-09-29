@@ -9,7 +9,7 @@ import { useNavigation } from './navigationContext';
 import { isLocalCore,targetSurfaceDisabledReason } from './targetCorePolicy';
 
 export function useTargetCore(surface?: ProductPermissionSurface) {
-  const nav = useNavigation();
+  const nav = useNavigation((state) => ({ targetCoreId: state.targetCoreId,setTargetCoreId: state.setTargetCoreId }));
   const composition = useProductWebComposition();
   const coreNodes = useCoreNodes();
   const { targetCoreId, setTargetCoreId } = nav;

@@ -3,8 +3,10 @@ import { listAuditLogPage } from './auditLogActions';
 import { usePersistentState } from '../../hooks/usePersistentState';
 import { useLatestAsyncRequest } from '../../hooks/useLatestAsyncRequest';
 import type { AppLanguage } from '../../shared/localization/languagePreference';
+import { formatOperatorDateTime } from '../../shared/operatorTime';
 import type { AuditDomain,AuditLog } from './auditModel';
-import { LogTablePage,type LogTableColumn,type LogTablePageLabels } from '../../components/LogTablePage';
+import { LogTablePage,type LogTableColumn,type LogTablePageLabels,type PaginationLabels } from '@xgc2/ui-react';
+import { RefreshCw } from 'lucide-react';
 import { useDeferRouteReady } from '../../shared/routeReady';
 import './audit.css';
 
@@ -86,7 +88,9 @@ export function AuditPage({ activeTab, language }: { activeTab: AuditTab; langua
           setPage(1);
         }}
         emptyText={auditEmptyText(copy, domain, category, status, query)}
-        labels={copy.table}
+        labels={copy.table.labels}
+        paginationLabels={copy.table.pagination}
+        refreshIcon={<RefreshCw size={14} />}
       />
       </div>
     </div>
@@ -160,9 +164,8 @@ function AuditStatus({ log, copy }: { log: AuditLog; copy: AuditCopy }) {
 }
 
 function formatTime(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '-';
-  return date.toLocaleString();
+  if (!value) return '-';
+  return formatOperatorDateTime(value);
 }
 
 type PanelAuditCategory = 'operation' | 'access' | 'system';
@@ -176,7 +179,7 @@ type AuditCopy = {
     warning: string;
     failed: string;
   };
-  table: Partial<LogTablePageLabels>;
+  table: { labels: LogTablePageLabels; pagination: Pick<PaginationLabels,'pageSizeSuffix' | 'total'> };
   columns: {
     resource: string;
     operation: string;
@@ -208,12 +211,8 @@ const auditCopy: Record<AppLanguage, AuditCopy> = {
       failed: 'Failed',
     },
     table: {
-      status: 'Status',
-      refresh: 'Refresh',
-      total: 'Total',
-      pageSizeSuffix: '/ page',
-      loading: 'Loading',
-      search: 'Search audit logs',
+      labels: { status: 'Status',refresh: 'Refresh',loading: 'Loading',search: 'Search audit logs' },
+      pagination: { total: 'Total',pageSizeSuffix: '/ page' },
     },
     columns: {
       resource: 'Resource',
@@ -251,12 +250,8 @@ const auditCopy: Record<AppLanguage, AuditCopy> = {
       failed: '失败',
     },
     table: {
-      status: '状态',
-      refresh: '刷新',
-      total: '总计',
-      pageSizeSuffix: '条/页',
-      loading: '加载中',
-      search: '搜索审计日志',
+      labels: { status: '状态',refresh: '刷新',loading: '加载中',search: '搜索审计日志' },
+      pagination: { total: '总计',pageSizeSuffix: '条/页' },
     },
     columns: {
       resource: '资源',

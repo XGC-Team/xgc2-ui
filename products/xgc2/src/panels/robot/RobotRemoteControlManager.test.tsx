@@ -11,11 +11,11 @@ import { GroundStationRemoteDock } from '../../domains/groundStationInteraction/
 import { clampRemoteWindowOrigin } from './RobotRemoteControlManager';
 import { remoteControlStorageKey } from './robotRemoteControlPersistence';
 
-const sessionMocks = vi.hoisted(() => ({ resolved:true,id:'session-a' as string | undefined,conversation:'conversation-a' as string | null | undefined }));
+const sessionMocks = vi.hoisted(() => ({ resolved:true,id:'session-a' as string | undefined,conversation:'conversation-a' as string | null | undefined,liveIds:['px4-01','scout-01','scout-02','scout-03','scout-04','mecanum-01'],loaded:true,pending:false,disconnectedIds:[] as string[] }));
 vi.mock('../../domains/experiment/useExperimentListRunningIds',() => ({
-  useStationExperimentOccupancy:() => ({
+  useExperimentStationOccupancy:() => ({
     resolved:sessionMocks.resolved,
-    sessions:sessionMocks.id ? [{session:{id:sessionMocks.id,experimentResourceId:'experiment-a',state:'active'}}] : [],
+    sessions:sessionMocks.id ? [{session:{id:sessionMocks.id,experimentResourceId:'experiment-a',state:'active'},members:[{kind:'workflow_command',ownerId:'opening-run',status:'running'}]}] : [],
   }),
 }));
 
@@ -25,7 +25,7 @@ const presenterMocks=vi.hoisted(()=>({
 }));
 const notificationMocks = vi.hoisted(() => ({ useError:vi.fn() }));
 const motionIntentMocks = vi.hoisted(() => ({
-  post:vi.fn(async (_targetId:string,_input:{ robotIds:readonly string[] }):Promise<void> => undefined),
+  post:vi.fn(async (_targetId:string,_input:{ robotIds:readonly string[] }):Promise<{ generation:number }> => ({ generation:1 })),
 }));
 
 vi.mock('../../domains/groundStationInteraction/groundStationInteractionPublic',async (importOriginal) => {
@@ -39,8 +39,25 @@ vi.mock('../../domains/groundStationInteraction/groundStationInteractionPublic',
   };
 });
 
+vi.mock('../../domains/robot/robotRuntimeSelectors',async(importOriginal)=>({
+  ...await importOriginal<Record<string,unknown>>(),
+  useLiveConnectedRobotIds:()=>({knownIds:['px4-01','scout-01','scout-02','scout-03','scout-04','mecanum-01'],liveIds:sessionMocks.liveIds,disconnectedIds:sessionMocks.disconnectedIds,loaded:sessionMocks.loaded,pending:sessionMocks.pending,hasRoster:sessionMocks.loaded}),
+}));
+
 vi.mock('../../domains/robot/robotMotionIntentService',() => ({
   postRobotMotionIntent:motionIntentMocks.post,
+}));
+
+const operatorControlMocks = vi.hoisted(() => ({
+  ensure: vi.fn<() => Promise<boolean>>(async () => true),
+  ready: vi.fn(() => true),
+  hook: vi.fn((): { phase:'idle'|'ensuring'|'ready'|'denied'|'unavailable';ensuring:boolean;blocked:boolean;retry:() => void } => ({ phase:'ready',ensuring:false,blocked:false,retry:vi.fn() })),
+}));
+vi.mock('../../domains/operatorAccess/operatorAccessPublic',() => ({
+  ensureOperatorControlSession: operatorControlMocks.ensure,
+  operatorControlSessionReady: operatorControlMocks.ready,
+  useOperatorControlSession: () => operatorControlMocks.hook(),
+  OperatorControlSessionNotice: () => null,
 }));
 
 describe('Robot control remote view',() => {
@@ -49,11 +66,21 @@ describe('Robot control remote view',() => {
     sessionMocks.resolved = true;
     sessionMocks.id = 'session-a';
     sessionMocks.conversation = 'conversation-a';
+    sessionMocks.disconnectedIds=[];
+    sessionMocks.liveIds = ['px4-01','scout-01','scout-02','scout-03','scout-04','mecanum-01'];
+    sessionMocks.loaded = true;
+    sessionMocks.pending = false;
     presenterMocks.requests=[];
     presenterMocks.closeRequest.mockClear();
     notificationMocks.useError.mockReset();
     motionIntentMocks.post.mockReset();
-    motionIntentMocks.post.mockResolvedValue(undefined);
+    motionIntentMocks.post.mockResolvedValue({generation:1});
+    operatorControlMocks.ensure.mockReset();
+    operatorControlMocks.ensure.mockResolvedValue(true);
+    operatorControlMocks.ready.mockReset();
+    operatorControlMocks.ready.mockReturnValue(true);
+    operatorControlMocks.hook.mockReset();
+    operatorControlMocks.hook.mockReturnValue({ phase:'ready',ensuring:false,blocked:false,retry:vi.fn() });
   });
 
   it('presents an Agent-requested controller without sending motion and keeps its closed history',async()=>{
@@ -83,6 +110,134 @@ describe('Robot control remote view',() => {
     expect(presenterMocks.closeRequest).not.toHaveBeenCalled();
   });
 
+  it('floats the same controller on conversation switch even when the old dock remains mounted',async () => {
+    writeSelection(['scout-01']);
+    const tree=()=><><GroundStationRemoteDock experimentId="experiment-a" />{panelTree()}</>;
+    const view=render(tree());
+    fireEvent.click(screen.getByRole('button',{name:'Start remote control'}));
+    const remote=screen.getByRole('region',{name:/Remote controller/});
+    expect(remote).toHaveAttribute('data-xgc-docked','true');
+    await waitFor(()=>expect(motionIntentMocks.post).toHaveBeenCalledTimes(1));
+    sessionMocks.conversation='conversation-switch-b';
+    view.rerender(tree());
+    expect(screen.getByRole('region',{name:/Remote controller/})).toBe(remote);
+    expect(remote).not.toHaveAttribute('data-xgc-docked');
+    expect(remote.querySelector('[data-xgc-role="robot-remote-drag-handle"]')).not.toBeNull();
+    expect(screen.getByRole('button',{name:'Start remote control'})).toBeDisabled();
+    sessionMocks.conversation='conversation-a';
+    view.rerender(tree());
+    expect(remote).toHaveAttribute('data-xgc-docked','true');
+    expect(motionIntentMocks.post).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps a restored controller while telemetry is stale without sending new motion',async () => {
+    writeSelection(['scout-01']);
+    const view=renderPanel();
+    fireEvent.click(screen.getByRole('button',{name:'Start remote control'}));
+    await waitFor(()=>expect(motionIntentMocks.post).toHaveBeenCalledTimes(1));
+    const saved=localStorage.getItem(remoteControlStorageKey('experiment-a','robot-control'));
+    sessionMocks.liveIds=[];
+    view.rerender(panelTree());
+    expect(screen.getByRole('region',{name:/Remote controller/})).toBeInTheDocument();
+    expect(localStorage.getItem(remoteControlStorageKey('experiment-a','robot-control'))).toBe(saved);
+    fireEvent.click(screen.getByRole('button',{name:'Forward'}));
+    expect(motionIntentMocks.post).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes a disconnected robot and never restores its controller after reconnect',async () => {
+    writeSelection(['scout-01']);
+    const view=renderPanel();
+    fireEvent.click(screen.getByRole('button',{name:'Start remote control'}));
+    fireEvent.click(screen.getByRole('button',{name:'Forward'}));
+    await waitFor(()=>expect(motionIntentMocks.post).toHaveBeenLastCalledWith('local',expect.objectContaining({longitudinal:1})));
+    const count=motionIntentMocks.post.mock.calls.length;
+    sessionMocks.disconnectedIds=['scout-01'];
+    sessionMocks.liveIds=['px4-01'];
+    view.rerender(panelTree());
+    expect(screen.queryByRole('region',{name:/Remote controller/})).not.toBeInTheDocument();
+    expect(localStorage.getItem(remoteControlStorageKey('experiment-a','robot-control'))).toBeNull();
+    expect(screen.getByRole('button',{name:'Start remote control'})).toBeDisabled();
+    expect(motionIntentMocks.post).toHaveBeenCalledTimes(count);
+    sessionMocks.disconnectedIds=[];
+    sessionMocks.liveIds=['px4-01','scout-01'];
+    view.rerender(panelTree());
+    expect(screen.queryByRole('region',{name:/Remote controller/})).not.toBeInTheDocument();
+    expect(screen.getByRole('button',{name:'Start remote control'})).toBeEnabled();
+    view.unmount();
+    renderPanel();
+    expect(screen.queryByRole('region',{name:/Remote controller/})).not.toBeInTheDocument();
+  });
+
+  it('closes a group on one disconnect and stops only its remaining connected robots',async () => {
+    writeSelection(['scout-01','px4-01']);
+    const view=renderPanel();
+    fireEvent.click(screen.getByRole('button',{name:'Start remote control'}));
+    fireEvent.click(screen.getByRole('button',{name:'Forward'}));
+    await waitFor(()=>expect(motionIntentMocks.post).toHaveBeenLastCalledWith('local',expect.objectContaining({longitudinal:1})));
+    sessionMocks.disconnectedIds=['scout-01'];
+    sessionMocks.liveIds=['px4-01'];
+    view.rerender(panelTree());
+    expect(screen.queryByRole('region',{name:/Remote controller/})).not.toBeInTheDocument();
+    await waitFor(()=>expect(motionIntentMocks.post).toHaveBeenLastCalledWith('local',expect.objectContaining({robotIds:['px4-01'],longitudinal:0,yaw:0})));
+  });
+
+  it('discards queued motion after disconnect even if the robot reconnects before the in-flight response',async () => {
+    writeSelection(['scout-01']);
+    const view=renderPanel();
+    fireEvent.click(screen.getByRole('button',{name:'Start remote control'}));
+    await waitFor(()=>expect(motionIntentMocks.post).toHaveBeenCalledTimes(1));
+    let complete!:()=>void;
+    motionIntentMocks.post.mockImplementationOnce(()=>new Promise<{generation:number}>(resolve=>{complete=()=>resolve({generation:1});}));
+    fireEvent.click(screen.getByRole('button',{name:'Forward'}));
+    fireEvent.click(screen.getByRole('button',{name:'Left'}));
+    expect(motionIntentMocks.post).toHaveBeenCalledTimes(2);
+    sessionMocks.disconnectedIds=['scout-01'];
+    sessionMocks.liveIds=['px4-01'];
+    view.rerender(panelTree());
+    expect(screen.queryByRole('region',{name:/Remote controller/})).not.toBeInTheDocument();
+    sessionMocks.disconnectedIds=[];
+    sessionMocks.liveIds=['px4-01','scout-01'];
+    view.rerender(panelTree());
+    await act(async()=>complete());
+    expect(motionIntentMocks.post).toHaveBeenCalledTimes(2);
+    expect(screen.queryByRole('region',{name:/Remote controller/})).not.toBeInTheDocument();
+  });
+
+  it('admits only one overlapping Agent controller across conversations in the same snapshot',async () => {
+    presenterMocks.requests=['global-first','global-second'].map((id,index)=>({id,status:'open',payload:{context:{remoteController:{sessionId:'session-a',conversationId:`conversation-${index}`,robotIds:['scout-01']}}}}));
+    renderPanel();
+    expect(screen.getAllByRole('region',{name:/Remote controller/})).toHaveLength(1);
+    expect(screen.getByRole('region',{name:/Remote controller/})).toHaveAttribute('data-xgc-id','global-first');
+    await waitFor(()=>expect(presenterMocks.closeRequest).toHaveBeenCalledWith('global-second'));
+    expect(motionIntentMocks.post).not.toHaveBeenCalled();
+  });
+
+  it('restores only one owner when old cached controllers overlap across conversations',async () => {
+    localStorage.setItem(remoteControlStorageKey('experiment-a','robot-control'),JSON.stringify({v:1,
+      controllers:['restored-owner','restored-duplicate'].map((id,index)=>({
+        id,sessionId:'session-a',conversationId:`old-conversation-${index}`,
+        robots:[{id:'scout-01',name:'scout-01'}],gear:1,pressed:[],origin:null,
+      })),
+    }));
+    renderPanel();
+    expect(screen.getAllByRole('region',{name:/Remote controller/})).toHaveLength(1);
+    expect(screen.getByRole('region',{name:/Remote controller/})).toHaveAttribute('data-xgc-id','restored-owner');
+    await waitFor(()=>expect(motionIntentMocks.post).toHaveBeenCalledTimes(1));
+    expect(JSON.parse(localStorage.getItem(remoteControlStorageKey('experiment-a','robot-control'))!).controllers).toHaveLength(1);
+  });
+
+  it('does not create an Agent controller over a manual controller after switching conversations',async () => {
+    writeSelection(['scout-01']);
+    const view=renderPanel();
+    fireEvent.click(screen.getByRole('button',{name:'Start remote control'}));
+    const remote=screen.getByRole('region',{name:/Remote controller/});
+    sessionMocks.conversation='another-conversation';
+    presenterMocks.requests=[{id:'agent-over-manual',status:'open',payload:{context:{remoteController:{sessionId:'session-a',conversationId:'another-conversation',robotIds:['scout-01']}}}}];
+    view.rerender(panelTree());
+    expect(screen.getAllByRole('region',{name:/Remote controller/})).toEqual([remote]);
+    await waitFor(()=>expect(presenterMocks.closeRequest).toHaveBeenCalledWith('agent-over-manual'));
+  });
+
   it('keeps manual control reachable while conversation selection has not loaded',() => {
     sessionMocks.conversation=undefined;
     writeSelection(['scout-01']);
@@ -109,13 +264,14 @@ describe('Robot control remote view',() => {
     expect(motionIntentMocks.post).not.toHaveBeenCalled();
   });
 
-  it('does not present an Agent remote in another conversation or Session',()=>{
+  it('restores an active remote from another conversation as a global window but rejects an ended Session',()=>{
     presenterMocks.requests=[
       {id:'other-conversation',status:'open',payload:{context:{remoteController:{sessionId:'session-a',conversationId:'conversation-b',robotIds:['scout-01']}}}},
       {id:'ended-session',status:'open',payload:{context:{remoteController:{sessionId:'old-session',conversationId:'conversation-a',robotIds:['scout-01']}}}},
     ];
     renderPanel();
-    expect(screen.queryByRole('region',{name:/Remote controller/})).not.toBeInTheDocument();
+    expect(screen.getByRole('region',{name:/Remote controller/})).toHaveAttribute('data-xgc-id','other-conversation');
+    expect(screen.getByRole('region',{name:/Remote controller/})).not.toHaveAttribute('data-xgc-docked');
     expect(motionIntentMocks.post).not.toHaveBeenCalled();
     expect(presenterMocks.closeRequest).toHaveBeenCalledWith('ended-session');
     expect(presenterMocks.closeRequest).not.toHaveBeenCalledWith('other-conversation');
@@ -151,7 +307,7 @@ describe('Robot control remote view',() => {
     expect(action.invoke).not.toHaveBeenCalled();
   });
 
-  it('disables remote control instead of broadcasting an empty selection to the fleet',() => {
+  it('disables remote control instead of broadcasting an empty selection to the swarm',() => {
     const action = actionPort();
     renderPanel(action);
     const start = screen.getByRole('button',{ name:'Start remote control' });
@@ -183,8 +339,11 @@ describe('Robot control remote view',() => {
       { id:'b2-01',unitreeB2: {} },
     ]);
     fireEvent.click(screen.getByRole('button',{ name:'Start remote control' }));
-    expect(screen.getByRole('region',{ name:/Remote controller/ }))
-      .toHaveAttribute('data-xgc-robot-ids','px4-01,mecanum-01');
+    const remote = screen.getByRole('region',{ name:/Remote controller/ });
+    expect(remote).toHaveAttribute('data-xgc-robot-ids','px4-01,mecanum-01');
+    expect(remote.querySelector('[data-xgc-role="robot-remote-control-title"]')).toBeNull();
+    expect(remote.querySelector('header')).not.toHaveTextContent('px4-01');
+    expect(remote.querySelector('header')).not.toHaveTextContent('mecanum-01');
     await waitFor(() => expect(motionIntentMocks.post).toHaveBeenCalledWith('local',expect.objectContaining({
       experimentId:'experiment-a',robotIds:['px4-01','mecanum-01'],gear:1,longitudinal:0,lateral:0,yaw:0,
     })));
@@ -205,9 +364,15 @@ describe('Robot control remote view',() => {
     fireEvent.click(screen.getByRole('button',{ name:'Start remote control' }));
     const window = screen.getByRole('region',{ name:/Remote controller/ });
     expect(screen.getByRole('button',{ name:'Slow' })).toHaveAttribute('aria-pressed','true');
+    expect(screen.getByRole('button',{ name:'Slow' })).toHaveAttribute('data-xgc-appearance','inverse');
+    expect(screen.getByRole('button',{ name:'Slow' })).toHaveAttribute('data-appearance','inverse');
+    expect(screen.getByRole('button',{ name:'Slow' })).not.toBeDisabled();
     expect(screen.getByRole('button',{ name:'Medium' })).toHaveAttribute('aria-pressed','false');
     expect(screen.getByRole('button',{ name:'Fast' })).toHaveAttribute('aria-pressed','false');
     expect(screen.getByRole('button',{ name:'Stop' })).toHaveAttribute('aria-pressed','true');
+    expect(screen.getByRole('button',{ name:'Stop' })).toHaveAttribute('data-xgc-tone','danger');
+    expect(screen.getByRole('button',{ name:'Stop' })).toHaveAttribute('data-xgc-icon-only','true');
+    expect(window).toHaveClass('robot-remote-window-message');
     expect(screen.queryByRole('button',{ name:'Hold to move' })).not.toBeInTheDocument();
     expect(window).toHaveAttribute('data-xgc-spring-return','false');
     expect(window).toHaveAttribute('data-xgc-robot-ids','scout-03');
@@ -228,9 +393,12 @@ describe('Robot control remote view',() => {
     expect(screen.getByRole('button',{ name:'Stop' })).toHaveAttribute('aria-pressed','true');
     expect(screen.getByRole('button',{ name:'Forward' })).toHaveAttribute('aria-pressed','false');
     await waitFor(() => expect(motionIntentMocks.post).toHaveBeenCalledWith('local',expect.objectContaining({
-      experimentId:'experiment-a',robotIds:['scout-03'],gear:1,longitudinal:0,lateral:0,yaw:0,
+      experimentId:'experiment-a',robotIds:['scout-03'],gear:1,longitudinal:0,lateral:0,yaw:0,release:false,
     })));
     fireEvent.click(screen.getByRole('button',{ name:'Close remote controller' }));
+    await waitFor(() => expect(motionIntentMocks.post).toHaveBeenCalledWith('local',expect.objectContaining({
+      experimentId:'experiment-a',robotIds:['scout-03'],gear:1,longitudinal:0,lateral:0,yaw:0,release:true,
+    })));
     await waitFor(() => expect(screen.queryByRole('region',{ name:/Remote controller/ })).not.toBeInTheDocument());
     await waitFor(() => expect(screen.getByRole('button',{ name:'Start remote control' })).toBeEnabled());
 
@@ -519,6 +687,7 @@ describe('Robot control remote view',() => {
       if (intent.longitudinal === 1 && intent.lateral === 0) {
         await new Promise<void>((resolve) => { finishForward = resolve; });
       }
+      return {generation:1};
     });
     writeSelection(['scout-01']);
     const view = renderPanel();
@@ -540,7 +709,7 @@ describe('Robot control remote view',() => {
     expect(window.localStorage.getItem(remoteControlStorageKey('experiment-a','robot-control'))).toBeNull();
   });
 
-  it('restores an open remote controller after the panel remounts',async () => {
+  it('restores the persisted controller only after its previous mount releases the wire',async () => {
     writeSelection(['scout-01']);
     const view = renderPanel();
     fireEvent.click(screen.getByRole('button',{ name:'Start remote control' }));
@@ -552,9 +721,14 @@ describe('Robot control remote view',() => {
       experimentId:'experiment-a',controllerId:id,robotIds:['scout-01'],gear:2,longitudinal:1,lateral:0,yaw:0,
     })));
     const posted = motionIntentMocks.post.mock.calls.length;
+    let finishRelease!:()=>void;
+    motionIntentMocks.post.mockImplementationOnce(() => new Promise<{generation:number}>(resolve => { finishRelease = () => resolve({generation:1}); }));
     view.unmount();
     expect(screen.queryByRole('region',{ name:/Remote controller/ })).not.toBeInTheDocument();
-    expect(motionIntentMocks.post.mock.calls.length).toBe(posted);
+    await waitFor(() => expect(motionIntentMocks.post).toHaveBeenCalledTimes(posted + 1));
+    expect(motionIntentMocks.post).toHaveBeenLastCalledWith('local',expect.objectContaining({
+      controllerId:id,longitudinal:0,lateral:0,yaw:0,release:true,
+    }));
     expect(JSON.parse(window.localStorage.getItem(remoteControlStorageKey('experiment-a','robot-control')) ?? 'null'))
       .toEqual(expect.objectContaining({
         v:1,
@@ -574,7 +748,9 @@ describe('Robot control remote view',() => {
     expect(screen.getByRole('button',{ name:'Medium' })).toHaveAttribute('aria-pressed','true');
     expect(screen.getByRole('button',{ name:'Stop' })).toHaveAttribute('aria-pressed','false');
     expect(screen.getByRole('button',{ name:'Start remote control' })).toBeDisabled();
-    await waitFor(() => expect(motionIntentMocks.post).toHaveBeenCalledWith('local',expect.objectContaining({
+    expect(motionIntentMocks.post).toHaveBeenCalledTimes(posted + 1);
+    await act(async () => finishRelease());
+    await waitFor(() => expect(motionIntentMocks.post).toHaveBeenLastCalledWith('local',expect.objectContaining({
       experimentId:'experiment-a',controllerId:id,robotIds:['scout-01'],gear:2,longitudinal:1,lateral:0,yaw:0,
     })));
   });
@@ -649,12 +825,13 @@ describe('Robot control remote view',() => {
     expect(document.querySelector('.robot-remote-window-layer')).toBeNull();
     expect(remote).toHaveAttribute('data-xgc-docked','true');
     expect(remote).toHaveClass('robot-remote-window-docked');
-    expect(remote.querySelector('[data-xgc-role="robot-remote-control-title"]')).toHaveTextContent('scout-01');
+    expect(remote.querySelector('[data-xgc-role="robot-remote-control-title"]')).toBeNull();
+    expect(remote.querySelector('header')).not.toHaveTextContent('scout-01');
     expect(remote.querySelector(`[data-xgc-role="robot-remote-shortcuts"][data-xgc-id="${remote.getAttribute('data-xgc-id')}"]`))
       .toHaveTextContent(/↑↓←→\s*move\s*Z\/X\s*yaw\s*Space\s*stop\s*Esc\s*close/i);
     expect(remote.querySelector('.robot-remote-targets')).toBeNull();
     expect(screen.getByRole('button',{ name:'Forward' })).toHaveAttribute('data-xgc-size','compact');
-    expect(remote).not.toHaveAttribute('style');
+    expect(remote.style.cssText).toBe('');
     const invokeCount = motionIntentMocks.post.mock.calls.length;
     fireEvent.pointerDown(remote.querySelector('[data-xgc-role="robot-remote-control-drag"]')!,{
       button:0,clientX:120,clientY:210,pointerId:1,
@@ -722,6 +899,48 @@ describe('Robot control remote view',() => {
     expect(document.querySelector('[data-xgc-role="ground-station-remote-dock"]')).toContainElement(docked);
     expect(document.querySelector('.robot-remote-window-layer')).toBeNull();
     expect(docked).toHaveAttribute('data-xgc-docked','true');
+  });
+
+  it('establishes the operator session before the first remote control opens',async () => {
+    writeSelection(['scout-01']);
+    operatorControlMocks.ready.mockReturnValue(false);
+    renderPanel();
+    fireEvent.click(screen.getByRole('button',{ name:'Start remote control' }));
+    await waitFor(() => expect(operatorControlMocks.ensure).toHaveBeenCalledTimes(1));
+    expect(await screen.findByRole('region',{ name:/Remote controller/ })).toBeInTheDocument();
+  });
+
+  it('refuses to open remote control after a definitive sign-out and stays on the page',async () => {
+    writeSelection(['scout-01']);
+    operatorControlMocks.ready.mockReturnValue(false);
+    operatorControlMocks.ensure.mockResolvedValue(false);
+    operatorControlMocks.hook.mockReturnValue({ phase:'denied',ensuring:false,blocked:true,retry:vi.fn() });
+    renderPanel();
+    const start = screen.getByRole('button',{ name:'Start remote control' });
+    expect(start).toBeDisabled();
+    expect(start).toHaveAttribute('title','Robot control needs a signed-in operator session on this browser.');
+    expect(screen.queryByRole('region',{ name:/Remote controller/ })).not.toBeInTheDocument();
+    expect(motionIntentMocks.post).not.toHaveBeenCalled();
+  });
+
+  it('keeps stop intents flowing while motion intents wait on a lost session',async () => {
+    writeSelection(['scout-01']);
+    const view = renderPanel();
+    fireEvent.click(screen.getByRole('button',{ name:'Start remote control' }));
+    fireEvent.click(screen.getByRole('button',{ name:'Forward' }));
+    await waitFor(() => expect(motionIntentMocks.post).toHaveBeenLastCalledWith('local',expect.objectContaining({ longitudinal:1 })));
+    // The session is lost mid-control: motion frames stop, release still sends.
+    operatorControlMocks.hook.mockReturnValue({ phase:'denied',ensuring:false,blocked:true,retry:vi.fn() });
+    view.rerender(panelTree());
+    const motionSent = () => motionIntentMocks.post.mock.calls
+      .filter(([,input]) => (input as { longitudinal?: number }).longitudinal === 1).length;
+    const beforeBlocked = motionSent();
+    fireEvent.click(screen.getByRole('button',{ name:'Forward' }));
+    expect(motionSent()).toBe(beforeBlocked);
+    fireEvent.click(screen.getByRole('button',{ name:'Close remote controller' }));
+    await waitFor(() => expect(motionIntentMocks.post).toHaveBeenLastCalledWith('local',expect.objectContaining({
+      longitudinal:0,lateral:0,yaw:0,release:true,
+    })));
   });
 
   it('does not restore a remote after the operator closes it',async () => {

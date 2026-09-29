@@ -155,20 +155,6 @@ describe('HostSettingsPanel', () => {
     expect(hostSettingsApi.getHostSettings).toHaveBeenCalledTimes(1);
   });
 
-  it('offers only performance settings in the Maintenance toolbar and can retry a failed read', async () => {
-    hostSettingsApi.getHostSettings.mockRejectedValueOnce(new Error('Host disconnected'));
-    const { container } = render(<HostSettingsPanel apiTarget={{}} actionsEnabled presentation="performance" />);
-    const refresh = await screen.findByRole('button',{ name: 'Refresh performance mode' });
-    await waitFor(() => expect(refresh).not.toBeDisabled());
-    expect(screen.getByLabelText('Performance mode')).toBeDisabled();
-    expect(screen.queryByLabelText('Host timezone')).toBeNull();
-    expect(container.querySelector('.xgc-config-section')).toBeNull();
-    refresh.click();
-    await waitFor(() => expect(screen.getByLabelText('Performance mode')).toHaveTextContent('powersave'));
-    expect(screen.getByLabelText('Performance mode')).not.toBeDisabled();
-    expect(hostSettingsApi.getHostSettings).toHaveBeenCalledTimes(2);
-  });
-
   it('prompts for a host password when the apply needs elevation', async () => {
     hostSettingsApi.applyHostSettings
       .mockRejectedValueOnce(new HTTPError(403,'Forbidden',{

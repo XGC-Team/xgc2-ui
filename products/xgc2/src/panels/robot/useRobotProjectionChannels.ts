@@ -12,7 +12,6 @@ export const groundListMetricChannelIds = {
   position: 'vrpn.position',
   velocity: 'vrpn.velocity',
   speed: 'vrpn.speed',
-  acceleration: 'vrpn.acceleration',
   command: 'command.velocity',
   power: 'state.power',
   imu: 'state.imu',
@@ -22,24 +21,18 @@ export const groundListMetricChannelIds = {
 
 export const scoutInstrumentChannels = [
   'vrpn.position','vrpn.velocity','vrpn.speed','command.velocity',
-  'state.imu','state.power','state.health','state.chassis','diagnostic.stream-health',
+  'state.imu','state.power','state.health','state.chassis','state.controller','diagnostic.stream-health',
 ] as const;
 
-export const scoutListChannels = [
-  ...scoutInstrumentChannels,
-  groundListMetricChannelIds.acceleration,
-] as const;
+export const scoutListChannels = scoutInstrumentChannels;
 
 /** Mecanum has IMU, PowerVoltage, health, and cmd_vel. It has no chassis_state. */
 export const mecanumInstrumentChannels = [
   'vrpn.position','vrpn.velocity','vrpn.speed','command.velocity',
-  'state.imu','state.power','state.health','diagnostic.stream-health',
+  'state.imu','state.power','state.health','state.controller','diagnostic.stream-health',
 ] as const;
 
-export const mecanumListChannels = [
-  ...mecanumInstrumentChannels,
-  groundListMetricChannelIds.acceleration,
-] as const;
+export const mecanumListChannels = mecanumInstrumentChannels;
 
 export function groundRobotTelemetryChannels(
   robot: Pick<RobotPanelItem,'kind' | 'mecanum'>,
@@ -54,13 +47,13 @@ export function groundRobotTelemetryChannels(
 // If the product model telemetry table is missing, still subscribe to MAVROS
 // local pose/velocity/flight so the HUD is not an empty `--` board.
 const fallbackPx4InstrumentChannels = [
-  'state.flight','state.pose','state.velocity','state.imu','state.power','state.health',
+  'state.flight','state.controller','state.pose','state.velocity','state.imu','state.power','state.health',
   'state.mocap.pose','state.mocap.velocity','state.mocap.speed','state.localization.error',
   'setpoint.local','diagnostic.fcu-link','diagnostic.stream-health',
 ] as const;
 
 const fallbackPx4ListChannels = [
-  'state.flight','state.pose','state.velocity','state.power','state.health',
+  'state.flight','state.controller','state.pose','state.velocity','state.power','state.health',
   'state.mocap.pose','state.mocap.velocity','state.mocap.speed','state.localization.error',
   'setpoint.local','diagnostic.fcu-link','diagnostic.stream-health',
 ] as const;
@@ -101,11 +94,13 @@ export function requiredPX4ProjectionModelId(robot: Pick<RobotPanelItem,'kind' |
   return modelId;
 }
 
-export function useRobotProjectionChannels({ targetId,runId,robot,instrument }: {
+export function useRobotProjectionChannels({ targetId,runId,robot,instrument,parked = false }: {
   targetId: string;
   runId?: string;
   robot: RobotPanelItem;
   instrument: boolean;
+  /** The card is mounted on a surface the operator cannot see. */
+  parked?: boolean;
 }) {
   const composition = useRobotAssetKindComposition();
   const status = useRunRobotStatus(targetId, runId, robot.id);
@@ -121,6 +116,7 @@ export function useRobotProjectionChannels({ targetId,runId,robot,instrument }: 
     robot.id,
     channelIdsForRobot(robot, instrument, px4Telemetry, kindProjection),
     'compact',
+    parked,
   );
   const value = (channelId: string) => channels[channelId]?.value ?? {};
   const optionalValue = (channelId?: string) => channelId ? value(channelId) : {};
@@ -166,6 +162,7 @@ export function useRobotProjectionChannels({ targetId,runId,robot,instrument }: 
     healthChannel: channels['state.health'],
     health: value('state.health'),
     chassis: value('state.chassis'),
+    controller: value('state.controller'),
     locomotion: value('state.locomotion'),
     joints: value('state.joints'),
     mocap: px4Telemetry?.mocapPoseChannelId

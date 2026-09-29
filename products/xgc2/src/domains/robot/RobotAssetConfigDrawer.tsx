@@ -51,6 +51,7 @@ import {
 } from './robotAssetKindComposition';
 import { useRobotAssetKindComposition } from './useRobotAssetKindComposition';
 import { useRobotText } from './robotMessages';
+import { RobotSimulationImages } from './RobotSimulationImages';
 
 /**
  * Lab companion-computer SSH account (username and password are the same value).
@@ -487,6 +488,10 @@ export function RobotAssetConfigDrawer({
             )}
           </>
         )}
+        <RobotSimulationImages
+          kind={contributed?.wire.protocolKind ?? ''}
+          model={draft.kind === 'px4' ? draft.modelId : undefined}
+        />
       </form>
     </ConfigDrawer>
   );
@@ -680,6 +685,10 @@ function specFromDraft(
         simulationLocalPort: Number(draft.simulationLocalPort),
         simulationRemotePort: Number(draft.simulationRemotePort),
         simulation,
+        ...(document && isPX4RobotAsset(document.spec) && document.spec.px4.modelId === draft.modelId
+          && document.spec.px4.simulationSetup
+          ? { simulationSetup: document.spec.px4.simulationSetup }
+          : {}),
       },
     };
   }
@@ -721,7 +730,7 @@ function specFromDraft(
 
 /**
  * Next free index for the selected robot kind.
- * PX4 uses MAV system IDs; other kinds use that kind's fleet count and
+ * PX4 uses MAV system IDs; other kinds use that kind's swarm count and
  * trailing numbers already used in names / identity fields.
  */
 function nextSequence(

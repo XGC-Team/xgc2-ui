@@ -22,18 +22,22 @@ const routeState = vi.hoisted(() => ({
   pageSections: { system: 'overview' } as Record<string,string>,
   managedHostId: 'local',
   managedHosts: [] as ManagedHost[],
-  page: 'home',
+  page: 'experiment',
   language: 'en-US' as const,
   requestedPermissionPage: vi.fn(),
+  routeRenders: { operations: 0,experiment: 0 },
 }));
 
 vi.mock('./navigationContext', () => ({
-  useNavigation: () => ({
+  useNavigation: (select?: (state: never) => unknown) => {
+    const navigationState = ({
     managedHostId: routeState.managedHostId,
     page: routeState.page,
     language: routeState.language,
     pageSection: (page: string) => routeState.pageSections[page] ?? '',
-  }),
+  });
+    return select ? select(navigationState as never) : navigationState;
+  },
 }));
 
 vi.mock('../domains/managedHost/managedHostPublic', async (importOriginal) => {
@@ -53,12 +57,11 @@ vi.mock('./useTargetCore', () => ({
   },
 }));
 
-vi.mock('../domains/home/HomeRoute', () => ({
-  HomeRoute: () => <div data-testid="home-route">Home route</div>,
-}));
-
 vi.mock('../domains/experiment/ExperimentRoute', () => ({
-  ExperimentRoute: () => <div data-testid="experiment-route">Experiment route</div>,
+  ExperimentRoute: () => {
+    routeState.routeRenders.experiment += 1;
+    return <div data-testid="experiment-route">Experiment route</div>;
+  },
 }));
 
 vi.mock('../domains/toolbox/ToolboxRoute', () => ({
@@ -70,7 +73,10 @@ vi.mock('../domains/host/HostRoute', () => ({
 }));
 
 vi.mock('../domains/execution/OperationsRoute', () => ({
-  OperationsRoute: () => <div data-testid="operations-route">Operations route</div>,
+  OperationsRoute: () => {
+    routeState.routeRenders.operations += 1;
+    return <div data-testid="operations-route">Operations route</div>;
+  },
 }));
 
 vi.mock('../domains/audit/tasklogs/TaskLogsRoute', () => ({
@@ -93,9 +99,10 @@ describe('AppRoutes', () => {
     routeState.pageSections = { system: 'overview' };
     routeState.managedHostId = 'local';
     routeState.managedHosts = [];
-    routeState.page = 'home';
+    routeState.page = 'experiment';
     routeState.language = 'en-US';
     routeState.requestedPermissionPage.mockClear();
+    routeState.routeRenders = { operations: 0,experiment: 0 };
     document.querySelector('[data-xgc-role="product-web-bootstrap-status"]')?.remove();
   });
 
@@ -161,11 +168,19 @@ describe('AppRoutes', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('This page could not load.');
   });
 
-  it('renders the direct Home route without requiring a Suspense fallback', async () => {
-    routeState.page = 'home';
-    renderRoutes();
+  it('renders a direct route component without requiring a Suspense fallback', async () => {
+    const composition = {
+      ...productWebComposition,
+      routes: productWebComposition.routes.map((route) => (
+        route.page === 'experiment'
+          ? { ...route,component: DirectExperimentRoute }
+          : route
+      )),
+    };
+    routeState.page = 'experiment';
+    renderRoutes(composition);
 
-    expect(await screen.findByTestId('home-route')).toBeInTheDocument();
+    expect(await screen.findByTestId('experiment-route')).toBeInTheDocument();
     expect(screen.queryByRole('status', { name: 'Loading workspace' })).not.toBeInTheDocument();
   });
 
@@ -174,24 +189,24 @@ describe('AppRoutes', () => {
     const view = renderRoutes();
     expect(await screen.findByTestId('experiment-route')).toBeInTheDocument();
 
-    routeState.page = 'home';
+    routeState.page = 'operations';
     view.rerender(
       <ProductWebCompositionProvider composition={productWebComposition}>
         <AppRoutes />
       </ProductWebCompositionProvider>,
     );
 
-    expect(await screen.findByTestId('home-route')).toBeInTheDocument();
+    expect(await screen.findByTestId('operations-route')).toBeInTheDocument();
     expect(screen.getByTestId('experiment-route')).toBeInTheDocument();
     const parked = screen.getByTestId('experiment-route').closest('[data-xgc-role="experiment-route-surface"]');
     expect(parked).toHaveAttribute('hidden');
     expect(parked).not.toHaveClass('xgc-workspace-full-span');
   });
 
-  it('keeps Home parked while Experiment is the visible workspace', async () => {
-    routeState.page = 'home';
+  it('keeps Operations parked while Experiment is the visible workspace', async () => {
+    routeState.page = 'operations';
     const view = renderRoutes();
-    expect(await screen.findByTestId('home-route')).toBeInTheDocument();
+    expect(await screen.findByTestId('operations-route')).toBeInTheDocument();
 
     routeState.page = 'experiment';
     view.rerender(
@@ -201,10 +216,36 @@ describe('AppRoutes', () => {
     );
 
     expect(await screen.findByTestId('experiment-route')).toBeInTheDocument();
-    expect(screen.getByTestId('home-route')).toBeInTheDocument();
-    expect(screen.getByTestId('home-route').closest('[data-xgc-role="product-route-surface"]')).toHaveAttribute('hidden');
+    expect(screen.getByTestId('operations-route')).toBeInTheDocument();
+    expect(screen.getByTestId('operations-route').closest('[data-xgc-role="product-route-surface"]')).toHaveAttribute('hidden');
     expect(screen.getByTestId('experiment-route').closest('[data-xgc-role="experiment-route-surface"]'))
       .toHaveAttribute('data-xgc-route-revealed', 'true');
+  });
+
+  it('does not re-render parked pages for navigation that leaves them unchanged', async () => {
+    routeState.page = 'experiment';
+    const view = renderRoutes();
+    expect(await screen.findByTestId('experiment-route')).toBeInTheDocument();
+    routeState.page = 'operations';
+    const rerender = () => view.rerender(
+      <ProductWebCompositionProvider composition={productWebComposition}>
+        <AppRoutes />
+      </ProductWebCompositionProvider>,
+    );
+    rerender();
+    expect(await screen.findByTestId('operations-route')).toBeInTheDocument();
+    const before = { ...routeState.routeRenders };
+
+    // Another page's section changes: neither visited page is affected.
+    routeState.pageSections = { system: 'files' };
+    rerender();
+    // Switching pages flips visibility; the pages' own content is unchanged.
+    routeState.page = 'experiment';
+    rerender();
+
+    expect(screen.getByTestId('experiment-route').closest('[data-xgc-role="experiment-route-surface"]'))
+      .toHaveAttribute('data-xgc-route-revealed', 'true');
+    expect(routeState.routeRenders).toEqual(before);
   });
 
   it('switches immediately and covers the destination until it is ready', async () => {
@@ -214,9 +255,9 @@ describe('AppRoutes', () => {
         route.page === 'experiment' ? { ...route,component: DeferredExperimentRoute } : route
       )),
     };
-    routeState.page = 'home';
+    routeState.page = 'operations';
     const view = renderRoutes(composition);
-    expect(await screen.findByTestId('home-route')).toBeInTheDocument();
+    expect(await screen.findByTestId('operations-route')).toBeInTheDocument();
 
     routeState.page = 'experiment';
     view.rerender(
@@ -226,7 +267,7 @@ describe('AppRoutes', () => {
     );
 
     expect(await screen.findByTestId('experiment-route')).toBeInTheDocument();
-    expect(screen.getByTestId('home-route').closest('[data-xgc-role="product-route-surface"]'))
+    expect(screen.getByTestId('operations-route').closest('[data-xgc-role="product-route-surface"]'))
       .toHaveAttribute('hidden');
     expect(screen.getByTestId('experiment-route').closest('[data-xgc-role="experiment-route-surface"]'))
       .toHaveAttribute('hidden');
@@ -239,7 +280,7 @@ describe('AppRoutes', () => {
       expect(screen.getByTestId('experiment-route').closest('[data-xgc-role="experiment-route-surface"]'))
         .toHaveAttribute('data-xgc-route-revealed', 'true');
     });
-    expect(screen.getByTestId('home-route').closest('[data-xgc-role="product-route-surface"]')).toHaveAttribute('hidden');
+    expect(screen.getByTestId('operations-route').closest('[data-xgc-role="product-route-surface"]')).toHaveAttribute('hidden');
     expect(screen.queryByRole('status', { name: 'Loading workspace' })).not.toBeInTheDocument();
   });
 
@@ -277,9 +318,9 @@ describe('AppRoutes', () => {
 
     renderRoutes();
 
-    expect(await screen.findByTestId('home-route')).toBeInTheDocument();
+    expect(await screen.findByTestId('experiment-route')).toBeInTheDocument();
     expect(screen.queryByText(/profile does not enable product\.app-store/)).not.toBeInTheDocument();
-    expect(routeState.requestedPermissionPage).toHaveBeenCalledWith('home');
+    expect(routeState.requestedPermissionPage).toHaveBeenCalledWith('experiment');
   });
 
   it('guards System Maintenance with the maintenance profile surface', async () => {
@@ -420,6 +461,10 @@ function renderRoutes(composition = productWebComposition) {
       <AppRoutes />
     </ProductWebCompositionProvider>,
   );
+}
+
+function DirectExperimentRoute() {
+  return <div data-testid="experiment-route">Experiment route</div>;
 }
 
 function DeferredExperimentRoute() {

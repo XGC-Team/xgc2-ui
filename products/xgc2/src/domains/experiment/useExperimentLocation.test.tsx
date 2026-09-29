@@ -186,7 +186,7 @@ describe('useExperimentLocation', () => {
       ({ page }) => useExperimentLocation(page),
       { initialProps: { page: 'experiment' } },
     );
-    rerender({ page: 'home' });
+    rerender({ page: 'robotAssets' });
     act(() => {
       window.history.replaceState(null, '', '/');
       window.dispatchEvent(new HashChangeEvent('hashchange'));

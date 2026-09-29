@@ -9,6 +9,9 @@ const service = vi.hoisted(() => ({
   remove: vi.fn(),
 }));
 
+const route = vi.hoisted(() => ({ visible: true }));
+vi.mock('../../shared/routeReady', () => ({ useProductRouteVisible: () => route.visible }));
+
 vi.mock('../recording/recordingPublic', () => ({
   listRecordings: service.list,
   downloadRecording: service.download,
@@ -20,6 +23,7 @@ function recording(id: string, extra: Record<string, unknown> = {}) {
 }
 
 beforeEach(() => {
+  route.visible = true;
   vi.clearAllMocks();
   service.list.mockResolvedValue([recording('a.webm'), recording('b.webm')]);
   service.download.mockResolvedValue(new Blob(['video']));
@@ -35,6 +39,14 @@ describe('useRecordingLibrary', () => {
     expect(service.list).toHaveBeenCalledOnce();
     expect(result.current.recordings.map((item) => item.id)).toEqual(['a.webm', 'b.webm']);
     expect(result.current.error).toBe('');
+  });
+
+  it('settles the initial read before a parked route is revealed', async () => {
+    route.visible = false;
+    const { result } = renderHook(() => useRecordingLibrary());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(service.list).toHaveBeenCalledOnce();
+    expect(result.current.recordings).toHaveLength(2);
   });
 
   it('keeps the newest refresh result when an earlier list request settles last', async () => {
@@ -63,6 +75,38 @@ describe('useRecordingLibrary', () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
     act(() => result.current.setQuery('B.WEB'));
     expect(result.current.filtered.map((item) => item.id)).toEqual(['b.webm']);
+  });
+
+  it('finds recordings by experiment or directory without selecting a different video', async () => {
+    service.list.mockResolvedValue([recording('clip.mp4', { relativePath:'Experiments/TASE-4UGVs/Runs/2026-09-20_simulation/ScreenRecording/clip.mp4' })]);
+    const { result } = renderHook(() => useRecordingLibrary());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    act(() => result.current.select('clip.mp4'));
+    act(() => result.current.setQuery('tase-4ugvs'));
+    expect(result.current.filtered.map((item) => item.id)).toEqual(['clip.mp4']);
+    act(() => result.current.setQuery('simulation'));
+    expect(result.current.filtered).toHaveLength(1);
+    expect(result.current.selectedId).toBe('clip.mp4');
+  });
+
+  it('refreshes when returning from an experiment while preserving playback and search', async () => {
+    const { result,rerender } = renderHook(() => useRecordingLibrary());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    act(() => result.current.select('a.webm'));
+    await waitFor(() => expect(result.current.playbackUrl).toBe('blob:playback'));
+    act(() => result.current.setQuery('webm'));
+    route.visible = false;
+    rerender();
+    expect(service.list).toHaveBeenCalledTimes(1);
+    service.list.mockResolvedValue([recording('new.webm'),recording('a.webm')]);
+    route.visible = true;
+    rerender();
+    await waitFor(() => expect(result.current.recordings[0]?.id).toBe('new.webm'));
+    expect(service.list).toHaveBeenCalledTimes(2);
+    expect(result.current.selectedId).toBe('a.webm');
+    expect(result.current.query).toBe('webm');
+    expect(result.current.playbackUrl).toBe('blob:playback');
+    expect(service.download).toHaveBeenCalledOnce();
   });
 
   it('downloads a blob playback URL for the selected recording', async () => {

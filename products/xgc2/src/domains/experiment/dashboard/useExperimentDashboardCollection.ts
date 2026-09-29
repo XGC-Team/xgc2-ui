@@ -1,4 +1,5 @@
 import { useEffect,useMemo,useState } from 'react';
+import { useStableCallback } from '../../../hooks/useStableCallback';
 import {
   clipExperimentDashboardTabName,
   CONFIG_DASHBOARD_ID,
@@ -106,16 +107,27 @@ export function useExperimentDashboardCollection({
     commitSelectedDashboardId(next);
   }
 
-  return {
+  const stableSelect = useStableCallback(select);
+  const stableCreate = useStableCallback(create);
+  const stableRename = useStableCallback(rename);
+  const stableReorder = useStableCallback(reorder);
+  const stableRequestDelete = useStableCallback(requestDelete);
+  const cancelDelete = useStableCallback(() => setDeleteTarget(null));
+  const stableConfirmDelete = useStableCallback(confirmDelete);
+
+  return useMemo(() => ({
     items,
     selected,
-    select,
-    create,
-    rename,
-    reorder,
+    select: stableSelect,
+    create: stableCreate,
+    rename: stableRename,
+    reorder: stableReorder,
     deleteTarget,
-    requestDelete,
-    cancelDelete: () => setDeleteTarget(null),
-    confirmDelete,
-  };
+    requestDelete: stableRequestDelete,
+    cancelDelete,
+    confirmDelete: stableConfirmDelete,
+  }),[
+    cancelDelete,deleteTarget,items,selected,stableConfirmDelete,stableCreate,stableRename,
+    stableReorder,stableRequestDelete,stableSelect,
+  ]);
 }

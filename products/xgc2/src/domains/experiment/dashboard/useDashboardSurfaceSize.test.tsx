@@ -6,16 +6,18 @@ import { useDashboardSurfaceSize } from './useDashboardSurfaceSize';
 
 class ResizeObserverStub {
   callback: ResizeObserverCallback;
+  target?: Element;
   static last: ResizeObserverStub | null = null;
   constructor(callback: ResizeObserverCallback) {
     this.callback = callback;
     ResizeObserverStub.last = this;
   }
-  observe() {}
+  observe(target: Element) { this.target=target; }
   unobserve() {}
   disconnect() {}
   fire() {
-    this.callback([] as unknown as ResizeObserverEntry[], this as unknown as ResizeObserver);
+    const node=this.target as HTMLElement;
+    this.callback([{ target:node,contentRect:{ width:node.clientWidth,height:node.clientHeight } }] as unknown as ResizeObserverEntry[], this as unknown as ResizeObserver);
   }
 }
 
@@ -52,13 +54,28 @@ describe('useDashboardSurfaceSize', () => {
     return { view, node, sidebar, sizes, frames, flush };
   }
 
-  it('does not mark the surface mounted until width and height are both nonzero', () => {
+  it('waits for a measurable first layout and retains panel state while the tab is hidden', () => {
     const { view, node, sizes, flush } = renderSizeHarness();
     Object.defineProperty(node, 'clientWidth', { configurable: true, value: 0 });
     Object.defineProperty(node, 'clientHeight', { configurable: true, value: 0 });
     act(() => ResizeObserverStub.last?.fire());
     flush();
     expect(sizes.at(-1)).toMatchObject({ width: 0, height: 0, mounted: false });
+    Object.defineProperty(node, 'clientWidth', { configurable: true, value: 800 });
+    Object.defineProperty(node, 'clientHeight', { configurable: true, value: 400 });
+    act(() => ResizeObserverStub.last?.fire());
+    flush();
+    expect(sizes.at(-1)).toMatchObject({ width: 800, height: 400, mounted: true });
+    Object.defineProperty(node, 'clientWidth', { configurable: true, value: 0 });
+    Object.defineProperty(node, 'clientHeight', { configurable: true, value: 0 });
+    act(() => ResizeObserverStub.last?.fire());
+    flush();
+    expect(sizes.at(-1)).toMatchObject({ width: 800, height: 400, mounted: true });
+    Object.defineProperty(node, 'clientWidth', { configurable: true, value: 920 });
+    Object.defineProperty(node, 'clientHeight', { configurable: true, value: 500 });
+    act(() => ResizeObserverStub.last?.fire());
+    flush();
+    expect(sizes.at(-1)).toMatchObject({ width: 920, height: 500, mounted: true });
     view.unmount();
     vi.unstubAllGlobals();
   });
@@ -104,6 +121,10 @@ describe('useDashboardSurfaceSize', () => {
     });
     expect(sizes.length).toBe(before);
     expect(frames).toHaveLength(1);
+    // Observer delivery already contains the latest measured size. Rendering
+    // must not synchronously remeasure the DOM after other frame writers.
+    Object.defineProperty(node,'clientWidth',{ configurable:true,get:() => { throw new Error('redundant layout read'); } });
+    Object.defineProperty(node,'clientHeight',{ configurable:true,get:() => { throw new Error('redundant layout read'); } });
     flush();
     expect(sizes.at(-1)?.width).toBe(1000);
     expect(node.style.width).toBe('');

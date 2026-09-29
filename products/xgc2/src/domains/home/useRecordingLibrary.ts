@@ -1,5 +1,6 @@
 import { useCallback,useEffect,useMemo,useRef,useState } from 'react';
 import { useLatestAsyncRequest } from '../../hooks/useLatestAsyncRequest';
+import { useProductRouteVisible } from '../../shared/routeReady';
 import { deleteRecording,downloadRecording,listRecordings,type RecordingFile } from '../recording/recordingPublic';
 
 export type RecordingLibrary = {
@@ -22,6 +23,7 @@ export type RecordingLibrary = {
 };
 
 export function useRecordingLibrary(): RecordingLibrary {
+  const visible = useProductRouteVisible();
   const [recordings, setRecordings] = useState<RecordingFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -35,6 +37,7 @@ export function useRecordingLibrary(): RecordingLibrary {
   const playbackUrlRef = useRef('');
   const playbackTokenRef = useRef(0);
   const removeInFlightRef = useRef(false);
+  const initialRequestStarted = useRef(false);
   const beginRefreshRequest = useLatestAsyncRequest('recording-library');
   const beginRemoveRequest = useLatestAsyncRequest('recording-library-remove');
 
@@ -61,8 +64,12 @@ export function useRecordingLibrary(): RecordingLibrary {
   }, [beginRefreshRequest]);
 
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    // A parked route must finish its first read before the ready owner reveals it.
+    if (visible || !initialRequestStarted.current) {
+      initialRequestStarted.current = true;
+      void refresh();
+    }
+  }, [refresh,visible]);
 
   // Release the last object URL when the library unmounts.
   useEffect(() => () => {
@@ -134,7 +141,7 @@ export function useRecordingLibrary(): RecordingLibrary {
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
     if (!needle) return recordings;
-    return recordings.filter((item) => item.name.toLowerCase().includes(needle));
+    return recordings.filter((item) => [item.name,item.relativePath,item.experimentName].some((value) => value?.toLowerCase().includes(needle)));
   }, [query, recordings]);
 
   const selected = useMemo(

@@ -1,5 +1,8 @@
 // @vitest-environment jsdom
 
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { fireEvent,render,screen } from '@testing-library/react';
 import { useState } from 'react';
 import { describe,expect,it,vi } from 'vitest';
@@ -141,6 +144,15 @@ describe('RobotAssetsPage', () => {
       .toHaveTextContent('/vrpn_client_node/robot-px4/pose');
     expect(px4Row.querySelector('[data-xgc-role="robot-asset-attr"][data-xgc-id="mavros-fcu"]'))
       .toHaveTextContent('udp://:9010@192.0.2.10:14550');
+    const cardCss = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'robot-assets.css'), 'utf8');
+    const body = cardCss.match(/\.robot-asset-card-body \{[^}]*\}/s)?.[0] ?? '';
+    const attrsRule = cardCss.match(/\.robot-asset-card-attrs \{[^}]*\}/s)?.[0] ?? '';
+    const actionsRule = cardCss.match(/\.robot-asset-card-actions \{[^}]*\}/s)?.[0] ?? '';
+    expect(body).toContain('display: contents;');
+    expect(attrsRule).toContain('grid-column: 1 / -1;');
+    expect(attrsRule).toContain('grid-row: 2;');
+    expect(actionsRule).toContain('grid-column: 2;');
+    expect(actionsRule).toContain('grid-row: 1;');
     expect(px4Row.querySelector('[data-xgc-role="robot-asset-attr"][data-xgc-id="ssh"]')).toBeNull();
 
     const scoutRow = row(container,'robot-scout');
@@ -324,6 +336,8 @@ describe('RobotAssetsPage', () => {
         />,
       );
       const connectivity = action(row(container,'robot-connectivity'),'robot-asset-connectivity');
+      expect(connectivity).toHaveClass('robot-asset-reachability');
+      expect(connectivity).toHaveAttribute('data-xgc-icon-only', 'true');
       expect(connectivity).toHaveAttribute('data-xgc-state',level);
       expect(connectivity).toHaveAttribute('data-xgc-tone',tone);
       expect(connectivity).toHaveAttribute('data-xgc-check-state','checked');
@@ -416,7 +430,7 @@ describe('RobotAssetsPage', () => {
       .toHaveTextContent('/vrpn_client_node/robot-reachable/pose');
   });
 
-  it('does not offer the local-fleet management diagnostic for Mocap Rotor', () => {
+  it('does not offer the local-swarm management diagnostic for Mocap Rotor', () => {
     const asset = robot('mocap-rotor-1','Mocap Rotor 01',{ kind: 'px4_multirotor' });
     if (!isPX4RobotAsset(asset)) throw new Error('expected PX4 fixture');
     asset.spec.profileId = PX4_MOCAP_ROTOR_PROFILE_ID;

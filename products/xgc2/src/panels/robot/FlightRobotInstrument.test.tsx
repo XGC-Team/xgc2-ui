@@ -11,6 +11,13 @@ import {
 } from './RobotListHeaderStatusModel';
 
 describe('FlightRobotInstrument', () => {
+  it('stamps the slot identity as a markable heading leaf', () => {
+    const { container } = renderInstrument(telemetry());
+    const identity = container.querySelector('[data-xgc-role="robot-instrument-identity"]');
+    expect(identity).toHaveAttribute('data-xgc-id', 'fs150-01');
+    expect(identity?.textContent).toBe('FS150 01');
+  });
+
   it('shows the live mode and armed values without MODE or ARM prefixes', () => {
     const { container } = renderInstrument(telemetry({
       flight: { connected: true,armed: false,mode: 'MANUAL' },
@@ -134,6 +141,21 @@ describe('FlightRobotInstrument', () => {
       .toHaveAttribute('data-xgc-tone','normal');
   });
 
+  it('shows the product controller string on the FS150 pedestal', () => {
+    const { container } = renderInstrument(telemetry({
+      flight: { connected: true,armed: false,mode: 'MANUAL' },
+      controller: { text: 'Hover' },
+      imu: { orientation: { x: 0,y: 0,z: 0,w: 1 } },
+      streamHealth: { channels: [
+        { channelId: 'state.imu',stale: false },
+        { channelId: 'state.controller',sourceRateHz: 5,stale: false },
+      ] },
+    }));
+    expect(container.querySelector('[data-xgc-role="robot-flight-stage"]')?.textContent).toBe('Hover');
+    expect(container.querySelector('[data-xgc-role="robot-flight-instrument"]'))
+      .toHaveAttribute('data-xgc-connection','connected');
+  });
+
   it('paints ARMED green and keeps DISARMED white on the UAV pedestal', () => {
     const armed = renderInstrument(telemetry({
       flight: { connected: true,armed: true,mode: 'MANUAL' },
@@ -155,6 +177,72 @@ describe('FlightRobotInstrument', () => {
     }));
     expect(missing.container.querySelector('[data-xgc-role="robot-flight-armed"]'))
       .toHaveAttribute('data-xgc-tone','normal');
+    missing.unmount();
+    const disconnected = renderInstrument(telemetry({
+      online: false,
+      connectionState: 'closed',
+      healthTone: 'unavailable',
+      flight: { connected: true,armed: false,mode: 'MANUAL',landedState: 1 },
+      imu: { orientation: { x: 0.035,y: 0,z: 0,w: 0.999 } },
+      power: { voltageV: 13.1,currentA: 0 },
+      localVelocity: { linear: { z: 0.4 } },
+      streamHealth: { channels: [
+        { channelId: 'state.imu',stale: false,sourceRateHz: 50 },
+        { channelId: 'state.power',stale: false,sourceRateHz: 1 },
+        { channelId: 'state.pose',sourceRateHz: 30 },
+      ] },
+    }));
+    expect(disconnected.container.querySelector('[data-xgc-role="robot-flight-armed"]')?.textContent)
+      .toBe('--');
+    expect(disconnected.container.querySelector('[data-xgc-role="robot-flight-mode"]')?.textContent)
+      .toBe('--');
+    expect(disconnected.container.querySelector('[data-xgc-role="robot-flight-stage"]')?.textContent)
+      .toBe('--');
+    expect(disconnected.container.querySelector('[data-xgc-role="robot-flight-armed"]'))
+      .toHaveAttribute('data-xgc-tone','normal');
+    expect(disconnected.container.querySelector('[data-xgc-role="robot-flight-instrument"]'))
+      .toHaveAttribute('data-xgc-attitude', 'unknown');
+    expect(disconnected.container.querySelector('[data-xgc-role="robot-flight-instrument"]'))
+      .not.toHaveAttribute('data-roll');
+    expect(disconnected.container.querySelector('[data-xgc-role="robot-flight-instrument"]'))
+      .not.toHaveAttribute('data-pitch');
+    const voltage = disconnected.container.querySelector('[data-xgc-role="robot-flight-battery-voltage"]');
+    expect(voltage?.textContent).toBe('VOLT-- V');
+    expect(voltage?.getAttribute('title')).toBe('Battery voltage: --');
+    expect(disconnected.container.querySelector(
+      '[data-xgc-role="robot-flight-frequency"][data-xgc-id="fs150-01:state.imu"] .robot-flight-frequency-value-compact',
+    )?.textContent).toBe('-- Hz');
+    expect(disconnected.container.querySelector('[data-xgc-role="robot-flight-climb"]')?.textContent)
+      .toMatch(/-- m\/s/);
+  });
+
+  it('shows live FCU MODE and ARM even when Adapter stream-health marks state.flight stale', () => {
+    const { container } = renderInstrument(telemetry({
+      flight: { connected: true,armed: false,mode: 'MANUAL' },
+      imu: { orientation: { x: 0,y: 0,z: 0,w: 1 } },
+      streamHealth: { channels: [
+        { channelId: 'state.flight',stale: true },
+        { channelId: 'state.imu',stale: false,sourceRateHz: 50 },
+      ] },
+    }));
+    expect(container.querySelector('[data-xgc-role="robot-flight-instrument"]'))
+      .toHaveAttribute('data-xgc-connection','connected');
+    expect(container.querySelector('[data-xgc-role="robot-flight-mode"]')?.textContent)
+      .toBe('MANUAL');
+    expect(container.querySelector('[data-xgc-role="robot-flight-armed"]')?.textContent)
+      .toBe('DISARMED');
+  });
+
+  it('hides HUD MODE and ARM when Core state.flight is stale', () => {
+    const { container } = renderInstrument(telemetry({
+      flight: { connected: true,armed: false,mode: 'MANUAL' },
+      flightChannelStale: true,
+      streamHealth: { channels: [{ channelId: 'state.imu',stale: false,sourceRateHz: 50 }] },
+    }));
+    expect(container.querySelector('[data-xgc-role="robot-flight-mode"]')?.textContent)
+      .toBe('--');
+    expect(container.querySelector('[data-xgc-role="robot-flight-armed"]')?.textContent)
+      .toBe('--');
   });
 
   it('omits the climb arrow inside the 0.1 m/s deadband', () => {
@@ -217,13 +305,13 @@ describe('FlightRobotInstrument', () => {
       .toEqual(['8.0 Hz','3.0 Hz','50.0 Hz','9.0 Hz']);
     expect([...container.querySelectorAll('.robot-flight-frequency-list strong')]
       .map((value) => value.getAttribute('data-xgc-tone')))
-      .toEqual(['danger','success','danger','danger']);
+      .toEqual(['normal','success','danger','normal']);
     expect(container.querySelector('[data-xgc-id="fs150-01:state.imu"]'))
-      .toHaveAttribute('data-xgc-alarm-hz','10');
+      .toHaveAttribute('data-xgc-alarm-hz','5');
     expect(container.querySelector('[data-xgc-id="fs150-01:state.mocap.pose"]'))
       .toHaveAttribute('data-xgc-alarm-hz','100');
     expect(container.querySelector('[data-xgc-id="fs150-01:state.pose"]'))
-      .toHaveAttribute('data-xgc-alarm-hz','15');
+      .toHaveAttribute('data-xgc-alarm-hz','5');
   });
 
   it('keeps missing XGC1 frequency values white and unit-bearing',() => {
@@ -249,7 +337,7 @@ describe('FlightRobotInstrument', () => {
     const imu = container.querySelector(
       '[data-xgc-role="robot-flight-frequency"][data-xgc-id="px4-03:state.imu"]',
     );
-    expect(imu).toHaveAttribute('title','IMU -- Hz; alarm below 10 Hz');
+    expect(imu).toHaveAttribute('title','IMU -- Hz; alarm below 5 Hz');
     expect(imu?.querySelector('.robot-flight-frequency-value-compact')?.textContent).toBe('-- Hz');
     expect(imu?.querySelector('.robot-flight-frequency-value-full')?.textContent).toBe('-- Hz');
     expect(imu?.querySelector('.robot-flight-frequency-value-compact')?.textContent).not.toBe('--Hz');
@@ -311,41 +399,51 @@ describe('FlightRobotInstrument', () => {
     expect(pos?.querySelector('strong')).toHaveAttribute('data-xgc-tone','danger');
   });
 
-  it('paints local position red strictly below 15 Hz and white at the floor', () => {
+  it('paints local position red strictly below 5 Hz and white at the floor', () => {
     const slow = renderInstrument(telemetry({
-      streamHealth:{ channels:[{ channelId:'state.pose',sourceRateHz:14.9 }] },
+      streamHealth:{ channels:[{ channelId:'state.pose',sourceRateHz:4.9 }] },
     }));
     const lp = slow.container.querySelector(
       '[data-xgc-role="robot-flight-frequency"][data-xgc-id="fs150-01:state.pose"]',
     );
     expect(lp).toHaveAttribute('data-xgc-stream','sensor');
-    expect(lp).toHaveAttribute('data-xgc-alarm-hz','15');
-    expect(lp).toHaveAttribute('title','LP 14.9 Hz; alarm below 15 Hz');
+    expect(lp).toHaveAttribute('data-xgc-alarm-hz','5');
+    expect(lp).toHaveAttribute('title','LP 4.9 Hz; alarm below 5 Hz');
     expect(lp?.querySelector('strong')).toHaveAttribute('data-xgc-tone','danger');
     slow.unmount();
     const live = renderInstrument(telemetry({
-      streamHealth:{ channels:[{ channelId:'state.pose',sourceRateHz:15 }] },
+      streamHealth:{ channels:[{ channelId:'state.pose',sourceRateHz:5 }] },
     }));
     expect(live.container.querySelector('[data-xgc-id="fs150-01:state.pose"] strong'))
       .toHaveAttribute('data-xgc-tone','normal');
+    const air = renderInstrument(telemetry({
+      streamHealth:{ channels:[{ channelId:'state.pose',sourceRateHz:14.9 }] },
+    }));
+    expect(air.container.querySelector('[data-xgc-id="fs150-01:state.pose"] strong'))
+      .toHaveAttribute('data-xgc-tone','normal');
   });
 
-  it('paints IMU red strictly below 10 Hz and white at the floor', () => {
+  it('paints FS150 IMU red strictly below 5 Hz and white at the floor', () => {
     const slow = renderInstrument(telemetry({
-      streamHealth:{ channels:[{ channelId:'state.imu',sourceRateHz:9.9 }] },
+      streamHealth:{ channels:[{ channelId:'state.imu',sourceRateHz:4.9 }] },
     }));
     const imu = slow.container.querySelector(
       '[data-xgc-role="robot-flight-frequency"][data-xgc-id="fs150-01:state.imu"]',
     );
     expect(imu).toHaveAttribute('data-xgc-stream','sensor');
-    expect(imu).toHaveAttribute('data-xgc-alarm-hz','10');
-    expect(imu).toHaveAttribute('title','IMU 9.9 Hz; alarm below 10 Hz');
+    expect(imu).toHaveAttribute('data-xgc-alarm-hz','5');
+    expect(imu).toHaveAttribute('title','IMU 4.9 Hz; alarm below 5 Hz');
     expect(imu?.querySelector('strong')).toHaveAttribute('data-xgc-tone','danger');
     slow.unmount();
     const live = renderInstrument(telemetry({
-      streamHealth:{ channels:[{ channelId:'state.imu',sourceRateHz:10 }] },
+      streamHealth:{ channels:[{ channelId:'state.imu',sourceRateHz:5 }] },
     }));
     expect(live.container.querySelector('[data-xgc-id="fs150-01:state.imu"] strong'))
+      .toHaveAttribute('data-xgc-tone','normal');
+    const jitter = renderInstrument(telemetry({
+      streamHealth:{ channels:[{ channelId:'state.imu',sourceRateHz:9.9 }] },
+    }));
+    expect(jitter.container.querySelector('[data-xgc-id="fs150-01:state.imu"] strong'))
       .toHaveAttribute('data-xgc-tone','normal');
     const rotor = render(
       <FlightRobotInstrument
@@ -384,13 +482,15 @@ describe('FlightRobotInstrument', () => {
     expect(pwr?.querySelector('strong')).toHaveAttribute('data-xgc-tone','normal');
   });
 
-  it('keeps all top status icons gray before a Run starts',() => {
+  it('keeps header icons independent before a Run instead of muting the cluster',() => {
     const { container } = renderInstrument(telemetry({
-      online:false,healthTone:'idle',flight:{},poseFresh:false,power:{},fcuLink:{},
+      online:false,connectionState:'inactive',healthTone:'idle',flight:{},poseFresh:false,power:{},fcuLink:{},
     }));
     expect([...container.querySelectorAll('.robot-instrument-status-glyph')]
       .map((glyph) => glyph.getAttribute('data-xgc-tone')))
-      .toEqual(['muted','muted','muted']);
+      .toEqual(['neutral','neutral','neutral']);
+    expect(container.querySelector('[data-xgc-role="robot-flight-instrument"]'))
+      .toHaveAttribute('data-xgc-connection','disconnected');
   });
 
   it('uses the same header glyph order as Ground HUD and list', () => {
@@ -416,8 +516,35 @@ describe('FlightRobotInstrument', () => {
     expect(positioning).toHaveAttribute('aria-label','VRPN positioning frozen');
   });
 
+  it('paints timed-out positioning at the same opacity as recovering connection', () => {
+    const { container } = renderInstrument(telemetry({
+      linkFresh: false,
+      flight: { connected: true,armed: false,mode: 'MANUAL' },
+      health: {
+        positioning: {
+          state: 'POSITIONING_STATE_TIMED_OUT',
+          reason: 'POSITIONING_REASON_VRPN_TIMEOUT',
+          observedAgeMs: 64_872,
+          windowSpreadM: 0,
+          sampleCount: 5,
+        },
+      },
+    }));
+    const network = container.querySelector('[data-xgc-role="robot-network-indicator"]');
+    const positioning = container.querySelector('[data-xgc-role="robot-position-indicator"]');
+    expect(network).toHaveAttribute('data-xgc-tone', 'danger');
+    expect(positioning).toHaveAttribute('data-xgc-tone', 'danger');
+    expect(positioning?.getAttribute('aria-label')).toContain('VRPN positioning timed out');
+    expect(positioning?.querySelector('path')).toHaveAttribute(
+      'opacity',
+      network?.querySelector('g')?.getAttribute('opacity'),
+    );
+    expect(positioning?.querySelector('path')).toHaveAttribute('opacity', '0.95');
+  });
+
   it('keeps ACTIVE positioning and battery on the same header contract as list', () => {
     const items = listHeaderStatusItems({
+      connection: 'connected',
       communication: px4CommunicationStatus({ roundTripTimeMs: 18, connected: true }),
       battery: {
         percentage: 80,voltageV: 22.1,
@@ -448,6 +575,7 @@ describe('FlightRobotInstrument', () => {
   it('puts flight stage on the pedestal and shows measured vision pose Hz on the right', () => {
     const { container } = renderInstrument(telemetry({
       flight:{ connected:true,armed:false,mode:'MANUAL',landedState:3 },
+      controller:{ text:'TakeoffInit' },
       pose:{ position:{ x:12.5,y:-3.25,z:4.75 } },
       localizationError:{ meters:0.123 },
       fcuLink:{ roundTripTimeMs:18.25 },
@@ -460,7 +588,7 @@ describe('FlightRobotInstrument', () => {
     const pedestal = [...container.querySelectorAll('.robot-flight-bottom-status > span')];
     expect(pedestal.map((row) => row.getAttribute('data-xgc-role')))
       .toEqual(['robot-flight-mode','robot-flight-stage','robot-flight-armed']);
-    expect(pedestal.map((row) => row.textContent)).toEqual(['MANUAL','TO','DISARMED']);
+    expect(pedestal.map((row) => row.textContent)).toEqual(['MANUAL','TakeoffInit','DISARMED']);
     const rows = [...container.querySelectorAll('.robot-flight-status-list > span')];
     expect(rows.map((row) => row.querySelector('small')?.textContent))
       .toEqual(['VIS','ERR','RTT','VOLT']);
@@ -474,7 +602,7 @@ describe('FlightRobotInstrument', () => {
     expect(vision?.querySelector('strong')?.getAttribute('data-xgc-tone')).toBe('normal');
     expect(container.querySelector(
       '[data-xgc-role="robot-flight-stage"][data-xgc-id="fs150-01"]',
-    )?.textContent).toBe('TO');
+    )?.textContent).toBe('TakeoffInit');
     expect(container.querySelector(
       '[data-xgc-role="robot-flight-position-error"][data-xgc-id="fs150-01"]',
     )?.textContent).toBe('ERR12.3 cm');
@@ -596,14 +724,26 @@ describe('FlightRobotInstrument', () => {
     expect(empty?.querySelector('strong')).toHaveAttribute('data-xgc-tone','normal');
   });
 
-  it('treats MAVROS connected as a normal communication link even without timesync', () => {
-    const { container } = renderInstrument(telemetry({
+  it('treats MAVROS connected without timesync as connected only when IMU is ready', () => {
+    const recovering = renderInstrument(telemetry({
       linkFresh: false,
       flight: { connected: true,armed: false,mode: 'MANUAL' },
     }));
+    expect(recovering.container.querySelector('[data-xgc-role="robot-network-indicator"]'))
+      .toHaveAttribute('data-xgc-tone','danger');
+    expect(recovering.container.querySelector('[data-xgc-role="robot-flight-instrument"]'))
+      .toHaveAttribute('data-xgc-connection','recovering');
+    recovering.unmount();
+    const { container } = renderInstrument(telemetry({
+      linkFresh: false,
+      flight: { connected: true,armed: false,mode: 'MANUAL' },
+      streamHealth: { channels: [{ channelId: 'state.imu',stale: false }] },
+      imu: { orientation: { x: 0,y: 0,z: 0,w: 1 } },
+    }));
     const connection = container.querySelector('[data-xgc-role="robot-network-indicator"]');
-    expect(connection?.getAttribute('data-xgc-tone')).not.toBe('danger');
-    expect(connection?.getAttribute('data-xgc-tone')).toBe('info');
+    expect(connection?.getAttribute('data-xgc-tone')).toBe('success');
+    expect(container.querySelector('[data-xgc-role="robot-flight-instrument"]'))
+      .toHaveAttribute('data-xgc-connection','connected');
     expect(connection?.querySelector('.robot-instrument-connection-glyph')).not.toBeNull();
     expect(connection?.querySelector('.robot-instrument-connection-icon small')).toBeNull();
     expect(connection?.querySelector('.robot-instrument-wifi-icon')).toBeNull();
@@ -646,6 +786,7 @@ function telemetry(overrides: Partial<FlightRobotInstrumentTelemetry> = {}): Fli
   return {
     presentation: 'fs150',
     online: true,
+    connectionState: 'live',
     linkFresh: true,
     poseFresh: true,
     mocapState: 'fresh',

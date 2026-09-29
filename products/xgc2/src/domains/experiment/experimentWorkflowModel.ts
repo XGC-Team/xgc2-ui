@@ -15,6 +15,8 @@ export type ExperimentWorkflowTarget = {
   actionPresetIds:readonly string[];
 };
 
+export type ExperimentPlacement = 'centralized' | 'per-robot';
+
 export type ExperimentRunView = {
   id:string;
   targetId:string;
@@ -22,6 +24,8 @@ export type ExperimentRunView = {
   automationResourceId:string;
   actionId:string;
   runMode:string;
+  /** Present only when the active Runner input named centralized or per-robot. */
+  placement?:ExperimentPlacement;
   panelId?:string;
   status:AutomationRunStatus;
   revision:number;
@@ -42,6 +46,8 @@ export type ExperimentSessionView = {
     id:string;
     targetId:string;
     experimentResourceId:string;
+    experimentCommitId?:string;
+    experimentDigest?:string;
     state:ExperimentSessionState;
     mode:'partial'|'full';
     runMode:string;

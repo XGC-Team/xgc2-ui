@@ -272,10 +272,58 @@ button.xgc-host-overview-table-row.xgc-host-overview-process-link:focus-visible 
   outline-offset: calc(-1 * var(--stroke-strong));
 }
 
-/* NIC: name | state | address | rx | tx — keep all five cells on one line */
-[data-xgc-role="system-overview-nics"] .xgc-host-overview-table-head,
-[data-xgc-role="system-overview-nics"] .xgc-host-overview-table-row {
-  grid-template-columns: minmax(3.5rem, 0.7fr) 2.5rem minmax(4.5rem, 1fr) repeat(2, minmax(5.25rem, 1fr));
+/*
+ * NIC: name | state | address | rx | tx on the shared SortableDataTable.
+ * Compact overview chrome matches the process tables: compact row height,
+ * panel header inset on the outer cells, one inter-column space-sm gap.
+ */
+[data-xgc-role="system-overview-nics"] {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  overflow: hidden;
+  font-variant-numeric: tabular-nums;
+}
+
+[data-xgc-role="system-overview-nics"] > table {
+  table-layout: fixed;
+}
+
+[data-xgc-role="system-overview-nics"] th,
+[data-xgc-role="system-overview-nics"] td {
+  box-sizing: border-box;
+  height: var(--size-control-compact);
+  padding: 0 calc(var(--space-sm) / 2);
+  border-bottom-color: var(--color-border-muted);
+  font-size: var(--type-table-cell-size);
+}
+
+[data-xgc-role="system-overview-nics"] th {
+  font-weight: var(--type-table-header-weight);
+  font-size: var(--type-table-header-size);
+}
+
+[data-xgc-role="system-overview-nics"] th:first-child,
+[data-xgc-role="system-overview-nics"] td:first-child {
+  padding-left: var(--space-panel-padding);
+}
+
+[data-xgc-role="system-overview-nics"] th:last-child,
+[data-xgc-role="system-overview-nics"] td:last-child {
+  padding-right: var(--space-panel-padding);
+}
+
+[data-xgc-role="system-overview-nics"] tbody tr:hover {
+  background: transparent;
+}
+
+/* Name flexes slightly narrower (0.7fr); state keeps its fixed rem track. */
+[data-xgc-role="system-overview-nics"] th:nth-child(1) {
+  width: 18%;
+}
+
+[data-xgc-role="system-overview-nics"] th:nth-child(2) {
+  width: 3rem;
 }
 
 /* Process: pid | name | metric | secondary — one complete row per process.
@@ -291,8 +339,9 @@ button.xgc-host-overview-table-row.xgc-host-overview-process-link:focus-visible 
 
 .xgc-host-overview-table-head {
   color: var(--color-text-muted);
-  font-size: var(--font-base);
+  font-size: var(--type-table-header-size);
   background: var(--color-bg-subtle, transparent);
+  font-weight: var(--type-table-header-weight);
 }
 
 .xgc-host-overview-table-row strong {
@@ -309,14 +358,4 @@ button.xgc-host-overview-table-row.xgc-host-overview-process-link:focus-visible 
 
 .xgc-host-overview-placeholder-row {
   color: var(--color-text-muted);
-}
-
-.xgc-host-overview-muted {
-  margin: 0;
-  padding: var(--space-lg) var(--space-panel-padding);
-  color: var(--color-text-muted);
-  background: var(--color-bg-surface);
-  border: var(--stroke-thin) solid var(--color-border);
-  border-radius: var(--radius-surface);
-  font-size: var(--font-base);
 }

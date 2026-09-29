@@ -64,6 +64,11 @@ describe('measuredReadyProgress', () => {
   it('fills a resident wait-node workflow green and a finite workflow from 0 to occupancy',() => {
     expect(workflowTileProgress({ active:true,failed:false,occupancy:{ state:'starting',ready:0,total:1 } }))
       .toMatchObject({ percent:0,value:0,max:1 });
+    expect(workflowTileProgress({ active:true,failed:false }))
+      .toEqual({ percent:100,value:1,max:1,...measuredReadyProgress });
+    expect(workflowTileProgress({
+      active:true,failed:false,occupancy:{ state:'starting',ready:0,total:0 },
+    })).toEqual({ percent:100,value:1,max:1,...measuredReadyProgress });
     expect(workflowTileProgress({ active:true,failed:false,occupancy:{ state:'running',ready:1,total:1 } }))
       .toEqual({ percent:100,value:1,max:1,...measuredReadyProgress });
     expect(workflowTileProgress({

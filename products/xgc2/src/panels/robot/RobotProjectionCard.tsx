@@ -1,11 +1,12 @@
 import { memo,useCallback,type KeyboardEvent,type PointerEvent } from 'react';
 import { StatusText } from '@xgc2/ui-react';
-import { experimentRobotSimulationSourceMark } from '../../domains/experiment/experimentPublic';
+import { experimentRobotSimulationSourceMark,useExperimentSurfaceVisible } from '../../domains/experiment/experimentPublic';
 import {
   requestRobotInstrumentSshJump,
   useRobotText,
 } from '../../domains/robot/robotPublic';
 import { checkRobotAssetReachability,useRobotAssetReachability } from '../../domains/robot/robotAssetPublic';
+import { useProductRouteVisible } from '../../shared/routeReady';
 import { RobotInstrumentDetail } from './RobotInstrumentDetail';
 import { RobotInstrumentProjection } from './RobotInstrumentProjection';
 import { RobotListProjection } from './RobotListProjection';
@@ -27,7 +28,13 @@ export const RobotProjectionCard = memo(function RobotProjectionCard({ targetId,
   onSelect: (robotId: string) => void;
 }) {
   const t = useRobotText();
-  const projection = useRobotProjectionChannels({ targetId,runId,robot,instrument });
+  // A parked route or hidden dashboard tab keeps the card mounted (DOM
+  // identity) but does not draw its 5 Hz telemetry until it is visible again.
+  const routeVisible = useProductRouteVisible();
+  const surfaceVisible = useExperimentSurfaceVisible();
+  const projection = useRobotProjectionChannels({
+    targetId,runId,robot,instrument,parked:!routeVisible || !surfaceVisible,
+  });
   const probe = useCallback((resourceId: string) => checkRobotAssetReachability(resourceId,
     assetTargetCoreId === 'local' ? undefined : { targetCoreId: assetTargetCoreId }), [assetTargetCoreId]);
   const reachability = useRobotAssetReachability(probe);

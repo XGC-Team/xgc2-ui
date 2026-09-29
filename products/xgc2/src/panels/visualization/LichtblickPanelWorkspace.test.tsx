@@ -15,6 +15,7 @@ import {
 import { ExperimentSurfaceVisibilityProvider } from '../../domains/experiment/experimentPublic';
 import { markLichtblickLayoutBootstrapped } from './lichtblickLayoutBootstrap';
 import { LichtblickWorkspacePanel } from './LichtblickPanelWorkspace';
+import { handoverWorkflowStartup } from '../../test/handoverWorkflowStartup';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -29,6 +30,11 @@ vi.stubGlobal('ResizeObserver',ResizeObserverStub);
 describe('LichtblickWorkspacePanel Action and Data ports',() => {
   beforeEach(() => {
     window.sessionStorage.clear();
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+      callback(0);
+      return 1;
+    });
+    vi.stubGlobal('cancelAnimationFrame', () => undefined);
     const style = document.createElement('style');
     style.dataset.xgcRole = 'lichtblick-workspace-test-css';
     style.textContent = readFileSync(
@@ -234,8 +240,8 @@ describe('LichtblickWorkspacePanel Action and Data ports',() => {
     const frame = screen.getByTitle('Lichtblick');
     const workspace = document.querySelector('[data-xgc-role="lichtblick-workspace"]') as HTMLElement;
     expect(workspace).toHaveAttribute('data-xgc-parked', 'false');
-    expect(screen.getByRole('status',{ name:'Preparing Lichtblick runtime' }))
-      .toHaveAttribute('data-xgc-role', 'lichtblick-embed-busy');
+    expect(document.querySelector('[data-xgc-role="lichtblick-empty-state"]')).not.toBeNull();
+    expect(screen.queryByRole('status',{ name:'Preparing Lichtblick runtime' })).toBeNull();
 
     view.rerender(renderWorkspace(false));
     expect(screen.getByTitle('Lichtblick')).toBe(frame);
@@ -262,7 +268,7 @@ describe('LichtblickWorkspacePanel Action and Data ports',() => {
     expect(document.querySelector('[data-xgc-role="lichtblick-workspace"]'))
       .toHaveAttribute('data-xgc-embed-held', 'true');
     expect(screen.queryByText('Lichtblick is stopped')).toBeNull();
-    expect(document.querySelector('[data-xgc-role="lichtblick-empty-state"]')).toBeNull();
+    expect(document.querySelector('[data-xgc-role="lichtblick-empty-state"]')).not.toBeNull();
   });
 
   it('keeps the viewer iframe mounted while the local workflow view is selected',() => {
@@ -280,11 +286,13 @@ describe('LichtblickWorkspacePanel Action and Data ports',() => {
     expect(document.querySelector('[data-xgc-role="lichtblick-header-leading"]')).toHaveAttribute('data-xgc-view', 'workflow');
     expect(document.querySelector('[data-xgc-role="lichtblick-workflow-slot"]')).not.toHaveAttribute('hidden');
     expect(document.querySelector('[data-xgc-role="lichtblick-workspace"]')).toHaveAttribute('data-xgc-visible-surface', 'workflow');
+    expect(document.querySelector('[data-xgc-role="lichtblick-empty-state"]')).toHaveAttribute('hidden');
 
     fireEvent.click(screen.getByRole('button',{ name:'Lichtblick content' }));
     expect(screen.getByTitle('Lichtblick')).toBe(frame);
     expect(frame).not.toHaveAttribute('hidden');
-    expect(document.querySelector('[data-xgc-role="lichtblick-workspace"]')).toHaveAttribute('data-xgc-visible-surface', 'lichtblick');
+    expect(document.querySelector('[data-xgc-role="lichtblick-workspace"]')).toHaveAttribute('data-xgc-visible-surface', 'empty');
+    expect(document.querySelector('[data-xgc-role="lichtblick-empty-state"]')).not.toHaveAttribute('hidden');
   });
 
   it('opens the visualization after its owned WebUI and bridge are ready',() => {
@@ -297,24 +305,69 @@ describe('LichtblickWorkspacePanel Action and Data ports',() => {
     expect(screen.getByTitle('Lichtblick')).toBeInTheDocument();
   });
 
-  it('does not open a WebSocket before its owned bridge is ready',() => {
+  it('waits for bridge readiness before first mount and holds the same iframe across bridge loss',() => {
+    const panel = panelFixture();
+    const view = render(<LichtblickPanelFrameProvider panel={panel}>
+      <LichtblickWorkspacePanel panel={panel} context={context(actionPort('running'),'running','starting')} />
+    </LichtblickPanelFrameProvider>);
+    expect(screen.queryByTitle('Lichtblick')).toBeNull();
+    const workspace = document.querySelector('[data-xgc-role="lichtblick-workspace"]');
+    expect(workspace).toHaveAttribute('data-xgc-web-ready','true');
+    expect(workspace).toHaveAttribute('data-xgc-bridge-ready','false');
+    expect(document.querySelector('[data-xgc-role="lichtblick-empty-state"]')).not.toBeNull();
+    expect(document.querySelector('[data-xgc-role="lichtblick-empty-state-stage"][data-xgc-id="lichtblick:bridge"]'))
+      .toHaveAttribute('data-xgc-status','active');
+
+    view.rerender(<LichtblickPanelFrameProvider panel={panel}>
+      <LichtblickWorkspacePanel panel={panel} context={context(actionPort('running'),'running','ready')} />
+    </LichtblickPanelFrameProvider>);
+    const frame = screen.getByTitle('Lichtblick');
+    expect(document.querySelector('[data-xgc-role="lichtblick-empty-state"]')).not.toBeNull();
+
+    view.rerender(<LichtblickPanelFrameProvider panel={panel}>
+      <LichtblickWorkspacePanel panel={panel} context={context(actionPort('running'),'running','starting')} />
+    </LichtblickPanelFrameProvider>);
+    expect(screen.getByTitle('Lichtblick')).toBe(frame);
+    expect(workspace).toHaveAttribute('data-xgc-bridge-ready','false');
+    expect(workspace).toHaveAttribute('data-xgc-embed-held','true');
+  });
+
+  it('hands the viewer over only after three ready marks and both rails have played', async () => {
     const panel = panelFixture();
     render(<LichtblickPanelFrameProvider panel={panel}>
       <LichtblickPanelHeaderLeading panel={panel} editing={false} />
       <LichtblickPanelHeaderActions panel={panel} editing={false} />
-      <LichtblickWorkspacePanel panel={panel} context={context(actionPort('running'),'running','starting')} />
+      <LichtblickWorkspacePanel panel={panel} context={context(actionPort('running'),'running')} />
     </LichtblickPanelFrameProvider>);
-    expect(screen.queryByTitle('Lichtblick')).toBeNull();
-    expect(screen.queryByText('Lichtblick is stopped')).toBeNull();
-    expect(screen.queryByText('Preparing Lichtblick runtime')).toBeNull();
-    const empty = document.querySelector('[data-xgc-role="lichtblick-empty-state"]') as HTMLElement;
-    expect(empty).toHaveAttribute('data-state','starting');
-    expect(empty.querySelector('.xgc-workspace-busy-ring')).toBeNull();
+    expect(screen.getByTitle('Lichtblick')).toBeInTheDocument();
+    expect(document.querySelector('[data-xgc-role="lichtblick-workspace"]'))
+      .toHaveAttribute('data-xgc-visible-surface', 'empty');
     expect(document.querySelector('[data-xgc-role="lichtblick-empty-state-stage"][data-xgc-id="lichtblick:run"]'))
       .toHaveAttribute('data-xgc-status','ready');
+    expect(document.querySelector('[data-xgc-role="lichtblick-empty-state-stage"][data-xgc-id="lichtblick:viewer"]'))
+      .toHaveAttribute('data-xgc-status','ready');
     expect(document.querySelector('[data-xgc-role="lichtblick-empty-state-stage"][data-xgc-id="lichtblick:bridge"]'))
-      .toHaveAttribute('data-xgc-status','active');
-    expect(empty.querySelector('.workflow-startup-pipeline-rail[data-sending="true"]')).not.toBeNull();
+      .toHaveAttribute('data-xgc-status','ready');
+    expect(document.querySelector('[data-xgc-role="lichtblick-empty-state"]'))
+      .toHaveAttribute('data-xgc-generation','run-1');
+    expect(document.querySelector('[data-xgc-role="lichtblick-empty-state"]'))
+      .toHaveAttribute('data-xgc-facts-ready','true');
+    await handoverWorkflowStartup('lichtblick-empty-state');
+    expect(document.querySelector('[data-xgc-role="lichtblick-workspace"]'))
+      .toHaveAttribute('data-xgc-visible-surface', 'lichtblick');
+    expect(document.querySelector('[data-xgc-role="lichtblick-workspace"]'))
+      .toHaveAttribute('data-xgc-startup-presented', 'true');
+    expect(screen.getByTitle('Lichtblick')).not.toHaveAttribute('hidden');
+  });
+
+  it('shows a failed workflow instead of waiting for a new run forever',() => {
+    const action = { ...actionPort('running'),activeInvocation:undefined,
+      latestInvocation:{ id:'run-1',status:'failed' as const,revision:2 } };
+    render(<LichtblickPanelFrameProvider panel={panelFixture()}>
+      <LichtblickWorkspacePanel panel={panelFixture()} context={context(action)} />
+    </LichtblickPanelFrameProvider>);
+    expect(document.querySelector('[data-xgc-role="lichtblick-empty-state-stage"][data-xgc-id="lichtblick:run"]'))
+      .toHaveAttribute('data-xgc-status','failed');
   });
 
   it('keeps a connected runtime error on the run stage instead of dumping fetch text',() => {

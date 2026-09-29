@@ -1,12 +1,12 @@
-import { useCallback,useEffect,useRef,useState } from 'react';
+import { useCallback,useEffect,useMemo,useRef,useState } from 'react';
 import { flushSync } from 'react-dom';
-import type { AutomationRunControl,AutomationRunDetail } from '../../automation/automationPublic';
+import type { AutomationRunControl,AutomationRunDetail,AutomationStopRunSetResponse } from '../../automation/automationPublic';
 import { useGroundStationErrorNotification } from '../../groundStationInteraction/groundStationInteractionPublic';
 import { type ExperimentDocument } from '../experimentModel';
 import {
   SYSTEM_EXPERIMENT_RUNNER,
 } from '../experimentWorkflowService';
-import type { ExperimentRunView,ExperimentSessionView } from '../experimentWorkflowModel';
+import type { ExperimentPlacement,ExperimentRunView,ExperimentSessionView } from '../experimentWorkflowModel';
 import { createExperimentRobotBindingActions } from './experimentRobotBindingActions';
 import { createExperimentWorkflowPresetActions } from './experimentWorkflowPresetActions';
 import { emptyActionState,messageOf } from './experimentDashboardActionMessages';
@@ -20,6 +20,7 @@ export type ExperimentRuntimeProjection = {
   activeRun?: ExperimentRunView;
   activeRuns?: readonly ExperimentRunView[];
   sessionActive?: boolean;
+  occupancyActive?: boolean;
   sessionViews?:readonly ExperimentSessionView[];
   runDetailsById?: Readonly<Record<string,AutomationRunDetail>>;
   observedRunIds?: ReadonlySet<string>;
@@ -36,6 +37,10 @@ export type DashboardActionState = {
   pendingRun?: ExperimentRunView;
 };
 
+const EMPTY_SESSION_VIEWS: readonly ExperimentSessionView[] = [];
+const EMPTY_RUN_DETAILS: Readonly<Record<string,AutomationRunDetail>> = {};
+const TERMINAL_RUN_STATUSES = ['succeeded','failed','canceled','stopped','rejected'] as readonly string[];
+
 /**
  * Experiment lifecycle is the lifecycle of the exact Experiment-sourced
  * System Runner Automation root. Session children remain ordinary Automation
@@ -50,6 +55,8 @@ export function useExperimentDashboardActions({
   startPanelWorkflow,
   invokePanelActionWorkflow,
   stopPanelActionWorkflow,
+  restartWorkflow,
+  placement,
   saveExperimentDraft,
   applyExperimentDraft,
   beginExperimentEdit,
@@ -62,14 +69,17 @@ export function useExperimentDashboardActions({
   runtimeProjection: ExperimentRuntimeProjection;
   executionTargetId?: string;
   startWorkflow: (
-    targetId: string,experiment: ExperimentDocument,runMode: string,
+    targetId: string,experiment: ExperimentDocument,runMode: string,placement?: ExperimentPlacement,
   ) => Promise<ExperimentRunView>;
   stopWorkflow: (
     targetId: string,experiment: ExperimentDocument,
   ) => Promise<unknown>;
+  restartWorkflow?: (
+    targetId: string,experiment: ExperimentDocument,runMode: string,placement?: ExperimentPlacement,
+  ) => Promise<ExperimentRunView>;
   startPanelWorkflow?: (
     targetId:string,experiment:ExperimentDocument,runMode:string,panelId:string,
-    inputOverrides:Record<string,unknown>,
+    inputOverrides:Record<string,unknown>,placement?:ExperimentPlacement,presetId?:string,
   ) => Promise<ExperimentRunView>;
   invokePanelActionWorkflow?: (
     targetId:string,experiment:ExperimentDocument,runMode:string,panelId:string,presetId:string,
@@ -77,11 +87,12 @@ export function useExperimentDashboardActions({
   ) => Promise<ExperimentRunView>;
   stopPanelActionWorkflow?: (
     targetId:string,root:AutomationRunControl,reason:string,
-  ) => Promise<unknown>;
+  ) => Promise<AutomationStopRunSetResponse>;
   saveExperimentDraft?: (experiment: ExperimentDocument,reason?: string) => Promise<ExperimentDocument>;
   applyExperimentDraft?: (experiment: ExperimentDocument) => void;
   beginExperimentEdit?: (experiment: ExperimentDocument) => void;
   runMode?: string;
+  placement?: ExperimentPlacement;
   dashboardEditing?: boolean;
   dashboardSaving?: boolean;
   externalAdmissionDisabledReason?: string;
@@ -138,40 +149,56 @@ export function useExperimentDashboardActions({
     }
   },[runtimeProjection.runDetailsById,updateActionState,stored]);
 
-  const projectedRun = runtimeProjection.stateResolved ? runtimeProjection.activeRun : undefined;
-  const projectedRuns = runtimeProjection.stateResolved
-    ? runtimeProjection.activeRuns ?? (projectedRun ? [projectedRun] : [])
-    : [];
+  const {
+    refresh: refreshRuntimeProjection,
+    convergeStoppedSession,
+    sessionActive: projectionSessionActive,
+    occupancyActive: projectionOccupancyActive,
+    stateLoading: projectionStateLoading,
+    stateError: projectionStateError,
+    loading: projectionLoading,
+    error: projectionError,
+    stateResolved: projectionStateResolved,
+    activeRun: projectionActiveRun,
+    activeRuns: projectionActiveRuns,
+    observedRunIds: projectionObservedRunIds,
+    sessionViews: projectionSessionViews,
+    runDetailsById: projectionRunDetailsById,
+  } = runtimeProjection;
+  const projectedRun = projectionStateResolved ? projectionActiveRun : undefined;
+  const projectedRuns = useMemo(() => projectionStateResolved
+    ? projectionActiveRuns ?? (projectedRun ? [projectedRun] : [])
+    : [],[projectionActiveRuns,projectionStateResolved,projectedRun]);
   const startInFlight = actionState.lifecycle?.kind === 'start';
   const stopAllInFlight = actionState.lifecycle?.kind === 'stop';
   // Total Stop owns every active command root in the Session, not only the
   // primary root shown in the top bar. Project that phase to Panel consumers
   // immediately so they release run-scoped transports before stop-set removes
   // the corresponding backend projections.
-  const activeRuns = stopAllInFlight
+  const activeRuns = useMemo(() => stopAllInFlight
     ? projectedRuns.map((run) => ({ ...run,status:'stopping' as const }))
-    : projectedRuns;
+    : projectedRuns,[projectedRuns,stopAllInFlight]);
   const pendingRun = actionState.pendingRun
     && !projectedRun
-    && !runtimeProjection.observedRunIds?.has(actionState.pendingRun.id)
+    && !projectionObservedRunIds?.has(actionState.pendingRun.id)
     ? actionState.pendingRun
     : undefined;
   const activeWorkflowRun = projectedRun ?? pendingRun;
   // The initiating browser knows Stop has been durably requested before the
   // synchronous HTTP call returns. Project that exact lifecycle phase until
   // the Automation execution event advances the durable summary.
-  const activeRun = activeWorkflowRun && stopAllInFlight
-    && !(['succeeded','failed','canceled','stopped','rejected'] as readonly string[])
-      .includes(activeWorkflowRun.status)
+  const activeRun = useMemo(() => activeWorkflowRun && stopAllInFlight
+    && !TERMINAL_RUN_STATUSES.includes(activeWorkflowRun.status)
     ? { ...activeWorkflowRun,status:'stopping' as const }
-    : activeWorkflowRun;
-  const experimentIsRunning = Boolean(runtimeProjection.sessionActive)
+    : activeWorkflowRun,[activeWorkflowRun,stopAllInFlight]);
+  const experimentIsRunning = Boolean(projectionSessionActive)
+    || Boolean(projectionOccupancyActive)
     || projectedRuns.length > 0
     || Boolean(activeWorkflowRun)
     || startInFlight;
   const experimentAdmissionDisabledReason = externalAdmissionDisabledReason;
-  const lifecycleStateLoading = Boolean(runtimeProjection.stateLoading || runtimeProjection.loading);
-  const actionOrProjectionError = actionState.error || runtimeProjection.stateError || runtimeProjection.error;
+  const lifecycleStateLoading = Boolean(projectionStateLoading || projectionLoading);
+  const actionOrProjectionError = actionState.error || projectionStateError || projectionError;
   const robotBindingsBaseRef = useRef(visibleExperiment);
   if (visibleExperiment) {
     const current = robotBindingsBaseRef.current;
@@ -185,45 +212,61 @@ export function useExperimentDashboardActions({
   } else {
     robotBindingsBaseRef.current = undefined;
   }
-  const robotBindingActions = createExperimentRobotBindingActions({
-    getRendered: () => robotBindingsBaseRef.current,
-    rememberSaved: (saved) => {
-      robotBindingsBaseRef.current = saved;
-    },
+  const getRenderedExperiment = useCallback(() => robotBindingsBaseRef.current,[]);
+  const rememberSavedExperiment = useCallback((saved: ExperimentDocument) => {
+    robotBindingsBaseRef.current = saved;
+  },[]);
+  const robotBindingActions = useMemo(() => createExperimentRobotBindingActions({
+    getRendered: getRenderedExperiment,
+    rememberSaved: rememberSavedExperiment,
     runtimeActive: experimentIsRunning,
     dashboardEditing,
     save: saveExperimentDraft,
     applyDraft: applyExperimentDraft,
     beginEdit: beginExperimentEdit,
     saving: dashboardSaving,
-  });
-  const workflowPresetActions = createExperimentWorkflowPresetActions({
-    getRendered: () => robotBindingsBaseRef.current,
-    rememberSaved: (saved) => {
-      robotBindingsBaseRef.current = saved;
-    },
+  }),[
+    applyExperimentDraft,beginExperimentEdit,dashboardEditing,dashboardSaving,
+    experimentIsRunning,getRenderedExperiment,rememberSavedExperiment,saveExperimentDraft,
+  ]);
+  const workflowPresetActions = useMemo(() => createExperimentWorkflowPresetActions({
+    getRendered: getRenderedExperiment,
+    rememberSaved: rememberSavedExperiment,
     runtimeActive: experimentIsRunning,
     dashboardEditing,
     save: saveExperimentDraft,
     applyDraft: applyExperimentDraft,
-  });
+  }),[
+    applyExperimentDraft,dashboardEditing,experimentIsRunning,
+    getRenderedExperiment,rememberSavedExperiment,saveExperimentDraft,
+  ]);
   useGroundStationErrorNotification(executionTargetId,actionOrProjectionError,{
     title: 'Experiment',
     source: visibleExperiment?.head.resourceId || 'experiments',
     dedupeKey: 'experiment-workflow:action',
   });
 
-  async function startExperiment() {
-    const refusal = startDisabledReason();
-    if (!visibleExperiment || refusal) return undefined;
-    return startOwnedWorkflow(() => startWorkflow(
-      executionTargetId,
-      visibleExperiment,
-      runMode,
-    ));
-  }
+  const ownsLifecycle = useCallback((token: symbol) => controller.current.mounted
+    && controller.current.epoch === epoch
+    && controller.current.lifecycle?.token === token,[epoch]);
 
-  async function startOwnedWorkflow(submit:() => Promise<ExperimentRunView>) {
+  const acquireLifecycle = useCallback((kind: DashboardLifecycleKind,options: { preempt?: boolean } = {}) => {
+    if (!controller.current.mounted || controller.current.epoch !== epoch) return undefined;
+    const held = controller.current.lifecycle;
+    if (held && !(options.preempt && kind === 'stop' && held.kind !== 'stop')) return undefined;
+    const token = Symbol('experiment-workflow-lifecycle');
+    controller.current.lifecycle = { token,kind };
+    updateActionState({ lifecycle: { token,kind },error: '' });
+    return token;
+  },[epoch,updateActionState]);
+
+  const releaseLifecycle = useCallback((token: symbol) => {
+    if (!ownsLifecycle(token)) return;
+    controller.current.lifecycle = undefined;
+    updateActionState({ lifecycle: undefined });
+  },[ownsLifecycle,updateActionState]);
+
+  const startOwnedWorkflow = useCallback(async (submit:() => Promise<ExperimentRunView>) => {
     const lifecycleToken = acquireLifecycle('start');
     if (!lifecycleToken) return undefined;
     controller.current.abortStart = false;
@@ -232,7 +275,7 @@ export function useExperimentDashboardActions({
     // lifecycle SSE cannot arrive while that history is still unobserved. The
     // accepted-Run refresh below then reads again after any joined stale
     // request has completed.
-    const observationWork = runtimeProjection.refresh().catch(() => undefined);
+    const observationWork = refreshRuntimeProjection().catch(() => undefined);
     const work = submit();
     controller.current.startWork = work;
     try {
@@ -242,7 +285,7 @@ export function useExperimentDashboardActions({
       updateActionState({ pendingRun: started });
       releaseLifecycle(lifecycleToken);
       await observationWork;
-      await runtimeProjection.refresh();
+      await refreshRuntimeProjection();
       return started;
     } catch (cause) {
       if (ownsLifecycle(lifecycleToken)) updateActionState({ error: messageOf(cause),pendingRun: undefined });
@@ -251,9 +294,39 @@ export function useExperimentDashboardActions({
       if (controller.current.startWork === work) controller.current.startWork = undefined;
       releaseLifecycle(lifecycleToken);
     }
-  }
+  },[acquireLifecycle,ownsLifecycle,refreshRuntimeProjection,releaseLifecycle,updateActionState]);
 
-  async function stopExperiment() {
+  const startDisabledReason = useCallback(() => {
+    if (!visibleExperiment) return 'The current Experiment is unavailable.';
+    if (experimentAdmissionDisabledReason) return experimentAdmissionDisabledReason;
+    if (!runMode) return 'Select an Experiment run mode.';
+    if (projectionStateLoading) return 'The Experiment state is being restored.';
+    if (projectionStateError) {
+      return `The Experiment state is unavailable: ${projectionStateError}`;
+    }
+    if (projectionLoading) return 'The Experiment is still loading.';
+    if (stopAllInFlight || activeRun?.status === 'stopping') return 'The Experiment is stopping.';
+    if (startInFlight || projectedRuns.some((run) => run.actionId === SYSTEM_EXPERIMENT_RUNNER.actions.run)) {
+      return 'The full Experiment Run is already active.';
+    }
+    return '';
+  },[
+    activeRun?.status,experimentAdmissionDisabledReason,projectionLoading,projectionStateError,
+    projectionStateLoading,projectedRuns,runMode,startInFlight,stopAllInFlight,visibleExperiment,
+  ]);
+
+  const startExperiment = useCallback(async () => {
+    const refusal = startDisabledReason();
+    if (!visibleExperiment || refusal) return undefined;
+    return startOwnedWorkflow(() => startWorkflow(
+      executionTargetId,
+      visibleExperiment,
+      runMode,
+      ...runnerPlacement(placement),
+    ));
+  },[executionTargetId,placement,runMode,startDisabledReason,startOwnedWorkflow,startWorkflow,visibleExperiment]);
+
+  const stopExperiment = useCallback(async () => {
     if (stopAllInFlight) return undefined;
     controller.current.abortStart = true;
     let lifecycleToken: symbol|undefined;
@@ -269,14 +342,14 @@ export function useExperimentDashboardActions({
         ?? projectedRuns[0]
         ?? actionState.pendingRun
         ?? await controller.current.startWork;
-      if ((!started && !runtimeProjection.sessionActive) || !visibleExperiment) {
+      if ((!started && !projectionSessionActive && !projectionOccupancyActive) || !visibleExperiment) {
         updateActionState({ pendingRun: undefined });
         return undefined;
       }
       const stopped = await stopWorkflow(executionTargetId,visibleExperiment);
       if (!ownsLifecycle(lifecycleToken)) return undefined;
       updateActionState({ pendingRun: undefined });
-      await runtimeProjection.convergeStoppedSession();
+      await convergeStoppedSession();
       return stopped;
     } catch (cause) {
       if (ownsLifecycle(lifecycleToken)) updateActionState({ error: messageOf(cause) });
@@ -284,24 +357,35 @@ export function useExperimentDashboardActions({
     } finally {
       releaseLifecycle(lifecycleToken);
     }
-  }
+  },[
+    acquireLifecycle,actionState.pendingRun,activeWorkflowRun,convergeStoppedSession,executionTargetId,
+    ownsLifecycle,projectionOccupancyActive,projectionSessionActive,projectedRuns,releaseLifecycle,
+    stopAllInFlight,stopWorkflow,updateActionState,visibleExperiment,
+  ]);
 
-  async function startPanel(panelId:string,inputOverrides:Record<string,unknown> = {}) {
+  const startPanel = useCallback(async (
+    panelId:string,inputOverrides:Record<string,unknown> = {},presetId?:string,
+  ) => {
     if (!visibleExperiment || !startPanelWorkflow) {
       throw new Error('Panel Run orchestration is unavailable.');
     }
     if (!runMode) throw new Error('Select an Experiment run mode before running a Panel.');
     if (stopAllInFlight) throw new Error('The Experiment is stopping.');
-    const started = await startOwnedWorkflow(() => startPanelWorkflow(
-      executionTargetId,visibleExperiment,runMode,panelId,inputOverrides,
-    ));
+    const started = await startOwnedWorkflow(() => presetId
+      ? startPanelWorkflow(
+        executionTargetId,visibleExperiment,runMode,panelId,inputOverrides,placement,presetId,
+      )
+      : startPanelWorkflow(
+        executionTargetId,visibleExperiment,runMode,panelId,inputOverrides,
+        ...runnerPlacement(placement),
+      ));
     if (!started) throw new Error('Another Experiment lifecycle action is already in progress.');
     return started;
-  }
+  },[executionTargetId,placement,runMode,startOwnedWorkflow,startPanelWorkflow,stopAllInFlight,visibleExperiment]);
 
-  async function invokePanelAction(
+  const invokePanelAction = useCallback(async (
     panelId:string,presetId:string,inputOverrides:Record<string,unknown>,reason?:string,
-  ) {
+  ) => {
     if (!visibleExperiment || !invokePanelActionWorkflow) {
       throw new Error('Panel Action orchestration is unavailable.');
     }
@@ -313,94 +397,98 @@ export function useExperimentDashboardActions({
     // Discrete Panel Actions (remote intent) must not take the Total Run
     // lifecycle lock or refresh Experiment history on every click. That path
     // is for starting a Session, not for a latched joystick.
-    if (runtimeProjection.sessionActive || projectedRuns.length > 0) {
-      const invoked = await submit();
-      if (!invoked) throw new Error('Panel Action orchestration is unavailable.');
-      if (controller.current.epoch === epoch) submittedActions.current.ids.add(invoked.id);
-      updateActionState({ error:'' });
-      return invoked;
+    if (projectionSessionActive || projectedRuns.length > 0) {
+      try {
+        const invoked = await submit();
+        if (!invoked) throw new Error('Panel Action orchestration is unavailable.');
+        if (controller.current.epoch === epoch) submittedActions.current.ids.add(invoked.id);
+        updateActionState({ error:'' });
+        return invoked;
+      } catch (cause) {
+        await refreshRuntimeProjection().catch(() => undefined);
+        updateActionState({ error:messageOf(cause) });
+        throw cause;
+      }
     }
     const invoked = await startOwnedWorkflow(submit);
     if (!invoked) throw new Error('Another Experiment lifecycle action is already in progress.');
     if (controller.current.epoch === epoch) submittedActions.current.ids.add(invoked.id);
     return invoked;
-  }
+  },[
+    epoch,executionTargetId,invokePanelActionWorkflow,projectionSessionActive,projectedRuns,
+    refreshRuntimeProjection,runMode,startOwnedWorkflow,stopAllInFlight,updateActionState,visibleExperiment,
+  ]);
 
-  async function stopPanelAction(root:AutomationRunControl,reason:string) {
+  const restartExperiment = useCallback(async () => {
+    if (!visibleExperiment || !restartWorkflow) {
+      throw new Error('Experiment Restart orchestration is unavailable.');
+    }
+    if (!runMode) throw new Error('Select an Experiment run mode before restarting.');
+    if (stopAllInFlight) throw new Error('The Experiment is stopping.');
+    const started = await startOwnedWorkflow(() => restartWorkflow(
+      executionTargetId,visibleExperiment,runMode,...runnerPlacement(placement),
+    ));
+    if (!started) throw new Error('Another Experiment lifecycle action is already in progress.');
+    return started;
+  },[executionTargetId,placement,restartWorkflow,runMode,startOwnedWorkflow,stopAllInFlight,visibleExperiment]);
+
+  const stopPanelAction = useCallback(async (root:AutomationRunControl,reason:string,targetId=executionTargetId) => {
     if (!stopPanelActionWorkflow) throw new Error('Panel Action Stop is unavailable.');
     try {
-      const stopped = await stopPanelActionWorkflow(executionTargetId,root,reason);
-      await runtimeProjection.refresh();
+      const stopped = await stopPanelActionWorkflow(targetId,root,reason);
+      await refreshRuntimeProjection();
       return stopped;
     } catch (cause) {
+      await refreshRuntimeProjection().catch(() => undefined);
       updateActionState({ error:messageOf(cause) });
       throw cause;
     }
-  }
+  },[executionTargetId,refreshRuntimeProjection,stopPanelActionWorkflow,updateActionState]);
 
+  const sessionViews = projectionSessionViews ?? EMPTY_SESSION_VIEWS;
+  const runDetailsById = projectionRunDetailsById ?? EMPTY_RUN_DETAILS;
 
-  function acquireLifecycle(kind: DashboardLifecycleKind,options: { preempt?: boolean } = {}) {
-    if (!controller.current.mounted || controller.current.epoch !== epoch) return undefined;
-    const held = controller.current.lifecycle;
-    if (held && !(options.preempt && kind === 'stop' && held.kind !== 'stop')) return undefined;
-    const token = Symbol('experiment-workflow-lifecycle');
-    controller.current.lifecycle = { token,kind };
-    updateActionState({ lifecycle: { token,kind },error: '' });
-    return token;
-  }
+  return useMemo(() => {
+    const disabledReason = startDisabledReason();
+    return {
+      experimentIsRunning,
+      activeRun,
+      activeRuns,
+      sessionViews,
+      runDetailsById,
+      runMode,
+      placement,
+      stopAllInFlight,
+      startInFlight,
+      lifecycleStateLoading,
+      actionError: actionState.error,
+      startDisabledReason: disabledReason,
+      canStartExperiment: !disabledReason,
+      canStopExperiment: (experimentIsRunning || startInFlight) && !stopAllInFlight,
+      updateRobotBindings: robotBindingActions.update,
+      updateRobotBindingsDisabledReason: robotBindingActions.disabledReason,
+      updateWorldBoundary: robotBindingActions.updateWorldBoundary,
+      updateWorldBoundaryDisabledReason: robotBindingActions.localizationOffsetDisabledReason,
+      updateScene: robotBindingActions.updateScene,
+      updateSceneDisabledReason: robotBindingActions.sceneDisabledReason,
+      updateLocalizationOffset: robotBindingActions.updateLocalizationOffset,
+      updateLocalizationOffsetDisabledReason: robotBindingActions.localizationOffsetDisabledReason,
+      updateWorkflowPresetInputs: workflowPresetActions.updatePresetInputs,
+      updateWorkflowPresetInputsDisabledReason: workflowPresetActions.disabledReason,
+      startExperiment,
+      stopExperiment,
+      restartExperiment,
+      startPanel,
+      invokePanelAction,
+      stopPanelAction,
+    };
+  },[
+    actionState.error,activeRun,activeRuns,experimentIsRunning,invokePanelAction,lifecycleStateLoading,
+    placement,robotBindingActions,runDetailsById,runMode,sessionViews,startDisabledReason,startExperiment,
+    startInFlight,startPanel,stopAllInFlight,stopExperiment,restartExperiment,stopPanelAction,workflowPresetActions,
+  ]);
+}
 
-  function releaseLifecycle(token: symbol) {
-    if (!ownsLifecycle(token)) return;
-    controller.current.lifecycle = undefined;
-    updateActionState({ lifecycle: undefined });
-  }
-
-  function ownsLifecycle(token: symbol) {
-    return controller.current.mounted
-      && controller.current.epoch === epoch
-      && controller.current.lifecycle?.token === token;
-  }
-
-  function startDisabledReason() {
-    if (!visibleExperiment) return 'The current Experiment is unavailable.';
-    if (experimentAdmissionDisabledReason) return experimentAdmissionDisabledReason;
-    if (!runMode) return 'Select an Experiment run mode.';
-    if (runtimeProjection.stateLoading) return 'The Experiment state is being restored.';
-    if (runtimeProjection.stateError) {
-      return `The Experiment state is unavailable: ${runtimeProjection.stateError}`;
-    }
-    if (runtimeProjection.loading) return 'The Experiment is still loading.';
-    if (stopAllInFlight || activeRun?.status === 'stopping') return 'The Experiment is stopping.';
-    if (startInFlight || projectedRuns.some((run) => run.actionId === SYSTEM_EXPERIMENT_RUNNER.actions.run)) {
-      return 'The full Experiment Run is already active.';
-    }
-    return '';
-  }
-
-  return {
-    experimentIsRunning,
-    activeRun,
-    activeRuns,
-    sessionViews:runtimeProjection.sessionViews ?? [],
-    runDetailsById:runtimeProjection.runDetailsById ?? {},
-    runMode,
-    stopAllInFlight,
-    startInFlight,
-    lifecycleStateLoading,
-    actionError: actionState.error,
-    startDisabledReason: startDisabledReason(),
-    canStartExperiment: !startDisabledReason(),
-    canStopExperiment: (experimentIsRunning || startInFlight) && !stopAllInFlight,
-    updateRobotBindings: robotBindingActions.update,
-    updateRobotBindingsDisabledReason: robotBindingActions.disabledReason,
-    updateLocalizationOffset: robotBindingActions.updateLocalizationOffset,
-    updateLocalizationOffsetDisabledReason: robotBindingActions.localizationOffsetDisabledReason,
-    updateWorkflowPresetInputs: workflowPresetActions.updatePresetInputs,
-    updateWorkflowPresetInputsDisabledReason: workflowPresetActions.disabledReason,
-    startExperiment,
-    stopExperiment,
-    startPanel,
-    invokePanelAction,
-    stopPanelAction,
-  };
+function runnerPlacement(placement: ExperimentPlacement | undefined): [] | [ExperimentPlacement] {
+  return placement === 'centralized' || placement === 'per-robot' ? [placement] : [];
 }

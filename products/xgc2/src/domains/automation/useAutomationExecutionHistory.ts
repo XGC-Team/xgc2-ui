@@ -1,10 +1,9 @@
 import { useCallback,useEffect,useMemo,useRef,useState,type Dispatch,type SetStateAction } from 'react';
-import { mergeAutomationExecutionHistoryEntries } from './automationExecutionHistoryModel';
+import { mergeAutomationExecutionHistoryEntries,summaryNeedsHistoryEnrichment } from './automationExecutionHistoryModel';
 import { listAutomationExecutionHistory } from './automationExecutionHistoryService';
 import { messageOf } from './automationErrorModel';
 import type {
   AutomationExecutionHistoryEntry,
-  AutomationExecutionRunSummary,
 } from './automationHistoryTypes';
 import {
   automationExecutionRunSummaries,
@@ -16,7 +15,6 @@ import {
 } from './automationRunEventProjection';
 import type { ExecutionEvent } from '../execution/executionPublic';
 import { useAutomationTargetScope,type AutomationTargetScope } from './useAutomationTargetScope';
-import { SYSTEM_EXPERIMENT_RUNNER_AUTOMATION_RESOURCE_ID } from '../../shared/workflowRuntimeProtocol';
 import { useProductRouteVisible } from '../../shared/routeReady';
 
 type CurrentRef<T> = { current: T };
@@ -110,7 +108,10 @@ export function useAutomationExecutionHistory({
   const updateHistoryEntries = useCallback((
     update: (current: AutomationExecutionHistoryEntry[]) => AutomationExecutionHistoryEntry[],
   ) => {
-    replaceSnapshot(targetScope, (current) => ({ ...current,entries: update(current.entries) }));
+    replaceSnapshot(targetScope, (current) => {
+      const entries = update(current.entries);
+      return entries === current.entries ? current : { ...current,entries };
+    });
   }, [replaceSnapshot,targetScope]);
 
   const resetExecutionHistory = useCallback(() => {
@@ -155,7 +156,7 @@ export function useAutomationExecutionHistory({
     const existing=historyEntriesRef.current.find((entry) => entry.id===event.entityId && entry.run);
     const summary=runSummaryFromExecutionEvent(event,targetScope.targetId);
     if (summary) {
-      if (!existing && systemExperimentRunnerSummaryNeedsHistoryEnrichment(summary)) return 'unresolved';
+      if (!existing && summaryNeedsHistoryEnrichment(summary)) return 'unresolved';
       const incoming:AutomationExecutionHistoryEntry={
         id:summary.id,runId:summary.id,targetId:summary.targetId,
         automationResourceId:summary.automationResourceId,acceptedAt:summary.acceptedAt,
@@ -531,13 +532,4 @@ function runSummaryFromExecutionEvent(event:ExecutionEvent,targetId:string) {
   } catch {
     return undefined;
   }
-}
-
-function systemExperimentRunnerSummaryNeedsHistoryEnrichment(
-  summary:AutomationExecutionRunSummary,
-) {
-  return summary.automationResourceId===SYSTEM_EXPERIMENT_RUNNER_AUTOMATION_RESOURCE_ID
-    && !summary.parentRunId
-    && (summary.sourceKind!=='experiment' || summary.sourceRef?.domain!=='experiment'
-      || !summary.experimentSelector);
 }

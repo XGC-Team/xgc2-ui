@@ -59,6 +59,29 @@ describe('experiment dashboard defaults', () => {
     ]);
   });
 
+  it('renames the legacy analysis tab and drops the standalone video dashboard', () => {
+    const panel = (id: string, pluginId: string) => ({
+      schemaVersion: PANEL_SCHEMA_VERSION,id,pluginId,title: id,grid: { x: 0,y: 0,w: 6,h: 4 },
+      view: { query: {},options: {},fieldConfig: {} },portBindings: [],
+    });
+    const dashboards = normalizeExperimentDashboards([
+      { id: 'algorithm', name: 'Figures', description: 'Scientific figures', panels: [
+        panel('scientific-gallery', 'scientific-gallery'),
+        panel('offline-video-production', 'experiment-video-production'),
+      ] },
+      { id: 'video', name: 'AR Video', description: '', panels: [
+        panel('offline-video-production', 'experiment-video-production'),
+      ] },
+      { id: 'algorithm', name: 'My plots', description: '', panels: [] },
+    ]);
+    expect(dashboards.map((dashboard) => dashboard.id)).toEqual(['algorithm']);
+    expect(dashboards[0]?.name).toBe('Analysis');
+    expect(dashboards[0]?.panels.map((item) => item.id)).toEqual(['scientific-gallery']);
+    expect(normalizeExperimentDashboards([
+      { id: 'algorithm', name: 'My plots', description: '', panels: [] },
+    ])[0]?.name).toBe('My plots');
+  });
+
   it('preserves authored panel titles', () => {
     const panel = (id: string, pluginId: string, title: string) => ({
       schemaVersion: PANEL_SCHEMA_VERSION,id,pluginId,title,grid: { x: 0,y: 0,w: 6,h: 4 },

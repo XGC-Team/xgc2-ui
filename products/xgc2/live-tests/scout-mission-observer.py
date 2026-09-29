@@ -8,7 +8,26 @@ import time
 import rospy
 from geometry_msgs.msg import PoseStamped, TwistStamped
 from nav_msgs.msg import Path
-from std_msgs.msg import Float64MultiArray, String, UInt8, UInt32
+from std_msgs.msg import Float64MultiArray, String, UInt8
+
+
+def field_guard(world_boundary):
+    if not isinstance(world_boundary, dict) or not isinstance(world_boundary.get('controlBounds'), dict):
+        raise RuntimeError('Scout observer test configuration requires worldBoundary.controlBounds')
+    bounds = world_boundary['controlBounds']
+    field = {'controlBounds': bounds, 'bodyRadiusM': 0.43, 'brakingReserveM': 0.22}
+    reserve = field['bodyRadiusM'] + field['brakingReserveM']
+    try:
+        centers = {key: float(bounds[key]) + (reserve if key.endswith('Min') else -reserve)
+                   for key in ('xMin', 'xMax', 'yMin', 'yMax')}
+    except (KeyError, TypeError, ValueError) as error:
+        raise RuntimeError('Scout observer test configuration has invalid worldBoundary.controlBounds') from error
+    if (not all(math.isfinite(value) for value in centers.values())
+            or centers['xMin'] >= centers['xMax'] or centers['yMin'] >= centers['yMax']):
+        raise RuntimeError('Scout observer test configuration controlBounds cannot contain the braking reserve')
+    field['centerBounds'] = centers
+    return field
+
 
 rospy.init_node('xgc_scout_mission_observer', anonymous=True, disable_signals=True)
 names = ['ugv%d' % i for i in range(1, 5)]
@@ -27,9 +46,7 @@ lap_start = None
 lap_points, travel, previous = {}, {}, {}
 lap_leader_start = {}
 extent_min, extent_max = {}, {}
-field = {'widthM': 15.0, 'depthM': 10.0, 'bodyRadiusM': 0.43, 'brakingReserveM': 0.22}
-field['centerLimitX'] = field['widthM']/2 - field['bodyRadiusM'] - field['brakingReserveM']
-field['centerLimitY'] = field['depthM']/2 - field['bodyRadiusM'] - field['brakingReserveM']
+field = field_guard(json.loads(sys.argv[2]) if len(sys.argv) > 2 else None)
 centroid_min, centroid_max = [math.inf] * 3, [-math.inf] * 3
 max_position = {'x': -math.inf, 'y': -math.inf}
 fault = []
@@ -47,6 +64,24 @@ def distance(a, b):
     return math.hypot(a[0] - b[0], a[1] - b[1])
 
 
+def stadium_position(geometry, elapsed):
+    length, radius = geometry['straightLengthM'], geometry['curveRadiusM']
+    arc = geometry['speedMps'] * elapsed
+    hold = geometry['holdDistanceM']
+    arc = min(arc, hold) if hold > 0 else arc % (2 * length + 2 * math.pi * radius)
+    if arc < length:
+        x, y = arc, 0
+    elif arc < length + math.pi * radius:
+        angle = -math.pi / 2 + (arc - length) / radius
+        x, y = length + radius * math.cos(angle), radius + radius * math.sin(angle)
+    elif arc < 2 * length + math.pi * radius:
+        x, y = 2 * length + math.pi * radius - arc, 2 * radius
+    else:
+        angle = math.pi / 2 + (arc - 2 * length - math.pi * radius) / radius
+        x, y = radius * math.cos(angle), radius + radius * math.sin(angle)
+    return [geometry['initialX'] + x, geometry['initialY'] + y]
+
+
 def fail(message):
     if not fault:
         fault.append(message)
@@ -57,7 +92,8 @@ def pose_callback(message, name):
     q = message.pose.orientation
     pose = [p.x, p.y, p.z, math.atan2(2 * (q.w * q.z + q.x * q.y), 1 - 2 * (q.y*q.y + q.z*q.z))]
     poses[name] = pose
-    if abs(p.x) > field['centerLimitX'] or abs(p.y) > field['centerLimitY']:
+    bounds = field['centerBounds']
+    if not (bounds['xMin'] <= p.x <= bounds['xMax'] and bounds['yMin'] <= p.y <= bounds['yMax']):
         fail('Field braking guard triggered: ' + json.dumps({'robot': name, 'position': pose[:3]}))
         brake.publish(String(data='stop'))
 
@@ -108,12 +144,18 @@ def read_stadium():
         values.append({'robot': name, 'parameterRoot': root,
                        'straightLengthM': float(rospy.get_param(root + '/stadium/straight_length')),
                        'curveRadiusM': float(rospy.get_param(root + '/stadium/curve_radius')),
-                       'speedMps': float(rospy.get_param(root + '/leader_speed'))})
+                       'speedMps': float(rospy.get_param(root + '/leader_speed')),
+                       'holdDistanceM': float(rospy.get_param(root + '/stadium/hold_s', 0.0)),
+                       'initialX': float(rospy.get_param(root + '/leader_initial_position_x')),
+                       'initialY': float(rospy.get_param(root + '/leader_initial_position_y'))})
     first = values[0]
     for value in values:
         for key in ('straightLengthM', 'curveRadiusM', 'speedMps'):
             if value[key] <= 0 or abs(value[key] - first[key]) > 1e-9:
                 raise RuntimeError('Stadium parameters disagree or are non-positive: ' + json.dumps(values))
+        for key in ('holdDistanceM', 'initialX', 'initialY'):
+            if abs(value[key] - first[key]) > 1e-9:
+                raise RuntimeError('Stadium reference parameters disagree: ' + json.dumps(values))
     return values, (2 * first['straightLengthM'] + 2 * math.pi * first['curveRadiusM']) / first['speedMps']
 
 
@@ -123,7 +165,7 @@ for name in names:
         rospy.Subscriber('/%s/simulation/ground_truth/pose' % name, PoseStamped, pose_callback, name),
         rospy.Subscriber('/%s/simulation/ground_truth/twist' % name, TwistStamped,
                          lambda m, n: twists.__setitem__(n, [m.twist.linear.x, m.twist.linear.y, m.twist.angular.z]), name),
-        rospy.Subscriber('/%s/alg/unicycle_ugv_controller/status/control_state' % name, UInt32, state_callback, name),
+        rospy.Subscriber('/%s/custom/statustext' % name, String, state_callback, name),
         rospy.Subscriber('/%s/command' % name, String, command_callback, name),
         rospy.Subscriber('/%s/alg/predicted_trajectory' % name, Path,
                          lambda m, n: predicted.__setitem__(n, {'count': len(m.poses), 'frame': m.header.frame_id}), name),
@@ -155,7 +197,7 @@ while not rospy.is_shutdown() and time.monotonic() < wall_deadline:
             yaw_delta = poses[name][3] - target['yaw']
             yaw_error = abs(math.atan2(math.sin(yaw_delta), math.cos(yaw_delta)))
             speed = math.hypot(*twists[name][:2])
-            ready = (states[name] == 2 and error <= 0.10 and height_error <= 0.10 and yaw_error <= 0.15
+            ready = (states[name] == 'Ready' and error <= 0.10 and height_error <= 0.10 and yaw_error <= 0.15
                      and speed < 0.05 and abs(twists[name][2]) < 0.1)
             robots.append({'name': name, 'initialPose': target, 'actualPose': poses[name],
                            'positionErrorM': error, 'heightErrorM': height_error, 'yawErrorRad': yaw_error,
@@ -171,7 +213,7 @@ while not rospy.is_shutdown() and time.monotonic() < wall_deadline:
         else:
             stable_since = None
     if (phase == 'ready' and track_requested and len(rolling) == 4
-            and len(leaders) == 4 and all(states[n] == 3 for n in names)):
+            and len(leaders) == 4 and all(states[n] == 'Custom1' for n in names)):
         lap_start = max(rolling.values())
         lap_points = {name: poses[name][:3] for name in names}
         previous = {name: poses[name][:3] for name in names}
@@ -186,7 +228,7 @@ while not rospy.is_shutdown() and time.monotonic() < wall_deadline:
         fail('Tracking did not start within 30 wall seconds: ' + json.dumps({
             'rolling': rolling, 'leaderRobots': sorted(leaders), 'controllerStates': states}))
     if phase == 'tracking':
-        if any(states[n] != 3 for n in names):
+        if any(states[n] != 'Custom1' for n in names):
             fail('Controller left tracking during the required lap: ' + json.dumps(states))
         for name in names:
             travel[name] += distance(poses[name], previous[name])
@@ -207,7 +249,8 @@ while not rospy.is_shutdown() and time.monotonic() < wall_deadline:
                        'startToEndDistanceM': distance(poses[name], lap_points[name]),
                        'spanXY': [hi-lo for lo, hi in zip(extent_min[name], extent_max[name])],
                        'leaderStateStart': lap_leader_start[name], 'leaderStateEnd': leaders.get(name, []),
-                       'leaderClosureErrorM': distance(lap_leader_start[name], leaders[name])} for name in names]
+                       'leaderExpectedEnd': stadium_position(stadium[0], now-lap_start),
+                       'leaderEndpointErrorM': distance(stadium_position(stadium[0], now-lap_start), leaders[name])} for name in names]
             emit('lap-complete', robots=robots, lapStartSimTime=lap_start, lapEndSimTime=now,
                  lapDurationSeconds=lap_duration, elapsedSimSeconds=now-lap_start,
                  stadium=stadium,

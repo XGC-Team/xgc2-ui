@@ -7,7 +7,7 @@ export const experimentRobotAssetsPanelPlugin = definePanelPlugin({
   id: EXPERIMENT_ROBOT_ASSETS_PANEL_ID,
   name: 'Experiment Robot assets',
   localizedName: { 'en-US':'Experiment Robot assets','zh-CN':'实验机器人资产' },
-  category: 'Fleet',
+  category: 'Swarm',
   description: 'Add, remove, and configure the Robot assets used by this Experiment.',
   localizedDescription: {
     'en-US':'Add, remove, and configure the Robot assets used by this Experiment.',
@@ -35,6 +35,8 @@ export const experimentRobotAssetsPanelPlugin = definePanelPlugin({
     { id:'robot-runtime',label:'Experiment runtime',localizedLabel:{ 'en-US':'Experiment runtime','zh-CN':'实验运行时' },contract:'experiment.runtime.v1' },
   ],
   authoringPorts: [
+    { id:'world-boundary-editor',label:'World fence',target:'experiment.worldBoundary',required:true },
+    { id:'scene-editor',label:'Scene',target:'experiment.scene',required:true },
     { id:'robots-editor',label:'Edit Experiment robots',localizedLabel:{ 'en-US':'Edit Experiment robots','zh-CN':'编辑实验机器人' },target:'experiment.robots',required:true },
     {
       id:'world-origin-offset-editor',

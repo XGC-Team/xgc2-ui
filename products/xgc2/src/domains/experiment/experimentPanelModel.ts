@@ -66,6 +66,7 @@ function normalizePanelPortBindings(bindings: PanelPortBinding[]) {
       return {
         portId: binding.portId.trim(),kind: binding.kind,
         presetId: binding.presetId.trim(),
+        ...(binding.executionMode === undefined ? {} : { executionMode:binding.executionMode }),
       };
     case 'data':
       return { portId: binding.portId.trim(),kind: binding.kind,projection: binding.projection.trim() };

@@ -54,10 +54,10 @@ test('rapid same-tab reload keeps one app root and exclusive camera lifecycle br
   await controlPage.close();
 
   await page.locator('[data-xgc-role="primary-nav-item"][data-xgc-id="experiment"]').click();
-  const fleetExperiment = page.locator('[data-xgc-role="experiment-row"]')
-    .filter({ hasText:'6 PX4 multirotors experiment' }).first();
-  await expect(fleetExperiment).toBeVisible();
-  await fleetExperiment.dblclick();
+  const swarmExperiment = page.locator('[data-xgc-role="experiment-row"]')
+    .filter({ hasText:'TASE-5UAVs' }).first();
+  await expect(swarmExperiment).toBeVisible();
+  await swarmExperiment.dblclick();
   const appShell = page.locator('[data-xgc-role="app-shell"][data-xgc-id="experiment"]');
   const gcsMode = page.locator(
     '[data-xgc-role="experiment-gcs-mode"][data-xgc-id="global"]',
@@ -121,8 +121,8 @@ test('rapid same-tab reload keeps one app root and exclusive camera lifecycle br
   await assertExclusiveCameraImageBranch(workspace);
 
   await page.locator('[data-xgc-role="primary-nav-item"][data-xgc-id="experiment"]').click();
-  await expect(fleetExperiment).toBeVisible();
-  await fleetExperiment.dblclick();
+  await expect(swarmExperiment).toBeVisible();
+  await swarmExperiment.dblclick();
   await expect(calibrationTab).toBeVisible();
   await expect(calibrationTab).toHaveAttribute('aria-selected','true');
   await expect(gcsMode).toHaveAttribute('aria-pressed','true');

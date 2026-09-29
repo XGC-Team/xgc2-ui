@@ -2,7 +2,13 @@
 
 import { render } from '@testing-library/react';
 import { describe,expect,it } from 'vitest';
-import { RobotListMetric,RobotListScalarValue,RobotListVectorValue } from './RobotListMetric';
+import {
+  RobotListMetric,
+  RobotListScalarMetric,
+  RobotListScalarValue,
+  RobotListVectorMetric,
+  RobotListVectorValue,
+} from './RobotListMetric';
 
 describe('RobotListMetric', () => {
   it('keeps the current value and puts topic rate on the dt label row without a trend drawing', () => {
@@ -23,8 +29,9 @@ describe('RobotListMetric', () => {
     const vector = container.querySelector('[data-xgc-role="robot-list-vector"]');
     expect(vector).toHaveAttribute('data-xgc-id', 'scout-01:vrpn-pos');
     const title = vector?.querySelector('dt [data-xgc-role="robot-list-metric-title"]');
-    expect(title?.textContent).toBe('VRPN pos (m)');
-    expect(title).toHaveAttribute('title', 'VRPN pos (m)');
+    expect(title?.textContent).toBe('VRPN pos');
+    expect(title).toHaveAttribute('title', 'VRPN pos');
+    expect(title).toHaveAttribute('aria-label', 'VRPN pos (m)');
     expect(title).toHaveAttribute('data-xgc-id', 'scout-01:vrpn-pos');
     expect(vector?.querySelector('dt [data-xgc-role="robot-list-metric-rate"]')?.textContent).toBe('50.0 Hz');
     expect(vector?.querySelector('dt [data-xgc-role="robot-list-metric-rate"]'))
@@ -54,6 +61,7 @@ describe('RobotListMetric', () => {
     expect(scalar?.querySelector('[data-xgc-role="robot-list-metric-readout"]'))
       .toHaveAttribute('data-xgc-id', 'scout-01:vrpn-spd');
     expect(scalar?.querySelector('[data-xgc-role="robot-list-metric-title"]')?.textContent).toBe('VRPN spd');
+    expect(scalar?.querySelector('[data-xgc-role="robot-list-metric-title"]')?.textContent).not.toMatch(/\(/);
     expect(scalar?.querySelector('dt [data-xgc-role="robot-list-metric-rate"]')?.textContent).toBe('12.5 Hz');
     expect(scalar?.querySelector('dd .robot-list-metric-rate')).toBeNull();
     expect(scalar?.querySelector('.robot-list-metric-sign')?.textContent).toBe('-');
@@ -172,5 +180,39 @@ describe('RobotListMetric', () => {
       .toBe('--');
     expect(empty?.querySelector('[data-xgc-role="robot-list-metric-rate"]')?.textContent).toBe('-- Hz');
     long.unmount();
+  });
+
+  it('draws vector and scalar metrics exactly as a metric around its readout', () => {
+    const vector = { x: 1,y: -2.5 };
+    const composed = render(
+      <dl>
+        <RobotListMetric
+          robotId="uav-01" slot="sp-pos" className="robot-metric-setpoint-pos" title="SP pos" unit="m"
+          rate="10.0 Hz" role="robot-list-vector" empty source="setpoint.local"
+        >
+          <RobotListVectorValue value={vector} />
+        </RobotListMetric>
+        <RobotListMetric robotId="uav-01" slot="battery-vol" title="Battery vol" rate="1.0 Hz" role="robot-list-scalar">
+          <RobotListScalarValue value={22.4} unit="V" digits={1} />
+        </RobotListMetric>
+        <RobotListMetric robotId="uav-01" slot="yaw" title="Yaw" rate="-- Hz">
+          <RobotListScalarValue value={null} unit="deg" />
+        </RobotListMetric>
+      </dl>,
+    );
+    const typed = render(
+      <dl>
+        <RobotListVectorMetric
+          robotId="uav-01" slot="sp-pos" className="robot-metric-setpoint-pos" title="SP pos" unit="m"
+          rate="10.0 Hz" role="robot-list-vector" empty source="setpoint.local" value={vector}
+        />
+        <RobotListScalarMetric
+          robotId="uav-01" slot="battery-vol" title="Battery vol" rate="1.0 Hz" role="robot-list-scalar"
+          value={22.4} unit="V" digits={1}
+        />
+        <RobotListScalarMetric robotId="uav-01" slot="yaw" title="Yaw" rate="-- Hz" value={null} unit="deg" />
+      </dl>,
+    );
+    expect(typed.container.innerHTML).toBe(composed.container.innerHTML);
   });
 });

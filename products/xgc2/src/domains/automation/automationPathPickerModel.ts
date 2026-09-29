@@ -11,9 +11,13 @@ export function initialAutomationPickerPath(
   targetId: string,
   kind: AutomationPathKind,
   value: string,
+  initialDirectory = '',
 ) {
   const trimmed = value.trim();
-  if (!trimmed) return defaultAutomationPickerRoot(targetId);
+  if (!trimmed) {
+    const fallback = initialDirectory.trim().replace(/\/+$/, '');
+    return fallback || defaultAutomationPickerRoot(targetId);
+  }
   if (kind === 'directory') return trimmed;
   return parentDirectoryPath(trimmed);
 }

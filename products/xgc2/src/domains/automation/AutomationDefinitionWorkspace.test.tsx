@@ -324,9 +324,11 @@ describe('AutomationDefinitionWorkspace', () => {
     document.spec.nodes[0] = { ...document.spec.nodes[0],kind: 'trigger.schedule' };
     const saved = fixture('commit-2', 'Schedule');
     saved.spec.nodes[0] = { ...saved.spec.nodes[0],kind: 'trigger.schedule',position: { x: 42,y: 21 } };
-    const onCommit = vi.fn().mockResolvedValue(saved);
+    let resolveCommit!: (saved: AutomationDocument) => void;
+    const onCommit = vi.fn(() => new Promise<AutomationDocument>((resolve) => { resolveCommit = resolve; }));
     const onRunOnce = vi.fn().mockResolvedValue({ eventId: 'event-schedule' });
-    const { container } = renderWorkspace(document, { onCommit,onRunOnce }).view;
+    const { props,view } = renderWorkspace(document, { onCommit,onRunOnce });
+    const { container } = view;
 
     fireEvent.click(screen.getByTestId('graph-move-node'));
     fireEvent.click(container.querySelector('[data-xgc-role="automation-trigger-run-once"]')!);
@@ -336,7 +338,14 @@ describe('AutomationDefinitionWorkspace', () => {
       expect.objectContaining({ nodes: [expect.objectContaining({ id: 'start',position: { x: 42,y: 21 } })] }),
       'Run Automation trigger once',
     ));
+    fireEvent.click(screen.getByTestId('graph-rename-start'));
+    await act(async () => {
+      view.rerender(<><TestTopbar /><AutomationDefinitionWorkspace {...props} document={saved} /></>);
+      resolveCommit(saved);
+    });
     await waitFor(() => expect(onRunOnce).toHaveBeenCalledWith(saved, 'start'));
+    expect(screen.getByTestId('graph-node-display-names')).toHaveTextContent('renamed');
+    expect(container.querySelector('[data-xgc-role="automation-definition-save"]')).not.toBeDisabled();
   });
 
   it('marks a live activation as different as soon as the operator edits its pinned commit', () => {
@@ -1259,12 +1268,12 @@ describe('AutomationDefinitionWorkspace', () => {
     selection?.removeAllRanges();
   });
 
-  it('applies and persists an inline display-name change as one undoable draft change', async () => {
-    const onCommit = vi.fn().mockImplementation(async (_document: AutomationDocument, spec: AutomationSpec) => ({
-      ...fixture('commit-2', spec.metadata.name),
-      spec,
-    }));
-    const { container } = renderWorkspace(fixture('commit-1', 'Mission'), { onCommit }).view;
+  it('preserves edits and undo history while an earlier inline display-name save completes', async () => {
+    let resolveCommit!: (saved: AutomationDocument) => void;
+    const onCommit = vi.fn((_document: AutomationDocument, _spec: AutomationSpec) =>
+      new Promise<AutomationDocument>((resolve) => { resolveCommit = resolve; }));
+    const { props,view } = renderWorkspace(fixture('commit-1', 'Mission'), { onCommit });
+    const { container } = view;
 
     fireEvent.click(screen.getByTestId('graph-rename-start'));
     expect(screen.getByTestId('graph-node-display-names')).toHaveTextContent('start:trigger.manual renamed');
@@ -1281,6 +1290,77 @@ describe('AutomationDefinitionWorkspace', () => {
       id: 'start',
       displayName: 'trigger.manual renamed',
     }));
+
+    fireEvent.click(screen.getByTestId('graph-rename-start'));
+    fireEvent.keyDown(window, { key: 's',ctrlKey: true });
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    const committed = { ...fixture('commit-2', 'Mission'),spec: saved };
+    await act(async () => {
+      view.rerender(<><TestTopbar /><AutomationDefinitionWorkspace {...props} document={committed} /></>);
+      resolveCommit(committed);
+    });
+    expect(screen.getByTestId('graph-node-display-names')).toHaveTextContent('start:trigger.manual renamed renamed');
+    expect(container.querySelector('[data-xgc-role="automation-definition-save"]')).not.toBeDisabled();
+
+    pressUndo();
+    expect(screen.getByTestId('graph-node-display-names')).toHaveTextContent('start:trigger.manual renamed');
+    expect(container.querySelector('[data-xgc-role="automation-definition-save"]')).toBeDisabled();
+    pressRedo();
+    expect(screen.getByTestId('graph-node-display-names')).toHaveTextContent('start:trigger.manual renamed renamed');
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(onCommit).toHaveBeenLastCalledWith(committed, expect.objectContaining({
+      nodes: [expect.objectContaining({ displayName: 'trigger.manual renamed renamed' })],
+    }), 'Update Automation definition');
+    await act(async () => {
+      const latest = { ...fixture('commit-3', 'Mission'),spec: onCommit.mock.calls[1][1] };
+      view.rerender(<><TestTopbar /><AutomationDefinitionWorkspace {...props} document={latest} /></>);
+      resolveCommit(latest);
+    });
+    expect(container.querySelector('[data-xgc-role="automation-definition-save"]')).toBeDisabled();
+  });
+
+  it('keeps an undo made during Save when the committed document arrives before the response', async () => {
+    let resolveCommit!: (saved: AutomationDocument) => void;
+    const onCommit = vi.fn((_document: AutomationDocument, _spec: AutomationSpec) =>
+      new Promise<AutomationDocument>((resolve) => { resolveCommit = resolve; }));
+    const { props,view } = renderWorkspace(fixture('commit-1', 'Mission'), { onCommit });
+    fireEvent.click(screen.getByTestId('graph-rename-start'));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    pressUndo();
+
+    const committed = { ...fixture('commit-2', 'Mission'),spec: onCommit.mock.calls[0][1] };
+    view.rerender(<><TestTopbar /><AutomationDefinitionWorkspace {...props} document={committed} /></>);
+    expect(screen.getByTestId('graph-node-display-names')).toHaveTextContent(/^start:trigger.manual$/);
+    await act(async () => resolveCommit(committed));
+    expect(screen.getByTestId('graph-node-display-names')).toHaveTextContent(/^start:trigger.manual$/);
+    expect(view.container.querySelector('[data-xgc-role="automation-definition-save"]')).not.toBeDisabled();
+    pressRedo();
+    expect(screen.getByTestId('graph-node-display-names')).toHaveTextContent('renamed');
+    expect(view.container.querySelector('[data-xgc-role="automation-definition-save"]')).toBeDisabled();
+  });
+
+  it.each(['resource', 'protection'] as const)('ignores a pending Save after the document %s changes', async (change) => {
+    let resolveCommit!: (saved: AutomationDocument) => void;
+    const onCommit = vi.fn((_document: AutomationDocument, _spec: AutomationSpec) =>
+      new Promise<AutomationDocument>((resolve) => { resolveCommit = resolve; }));
+    const { props,view } = renderWorkspace(fixture('commit-1', 'Mission'), { onCommit });
+    fireEvent.click(screen.getByTestId('graph-rename-start'));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    const next = change === 'resource'
+      ? automationDocumentFixture('automation-b', 'Other mission')
+      : fixture('commit-1', 'Mission');
+    if (change === 'protection') next.head.system = true;
+    view.rerender(<><TestTopbar /><AutomationDefinitionWorkspace {...props} document={next} /></>);
+    expect(screen.getByTestId('graph-node-display-names')).toHaveTextContent(/^start:trigger.manual$/);
+    if (change === 'resource') fireEvent.click(screen.getByTestId('graph-move-node'));
+    await act(async () => resolveCommit({ ...fixture('commit-2', 'Mission'),spec: onCommit.mock.calls[0][1] }));
+
+    expect(screen.getByTestId('graph-node-display-names')).toHaveTextContent(/^start:trigger.manual$/);
+    expect(view.container.querySelector('[data-xgc-role="automation-definition-detail"]')).toHaveAttribute('data-xgc-id', next.head.resourceId);
+    if (change === 'resource') {
+      expect(screen.getByTestId('graph-node-positions')).toHaveTextContent('start:{"x":42,"y":21}');
+      expect(view.container.querySelector('[data-xgc-role="automation-definition-save"]')).not.toBeDisabled();
+    }
   });
 
   it('edits a node display name without changing its stable ID or connected edges', () => {
@@ -1707,7 +1787,8 @@ describe('AutomationDefinitionWorkspace', () => {
   it('keeps an operator draft after a concurrent save conflict loads a newer document', async () => {
     const original = fixture('commit-1', 'Mission');
     const latest = fixture('commit-2', 'Server update');
-    const onCommit = vi.fn().mockRejectedValue(new AutomationCommitConflict('409 branch head conflict', latest));
+    let rejectCommit!: (cause: unknown) => void;
+    const onCommit = vi.fn(() => new Promise<AutomationDocument>((_resolve, reject) => { rejectCommit = reject; }));
     const { props,view } = renderWorkspace(original, { onCommit });
 
     fireEvent.click(screen.getByTestId('graph-move-node'));
@@ -1715,13 +1796,27 @@ describe('AutomationDefinitionWorkspace', () => {
     fireEvent.click(view.container.querySelector('[data-xgc-role="automation-definition-save"]')!);
 
     await waitFor(() => expect(onCommit).toHaveBeenCalled());
+    fireEvent.click(screen.getByTestId('graph-rename-start'));
+    await act(async () => rejectCommit(new AutomationCommitConflict('409 branch head conflict', latest)));
     await waitFor(() => expect(view.container.querySelector('[data-xgc-role="automation-save-conflict"]')).not.toBeNull());
     view.rerender(<><TestTopbar /><AutomationDefinitionWorkspace {...props} document={latest} /></>);
 
     expect(screen.getByTestId('graph-node-positions')).toHaveTextContent('start:{"x":42,"y":21}');
+    expect(screen.getByTestId('graph-node-display-names')).toHaveTextContent('renamed');
     expect(view.container.querySelector('[data-xgc-role="automation-definition-detail"][data-xgc-id="automation-a"]')).not.toBeNull();
     expect(view.container.querySelector('[data-xgc-role="automation-save-conflict"][data-xgc-id="automation-a"]')).not.toBeNull();
     expect(view.container.querySelector('[data-xgc-role="automation-save-conflict"][data-xgc-id="automation-a"]')).not.toHaveTextContent(/branch|commit|revision/i);
+    pressUndo();
+    expect(screen.getByTestId('graph-node-positions')).toHaveTextContent('start:{"x":42,"y":21}');
+    expect(screen.getByTestId('graph-node-display-names')).toHaveTextContent(/^start:trigger.manual$/);
+
+    fireEvent.click(view.container.querySelector('[data-xgc-role="automation-definition-save"]')!);
+    expect(onCommit).toHaveBeenCalledTimes(2);
+    const other = automationDocumentFixture('automation-b', 'Other mission');
+    view.rerender(<><TestTopbar /><AutomationDefinitionWorkspace {...props} document={other} /></>);
+    await act(async () => rejectCommit(new AutomationCommitConflict('Late rejection from the previous document', latest)));
+    expect(view.container.querySelector('[data-xgc-role="automation-save-conflict"]')).toBeNull();
+    expect(screen.getByTestId('graph-node-display-names')).toHaveTextContent(/^start:trigger.manual$/);
   });
 });
 

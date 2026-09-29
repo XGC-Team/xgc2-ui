@@ -27,13 +27,14 @@ export function useAutomationDefinitionEditSession({
 }) {
   const t = useAutomationAuthoringText();
   const { confirm,dialog: confirmationDialog } = useConfirmationDialog();
-  const { draft,dirty,commitChange: commitDraftChange,adopt: adoptDraft,undo,redo } = useAutomationDraftHistory(document.spec);
+  const { draft,dirty,commitChange: commitDraftChange,adopt: adoptDraft,acknowledgeSave,undo,redo } = useAutomationDraftHistory(document.spec);
   const [saving,setSaving] = useState(false);
   const [error,setError] = useState('');
   const [conflict,setConflict] = useState('');
   const [adoptionRevision,setAdoptionRevision] = useState(0);
   const identity = documentIdentity(document);
-  const previousIdentity = useRef(identity);
+  const previousDocument = useRef(document);
+  const pendingSave = useRef<symbol | null>(null);
   const archived = Boolean(document.head.archived);
   const protection = automationResourceProtection(document);
   const protectedResource = automationResourceIsProtected(document);
@@ -51,9 +52,11 @@ export function useAutomationDefinitionEditSession({
   }, []);
 
   const adoptDocument = useCallback((next: AutomationDocument) => {
+    pendingSave.current = null;
+    setSaving(false);
     adoptDraft(next.spec);
     clearMutationMessages();
-    previousIdentity.current = documentIdentity(next);
+    previousDocument.current = next;
     setAdoptionRevision((revision) => revision + 1);
   }, [adoptDraft,clearMutationMessages]);
 
@@ -69,14 +72,19 @@ export function useAutomationDefinitionEditSession({
   }, [confirm,dirty,onBack,t]);
 
   useEffect(() => {
-    if (previousIdentity.current === identity || dirty) return;
+    const previous = previousDocument.current;
+    const sameResource = previous.head.resourceId === document.head.resourceId
+      && previous.branch.name === document.branch.name;
+    if (sameResource && (documentIdentity(previous) === identity || dirty || pendingSave.current)) return;
     adoptDocument(document);
   }, [adoptDocument,document,dirty,identity]);
 
   useEffect(() => {
-    if (!readOnly || !dirty) return;
+    if (!readOnly || (!dirty && !pendingSave.current)) return;
     adoptDocument(document);
   }, [adoptDocument,document,dirty,readOnly]);
+
+  useEffect(() => () => { pendingSave.current = null; }, []);
 
   useEffect(() => {
     if (!dirty) return;
@@ -100,22 +108,34 @@ export function useAutomationDefinitionEditSession({
     const validation = validateAutomationSpec(normalized, catalog, nodeComposition)
       || validateAutomationLibraryNodes(normalized, libraryItems);
     if (validation) throw new Error(validation);
-    const saved = await onCommit(document, normalized, reason);
-    adoptDocument(saved);
-    return saved;
+    const request = Symbol('save');
+    pendingSave.current = request;
+    setSaving(true);
+    try {
+      const saved = await onCommit(document, normalized, reason);
+      if (pendingSave.current === request) {
+        acknowledgeSave(draft, saved.spec);
+        previousDocument.current = saved;
+        clearMutationMessages();
+      }
+      return saved;
+    } finally {
+      if (pendingSave.current === request) {
+        pendingSave.current = null;
+        setSaving(false);
+      }
+    }
   }
 
   async function saveDefinition(blocked = false) {
-    if (!canEdit || !dirty || saving || blocked) return document;
-    setSaving(true);
+    if (!canEdit || !dirty || pendingSave.current || blocked) return document;
+    const savedFrom = previousDocument.current;
     clearMutationMessages();
     try {
       return await persistDraft('Update Automation definition');
     } catch (cause) {
-      reportMutationError(cause);
+      if (previousDocument.current === savedFrom) reportMutationError(cause);
       throw cause;
-    } finally {
-      setSaving(false);
     }
   }
 

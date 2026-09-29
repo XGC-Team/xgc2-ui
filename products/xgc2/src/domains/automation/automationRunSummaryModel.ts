@@ -1,3 +1,4 @@
+import { parsePanelActionInvocation } from './automationRunRecordModel';
 import { isAutomationTriggerKind } from './automationTriggerContracts';
 import type {
   AutomationRunAdmissionConflict,
@@ -34,7 +35,7 @@ import {
 const runKeys = new Set([
   'id','targetId','automationResourceId','definitionId','definitionVersion','actionId','actionVersion','configDigest','executionPlanDigest','registryDigest',
   'definitionDigest','executionModel','sourceKind','sourceRef','status','terminationKind','revision','parentRunId','rootRunId','callNodeId','throughNodeId',
-  'experimentSelector',
+  'experimentSelector','panelAction',
   'depth','admissionMode','admissionScope','admissionLimit','admissionOnConflict','replacesRunId','triggerInvocation','acceptedAt',
   'createdAt','startedAt','updatedAt','finishedAt',
 ]);
@@ -45,7 +46,7 @@ const admissionScopes = new Set<AutomationExecutionRunSummary['admissionScope']>
 const admissionConflicts = new Set<AutomationRunAdmissionConflict>(['queue','reject','replace']);
 const sourceKinds = new Set<AutomationRunSourceKind>(['experiment','automation']);
 const pinnedConfigRefKeys = new Set(['domain','resourceId','branch','componentId','commitId','version','digest']);
-const experimentSelectorKeys = new Set(['runMode','panelId','presetId']);
+const experimentSelectorKeys = new Set(['runMode','placement','panelId','presetId']);
 
 export function automationExecutionRunSummaries(
   entries: readonly AutomationExecutionHistoryEntry[],
@@ -118,6 +119,7 @@ export function parseAutomationExecutionRunSummary(
     ...(run.experimentSelector === undefined
       ? {}
       : { experimentSelector:parseExperimentRunnerSelector(run.experimentSelector,`${path}.experimentSelector`) }),
+    ...(run.panelAction === undefined ? {} : { panelAction:parsePanelActionInvocation(run.panelAction,`${path}.panelAction`) }),
     status,
     ...(terminationKind === undefined ? {} : { terminationKind }),
     revision: positiveInteger(run.revision, `${path}.revision`),
@@ -164,6 +166,7 @@ function parseExperimentRunnerSelector(value:unknown,path:string) {
   const selector=objectWithKnownKeys(value,experimentSelectorKeys,path);
   return {
     runMode:requiredCanonicalString(selector.runMode,`${path}.runMode`),
+    ...optionalCanonicalString(selector,'placement',path),
     ...optionalCanonicalString(selector,'panelId',path),
     ...optionalCanonicalString(selector,'presetId',path),
   };
@@ -209,6 +212,9 @@ function validateRunSummaryProjection(run: AutomationExecutionRunSummary, path: 
     }
   } else if (run.rootRunId !== run.id || run.callNodeId || (run.depth !== undefined && run.depth !== 0)) {
     throw invalidHistory(path, 'a root Run requires self root identity and zero call depth');
+  }
+  if (run.panelAction && (run.sourceKind!=='experiment' || run.parentRunId || run.rootRunId!==run.id)) {
+    throw invalidHistory(`${path}.panelAction`,'requires an Experiment-sourced root Run');
   }
   if (run.admissionMode === 'parallel') {
     if (run.admissionLimit !== undefined || run.admissionOnConflict !== undefined || run.replacesRunId !== undefined) {

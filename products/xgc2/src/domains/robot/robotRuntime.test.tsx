@@ -263,6 +263,7 @@ describe('Robot runtime', () => {
     const run = renderHook(() => useRunRobots('local', 'run-1'));
     const status = renderHook(() => useRunRobotStatus('local', 'run-1', 'px4-01'));
     const pose = renderHook(() => useRobotChannel('local', 'run-1', 'px4-01', 'state.pose'));
+    const mocap = renderHook(() => useRobotChannel('local', 'run-1', 'px4-01', 'state.mocap.pose'));
     await waitFor(() => expect(pose.result.current?.sequence).toBe(99));
 
     act(() => stream.options?.onEvent({
@@ -272,12 +273,28 @@ describe('Robot runtime', () => {
     }));
 
     expect(pose.result.current).toBeUndefined();
+    expect(mocap.result.current).toBeUndefined();
     expect(status.result.current).toEqual({ online: false,operationalReady: false,status: 'offline' });
     expect(run.result.current.projection?.robots[0]).toMatchObject({
       connectionEpoch: 3,connectionState: 'closed',connectionRevision: 3,
       connectionDetail: 'stream ended',online: false,operationalReady: false,status: 'offline',channels: {},
     });
+
+    act(() => stream.options?.onEvent({
+      revision: 9,targetId: 'local',runId: 'run-1',resets: [],
+      changes: [{
+        robotId: 'px4-01',connectionEpoch: 3,channelId: 'state.mocap.pose',
+        sequence: 102,messageId: 2001,observedAt: new Date().toISOString(),sourceAgeMs: 8,
+        staleAt: deadline(60_000),stale: false,value: { position: { x: 2,y: 0,z: 1 } },
+        online: false,operationalReady: false,status: 'offline',
+      }],
+      emittedAt: new Date().toISOString(),
+    }));
+    expect(mocap.result.current?.value).toEqual({
+      position: { x: 2,y: 0,z: 1 },
+    });
     pose.unmount();
+    mocap.unmount();
     status.unmount();
     run.unmount();
   });
@@ -379,9 +396,10 @@ describe('Robot runtime', () => {
     run.unmount();
   });
 
-  it('fences telemetry until the new connection epoch becomes live', async () => {
+  it('ignores lower-epoch telemetry after a reset and keeps same-epoch observer patches', async () => {
     const run = renderHook(() => useRunRobots('local', 'run-1'));
     const pose = renderHook(() => useRobotChannel('local', 'run-1', 'px4-01', 'state.pose'));
+    const mocap = renderHook(() => useRobotChannel('local', 'run-1', 'px4-01', 'state.mocap.pose'));
     await waitFor(() => expect(pose.result.current?.sequence).toBe(99));
 
     act(() => stream.options?.onEvent({
@@ -391,28 +409,118 @@ describe('Robot runtime', () => {
     }));
     expect(pose.result.current).toBeUndefined();
 
-    act(() => stream.options?.onEvent(patchEvent({
-      robotId: 'px4-01',connectionEpoch: 4,channelId: 'state.pose',sequence: 1,messageId: 2001,
-      observedAt: new Date().toISOString(),sourceAgeMs: 0,staleAt: deadline(60_000),stale: false,
-      value: { position: { x: 4 } },online: true,operationalReady: true,status: 'online',
-      onlineUntil: deadline(60_000),operationalReadyUntil: deadline(60_000),
-    })));
+    act(() => stream.options?.onEvent({
+      revision: 9,targetId: 'local',runId: 'run-1',resets: [],
+      changes: [{
+        robotId: 'px4-01',connectionEpoch: 3,channelId: 'state.pose',sequence: 100,messageId: 2001,
+        observedAt: new Date().toISOString(),sourceAgeMs: 0,staleAt: deadline(60_000),stale: false,
+        value: { position: { x: 3 } },online: false,operationalReady: false,status: 'offline',
+      }],
+      emittedAt: new Date().toISOString(),
+    }));
     expect(pose.result.current).toBeUndefined();
 
     act(() => stream.options?.onEvent({
-      revision: 9,targetId: 'local',runId: 'run-1',changes: [],
-      resets: [{ robotId: 'px4-01',connectionEpoch: 4,state: 'live',revision: 2 }],
+      revision: 10,targetId: 'local',runId: 'run-1',resets: [],
+      changes: [{
+        robotId: 'px4-01',connectionEpoch: 4,channelId: 'state.mocap.pose',sequence: 1,messageId: 2001,
+        observedAt: new Date().toISOString(),sourceAgeMs: 0,staleAt: deadline(60_000),stale: false,
+        value: { position: { x: 4 } },online: false,operationalReady: false,status: 'offline',
+      }],
       emittedAt: new Date().toISOString(),
     }));
-    act(() => stream.options?.onEvent(patchEvent({
-      robotId: 'px4-01',connectionEpoch: 4,channelId: 'state.pose',sequence: 1,messageId: 2001,
-      observedAt: new Date().toISOString(),sourceAgeMs: 0,staleAt: deadline(60_000),stale: false,
-      value: { position: { x: 4 } },online: true,operationalReady: true,status: 'online',
-      onlineUntil: deadline(60_000),operationalReadyUntil: deadline(60_000),
-    })));
-    expect(pose.result.current?.value.position).toMatchObject({ x: 4 });
-    expect(run.result.current.projection?.robots[0]).toMatchObject({ connectionEpoch: 4,connectionState: 'live' });
+    expect(mocap.result.current?.value).toEqual({
+      position: { x: 4 },
+    });
+    expect(run.result.current.projection?.robots[0]).toMatchObject({
+      connectionEpoch: 4,connectionState: 'opening',
+    });
     pose.unmount();
+    mocap.unmount();
+    run.unmount();
+  });
+
+  it('applies a coalesced multi-channel patch as if its changes were applied in order', async () => {
+    const run = renderHook(() => useRunRobots('local', 'run-1'));
+    const status = renderHook(() => useRunRobotStatus('local', 'run-1', 'px4-01'));
+    const pose = renderHook(() => useRobotChannel('local', 'run-1', 'px4-01', 'state.pose'));
+    const flight = renderHook(() => useRobotChannel('local', 'run-1', 'px4-01', 'state.flight'));
+    const mocap = renderHook(() => useRobotChannel('local', 'run-1', 'px4-01', 'state.mocap.pose'));
+    await waitFor(() => expect(pose.result.current?.sequence).toBe(99));
+    const mocapBefore = mocap.result.current;
+    const common = {
+      robotId: 'px4-01',connectionEpoch: 3,sourceAgeMs: 0,staleAt: deadline(60_000),stale: false,
+      online: true,onlineUntil: deadline(60_000),
+    };
+
+    act(() => stream.options?.onEvent({
+      revision: 8,targetId: 'local',runId: 'run-1',resets: [],
+      changes: [{
+        ...common,channelId: 'state.pose',sequence: 100,messageId: 2001,
+        observedAt: new Date(Date.now() + 1).toISOString(),value: { position: { x: 5 } },
+        operationalReady: true,status: 'online',operationalReadyUntil: deadline(60_000),
+      }, {
+        // An older sample of the same channel later in the patch never wins,
+        // and a rejected change does not carry its robot authority either.
+        ...common,channelId: 'state.pose',sequence: 98,messageId: 2001,
+        observedAt: new Date(Date.now() - 60_000).toISOString(),value: { position: { x: -5 } },
+        operationalReady: true,status: 'online',operationalReadyUntil: deadline(60_000),
+      }, {
+        ...common,channelId: 'state.flight',sequence: 6,messageId: 3001,
+        observedAt: new Date(Date.now() + 2).toISOString(),value: { connected: true,mode: 'POSCTL' },
+        operationalReady: false,status: 'limited',
+      }],
+      emittedAt: new Date().toISOString(),
+    }));
+
+    expect(pose.result.current).toMatchObject({ sequence: 100,value: { position: { x: 5 } } });
+    expect(flight.result.current).toMatchObject({ sequence: 6,value: { mode: 'POSCTL' } });
+    // Untouched channels keep their identity.
+    expect(mocap.result.current).toBe(mocapBefore);
+    // The last accepted change's authority decides the robot status.
+    expect(status.result.current).toEqual({ online: true,operationalReady: false,status: 'limited' });
+    expect(run.result.current.projection?.robots[0]).toMatchObject({
+      online: true,operationalReady: false,status: 'limited',operationalReadyUntil: undefined,
+    });
+    pose.unmount();
+    flight.unmount();
+    mocap.unmount();
+    status.unmount();
+    run.unmount();
+  });
+
+  it('applies changes after a connection reset in the same patch to the new epoch', async () => {
+    const run = renderHook(() => useRunRobots('local', 'run-1'));
+    const pose = renderHook(() => useRobotChannel('local', 'run-1', 'px4-01', 'state.pose'));
+    const mocap = renderHook(() => useRobotChannel('local', 'run-1', 'px4-01', 'state.mocap.pose'));
+    await waitFor(() => expect(pose.result.current?.sequence).toBe(99));
+
+    act(() => stream.options?.onEvent({
+      revision: 8,targetId: 'local',runId: 'run-1',
+      resets: [{ robotId: 'px4-01',connectionEpoch: 4,state: 'live',revision: 1 }],
+      changes: [{
+        robotId: 'px4-01',connectionEpoch: 3,channelId: 'state.mocap.pose',sequence: 200,messageId: 2001,
+        observedAt: new Date(Date.now() + 1).toISOString(),sourceAgeMs: 0,staleAt: deadline(60_000),stale: false,
+        value: { position: { x: 7 } },online: true,operationalReady: true,status: 'online',
+        onlineUntil: deadline(60_000),operationalReadyUntil: deadline(60_000),
+      }, {
+        robotId: 'px4-01',connectionEpoch: 4,channelId: 'state.pose',sequence: 1,messageId: 2001,
+        observedAt: new Date(Date.now() + 1).toISOString(),sourceAgeMs: 0,staleAt: deadline(60_000),stale: false,
+        value: { position: { x: 8 } },online: true,operationalReady: true,status: 'online',
+        onlineUntil: deadline(60_000),operationalReadyUntil: deadline(60_000),
+      }],
+      emittedAt: new Date().toISOString(),
+    }));
+
+    expect(pose.result.current).toMatchObject({ sequence: 1,value: { position: { x: 8 } } });
+    // The reset cleared the old epoch; its late telemetry is ignored.
+    expect(mocap.result.current).toBeUndefined();
+    expect(run.result.current.projection?.robots[0]).toMatchObject({
+      connectionEpoch: 4,connectionState: 'live',online: true,status: 'online',
+    });
+    expect(Object.keys(run.result.current.projection?.robots[0]?.channels ?? {})).toEqual(['state.pose']);
+    pose.unmount();
+    mocap.unmount();
     run.unmount();
   });
 

@@ -6,7 +6,6 @@ import {
   panelWorkflowTreeRootRunIds,
   projectPanelWorkflowRunTree,
   projectPanelWorkflowRunTrees,
-  runRelationChildrenToHydrate,
 } from './panelWorkflowRunTree';
 
 describe('panelWorkflowRunTree',() => {
@@ -130,22 +129,7 @@ describe('panelWorkflowRunTree',() => {
     );
     const tree = projectPanelWorkflowRunTree(value,'panel-run');
     expect(tree?.children.map((node) => node.runId)).toEqual(['nested-run']);
-    const hydrate = runRelationChildrenToHydrate(value.runDetailsById,['panel-run']);
-    expect(hydrate.map((key) => key.runId)).toEqual(['nested-run']);
-  });
-});
 
-describe('runRelationChildrenToHydrate',() => {
-  it('emits nested children when parent detail is loaded and revisions advance',() => {
-    const details = runtime().runDetailsById;
-    expect(runRelationChildrenToHydrate(details,['panel-run'])).toEqual([
-      { runId:'nested-run',runRevision:3,relationRevision:4 },
-    ]);
-    details['panel-run']!.relations!.childRuns[0].runRevision = 5;
-    details['panel-run']!.relations!.childRuns[0].revision = 6;
-    expect(runRelationChildrenToHydrate(details,['panel-run'])).toEqual([
-      { runId:'nested-run',runRevision:5,relationRevision:6 },
-    ]);
   });
 });
 

@@ -13,6 +13,7 @@ import {
   automationWorkflowFollowLogs,
   automationWorkflowHistoryLimit,
   automationWorkflowHistoryEntries,
+  actionTileTitleLines,
   automationActionButtonLabel,
   automationWorkflowPanelRuntime,
   configuredAutomationResourceIds,
@@ -64,6 +65,13 @@ describe('automationWorkflowPanelModel', () => {
     expect(automationActionButtonLabel({
       id:'custom1',action:{ label:'Custom1' },
     })).toBe('Algorithm');
+    expect(automationActionButtonLabel({
+      id:'record',action:{ label:'Record the scientific Session bag' },
+    })).toBe('Record');
+    expect(actionTileTitleLines('Screen record')).toEqual(['Screen', 'record']);
+    expect(actionTileTitleLines('Replay image')).toEqual(['Replay', 'image']);
+    expect(actionTileTitleLines('录屏')).toEqual(['录屏']);
+    expect(actionTileTitleLines('Build')).toEqual(['Build']);
   });
 
   it('selects one Automation resource across branches in newest-first order', () => {

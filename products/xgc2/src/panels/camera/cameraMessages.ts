@@ -1,3 +1,4 @@
+import { robotZhMessages } from '../../domains/robot/robotMessagesPublic';
 import {
   useLocalizedText,
   type LocalizedText,
@@ -7,6 +8,15 @@ import type { CameraValidationIssue } from './cameraValidationIssue';
 
 /** Camera-domain UI copy. English source phrases remain stable protocol/test keys. */
 export const cameraZhMessages: MessageCatalog = {
+  'Capture at least four positions.': '至少采集四个位置。',
+  'A captured pose is unavailable.': '采集的位姿不可用。',
+  'The captured positions are collinear. Capture positions spanning an area.': '采集的位置共线，请补充不在同一直线上的位置。',
+  'Captured calibration image': '采集的标定图像',
+  'View sample {index}: {marker}': '查看采样 {index}：{marker}',
+  'Remove sample {index}: {marker}': '删除采样 {index}：{marker}',
+  'Resample': '重新采点',
+  'This browser cannot capture the displayed camera image.': '此浏览器无法采集当前显示的相机图像。',
+  'The camera image could not be encoded.': '相机图像编码失败。',
   'Live immutable Run snapshot is not loaded; showing the current authored definition.': '尚未加载不可变运行快照；当前显示正在编辑的定义。',
   // Panel catalog metadata and ports.
   'Camera video': '相机视频',
@@ -44,7 +54,6 @@ export const cameraZhMessages: MessageCatalog = {
   'media unavailable': '媒体不可用',
   'viewer unavailable': '画面不可用',
   'connecting': '连接中',
-  'disconnected': '已断开',
   'playing': '播放中',
   'offline': '离线',
 
@@ -62,6 +71,7 @@ export const cameraZhMessages: MessageCatalog = {
   'Viewer disconnected from {sourceId}': '画面已与 {sourceId} 断开',
   'Could not open {sourceId}': '无法打开 {sourceId}',
   'Waiting for {sourceId}': '正在等待 {sourceId}',
+  'Waiting for the workflow-owned Media Edge process.': '正在等待该工作流持有的 Media Edge 进程。',
   'Connecting to {sourceId}': '正在连接 {sourceId}',
   "Use Connect to open this browser's WebRTC receive session.": '点击“连接”以打开此浏览器的 WebRTC 接收会话。',
   'The WebRTC session could not be established.': '无法建立 WebRTC 会话。',
@@ -133,10 +143,24 @@ export const cameraZhMessages: MessageCatalog = {
   'Open extrinsic calibration': '打开外参标定',
   'Simulation camera intrinsics': '仿真相机内参',
   'Physical camera intrinsics': '实物相机内参',
+  'Simulation camera pose': '仿真相机位姿',
+  'Hand-set pose': '手填位姿',
+  'Calibration file': '标定文件',
+  'Simulation camera extrinsics': '仿真相机外参',
+  'Camera source': '相机源',
+  'Auto': '自动',
+  'Replay': '回放',
+  'Auto follows the Session runMode. Simulation or physical forces that live source. Replay uses the image and calibration from the scene selected in Config.': 'Auto 跟随会话运行模式。Simulation 或 physical 使用对应实时相机。Replay 使用 Config 中所选场景的图像和标定。',
+  'Choose a file': '选择文件',
+  'Hand-set pose uses World X/Y/Z and RPY below. A calibration file spawns Gazebo at that saved world pose.': '手填位姿使用下方的世界坐标与姿态。标定文件按该份已保存的世界位姿生成 Gazebo 相机。',
+  'World east / north / up in metres for the next Gazebo spawn.': '下次 Gazebo 启动用的世界东/北/上坐标，单位为米。',
+  'Roll, pitch and yaw in degrees for the next Gazebo spawn.': '下次 Gazebo 启动用的横滚、俯仰和偏航，单位为度。',
+  'YAML this Experiment uses for the Gazebo camera spawn pose. Physical files keep their stored world pose.': '本实验用于生成 Gazebo 相机位姿的 YAML。实物文件保持其已保存的世界位姿。',
+  'Choose an extrinsics YAML when pose source is a calibration file.': '位姿来源为标定文件时，请选择一份外参 YAML。',
+
   'Camera calibration inputs': '相机标定输入',
   'Profile default': '规格默认',
   'YAML this Experiment uses for extrinsic calibration and the camera provider.': '本实验外参标定与相机提供程序使用的 YAML。',
-  'Browse': '浏览',
   'Connect the Camera calibration defaults authoring port.': '请连接相机标定默认值编写端口。',
   'Stop the calibration camera before changing intrinsics.': '请先停止标定相机再更换内参。',
   'Stop the Experiment before changing camera intrinsics.': '请先停止实验再更换相机内参。',
@@ -164,6 +188,7 @@ export const cameraZhMessages: MessageCatalog = {
   'Public IPs': '公网 IP',
   'Optional public IP candidates advertised for ICE (comma-separated).': '可选的 ICE 公网 IP 候选地址，以逗号分隔。',
   'Connect the Set camera pose Action port.': '请连接“设置相机位姿”动作端口。',
+  'This control moves the Gazebo world camera. Physical and hybrid images come from the USB camera.': '此控件只移动 Gazebo 世界相机。实物和虚实画面来自 USB 相机。',
   'Start the world camera first.': '请先启动世界相机。',
   'Start the calibration camera first.': '请先启动标定相机。',
   'Waiting for the selected provider calibration service.': '正在等待所选提供程序的标定服务。',
@@ -219,7 +244,9 @@ export const cameraZhMessages: MessageCatalog = {
 
   // Intrinsic calibration runtime.
   'Calibration restored': '已恢复标定结果',
+  'Fit image': '适应画面',
   'Save result': '保存结果',
+  'Saved': '已保存',
   'Waiting for the live camera': '正在等待实时相机',
   'Detection result': '检测结果',
   'Board visibility in the current continuously processed frame; not cumulative calibration progress.': '当前连续处理画面中的标定板可见性；这不是累计标定进度。',
@@ -308,7 +335,6 @@ export const cameraZhMessages: MessageCatalog = {
   'No intrinsics (raw)': '无内参（原图）',
   'Latest · ': '最新 · ',
   'Mean remap': '平均重映射量',
-  'Maximum': '最大值',
   'Analysis': '分析尺寸',
   'Intrinsic validation comparison': '内参验证对比图',
   'Actual pixels': '原始像素',
@@ -383,8 +409,10 @@ export const cameraZhMessages: MessageCatalog = {
   '{angle} must be between -360 and 360 degrees.': '{angle} 必须介于 -360° 与 360° 之间。',
 };
 
+export const cameraMessageSources = [cameraZhMessages,robotZhMessages] as const;
+
 export function useCameraText() {
-  return useLocalizedText(cameraZhMessages);
+  return useLocalizedText(cameraMessageSources);
 }
 
 export function localizeCameraValidationIssue(

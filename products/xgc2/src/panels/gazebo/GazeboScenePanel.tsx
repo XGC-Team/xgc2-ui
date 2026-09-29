@@ -64,6 +64,9 @@ export function GazeboScenePanel({ panel,context }: PanelPluginProps<readonly ['
   const actionDisabled = (actionId: GazeboSceneAction) => controlsDisabled
     || !context.ports.actions[actionId]?.connected
     || Boolean(context.ports.actions[actionId]?.disabledReason);
+  const actionTitle = (actionId: GazeboSceneAction) => disabledReason
+    || context.ports.actions[actionId]?.disabledReason
+    || (!context.ports.actions[actionId]?.connected ? `Action port "${actionId}" is not connected.` : undefined);
   return (
     <div className="gazebo-scene-panel-root" data-xgc-role="gazebo-scene-panel" data-xgc-id={panel.id}>
       <div className="gazebo-scene-panel-fields">
@@ -127,15 +130,16 @@ export function GazeboScenePanel({ panel,context }: PanelPluginProps<readonly ['
         </div>
       </div>
       <div className="gazebo-scene-panel-actions" data-xgc-role="gazebo-scene-actions" data-xgc-id={panel.id}>
-        <ControlButton tone="primary" disabled={actionDisabled('spawn') || Boolean(draftError)} dataXgcRole="gazebo-obstacle-place" dataXgcId={panel.id} onClick={() => void run('spawn')}>
+        <ControlButton tone="primary" disabled={actionDisabled('spawn') || Boolean(draftError)} title={actionTitle('spawn')} dataXgcRole="gazebo-obstacle-place" dataXgcId={panel.id} onClick={() => void run('spawn')}>
           <Plus size={15} aria-hidden="true" /> Place
         </ControlButton>
-        <ControlButton disabled={actionDisabled('move') || Boolean(draftError)} dataXgcRole="gazebo-obstacle-move" dataXgcId={panel.id} onClick={() => void run('move')}>
+        <ControlButton disabled={actionDisabled('move') || Boolean(draftError)} title={actionTitle('move')} dataXgcRole="gazebo-obstacle-move" dataXgcId={panel.id} onClick={() => void run('move')}>
           <Move3d size={15} aria-hidden="true" /> Move
         </ControlButton>
         <ControlButton
           tone="danger"
           disabled={actionDisabled('clear')}
+          title={actionTitle('clear')}
           dataXgcRole="gazebo-obstacles-clear"
           dataXgcId={panel.id}
           onClick={() => void (async () => {

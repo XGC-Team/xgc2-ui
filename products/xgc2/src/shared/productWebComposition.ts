@@ -9,12 +9,13 @@ import {
 } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import type { AppLanguage } from './localization/languagePreference';
+import type { SharedSurfaceContribution } from './sharedSurface';
 
 /** Erased page literals only — feature runtime must not hang off this union. */
 export type Page =
-  | 'home'
   | 'experiment'
   | 'robotAssets'
+  | 'venueAssets'
   | 'automations'
   | 'operations'
   | 'appStore'
@@ -22,6 +23,7 @@ export type Page =
   | 'system'
   | 'terminal'
   | 'audit'
+  | 'sharing'
   | 'settings';
 
 export type HostTab = 'overview' | 'files' | 'processes' | 'host' | 'maintenance' | 'ssh';
@@ -176,7 +178,7 @@ export type ProductRouteContribution = {
   surface: ProductRouteSurfacePolicy;
 };
 
-/** Narrow runtime surface injected into Home cards (language only). */
+/** Narrow runtime surface injected into recording library views (language only). */
 export type HomeRuntimePort = {
   language: AppLanguage;
 };
@@ -185,22 +187,14 @@ export type HomeCardProps = {
   runtime: HomeRuntimePort;
 };
 
-export type HomeCardContribution = {
-  owner: 'Home.RecordingLibrary';
-  id: string;
-  component: ComponentType<HomeCardProps>;
-};
-
-export type HomePageContribution = {
-  route: Omit<ProductRouteContribution, 'page'> & { page: 'home' };
-  cards: readonly [HomeCardContribution, ...HomeCardContribution[]];
-};
-
 export type ProductSettingsContext = {
   skin: 'dark' | 'light';
   language: AppLanguage;
+  timezonePreference?: string;
+  timezoneResolved?: string;
   onLanguageChange: (language: AppLanguage) => void;
   onSkinChange: (skin: 'dark' | 'light') => void;
+  onTimezoneChange?: (preference: string) => void;
 };
 
 export type ProductSettingsSection = {
@@ -252,6 +246,7 @@ export type ProductOwnerContribution = {
     }[];
   };
   settings?: { sections?: readonly ProductSettingsSection[] };
+  sharedSurfaces?: readonly SharedSurfaceContribution[];
 };
 
 export type ProductWebComposition = {
@@ -267,6 +262,7 @@ export type ProductWebComposition = {
     sectionDefaults: Partial<Readonly<Record<Page,string>>>;
   };
   settings: { sections: readonly ProductSettingsSection[] };
+  sharedSurfaces?: readonly SharedSurfaceContribution[];
   developer: {
     markPrompt?: LazyExoticComponent<ComponentType<{
       page: string;
@@ -278,7 +274,6 @@ export type ProductWebComposition = {
     }>>;
     controlGallery?: LazyExoticComponent<ComponentType>;
   };
-  home?: HomePageContribution;
 };
 
 const ProductWebCompositionContext = createContext<ProductWebComposition | null>(null);
@@ -356,6 +351,22 @@ export function assembleProductWebComposition(
   };
   const sectionDefaults: Partial<Record<Page,string>> = { ...base.navigation.sectionDefaults };
   let settingsSections = [...base.settings.sections];
+  const sharedSurfaces: SharedSurfaceContribution[] = [];
+  const sharedSurfaceIds = new Set<string>();
+  const appendSharedSurfaces = (contributions: readonly SharedSurfaceContribution[]) => {
+    for (const contribution of contributions) {
+      const { moduleId,viewContractVersion } = contribution;
+      if (!moduleId.trim() || !Number.isInteger(viewContractVersion) || viewContractVersion < 1) {
+        throw new Error('Invalid shared surface contribution identity.');
+      }
+      if (sharedSurfaceIds.has(moduleId)) {
+        throw new Error(`Duplicate shared surface contribution for module "${moduleId}".`);
+      }
+      sharedSurfaceIds.add(moduleId);
+      sharedSurfaces.push(Object.freeze({ ...contribution }));
+    }
+  };
+  appendSharedSurfaces(base.sharedSurfaces ?? []);
 
   const routePages = new Set(routes.map((route) => route.page));
   const primaryIds = new Set(primary.map((item) => item.id));
@@ -363,6 +374,7 @@ export function assembleProductWebComposition(
   const settingsIds = new Set(settingsSections.map((section) => section.id));
 
   for (const owner of owners) {
+    appendSharedSurfaces(owner.sharedSurfaces ?? []);
     for (const route of owner.routes ?? []) {
       if (routePages.has(route.page)) {
         throw new Error(`Duplicate product route contribution for page "${route.page}".`);
@@ -458,6 +470,7 @@ export function assembleProductWebComposition(
       sectionDefaults,
     },
     settings: { sections: settingsSections },
+    sharedSurfaces: Object.freeze(sharedSurfaces),
   };
 }
 

@@ -26,7 +26,7 @@ describe('robotProjectionSessionRunId',() => {
         id:'member-1',targetId:'local',sessionId:'session-1',bindingId:'robot-runtime',kind:'workflow_run',
         ownerId:'panel-child',status:'running',revision:1,
       }] }],runDetailsById:{},processInstances:[],documents:[],catalog:[],runSummaries:[],loading:false,error:'',
-    } as never,'panel-child','robot-runtime')).toBe('panel-child');
+    } as never,'robot-runtime')).toBe('panel-child');
   });
 
   it('never falls back to a child or another target while lineage is unresolved',() => {
@@ -35,13 +35,13 @@ describe('robotProjectionSessionRunId',() => {
       activeRuns:[{ id:'system-root',targetId:'local' }],runSummaries:[],runDetailsById:{},
       processInstances:[],documents:[],catalog:[],loading:false,error:'',
     };
-    expect(robotProjectionSessionRunId(runtime as never,'panel-child','robot-runtime')).toBeUndefined();
+    expect(robotProjectionSessionRunId(runtime as never,'robot-runtime')).toBeUndefined();
     expect(robotProjectionSessionRunId({
       ...runtime,sessionViews:[{ session:{ id:'session-1',targetId:'agent-a',state:'active' },members:[{
         id:'member-1',targetId:'agent-a',sessionId:'session-1',bindingId:'robot-runtime',kind:'workflow_run',
         ownerId:'panel-child',status:'running',revision:1,
       }] }],
-    } as never,'panel-child','robot-runtime')).toBeUndefined();
+    } as never,'robot-runtime')).toBeUndefined();
   });
 
   it.each([
@@ -54,7 +54,7 @@ describe('robotProjectionSessionRunId',() => {
         members:[{ id:'member-1',targetId:'local',sessionId:'session-1',bindingId:'robot-runtime',
           kind:'workflow_run',ownerId:'panel-child',status:memberStatus,revision:2 }],
       }],runDetailsById:{},processInstances:[],documents:[],catalog:[],runSummaries:[],loading:false,error:'',
-    } as never,'panel-child','robot-runtime')).toBeUndefined();
+    } as never,'robot-runtime')).toBeUndefined();
   });
 
   it('revokes the projection while every target root is locally stopping ahead of Session reconciliation',() => {
@@ -68,7 +68,7 @@ describe('robotProjectionSessionRunId',() => {
         id:'member-1',targetId:'local',sessionId:'session-1',bindingId:'robot-runtime',kind:'workflow_run',
         ownerId:'panel-child',status:'running',revision:1,
       }] }],runDetailsById:{},processInstances:[],documents:[],catalog:[],runSummaries:[],loading:false,error:'',
-    } as never,'panel-child','robot-runtime')).toBeUndefined();
+    } as never,'robot-runtime')).toBeUndefined();
   });
 
   it('keeps the full parent while only a selected restart root is stopping',() => {
@@ -82,7 +82,7 @@ describe('robotProjectionSessionRunId',() => {
         id:'member-1',targetId:'local',sessionId:'session-1',bindingId:'robot-runtime',kind:'workflow_run',
         ownerId:'panel-child',status:'running',revision:1,
       }] }],runDetailsById:{},processInstances:[],documents:[],catalog:[],runSummaries:[],loading:false,error:'',
-    } as never,'panel-child','robot-runtime')).toBe('panel-child');
+    } as never,'robot-runtime')).toBe('panel-child');
   });
 
   it('drops stale telemetry ownership on Stop and selects only the rerun owner',() => {
@@ -97,15 +97,15 @@ describe('robotProjectionSessionRunId',() => {
     });
 
     expect(robotProjectionSessionRunId(
-      runtime('system-root-a','panel-run-a') as never,'panel-run-a','robot-runtime',
+      runtime('system-root-a','panel-run-a') as never,'robot-runtime',
     )).toBe('panel-run-a');
     // Stop can clear active roots before the Session/member snapshot and Panel
     // Action invocation reconcile. The stale owner must already be revoked.
     expect(robotProjectionSessionRunId(
-      runtime(undefined,'panel-run-a') as never,'panel-run-a','robot-runtime',
+      runtime(undefined,'panel-run-a') as never,'robot-runtime',
     )).toBeUndefined();
     expect(robotProjectionSessionRunId(
-      runtime('system-root-b','panel-run-b') as never,'panel-run-b','robot-runtime',
+      runtime('system-root-b','panel-run-b') as never,'robot-runtime',
     )).toBe('panel-run-b');
   });
 });
@@ -187,26 +187,33 @@ describe('splitSignedArrayAxis', () => {
 });
 
 describe('robotHealthTone', () => {
-  it('marks a live ready Mecanum healthy from IMU plus the three VRPN channels', () => {
+  it('marks a live Mecanum healthy from IMU even when VRPN is missing', () => {
     expect(mecanumTone()).toBe('healthy');
+    expect(mecanumTone({
+      operationalReady: false,
+      channels: {
+        'state.imu': channel('state.imu'),
+        'vrpn.position': undefined,
+        'vrpn.velocity': undefined,
+        'vrpn.speed': undefined,
+      },
+    })).toBe('healthy');
   });
 
   it.each([
     ['missing IMU', { 'state.imu': undefined }],
-    ['missing position', { 'vrpn.position': undefined }],
-    ['stale velocity', { 'vrpn.velocity': channel('vrpn.velocity', true) }],
-    ['missing speed', { 'vrpn.speed': undefined }],
+    ['stale IMU', { 'state.imu': channel('state.imu', true) }],
   ])('marks Mecanum unavailable when %s', (_label, channels) => {
     expect(mecanumTone({ channels })).toBe('unavailable');
   });
 
-  it('distinguishes unavailable connectivity from failed operational readiness', () => {
+  it('does not treat missing VRPN as a failed connection', () => {
     expect(mecanumTone({
       robot: { connectionState: 'closed' },
       online: false,
       operationalReady: false,
     })).toBe('unavailable');
-    expect(mecanumTone({ operationalReady: false })).toBe('fault');
+    expect(mecanumTone({ operationalReady: false })).toBe('healthy');
   });
 
   it('keeps a Mecanum neutral before a Run exists', () => {

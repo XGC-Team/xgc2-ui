@@ -2,6 +2,7 @@ import sys,json,time,math
 import rospy
 from std_msgs.msg import String,UInt32,Float64MultiArray
 from geometry_msgs.msg import PoseStamped,TwistStamped
+from mavros_msgs.msg import State
 rospy.init_node('sce1_integration_probe',anonymous=True)
 mode=sys.argv[1];values={};times=[]
 # Emergency abort only; normal mission actions are clicked through the UI.
@@ -12,6 +13,7 @@ for key,topic,typ in [('status','/sce1_central_controller/status',String),('step
 for name in ['ugv1','ugv2']+['uav%d'%i for i in range(1,6)]:
  subs.append(rospy.Subscriber('/'+name+'/pose',PoseStamped,record,callback_args=name))
  if name.startswith('uav'):
+  subs.append(rospy.Subscriber('/'+name+'/mavros/state',State,record,callback_args=name+'fcu'))
   subs.append(rospy.Subscriber('/'+name+'/custom/statustext',String,record,callback_args=name+'state'))
   subs.append(rospy.Subscriber('/'+name+'/mavros/local_position/velocity_local',TwistStamped,record,callback_args=name+'velocity'))
 start=time.monotonic();hold=None;initial_step=None
@@ -22,14 +24,17 @@ while time.monotonic()-start<180:
  names=['uav%d'%i for i in range(1,6)]
  if not all(n in values and n+'state' in values and n+'velocity' in values for n in names):continue
  z=[values[n].pose.position.z for n in names];states=[values[n+'state'].data for n in names];vel=[values[n+'velocity'].twist.linear for n in names];speeds=[math.sqrt(v.x*v.x+v.y*v.y+v.z*v.z) for v in vel]
- if mode=='hover':ok=all(s=='Hover' for s in states) and all(abs(h-3)<.15 for h in z) and max(speeds)<.15
+ # xgc_sce1_swarm.launch uses px4_local_1m.yaml; all three SCE configs
+ # also set uav_fixed_z=1.0. Keep the positional and speed tolerances.
+ if mode=='hover':ok=all(s=='Hover' for s in states) and all(abs(h-1)<.15 for h in z) and max(speeds)<.15
  elif mode=='landed':ok=all(h<.35 for h in z) and max(speeds)<.25
  elif mode=='midpoint':ok=step>=300
  elif mode=='finished':ok=status=='FINISHED' and step>=1000
  elif mode=='stopped':
   if initial_step is None:initial_step=step
   if step!=initial_step:raise RuntimeError('algorithm advanced during Stop')
-  ok=all(s=='Hover' for s in states) and max(speeds)<.15 and status=='HOLD'
+  # The current Stop Action sends land for UAVs and stop for UGVs.
+  ok=all(s=='Ready' for s in states) and all(-.15<h<.35 for h in z) and max(speeds)<.15 and status=='HOLD' and all(n+'fcu' in values and not values[n+'fcu'].armed for n in names)
  else:raise ValueError(mode)
  if mode in ('midpoint','finished'):
   for n in ['ugv1','ugv2']+names:

@@ -103,22 +103,22 @@ export function createHostFile(
 }
 
 export async function uploadHostFile(path: string,file: File,options?: ApiTargetOptions): Promise<{ path: string }> {
-  if (options?.managedHostId) {
-    const dest = `${path.replace(/\/+$/, '')}/${file.name}`;
-    const text = await file.text();
-    return saveHostFileContent(dest, text, options);
-  }
   const formData = new FormData();
   formData.append('path',path);
   formData.append('file',file);
+  if (options?.managedHostId) {
+    return uploadRequest<{ path: string }>(`/managed-hosts/${segment(options.managedHostId)}/fs/upload`,formData,withTerminalAuth(options));
+  }
   return uploadRequest<{ path: string }>('/host/files/upload',formData,withTerminalAuth(options));
 }
 
 export async function downloadHostFile(path: string,options?: ApiTargetOptions): Promise<Blob> {
-  // Remote Agent: no dedicated download RPC — reuse fs/read within payload bounds.
   if (options?.managedHostId) {
-    const file = await getHostFileContent(path, options);
-    return new Blob([file.content ?? ''], { type: 'application/octet-stream' });
+    return requestBlob(
+      `/managed-hosts/${segment(options.managedHostId)}/fs/download${queryString({ path })}`,
+      undefined,
+      withTerminalAuth(options),
+    );
   }
   return requestBlob(
     `/host/files/download${queryString({ path })}`,

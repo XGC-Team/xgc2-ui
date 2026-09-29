@@ -8,7 +8,8 @@ import type { HostFileContent,HostRecycleItem } from './hostModel';
 import { formatBytes,formatDateTime } from './hostFormatting';
 import './HostFileDrawers.css';
 
-export function HostFileEditorDrawer({ content,busy,onChange,onClose,onSave }: {
+export function HostFileEditorDrawer({ content,busy,onChange,onClose,onSave,open = true }: {
+  open?: boolean;
   content: HostFileContent;
   busy: boolean;
   onChange: (content: HostFileContent) => void;
@@ -22,6 +23,7 @@ export function HostFileEditorDrawer({ content,busy,onChange,onClose,onSave }: {
     : [];
   return (
     <ConfigDrawer
+      open={open}
       title="Edit file"
       subtitle={content.path}
       className="config-drawer-wide xgc-host-file-drawer"
@@ -40,6 +42,7 @@ export function HostFileEditorDrawer({ content,busy,onChange,onClose,onSave }: {
     >
       <TextareaControl
         className="xgc-host-file-editor"
+        data-xgc-format="monospace"
         value={content.content}
         aria-label={`Contents of ${content.path}`}
         onChange={(value) => onChange({ ...content,content: value })}
@@ -48,7 +51,8 @@ export function HostFileEditorDrawer({ content,busy,onChange,onClose,onSave }: {
   );
 }
 
-export function HostRecycleDrawer({ items,busy,onClose,onRestore }: {
+export function HostRecycleDrawer({ items,busy,onClose,onRestore,open = true }: {
+  open?: boolean;
   items: HostRecycleItem[];
   busy: boolean;
   onClose: () => void;
@@ -56,6 +60,7 @@ export function HostRecycleDrawer({ items,busy,onClose,onRestore }: {
 }) {
   return (
     <ConfigDrawer
+      open={open}
       title="Recycle bin"
       subtitle="Deleted files are stored under the XGC recycle directory."
       className="config-drawer-wide xgc-host-file-drawer"

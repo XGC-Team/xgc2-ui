@@ -1,12 +1,8 @@
-import type { HomePageContribution,ProductWebOwnerMetadata } from '../src/shared/productWebComposition';
-import { createHomePageAdapter } from '../src/app/home/createHomePageAdapter';
-import { recordingOpenFolderActionContribution } from '../src/app/home/RecordingOpenFolderActionContribution';
+import type { ProductWebOwnerMetadata } from '../src/shared/productWebComposition';
 import { productAppStoreContribution } from '../src/domains/appstore/appStoreProductContribution';
 import { auditTaskLogsContribution } from '../src/domains/audit/tasklogs/taskLogsProductContribution';
 import { productDockerContribution } from '../src/domains/container/dockerProductContribution';
 import { productOperationsContribution } from '../src/domains/execution/operationsProductContribution';
-import { HomeRoute } from '../src/domains/home/HomeRoute';
-import { createRecordingLibraryCardContribution } from '../src/domains/home/RecordingLibraryCardContribution';
 import {
   assembleProductWebComposition,
 } from '../src/shared/productWebComposition';
@@ -19,25 +15,6 @@ import {
 
 export { ProductWebEntry } from '../src/app/ProductWebEntry';
 
-const HomePage = createHomePageAdapter(HomeRoute);
-
-const home: HomePageContribution = {
-  route: {
-    page: 'home',
-    component: HomePage,
-    surface: {
-      productFeatures: ['home'],
-      targetAction: 'Core access',
-      targetCapabilities: ['core.view'],
-      remoteVisibility: 'capability',
-      remoteManagedHostAdmission: () => false,
-    },
-  },
-  cards: [
-    createRecordingLibraryCardContribution([recordingOpenFolderActionContribution]),
-  ],
-};
-
 /**
  * Positive Core Web composition root for tests/build proof only.
  * Statically enables Product.Docker and Product.AppStore together
@@ -46,7 +23,6 @@ const home: HomePageContribution = {
 const base = createCoreUserFeatureComposition({
   id: 'core-with-docker-appstore',
   agentLinkComputeTargets: true,
-  home,
 });
 
 export const productWebComposition = assembleProductWebComposition(

@@ -13,8 +13,8 @@
   width: 100%;
   aspect-ratio: 4 / 3;
   display: grid;
-  gap: 2px;
-  padding: 3px;
+  gap: var(--space-2xs);
+  padding: var(--space-2xs);
   overflow: hidden;
   background: var(--color-bg-muted);
   border: var(--stroke-thin) solid var(--color-border);
@@ -53,7 +53,7 @@
   color: var(--color-text-muted);
   font-size: var(--font-xs);
   font-weight: var(--weight-semibold);
-  letter-spacing: 0.02em;
+  letter-spacing: var(--tracking-label);
   line-height: var(--line-height-none);
   border-radius: 2px;
 }

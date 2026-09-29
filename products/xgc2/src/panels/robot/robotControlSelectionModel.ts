@@ -7,7 +7,7 @@ export type ControlRobotBinding = {
 
 /**
  * Remote control is explicit: it follows the Experiment-wide instrument
- * selection and never turns an empty selection into a fleet broadcast. Kind
+ * selection and never turns an empty selection into a swarm broadcast. Kind
  * markers are the Experiment binding contract, so contributed/unknown robots
  * cannot accidentally receive a generic motion intent.
  */

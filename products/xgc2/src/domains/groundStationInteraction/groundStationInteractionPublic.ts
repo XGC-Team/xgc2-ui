@@ -21,8 +21,12 @@ export {
 } from './localGroundStationNotifications';
 export type { LocalGroundStationNotificationInput } from './localGroundStationNotifications';
 
-export { syncGroundStationRemoteMessages,isGroundStationRemoteMessageClosed,remoteConversationScope,useGroundStationRemoteMessages,remoteMessagesForConversation } from './groundStationRemoteMessages';
+export { syncGroundStationRemoteMessages,isGroundStationRemoteMessageClosed,remoteConversationScope,useGroundStationRemoteMessages,remoteMessagesForConversation,remoteControllerChatCopy } from './groundStationRemoteMessages';
 
 export { useGroundStationNativeAgentRegistry } from './GroundStationAgentProvider';
 
 export { useGroundStationRemoteRequests } from './useGroundStationRemoteRequests';
+
+export { useGroundStationInteractionScope } from './GroundStationInteractionContext';
+export { useGroundStationDecisionPresentation } from './groundStationDecisionClaims';
+export type { GroundStationDecisionInteraction } from './groundStationInteractionTypes';

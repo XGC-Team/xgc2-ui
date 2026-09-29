@@ -98,12 +98,6 @@
   font-size: inherit;
 }
 
-.operations-audit-table th,
-.operations-audit-table th button {
-  letter-spacing: 0;
-  text-transform: none;
-  font-weight: var(--weight-regular);
-}
 
 .operations-audit-table th:nth-child(1) { width: 19%; }
 .operations-audit-table th:nth-child(2) { width: 13%; }

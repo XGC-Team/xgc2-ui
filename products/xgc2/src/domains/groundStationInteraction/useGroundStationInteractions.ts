@@ -39,6 +39,8 @@ export type GroundStationInteractions = GroundStationInteractionSelection & {
   streamState: ExecutionStreamState;
   loading: boolean;
   inventoryError: string;
+  /** Optional for read-only consumers; this hook always supplies the real inventory refresh. */
+  refresh?: () => Promise<GroundStationInteraction[]>;
   dismissLocal: (interaction: GroundStationDismissibleInteraction) => void;
   dismiss: GroundStationInteractionDismisser;
   respond: GroundStationDecisionResponder;
@@ -113,6 +115,18 @@ export function useGroundStationInteractions(targetId: string): GroundStationInt
     dispatch({ type: 'inventory',openInteractions,recentInteractions,sinceSequence });
     return reconciled;
   }, []);
+
+  const refresh = useCallback(async () => {
+    const target = selectedTarget.current;
+    dispatch({ type: 'loading' });
+    try { return await reconcile(target); }
+    catch (cause) {
+      if (sameTarget(selectedTarget.current, target) && !isPartialHistoryError(cause)) {
+        dispatch({ type: 'inventory-error',message: messageOf(cause) });
+      }
+      throw cause;
+    }
+  }, [reconcile]);
 
   useEffect(() => {
     const target = selectedTarget.current;
@@ -202,6 +216,7 @@ export function useGroundStationInteractions(targetId: string): GroundStationInt
       ? state.inventoryError
       : '',
     ...selection,
+    refresh,
     dismissLocal,
     dismiss,
     respond,

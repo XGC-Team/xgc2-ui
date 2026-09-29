@@ -19,17 +19,19 @@ export function useAutomationPathBrowser({
   fileExtensions,
   value,
   variant = 'path',
+  initialDirectory = '',
 }: {
   targetId: string;
   kind: AutomationPathKind;
   fileExtensions?: readonly string[];
   value: string;
   variant?: AutomationPathPickerVariant;
+  initialDirectory?: string;
 }) {
   const worldPicker = variant === 'world';
   const initialPath = worldPicker
     ? initialGazeboWorldPickerPath(targetId, value)
-    : initialAutomationPickerPath(targetId, kind, value);
+    : initialAutomationPickerPath(targetId, kind, value, initialDirectory);
   const [path, setPath] = useState(initialPath);
   const [files, setFiles] = useState<AutomationTargetFileList | null>(null);
   const [loading, setLoading] = useState(false);

@@ -29,6 +29,27 @@ describe('api http transport', () => {
     expect(withTerminalAuth({ targetCoreId: 'core-a' })).toEqual({ targetCoreId: 'core-a', auth: 'terminal' });
   });
 
+  it('fences cookie-only clients to this API and strips every explicit XGC credential',async () => {
+    window.localStorage.setItem('xgcStationToken','station-secret');
+    const fetchMock = mockJsonFetch({ ok:true });
+    const { requestCookieResponse } = await import('./http');
+    const signal = new AbortController().signal;
+    await requestCookieResponse('/api/access/operator-session/current',{
+      signal,credentials:'omit',redirect:'follow',headers:{
+        Authorization:'secret',Cookie:'explicit','X-XGC-Station-Token':'injected',
+        'X-XGC-Terminal-Token':'terminal','X-XGC-Other-Authority':'other','X-Custom':'allowed',
+      },
+    });
+    const init = fetchMock.mock.calls[0][1] as RequestInit;
+    expect(init).toMatchObject({ credentials:'include',redirect:'error',referrerPolicy:'no-referrer',signal });
+    const headers = init.headers as Headers;
+    expect([...headers.keys()]).toEqual(['x-custom']);
+    expect(headers.get('X-Custom')).toBe('allowed');
+    expect(() => requestCookieResponse('https://external.example/api/session')).toThrow(/current-station/);
+    expect(() => requestCookieResponse('/outside-api')).toThrow(/current-station/);
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
   it('normalizes api URLs without duplicate api segments or slashes', async () => {
     vi.stubEnv('VITE_API_BASE', 'https://example.com/api/');
     const [{ API_BASE },{ apiUrl }] = await Promise.all([import('../config/apiBase'),import('./http')]);

@@ -79,7 +79,9 @@
   --terminal-col-gap: var(--space-2xl);
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  row-gap: var(--space-md);
+  /* The console window is one card: toolbar (card cap) meets viewport (card
+   * body) with no gap. Rail captions pad their own cards instead. */
+  row-gap: 0;
   min-width: 0;
   min-height: 0;
   height: 100%;
@@ -87,13 +89,32 @@
   overflow-clip-margin: var(--stroke-strong);
 }
 
+/* An embedding workspace owns target selection. Its console fills one column. */
+.terminal-workspace[data-xgc-embedded='true'] {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.terminal-workspace[data-xgc-embedded='true'] > .terminal-chrome,
+.terminal-workspace[data-xgc-embedded='true'] > .terminal-body-content {
+  grid-area: auto;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.terminal-workspace[data-xgc-embedded='true'] .terminal-toolbar,
+.terminal-workspace[data-xgc-embedded='true'] .terminal-console-card {
+  grid-area: auto;
+}
+
 .terminal-access-note {
-  font-size: var(--font-base);
+  font-size: var(--type-body-size);
 }
 
 /*
- * One chrome row for Targets | sessions | User scripts. A single hairline
- * on this bar; session tabs stay in the center track and do not span rails.
+ * One chrome row for Targets caption | console card cap | User scripts
+ * caption. The center cell draws the top of the console window; the rail
+ * captions float above their own cards. No full-width hairline.
  */
 .terminal-chrome {
   display: grid;
@@ -102,7 +123,7 @@
     var(--terminal-col-console)
     var(--terminal-col-scripts);
   column-gap: var(--terminal-col-gap);
-  align-items: center;
+  align-items: stretch;
   min-width: 0;
   height: var(--size-control-panel-header);
   overflow: clip;
@@ -125,10 +146,11 @@
   display: flex;
   align-items: center;
   padding-inline: var(--space-xs);
-  color: var(--color-text-heading);
-  font-size: var(--font-base);
-  font-weight: var(--weight-semibold);
-  line-height: var(--line-height-tight);
+  /* Rail labels sit one step below the session tabs: caption size, muted ink. */
+  color: var(--color-text-muted);
+  font-size: var(--type-meta-size);
+  font-weight: var(--type-status-weight);
+  line-height: var(--type-status-line-height);
 }
 
 [data-xgc-role="terminal-targets-heading"] {
@@ -139,11 +161,19 @@
   padding-inline: var(--space-xs);
 }
 
+/* The center cell is the console window's title bar: same surface, border and
+ * top radius as the card body below it (row-gap is 0, so the halves meet). */
 .terminal-toolbar {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--space-md);
+  padding-inline: var(--space-sm);
+  background: var(--color-bg-surface);
+  border: var(--stroke-thin) solid var(--color-border-muted);
+  border-block-end: 0;
+  border-start-start-radius: var(--radius-card);
+  border-start-end-radius: var(--radius-card);
 }
 
 .terminal-body-content {
@@ -165,16 +195,17 @@
   grid-template-columns: var(--terminal-col-targets) var(--terminal-col-console);
 }
 
-/* Body rails under the toolbar labels — flat, same shell. */
+/* Rails are the same framed card family as Experiments rows: white surface,
+ * muted hairline, card radius. The caption in the chrome row labels the card. */
 .terminal-rail {
   min-width: 0;
   min-height: 0;
   display: grid;
   grid-template-rows: minmax(0, 1fr);
   padding: 0;
-  background: transparent;
-  border: 0;
-  border-radius: 0;
+  background: var(--color-bg-surface);
+  border: var(--stroke-thin) solid var(--color-border-muted);
+  border-radius: var(--radius-card);
   overflow: clip;
   overflow-clip-margin: var(--stroke-strong);
 }
@@ -194,26 +225,20 @@
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
-  /* Leave room for first/last row focus inside the independently scrolled rail. */
-  padding: var(--space-xs);
+  /* Card inset + room for first/last row focus rings. */
+  padding: var(--space-sm);
 }
 
 .terminal-rail-empty {
   margin: 0;
   color: var(--color-text-muted);
-  font-size: var(--font-sm);
+  font-size: var(--type-meta-size);
   line-height: var(--line-height-normal);
 }
 
 .terminal-usernode-script-empty {
   width: calc(100% - var(--terminal-tree-indent));
   margin-left: var(--terminal-tree-indent);
-}
-
-.terminal-usernode-scripts-body {
-  min-height: 0;
-  overflow: auto;
-  padding: var(--space-sm) 0;
 }
 
 [data-xgc-role="terminal-usernode-scripts-page"] {
@@ -247,7 +272,9 @@
 .terminal-sidebar-group-title.xgc-control-button strong {
   min-width: 0;
   overflow: hidden;
-  font-size: var(--font-base);
+  /* Group headers read as section labels, one step below leaf names. */
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
   font-weight: var(--weight-medium);
   /* Compact Button inherits --line-height-none; that clips "group" / "Ungrouped". */
   line-height: var(--line-height-tight);
@@ -279,8 +306,7 @@
 
 /* Two-line tree leaves: title + muted detail (hosts: name/endpoint, scripts: name/summary). */
 .terminal-targets-rail .terminal-sidebar-host.xgc-control-button,
-.terminal-user-scripts-rail .terminal-usernode-script.xgc-control-button,
-.terminal-usernode-scripts-body .terminal-usernode-script.xgc-control-button {
+.terminal-user-scripts-rail .terminal-usernode-script.xgc-control-button {
   height: auto;
   min-height: var(--size-control-compact);
   align-items: flex-start;
@@ -315,8 +341,8 @@
 .terminal-usernode-script-summary {
   min-width: 0;
   color: var(--color-text-muted);
-  font-size: var(--font-sm);
-  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: var(--type-caption-size);
+  font-family: var(--type-code-family);
   line-height: var(--line-height-normal);
 }
 
@@ -326,23 +352,39 @@
   white-space: nowrap;
 }
 
-/* Script summaries may contain shell text; keep the full detail readable. */
+/* Script summaries are real commands: present them as contained code chips
+ * instead of a wall of bare mono text. The chip is a raised surface with a
+ * hairline so it stays visible against the app background; the full command
+ * stays visible (pre-wrap), the chip only frames it. */
 .terminal-usernode-script-summary {
   display: block;
+  box-sizing: border-box;
   width: 100%;
+  padding: var(--space-2xs) var(--space-xs);
+  /* Recessed code well on the white rail card — no border, no second card. */
+  background: var(--color-bg-code);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-soft);
   overflow-wrap: anywhere;
   word-break: break-word;
   white-space: pre-wrap;
 }
 
+/* The console card body: bottom half of the console window. The dark viewport
+ * is inset by the card padding, so the terminal reads as one framed window. */
 .terminal-console-card {
+  box-sizing: border-box;
   display: grid;
   grid-template-rows: minmax(0, 1fr);
   min-width: 0;
   min-height: 0;
   height: 100%;
-  padding: 0;
-  background: transparent;
+  padding: var(--space-sm);
+  background: var(--color-bg-surface);
+  border: var(--stroke-thin) solid var(--color-border-muted);
+  border-block-start: 0;
+  border-end-start-radius: var(--radius-card);
+  border-end-end-radius: var(--radius-card);
 }
 
 .terminal-console-stack {
@@ -351,9 +393,8 @@
   min-width: 0;
   min-height: 0;
   height: 100%;
-  /* Always-dark terminal surface (independent of light/dark shell skin). */
+  /* Terminal surface follows the theme-scoped --color-terminal-bg token (dark in dark skin, light in light skin). */
   background: var(--color-terminal-bg);
-  border: var(--stroke-thin) solid var(--color-border);
   border-radius: var(--radius-control);
   overflow: hidden;
 }
@@ -361,7 +402,7 @@
 .terminal-console-stack[data-xgc-layout="grid"] {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr));
-  /* Cells use their own border, so the grid needs no outer gutter. */
+  /* One seam technique: the thin grid gap lets the theme-scoped stack background (--color-terminal-bg) show through. */
   gap: var(--stroke-thin);
   padding: 0;
   overflow: auto;
@@ -374,7 +415,6 @@
   /* Header auto; body consumes the rest (grid layout with visible chrome). */
   grid-template-rows: auto minmax(0, 1fr);
   background: var(--color-terminal-bg);
-  border: var(--stroke-thin) solid var(--color-border);
   border-radius: var(--radius-control);
   overflow: hidden;
 }
@@ -384,7 +424,6 @@
   inset: 0;
   display: none;
   min-height: 0;
-  border: 0;
   border-radius: 0;
   /*
    * Tabs hide the per-cell header (tabs strip owns chrome). With header
@@ -398,8 +437,8 @@
   display: grid;
 }
 
-.terminal-session-cell[data-xgc-active="true"] {
-  border-color: var(--color-border-primary);
+.terminal-console-stack[data-xgc-layout="grid"] .terminal-session-cell[data-xgc-active="true"] {
+  box-shadow: inset 0 0 0 var(--stroke-thin) var(--color-border-primary);
 }
 
 .terminal-session-cell header {
@@ -410,7 +449,6 @@
   padding: 0 var(--space-md);
   color: var(--color-text-softer);
   background: var(--color-bg-chrome);
-  border-bottom: var(--stroke-thin) solid var(--color-border);
 }
 
 .terminal-console-stack[data-xgc-layout="tabs"] .terminal-session-cell header {
@@ -463,7 +501,7 @@
   display: none;
   min-width: 0;
   min-height: 0;
-  padding: var(--space-xs);
+  padding: var(--space-sm);
   box-sizing: border-box;
   background: var(--color-terminal-bg);
 }
@@ -496,16 +534,23 @@
     overflow: auto;
   }
 
+  /* Hoist chrome/body children into the page grid without flattening the role
+   * hosts (V13 forbids display:contents on markable hosts): both wrappers span
+   * the full workspace grid as subgrids and keep their own selectable boxes. */
   .terminal-chrome,
+  .terminal-chrome:not(:has(> [data-xgc-role="terminal-user-scripts-heading"])),
   .terminal-body-content,
   .terminal-body-content:not(:has(> .terminal-user-scripts-rail)) {
-    display: contents;
+    grid-area: 1 / 1 / -1 / -1;
+    grid-template-columns: subgrid;
+    grid-template-rows: subgrid;
+    column-gap: normal;
+    height: auto;
   }
 
   .terminal-toolbar {
     grid-column: 1 / -1;
     grid-row: 1;
-    border-block-end: var(--stroke-thin) solid var(--color-border-muted);
   }
 
   .terminal-console-card {
@@ -535,15 +580,8 @@
     grid-row: 4;
   }
 
-  .terminal-targets-rail,
-  .terminal-user-scripts-rail {
-    padding-inline: 0;
-    border-inline: 0;
-  }
-
   .terminal-workspace:not(:has(.terminal-user-scripts-rail)) .terminal-targets-rail,
   .terminal-workspace:not(:has(.terminal-user-scripts-rail)) [data-xgc-role="terminal-targets-heading"] {
     grid-column: 1 / -1;
   }
 }
-

@@ -111,22 +111,20 @@ describe('ToolboxPage', () => {
     expect(screen.getByRole('button', { name: 'Clean' })).toBeInTheDocument();
   });
 
-  it('keeps a supplied performance control at the start of the cleanup toolbar', () => {
-    const { container } = render(<ToolboxPage activeTab="cleanup" targetId="local" language="en-US" performanceControl={<button type="button">Performance mode</button>} />);
-    const toolbar = container.querySelector('.toolbox-toolbar');
-    expect(toolbar?.firstElementChild).toBe(screen.getByRole('button', { name: 'Performance mode' }));
-    expect(toolbar?.lastElementChild).toBe(container.querySelector('[data-xgc-role="cleanup-actions"]'));
+  it('does not put performance mode in the cleanup toolbar', () => {
+    const { container } = render(<ToolboxPage activeTab="cleanup" targetId="local" language="en-US" />);
+    expect(container.querySelector('[data-xgc-role="maintenance-performance"]')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Performance mode' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Performance mode')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Scan' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Clean' })).toBeInTheDocument();
   });
 
-  it('keeps host performance control available when a remote host has no cleanup capability', () => {
-    const openPerformance = vi.fn();
-    const { container } = render(<ToolboxPage activeTab="cleanup" targetId="agent-a" managedHostId="agent-a" language="en-US" maintenanceEnabled={false} performanceControl={<button type="button" onClick={openPerformance}>Performance mode</button>} />);
-    const performance = screen.getByRole('button', { name: 'Performance mode' });
-    expect(container.querySelector('.toolbox-toolbar')?.firstElementChild).toBe(performance);
-    fireEvent.click(performance);
-    expect(openPerformance).toHaveBeenCalledTimes(1);
+  it('does not offer performance mode when a remote host has no cleanup capability', () => {
+    const { container } = render(<ToolboxPage activeTab="cleanup" targetId="agent-a" managedHostId="agent-a" language="en-US" maintenanceEnabled={false} />);
+    expect(container.querySelector('.toolbox-toolbar')).toBeNull();
+    expect(container.querySelector('[data-xgc-role="maintenance-performance"]')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Performance mode' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Scan' })).not.toBeInTheDocument();
     expect(submitRemoteCleanupAction).not.toHaveBeenCalled();
     expect(listMaintenanceDefinitions).not.toHaveBeenCalled();

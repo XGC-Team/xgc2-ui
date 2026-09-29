@@ -1,6 +1,7 @@
 import { Notice,NoticeRegion,StatusText } from '@xgc2/ui-react';
 import { X } from 'lucide-react';
 import { useEffect,useRef,useState } from 'react';
+import type { CSSProperties } from 'react';
 import { ControlButton } from '../../components/controls/ControlButton';
 import type { GroundStationInteraction } from './groundStationInteractionTypes';
 import { useGroundStationText } from './groundStationMessages';
@@ -61,7 +62,9 @@ function GroundStationToast({ interaction,onDismissLocal,onDismiss,onView }: {
       aria-atomic="true"
       className="xgc-ground-station-toast"
       role={interaction.severity === 'critical' || interaction.severity === 'error' ? 'alert' : 'status'}
-      style={transient && interaction.kind === 'message' ? { animationDuration: `${interaction.payload.message.durationMs}ms` } : { animation: 'none' }}
+      style={transient && interaction.kind === 'message'
+        ? { '--gsi-toast-duration': `${interaction.payload.message.durationMs}ms` } as CSSProperties
+        : { animation: 'none' }}
       data-xgc-role="ground-station-interaction-toast"
       data-xgc-id={interaction.id}
       data-xgc-severity={interaction.severity}

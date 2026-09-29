@@ -5,6 +5,7 @@ import { assertNativeExperimentSession,createGroundStationNativeClient,nativeExp
 import type { GroundStationNativeAttentionItem,GroundStationNativeRegistry,AgentProjection } from './groundStationAgentTypes';
 import { useGroundStationConversationIndex } from './useGroundStationConversationIndex';
 import { remoteConversationScope,bindRemoteConversationDraft } from './groundStationRemoteMessages';
+import { bindAgentConversationDecisions } from './agentConversationDecisions';
 import { useAgentConversationAttention } from './useAgentConversationAttention';
 
 function mergeNativeOptions(base:AgentTurnOptions = {},override:AgentTurnOptions = {}):AgentTurnOptions {
@@ -63,6 +64,7 @@ export function useGroundStationAgentBindings(executionTargetId: string,focusedE
     }
     const session = assertNativeExperimentSession(await createGroundStationNativeClient(experimentId,experimentServices).createNativeSession(scope,attempt.key),experimentId);
     bindRemoteConversationDraft(experimentId,draftScope,session.id);
+    bindAgentConversationDecisions(experimentId,draftScope,session.id);
     current.current.index.chooseCreated(experimentId,session);
     if (createAttempts.current.get(experimentId) === attempt) createAttempts.current.delete(experimentId);
     return session;

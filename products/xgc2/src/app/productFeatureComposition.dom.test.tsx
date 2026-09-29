@@ -55,7 +55,7 @@ describe('positive Docker and AppStore product composition', () => {
       .toEqual(['containers','compose','images','networks','volumes']);
     expect(productWebComposition.navigation.sectionDefaults.containers).toBe('containers');
     expect(productWebComposition.settings.sections.map((section) => section.id))
-      .toEqual(['appearance','field-tooltips','app-store']);
+      .toEqual(['device-sign-in','appearance','time','field-tooltips','agent-providers','app-store']);
     expect(route('containers').surface).toMatchObject({
       productFeatures: ['containers'],
       targetAction: 'container management',

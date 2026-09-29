@@ -1,3 +1,4 @@
+import { useGroundStationDecisionPresented } from './groundStationDecisionClaims';
 import type { GroundStationInteraction } from './groundStationInteractionTypes';
 import { isGroundStationInteractionOpen } from './groundStationInteractionDecoder';
 import { createPortal } from 'react-dom';
@@ -35,15 +36,17 @@ function GroundStationInteractionHostContent({
   showDecisionDialog = true,
 }: GroundStationInteractionHostProps) {
   const scope = useGroundStationInteractionScope(targetId);
+  const decisionPresented = useGroundStationDecisionPresented(targetId);
   const localToasts = useAllLocalGroundStationNotifications();
   const receipts = useGroundStationAttention();
   if (!scope || typeof document === 'undefined') return null;
   const { interactions } = scope;
   const showFallbackDecisionDialog = showDecisionDialog && scope.activityPanelCount === 0;
   const allToasts = [...localToasts,...interactions.inventory].filter((item) => (
-    isGroundStationInteractionOpen(item) && !groundStationNotificationHidden(item, receipts, targetId)
+    isGroundStationInteractionOpen(item) && !(item.kind === 'decision' && decisionPresented(item.origin.runId)) && !groundStationNotificationHidden(item, receipts, targetId)
     && !groundStationRead(item, receipts, targetId)
     && notificationIsCurrent(item)
+    && !configurationFailureCoversTheSurface(item)
     && (item.kind === 'message' || (item.kind === 'decision' && !showFallbackDecisionDialog)
       || item.severity === 'error' || item.severity === 'critical')
   )).sort((a,b) => groundStationAttentionPriority(b) - groundStationAttentionPriority(a)
@@ -66,7 +69,7 @@ function GroundStationInteractionHostContent({
       )}
       <GroundStationDecisionDialogHost
         enabled={showFallbackDecisionDialog && !scope.notificationCenterOpen}
-        decisions={interactions.chatDecisions}
+        decisions={interactions.chatDecisions.filter((interaction) => !decisionPresented(interaction.origin.runId))}
         onRespond={interactions.respond}
       />
     </div>,
@@ -82,12 +85,17 @@ export function GroundStationLocalNotificationHost({ notificationCenterOpen = fa
   const items = useAllLocalGroundStationNotifications();
   const receipts = useGroundStationAttention();
   const visible = items.filter((item) => !groundStationNotificationHidden(item, receipts, item.targetScope)
-    && !groundStationRead(item, receipts, item.targetScope) && notificationIsCurrent(item));
+    && !groundStationRead(item, receipts, item.targetScope) && notificationIsCurrent(item)
+    && !configurationFailureCoversTheSurface(item));
   if (notificationCenterOpen || !visible.length) return null;
   return createPortal(<GroundStationToastStack items={visible.slice(0, 4)} queued={visible.length}
     onDismissLocal={(item) => hideGroundStationNotification(item, item.targetScope)}
     onDismiss={(item) => { hideGroundStationNotification(item, item.targetScope); return Promise.resolve(item); }}
     onView={onViewNotifications} />, document.body);
+}
+
+function configurationFailureCoversTheSurface(item: GroundStationInteraction) {
+  return item.kind === 'message' && item.message.includes('configuration: invalid input');
 }
 
 function notificationIsCurrent(item: GroundStationInteraction) {

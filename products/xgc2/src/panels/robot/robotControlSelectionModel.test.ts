@@ -10,14 +10,14 @@ const mecanum = (id: string) => ({ id,mecanum: {} });
 const b2 = (id: string) => ({ id,unitreeB2: {} });
 
 describe('robotIdsForRemoteControl', () => {
-  it('aims at the selected Experiment robot instead of broadcasting the fleet', () => {
+  it('aims at the selected Experiment robot instead of broadcasting the swarm', () => {
     expect(robotIdsForRemoteControl(
       ['scout-01'],
       [px4('px4-01'), scout('scout-01')],
     )).toEqual(['scout-01']);
   });
 
-  it('does not turn an empty instrument selection into a fleet broadcast', () => {
+  it('does not turn an empty instrument selection into a swarm broadcast', () => {
     expect(robotIdsForRemoteControl([], [px4('px4-01'), scout('scout-01')]))
       .toEqual([]);
   });

@@ -169,82 +169,13 @@
   gap: var(--space-sm);
 }
 
-.xgc-host-interface-row {
-  min-width: 920px;
-  grid-template-columns:
-    minmax(100px, 0.8fr)
-    70px
-    minmax(220px, 1.6fr)
-    minmax(140px, 1fr)
-    90px
-    90px
-    70px;
-}
-
-.xgc-host-network-path-row {
-  min-width: 680px;
-  grid-template-columns: minmax(130px, 0.7fr) minmax(190px, 1fr) minmax(320px, 2fr);
-}
-
-.xgc-host-network-path-row[data-xgc-tone="warning"] > em {
+[data-xgc-role="host-network-path-row"][data-xgc-tone="warning"] em {
   color: var(--color-warning);
 }
 
-.xgc-host-network-path-row[data-xgc-tone="critical"] > em {
+[data-xgc-role="host-network-path-row"][data-xgc-tone="critical"] em {
   color: var(--color-danger);
   font-weight: var(--weight-semibold);
-}
-
-.xgc-host-network-path-empty {
-  min-height: 160px;
-  display: grid;
-  place-items: center;
-  padding: var(--space-lg);
-  color: var(--color-text-muted);
-}
-
-.xgc-host-interface-row em[data-xgc-up="true"] {
-  color: var(--color-success);
-}
-
-.xgc-host-interface-row em[data-xgc-errors="true"] {
-  color: var(--color-warning);
-  font-weight: var(--weight-semibold);
-}
-
-.xgc-host-route-row {
-  min-width: 760px;
-  grid-template-columns:
-    minmax(180px, 1.5fr)
-    minmax(160px, 1.2fr)
-    minmax(110px, 1fr)
-    90px
-    100px;
-}
-
-.xgc-host-port-row {
-  min-width: 860px;
-  grid-template-columns:
-    70px
-    70px
-    minmax(120px, 1fr)
-    minmax(180px, 1.3fr)
-    minmax(160px, 1.2fr)
-    90px;
-}
-
-.xgc-host-remote-access-row {
-  min-width: 1200px;
-  grid-template-columns:
-    110px
-    80px
-    minmax(180px, 1.3fr)
-    minmax(180px, 1.3fr)
-    72px
-    90px
-    64px
-    150px
-    100px;
 }
 
 .xgc-host-remote-access-ops {

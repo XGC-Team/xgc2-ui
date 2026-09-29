@@ -1,0 +1,23 @@
+.operator-pair-page {
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+  padding: var(--space-lg);
+  box-sizing: border-box;
+}
+
+.operator-pair-panel {
+  width: min(100%, 640px);
+  gap: var(--space-md);
+  min-width: 0;
+}
+
+.operator-pair-panel h1 {
+  margin: 0;
+}
+
+.operator-access-muted {
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+  overflow-wrap: anywhere;
+}

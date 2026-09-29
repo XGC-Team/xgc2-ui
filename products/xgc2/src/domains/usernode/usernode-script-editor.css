@@ -22,7 +22,6 @@
   flex: 1 1 auto;
   min-height: 0;
   align-self: center;
-  margin-inline: auto;
 }
 
 [data-xgc-role="usernode-assets-page"]:has([data-xgc-role="usernode-asset-detail"]) {
@@ -30,6 +29,7 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
+  align-items: center;
   overflow: clip;
   overflow-clip-margin: var(--stroke-strong);
 }
@@ -38,7 +38,6 @@
   flex: 1 1 auto;
   min-height: 0;
   width: min(1120px, 100%);
-  margin-inline: auto;
   align-self: center;
 }
 
@@ -94,17 +93,13 @@
   gap: var(--space-sm);
 }
 
-.usernode-source-editor.xgc-textarea-control {
+.usernode-source-editor.control-textarea {
   min-width: 0;
   min-height: 0;
   flex: 1 1 auto;
   height: 100%;
   display: grid;
   grid-template-rows: minmax(0, 1fr);
-  font-family: var(--font-mono);
-  font-size: var(--font-lg);
-  line-height: var(--line-height-relaxed);
-  background: var(--color-bg-control);
 }
 
 .usernode-source-highlight,
@@ -116,21 +111,27 @@
   min-width: 0;
   min-height: 0;
   margin: 0;
-  font: inherit;
-  line-height: inherit;
   letter-spacing: inherit;
   tab-size: 4;
   white-space: pre;
   overflow: auto;
 }
 
+/* The input layer takes the family monospace format from data-xgc-format on
+ * the control shell; the highlight layer mirrors the same metrics explicitly
+ * (product CSS is unlayered and would otherwise win over the vendor rule), so
+ * both overlay layers keep identical text geometry. The highlight also paints
+ * the control fill because the input above it stays transparent. */
 .usernode-source-highlight {
   pointer-events: none;
   padding: var(--space-md) var(--space-lg);
   border: var(--stroke-thin) solid transparent;
   border-radius: var(--radius-control);
   color: var(--color-text);
-  background: transparent;
+  background: var(--color-bg-control);
+  font-family: var(--font-mono);
+  font-size: var(--font-base);
+  line-height: var(--line-height-normal);
 }
 
 .usernode-source-highlight > code {

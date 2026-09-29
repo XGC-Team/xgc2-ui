@@ -104,9 +104,6 @@ export function validateAutomationSpec(
     const declaredPorts = Array.isArray(catalogPorts) ? catalogPorts : undefined;
     const sourcePort = edge.sourcePort?.trim();
     const route = edge.route?.trim();
-    if (sourcePort && !['main','ready','stopped','error'].includes(sourcePort)) {
-      return `Edge ${edge.id} uses unsupported output port "${sourcePort}".`;
-    }
     if (sourcePort && sourcePort !== 'main') {
       if (declaredPorts && !declaredPorts.some((port) => port.id === sourcePort)) {
         return `Edge ${edge.id} uses output port "${sourcePort}" which is not declared by node ${edge.from}.`;

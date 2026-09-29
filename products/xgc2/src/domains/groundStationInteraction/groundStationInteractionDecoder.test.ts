@@ -67,11 +67,17 @@ describe('decodeGroundStationInteraction', () => {
         actor: 'operator-a',
         reason: 'Checks complete',
         at: '2026-07-15T09:01:00Z',
+        results: { invocationId: 'action-1', attempt: 1, state: 'completed', at: '2026-07-15T09:02:00Z', succeeded: ['px4-01'], failed: ['px4-02'] },
       },
-    }))).toMatchObject({ response: { action: 'approved',reason: 'Checks complete' } });
+    }))).toMatchObject({ response: { action: 'approved',reason: 'Checks complete',results: { invocationId: 'action-1', attempt: 1, state: 'completed', at: '2026-07-15T09:02:00Z', succeeded: ['px4-01'], failed: ['px4-02'] } } });
     expect(decodeGroundStationInteraction(fixture({
       kind: 'decision',presentation: 'panel',responseMode: 'decision',payload: { decision: {} },
       response: { action: 'approved',actor: 'operator-a',extra: { nested: true },at: '2026-07-15T09:01:00Z' },
+    }))).toBeUndefined();
+    expect(decodeGroundStationInteraction(fixture({
+      kind: 'decision',presentation: 'panel',responseMode: 'decision',payload: { decision: {} },
+      status: 'resolved',revision: 2,
+      response: { action: 'approved',actor: 'operator-a',at: '2026-07-15T09:01:00Z',results: { extra: true } },
     }))).toBeUndefined();
   });
 

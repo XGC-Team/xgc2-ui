@@ -9,21 +9,22 @@ import { TerminalPage } from './TerminalPage';
 import type { TerminalComposition } from './terminalComposition';
 import { EMPTY_TERMINAL_COMPOSITION } from './terminalComposition';
 import { resolveTerminalTab } from './terminalNavigation';
-import '../../styles/terminal.css';
 
 export type TerminalRouteProps = {
   composition?: TerminalComposition;
 };
 
 export function TerminalRoute({ composition = EMPTY_TERMINAL_COMPOSITION }: TerminalRouteProps) {
-  const nav = useNavigation();
+  const nav = useNavigation((state) => ({
+    managedHostId: state.managedHostId,terminalSection: state.pageSection('terminal'),setPageSection: state.setPageSection,
+  }));
   const { routedTargetCoreId } = useTargetCore('terminal');
   const managedHosts = useManagedHosts();
   const managedHostId = nav.managedHostId;
   const selectedAgent = !isLocalManagedHost(managedHostId)
     ? managedHosts.find((host) => host.id === managedHostId)
     : undefined;
-  const activeTab = resolveTerminalTab(nav.pageSection('terminal'));
+  const activeTab = resolveTerminalTab(nav.terminalSection);
   return (
     <TerminalPage
       activeTab={activeTab}

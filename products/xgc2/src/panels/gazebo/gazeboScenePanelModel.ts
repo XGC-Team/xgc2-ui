@@ -1,3 +1,5 @@
+export const GAZEBO_SCENE_PANEL_PLUGIN_ID = 'gazebo-scene-composer';
+
 export const gazeboObstacleModels = [
   { id: 'xgc2_geom_cube',label: 'Cube' },
   { id: 'xgc2_geom_cuboid',label: 'Cuboid' },

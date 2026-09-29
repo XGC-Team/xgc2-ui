@@ -39,9 +39,11 @@ describe('AppWindowControls', () => {
     expect(minimize).toHaveAttribute('aria-label', '最小化');
     expect(maximize).toHaveAttribute('aria-label', '最大化');
     expect(close).toHaveAttribute('aria-label', '关闭');
-    fireEvent.pointerDown(minimize!);
-    fireEvent.pointerDown(maximize!);
-    fireEvent.pointerDown(close!);
+    fireEvent.pointerDown(close!, { button: 2 });
+    expect(api.close).not.toHaveBeenCalled();
+    fireEvent.click(minimize!);
+    fireEvent.click(maximize!);
+    fireEvent.click(close!);
     expect(api.minimize).toHaveBeenCalledOnce();
     expect(api.toggleMaximize).toHaveBeenCalledOnce();
     expect(api.close).toHaveBeenCalledOnce();

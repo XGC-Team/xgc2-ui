@@ -1,63 +1,20 @@
+import { workflowRuntimeDatasources } from '../../shared/workflowRuntimeProtocol';
 import { definePanelPlugin } from '../types';
-import { RecordingControlPanel } from './RecordingControlPanel';
 import { RosbagPlotPanel } from './RosbagPlotPanel';
+import { ScientificGalleryPanel } from './ScientificGalleryPanel';
 import {
-  RECORDING_ARTIFACT_DEFAULT_LIMIT,
-  RECORDING_CONTROL_PANEL_ID,
-  ROSBAG_RECORDING_WORKFLOW_SLOT,
-} from './recordingControlPanelModel';
+  ScientificGalleryFrameProvider,
+  ScientificGalleryHeaderActions,
+  ScientificGalleryHeaderLeading,
+  ScientificGalleryHeaderStatus,
+} from './scientificGalleryPanelFrame';
 import { ROSBAG_PLOT_PANEL_ID } from './rosbagPlotPanelModel';
-
-/**
- * The ROS bag recording surface.
- *
- * It reads no datasource: a recording is an Experiment workflow binding, and
- * everything the panel shows is either that binding's document, Core's own
- * topic derivation, or the artifact archive. A datasource here would be a
- * second, disagreeing idea of what is being recorded.
- *
- * The slot is not `required`: an Experiment template that binds no recorder is
- * a legitimate Experiment, and the panel guides instead of failing the board.
- */
-export const recordingControlPanelPlugin = definePanelPlugin({
-  id: RECORDING_CONTROL_PANEL_ID,
-  name: 'Recording control',
-  localizedName: { 'en-US':'Recording control','zh-CN':'录制控制' },
-  category: 'Operations',
-  description: 'Choose what the Experiment Workflow records, start and stop the recorder, and browse the artifacts it produced.',
-  localizedDescription: {
-    'en-US':'Choose what the Experiment Workflow records, start and stop the recorder, and browse the artifacts it produced.',
-    'zh-CN':'选择实验工作流的录制内容，启动或停止录制器，并浏览生成的产物。',
-  },
-  capabilities: ['visualization','experiment'] as const,
-  backendCapabilities: [
-    'experiment.read','automations.read','automations.run','recordings.read','robot.read',
-  ],
-  permissions: [
-    'experiment.read','automations.read','automations.run','recordings.read','robot.read',
-  ],
-  executionTargetPolicy: 'dashboard',
-  configureOnCreate: false,
-  layout: {
-    minSize: { w: 4,h: 4 },
-    sizePolicy: { horizontal: 'expanding',vertical: 'expanding' },
-  },
-  dataPorts: [{ id:'recording-artifacts',label:'Recording artifacts',localizedLabel:{ 'en-US':'Recording artifacts','zh-CN':'录制产物' },contract:'recording.artifacts.v1' }],
-  actionPorts: [{ id:ROSBAG_RECORDING_WORKFLOW_SLOT,label:'Recording',localizedLabel:{ 'en-US':'Recording','zh-CN':'录制' },actionKinds:['service'] }],
-  optionSchema: {
-    dashboard: { type: 'string' },
-    gridColumns: { type: 'number' },
-    artifactLimit: { type: 'number' },
-  },
-  defaultOptions: { artifactLimit: RECORDING_ARTIFACT_DEFAULT_LIMIT },
-  defaultPanel: {
-    title: 'Recording control',
-    gridPos: { x: 0,y: 0,w: 6,h: 6 },
-    query: {},
-    options: { dashboard: 'gcs',artifactLimit: RECORDING_ARTIFACT_DEFAULT_LIMIT },
-  },
-  component: RecordingControlPanel,
-});
+import {
+  SCIENTIFIC_GALLERY_ACTION_PORT,
+  SCIENTIFIC_GALLERY_PANEL_ID,
+  SCIENTIFIC_GALLERY_RUNTIME_PORT,
+} from './scientificGalleryPanelModel';
+import { VIDEO_RENDER_ACTION_PORT } from './videoProduction/videoProductionModel';
 
 /**
  * Offline bag inspector. Catalog comes from GET /recordings/rosbags/:id/plot
@@ -94,4 +51,69 @@ export const rosbagPlotPanelPlugin = definePanelPlugin({
     options: { dashboard: 'gcs' },
   },
   component: RosbagPlotPanel,
+});
+
+/**
+ * Generic scientific result gallery. The panel selects a completed Experiment
+ * data file and invokes one bound Workflow action. The panel contributes one
+ * offline-authored script path; the Workflow owns execution and its published
+ * image directory.
+ */
+export const scientificGalleryPanelPlugin = definePanelPlugin({
+  id: SCIENTIFIC_GALLERY_PANEL_ID,
+  name: 'Scientific plots',
+  localizedName: { 'en-US':'Scientific plots','zh-CN':'科研绘图' },
+  category: 'Operations',
+  description: 'Select a completed Experiment data file, plot figures with the bound Workflow, and view the results.',
+  localizedDescription: {
+    'en-US':'Select a completed Experiment data file, plot figures with the bound Workflow, and view the results.',
+    'zh-CN':'选择已完成的实验数据文件，用绑定工作流绘图并查看结果。',
+  },
+  capabilities: ['visualization','experiment','automation'] as const,
+  backendCapabilities: ['automations.read','automations.run','recordings.read','recordings.write','operations.job.control'],
+  permissions: ['automations.read','automations.run','recordings.read','recordings.write','operations.job.control'],
+  executionTargetPolicy: 'dashboard',
+  configureOnCreate: true,
+  panelWorkflowControls: 'hidden',
+  fillBody: true,
+  frameProvider: ScientificGalleryFrameProvider,
+  headerLeading: ScientificGalleryHeaderLeading,
+  headerStatus: ScientificGalleryHeaderStatus,
+  headerActions: ScientificGalleryHeaderActions,
+  layout: {
+    minSize: { w: 8,h: 6 },
+    sizePolicy: { horizontal: 'expanding',vertical: 'expanding' },
+  },
+  dataPorts: [
+    { id:'recording-artifacts',label:'Recording artifacts',localizedLabel:{ 'en-US':'Recording artifacts','zh-CN':'录制产物' },contract:'recording.artifacts.v1' },
+    { id:SCIENTIFIC_GALLERY_RUNTIME_PORT,label:'Workflow runtime',localizedLabel:{ 'en-US':'Workflow runtime','zh-CN':'工作流运行时' },contract:workflowRuntimeDatasources.run },
+  ],
+  actionPorts: [{
+    id:SCIENTIFIC_GALLERY_ACTION_PORT,label:'Plot',localizedLabel:{ 'en-US':'Plot','zh-CN':'绘图' },
+    description:'A command Action with required string inputs inputPath, scriptPath, and publicationId.',
+    localizedDescription:{
+      'en-US':'A command Action with required string inputs inputPath, scriptPath, and publicationId.',
+      'zh-CN':'具有必填字符串输入 inputPath、scriptPath 和 publicationId 的命令动作。',
+    },
+    actionKinds:['command'],required:true,
+  },{
+    id:VIDEO_RENDER_ACTION_PORT,label:'Render video',localizedLabel:{ 'en-US':'Render video','zh-CN':'渲染视频' },
+    actionKinds:['command'],
+  }],
+  defaultPortBindings: [
+    { portId:'recording-artifacts',kind:'data',projection:'recording.artifacts.v1' },
+    { portId:SCIENTIFIC_GALLERY_RUNTIME_PORT,kind:'data',projection:workflowRuntimeDatasources.run },
+  ],
+  optionSchema: {
+    dashboard: { type: 'string' },
+    gridColumns: { type: 'number' },
+    scriptPath: { type: 'string' },
+  },
+  defaultPanel: {
+    title: 'Scientific plots',
+    gridPos: { x: 0,y: 0,w: 23,h: 16 },
+    query: {},
+    options: { dashboard: 'algorithm',scriptPath: '' },
+  },
+  component: ScientificGalleryPanel,
 });

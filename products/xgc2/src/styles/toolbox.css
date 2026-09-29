@@ -177,10 +177,6 @@
   font-size: inherit;
 }
 
-.toolbox-cleanup-table th {
-  letter-spacing: 0;
-  text-transform: none;
-}
 
 .toolbox-cleanup-table th:nth-child(1) { width: 2.5rem; }
 .toolbox-cleanup-table th:nth-child(2) { width: auto; }

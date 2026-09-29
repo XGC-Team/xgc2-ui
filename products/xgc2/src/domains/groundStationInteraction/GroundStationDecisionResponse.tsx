@@ -27,6 +27,12 @@ import {
   groundStationDecisionCompactApproveLabel,
   groundStationDecisionOutcomeLabel,
 } from './groundStationDecisionPresentation';
+import {
+  ensureOperatorControlSession,
+  operatorAccessCopy,
+  useOperatorControlSession,
+} from '../operatorAccess/operatorAccessPublic';
+import { useAppLanguage } from '../../shared/localization/localizedText';
 import './GroundStationDecisionResponse.css';
 
 export function GroundStationDecisionResponseControls({
@@ -44,7 +50,7 @@ export function GroundStationDecisionResponseControls({
   const requiresReason = interaction.payload.decision.requireReason;
   const form = interaction.payload.decision.form;
   const [reason, setReason] = useState('');
-  const [showReason, setShowReason] = useState(appearance === 'dialog' && requiresReason);
+  const [showReason, setShowReason] = useState(requiresReason);
   const [busy, setBusy] = useState<GroundStationDecisionResponseAction | ''>('');
   const [error, setError] = useState('');
   const interactionIdentity = `${interaction.id}:${interaction.revision}`;
@@ -54,10 +60,17 @@ export function GroundStationDecisionResponseControls({
   const locallyExpired = isGroundStationDecisionLocallyExpired(interaction, now);
   const retiredRecordingRequest = isRetiredGroundStationRecordingRequest(interaction);
   const open = interaction.status === 'open' && !locallyExpired;
+  // Approving a decision can drive robots, so it verifies the operator session
+  // first; rejecting refuses the action and is never gated.
+  const controlSession = useOperatorControlSession();
+  const sessionCopy = operatorAccessCopy(useAppLanguage());
+  const approvalBlockReason = controlSession.phase === 'denied'
+    ? sessionCopy.controlSessionDenied
+    : controlSession.phase === 'unavailable' ? sessionCopy.controlSessionUnavailable : '';
 
   useEffect(() => {
     setReason('');
-    setShowReason(appearance === 'dialog' && requiresReason);
+    setShowReason(requiresReason);
     setBusy('');
     setError('');
   }, [appearance,interactionIdentity,requiresReason]);
@@ -89,6 +102,9 @@ export function GroundStationDecisionResponseControls({
       ...(values && Object.keys(values).length > 0 ? { values } : {}),
     };
     try {
+      if (action === 'approved' && !await ensureOperatorControlSession()) {
+        throw new Error(approvalBlockReason || sessionCopy.controlSessionDenied);
+      }
       await onRespond(interaction, action, options);
       if (isCurrent()) onResponded?.();
     } catch (cause) {
@@ -117,7 +133,7 @@ export function GroundStationDecisionResponseControls({
     <div className="xgc-ground-station-decision-response" data-xgc-appearance={appearance} aria-busy={Boolean(busy)}
       data-xgc-role="ground-station-decision-response" data-xgc-id={interaction.id}>
       {appearance === 'dialog' ? <ExperimentAgentActionReview interaction={interaction} /> : null}
-      <GroundStationDecisionDeadline interaction={interaction} now={now} waiting={appearance === 'dialog'} />
+      {appearance === 'dialog' ? <GroundStationDecisionDeadline interaction={interaction} now={now} waiting /> : null}
       {form && (
         <GroundStationDecisionFormFields
           interactionId={interaction.id}
@@ -150,17 +166,34 @@ export function GroundStationDecisionResponseControls({
       <div className="xgc-ground-station-decision-actions"
         data-xgc-role="ground-station-decision-actions" data-xgc-id={interaction.id} aria-label={interaction.title}>
         <ControlButton
+          className="xgc-ground-station-decision-choice"
           size="compact"
           tone={appearance === 'compact' ? 'default' : 'primary'}
           appearance={appearance === 'compact' ? 'raised' : 'default'}
-          disabled={Boolean(busy)}
+          disabled={Boolean(busy) || Boolean(approvalBlockReason)}
           aria-busy={busy === 'approved' || undefined}
+          title={approvalBlockReason || undefined}
           dataXgcRole="ground-station-chat-decision-approve"
           dataXgcId={interaction.id}
           onClick={() => void respond('approved')}
         >{appearance === 'compact' ? groundStationDecisionCompactApproveLabel(interaction) : interaction.payload.decision.approveLabel}</ControlButton>
+        {approvalBlockReason ? (
+          <ControlButton
+            className="xgc-ground-station-decision-choice"
+            size="compact"
+            appearance="ghost"
+            title={approvalBlockReason}
+            aria-label={sessionCopy.controlSessionRetry}
+            dataXgcRole="operator-control-session-retry"
+            dataXgcId={interaction.id}
+            disabled={controlSession.ensuring}
+            onClick={controlSession.retry}
+          >{sessionCopy.controlSessionRetry}</ControlButton>
+        ) : null}
         <ControlButton
+          className="xgc-ground-station-decision-choice"
           size="compact"
+          appearance={appearance === 'compact' ? 'raised' : 'default'}
           disabled={Boolean(busy)}
           aria-busy={busy === 'rejected' || undefined}
           dataXgcRole="ground-station-chat-decision-reject"
@@ -169,45 +202,82 @@ export function GroundStationDecisionResponseControls({
         >{interaction.payload.decision.rejectLabel}</ControlButton>
         {appearance === 'dialog' && !form && !interaction.payload.decision.agentAction && interaction.origin.experimentId ? <DecisionPolicyControl key={interactionIdentity}
           experimentId={interaction.origin.experimentId} source={{kind:'gcs',interactionId:interaction.id}} disabled={Boolean(busy)} /> : null}
-        {!showReason && !requiresReason && (
+        {appearance === 'dialog' && !showReason && !requiresReason && (
           <ControlButton
             className="xgc-ground-station-decision-add-note"
             size="compact"
-            appearance={appearance === 'compact' ? 'raised' : 'ghost'}
+            appearance="ghost"
             disabled={Boolean(busy)}
             onClick={() => setShowReason(true)}
             dataXgcRole="ground-station-decision-add-note"
             dataXgcId={interaction.id}
           >{t('Add a note')}</ControlButton>
         )}
+        {appearance === 'compact' ? <GroundStationDecisionDeadline interaction={interaction} now={now} waiting={false} variant="ring" /> : null}
       </div>
     </div>
   );
 }
 
+const DEADLINE_RING_RADIUS = 10;
+const DEADLINE_RING_CIRCUMFERENCE = 2 * Math.PI * DEADLINE_RING_RADIUS;
+
 export function GroundStationDecisionDeadline({
   interaction,
   now,
   waiting = true,
+  variant = 'text',
 }: {
   interaction: GroundStationDecisionInteraction;
   now: number;
   waiting?: boolean;
+  variant?: 'text' | 'ring';
 }) {
   const t = useGroundStationText();
   if (interaction.status !== 'open') return null;
   if (!interaction.expiresAt) {
-    if (!waiting) return null;
+    if (!waiting || variant === 'ring') return null;
     return <small className="xgc-ground-station-decision-deadline"
       data-xgc-role="ground-station-decision-deadline" data-xgc-id={interaction.id}
     ><Clock3 size={13} aria-hidden="true" />{t('Waiting for confirmation')}</small>;
   }
   const remaining = Math.max(0, Date.parse(interaction.expiresAt) - now);
+  const expired = remaining === 0;
+  const label = expired ? t('Confirmation wait expired') : t('Expires in {time}', { time: formatRemaining(remaining) });
+  if (variant === 'ring') {
+    const started = Date.parse(interaction.createdAt);
+    const total = Math.max(remaining, Number.isFinite(started) ? Date.parse(interaction.expiresAt) - started : remaining);
+    const ratio = total > 0 ? remaining / total : 0;
+    return (
+      <span
+        className="xgc-ground-station-decision-deadline"
+        data-xgc-variant="ring"
+        data-xgc-expired={expired || undefined}
+        data-xgc-role="ground-station-decision-deadline"
+        data-xgc-id={interaction.id}
+        role="timer"
+        aria-label={label}
+      >
+        <svg viewBox="0 0 28 28" aria-hidden="true">
+          <circle className="xgc-ground-station-decision-deadline-track" cx="14" cy="14" r={DEADLINE_RING_RADIUS} />
+          <circle
+            className="xgc-ground-station-decision-deadline-fill"
+            cx="14"
+            cy="14"
+            r={DEADLINE_RING_RADIUS}
+            strokeDasharray={DEADLINE_RING_CIRCUMFERENCE}
+            strokeDashoffset={DEADLINE_RING_CIRCUMFERENCE * (1 - ratio)}
+          />
+        </svg>
+        <span className="xgc-ground-station-decision-deadline-count" aria-hidden="true">{formatCountdown(remaining)}</span>
+      </span>
+    );
+  }
   return (
-    <small className="xgc-ground-station-decision-deadline" data-xgc-expired={remaining === 0 || undefined}
+    <small className="xgc-ground-station-decision-deadline" data-xgc-expired={expired || undefined}
       data-xgc-role="ground-station-decision-deadline" data-xgc-id={interaction.id}>
       <Clock3 size={13} aria-hidden="true" />
-      {remaining === 0 ? t('Confirmation wait expired') : t('Expires in {time}', { time: formatRemaining(remaining) })}
+      {label}
     </small>
   );
 }
@@ -241,6 +311,20 @@ function formatRemaining(milliseconds: number) {
   const minutes = Math.floor(seconds / 60);
   const remainder = seconds % 60;
   return minutes > 0 ? `${minutes}:${String(remainder).padStart(2, '0')}` : `${remainder}s`;
+}
+
+function formatCountdown(milliseconds: number) {
+  const seconds = Math.max(0, Math.ceil(milliseconds / 1_000));
+  if (seconds >= 86_400) {
+    const days = Math.floor(seconds / 86_400);
+    return days >= 100 ? '' : `${days}d`;
+  }
+  if (seconds >= 3_600) return `${Math.floor(seconds / 3_600)}h`;
+  if (seconds >= 60) {
+    const minutes = Math.floor(seconds / 60);
+    return `${minutes}:${String(seconds % 60).padStart(2, '0')}`;
+  }
+  return String(seconds);
 }
 
 function messageOf(cause: unknown) {

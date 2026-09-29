@@ -18,13 +18,16 @@
 
 /* Robot kinds expose different attribute counts and value lengths. Let each
  * card follow its content instead of forcing eight-field PX4 cards into the
- * same height as three-field inventory cards. */
+ * same height as three-field inventory cards. Reachability and configure sit
+ * on the title row only; they do not take a column beside the attributes. */
 .robot-asset-card {
   min-height: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
   align-items: start;
-  gap: var(--space-xl);
+  column-gap: var(--space-xl);
+  row-gap: var(--space-lg);
   padding: var(--space-xl);
   cursor: default;
 }
@@ -35,12 +38,12 @@
 }
 
 .robot-asset-card-body {
-  min-width: 0;
-  display: grid;
-  gap: var(--space-lg);
+  display: contents;
 }
 
 .robot-asset-card-title {
+  grid-column: 1;
+  grid-row: 1;
   min-width: 0;
   display: flex;
   align-items: center;
@@ -73,6 +76,9 @@
  * natural height. No nested border — the row already provides card chrome.
  */
 .robot-asset-card-attrs {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  min-width: 0;
   margin: 0;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -131,27 +137,10 @@
 }
 
 .robot-asset-card-actions {
+  grid-column: 2;
+  grid-row: 1;
   justify-self: end;
-  align-self: start;
-  padding-top: var(--space-2xs);
+  align-self: center;
+  padding-top: 0;
 }
 
-.robot-asset-card-actions [data-xgc-role="robot-asset-connectivity"][data-xgc-state="success"] {
-  color: var(--color-success);
-}
-
-.robot-asset-card-actions [data-xgc-role="robot-asset-connectivity"][data-xgc-state="warning"] {
-  color: var(--color-warning);
-}
-
-.robot-asset-card-actions [data-xgc-role="robot-asset-connectivity"][data-xgc-state="danger"] {
-  color: var(--color-danger);
-}
-
-.robot-asset-card-actions [data-xgc-role="robot-asset-connectivity"] [data-xgc-spinning="true"] {
-  animation: robot-asset-connectivity-spin calc(var(--duration-deliberate) * 3) linear infinite;
-}
-
-@keyframes robot-asset-connectivity-spin {
-  to { transform: rotate(360deg); }
-}

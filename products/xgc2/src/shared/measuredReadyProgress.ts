@@ -36,10 +36,13 @@ export function workflowTileProgress({
   failed: boolean;
   occupancy?: WorkflowTileOccupancy;
 }) {
-  const censusTotal = (active || failed) && occupancy && occupancy.total > 0 ? occupancy.total : 0;
+  const hasCensus = Boolean(occupancy && occupancy.total > 0);
+  const censusTotal = (active || failed) && hasCensus ? occupancy!.total : 0;
   const total = censusTotal > 0 ? censusTotal : (active || failed) ? 1 : 0;
-  const readyCount = censusTotal > 0 ? Math.max(0, occupancy?.ready ?? 0) : (failed ? 1 : 0);
-  const complete = !busy && active && occupancy?.state === 'running' && occupancy.total > 0;
+  const readyCount = censusTotal > 0 ? Math.max(0, occupancy?.ready ?? 0) : (active || failed ? 1 : 0);
+  const complete = !busy && active && !failed && (
+    (occupancy?.state === 'running' && occupancy.total > 0) || !hasCensus
+  );
   const percent = complete ? 100
     : failed && total > 0 ? Math.round((100 * Math.max(readyCount,1)) / total)
     : failed ? 100

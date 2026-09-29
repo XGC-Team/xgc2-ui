@@ -97,6 +97,7 @@ export function CameraIntrinsicValidationWorkspace({
     <CameraIntrinsicValidationRuntimePanel
       targetId={targetId} processInstanceId={processInstanceId} panelId={panel.id} enabled={enabled}
       liveStage={<CameraVideoPanel panel={videoPanel} context={context}
+        mediaEdgeProcess={{ targetId,instanceId:mountedMediaEdgeIdRef.current }}
         expectedSourceSize={{ width:3840,height:2160 }}
         connectionEnabled={enabled} ownerLifecycle={ownerStopping ? 'stopping' : 'running'}
         surfaceVisible={enabled} onPlaybackMetricsChange={setLivePlaybackMetrics} />}
@@ -108,7 +109,7 @@ export function CameraIntrinsicValidationWorkspace({
       {view==='workflow' ? document ? (
         <CameraCalibrationWorkflowView kind="intrinsic" panelId={panel.id}
           workflow={document} detail={intrinsicWorkflowDetail(runtime,active?.id ?? '')}
-          catalog={runtime?.catalog ?? []} />
+          catalog={runtime?.catalog ?? []} loadRunDetail={runtime?.loadRunDetail} />
       ) : (
         <EmptyState appearance="plain" density="compact" fill title={t('Calibration workflow is unavailable')} />
       ) : cameraView}

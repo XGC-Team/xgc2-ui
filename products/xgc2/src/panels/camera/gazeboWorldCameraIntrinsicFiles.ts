@@ -1,4 +1,5 @@
 const TIMESTAMPED_INTRINSIC_YAML = /^intrinsics-(\d{8}T\d{6}(?:\.\d+)?Z)\.yaml$/;
+const TIMESTAMPED_EXTRINSIC_YAML = /^extrinsics-(\d{8}T\d{6}(?:\.\d+)?Z)(?:-(\d{2}))?\.yaml$/;
 
 export type WorldCameraIntrinsicFileOption = {
   path: string;
@@ -35,4 +36,33 @@ export function worldCameraIntrinsicOptionLabel(
   latestPrefix: string,
 ): string {
   return `${file.latest ? latestPrefix : ''}${formatIntrinsicStamp(file.stamp)}`;
+}
+
+export function isForbiddenExtrinsicAlias(name: string): boolean {
+  return name === 'extrinsics.yaml';
+}
+
+export function timestampedExtrinsicYamlFiles(
+  entries: readonly { name: string; path: string; isDir: boolean }[],
+): WorldCameraIntrinsicFileOption[] {
+  const matched = entries
+    .filter((entry) => !entry.isDir && TIMESTAMPED_EXTRINSIC_YAML.test(entry.name) && !isForbiddenExtrinsicAlias(entry.name))
+    .map((entry) => ({
+      path: entry.path,
+      stamp: TIMESTAMPED_EXTRINSIC_YAML.exec(entry.name)?.[1] ?? '',
+    }))
+    .filter((entry) => entry.stamp)
+    .sort((left, right) => right.stamp.localeCompare(left.stamp));
+  return matched.map((file, index) => ({ ...file, latest: index === 0 }));
+}
+
+export function worldCameraExtrinsicOptionLabel(
+  file: WorldCameraIntrinsicFileOption,
+  partition: 'sim' | 'phy',
+  latestPrefix: string,
+  simulationLabel: string,
+  physicalLabel: string,
+): string {
+  const place = partition === 'phy' ? physicalLabel : simulationLabel;
+  return `${place} · ${file.latest ? latestPrefix : ''}${formatIntrinsicStamp(file.stamp)}`;
 }

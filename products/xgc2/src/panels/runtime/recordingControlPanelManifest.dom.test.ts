@@ -1,34 +1,21 @@
 // @vitest-environment jsdom
 
 import { describe,expect,it } from 'vitest';
-import { corePanelPlugins } from '../builtinPanels';
-import { recordingControlPanelPlugin,rosbagPlotPanelPlugin } from './manifest';
-import {
-  RECORDING_CONTROL_PANEL_ID,
-  ROSBAG_RECORDING_WORKFLOW_SLOT,
-} from './recordingControlPanelModel';
+import { availablePanelPlugins,corePanelPlugins } from '../builtinPanels';
+import { rosbagPlotPanelPlugin,scientificGalleryPanelPlugin } from './manifest';
 
-describe('recording-control panel manifest', () => {
-  it('is installed in the core panel registry under the codec plugin id', () => {
-    expect(corePanelPlugins.map((plugin) => plugin.id)).toContain(RECORDING_CONTROL_PANEL_ID);
-    expect(recordingControlPanelPlugin.id).toBe('recording-control');
+describe('retired recording-control plugin', () => {
+  it('is not registered as a panel plugin', () => {
+    expect(corePanelPlugins.map((plugin) => plugin.id)).not.toContain('recording-control');
+    expect(availablePanelPlugins.map((plugin) => plugin.id)).not.toContain('recording-control');
   });
+});
 
-  it('drives the recorder through an explicit service Action port', () => {
-    expect(recordingControlPanelPlugin.actionPorts).toEqual([
-      expect.objectContaining({ id: ROSBAG_RECORDING_WORKFLOW_SLOT,actionKinds:['service'] }),
-    ]);
-    // Not required: an Experiment template that binds no recorder is a
-    // legitimate Experiment, and the panel guides rather than failing the board.
-    expect(recordingControlPanelPlugin.actionPorts?.[0]?.required).toBeUndefined();
+describe('retired standalone video panel', () => {
+  it('is not registered as a panel plugin', () => {
+    expect(corePanelPlugins.map((plugin) => plugin.id)).not.toContain('experiment-video-production');
+    expect(availablePanelPlugins.map((plugin) => plugin.id)).not.toContain('experiment-video-production');
   });
-
-  it('asks the layout to grow it in both directions from a usable minimum', () => {
-    expect(recordingControlPanelPlugin.layout?.minSize).toEqual({ w: 4,h: 4 });
-    expect(recordingControlPanelPlugin.layout?.sizePolicy)
-      .toEqual({ horizontal: 'expanding',vertical: 'expanding' });
-  });
-
 });
 
 describe('rosbag-plot panel manifest', () => {
@@ -38,5 +25,27 @@ describe('rosbag-plot panel manifest', () => {
     expect(rosbagPlotPanelPlugin.dataPorts).toEqual([
       expect.objectContaining({ id:'recording-artifacts',contract:'recording.artifacts.v1' }),
     ]);
+  });
+});
+
+describe('scientific-gallery panel manifest', () => {
+  it('binds one plotting action with one script path', () => {
+    expect(corePanelPlugins.map((plugin) => plugin.id)).toContain('scientific-gallery');
+    expect(scientificGalleryPanelPlugin.id).toBe('scientific-gallery');
+    expect(scientificGalleryPanelPlugin.panelWorkflowControls).toBe('hidden');
+    expect(scientificGalleryPanelPlugin.fillBody).toBe(true);
+    expect(scientificGalleryPanelPlugin.headerLeading).toBeDefined();
+    expect(scientificGalleryPanelPlugin.headerActions).toBeDefined();
+    expect(scientificGalleryPanelPlugin.frameProvider).toBeDefined();
+    expect(scientificGalleryPanelPlugin.actionPorts).toEqual([
+      expect.objectContaining({ id:'plot',actionKinds:['command'],required:true }),
+      expect.objectContaining({ id:'render-video',actionKinds:['command'] }),
+    ]);
+    expect(scientificGalleryPanelPlugin.optionSchema).toHaveProperty('scriptPath');
+    expect(scientificGalleryPanelPlugin.dataPorts).toEqual([
+      expect.objectContaining({ id:'recording-artifacts',contract:'recording.artifacts.v1' }),
+      expect.objectContaining({ id:'runtime',contract:'workflowruntime.run' }),
+    ]);
+    expect(scientificGalleryPanelPlugin.defaultPanel?.gridPos).toEqual({ x:0,y:0,w:23,h:16 });
   });
 });

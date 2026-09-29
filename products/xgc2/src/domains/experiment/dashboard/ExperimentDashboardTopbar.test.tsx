@@ -440,6 +440,26 @@ describe('ExperimentDashboardTopbar', () => {
     expect(screen.queryByRole('button', { name: 'Stop experiment' })).toBeNull();
   });
 
+  it('keeps a failed Run on the same button and puts the configuration sentence only in the title', () => {
+    const failure = '400 Bad Request: configuration: invalid input: workflow instance "panel-paper-leader-ugv4-gallery" Action preset "render-video" names unknown Action "render-video"';
+    const editor = editorFixture();
+    render(
+      <ExperimentDashboardTopbar
+        session={editor.session}
+        dashboards={editor.dashboards}
+        panels={editor.panels}
+        actions={actionsFixture({ actionError: failure })}
+        runMode={runModeFixture()}
+        gcsMode={false}
+        onGcsModeChange={vi.fn()}
+      />,
+    );
+    const run = screen.getByRole('button', { name: 'Run experiment' });
+    expect(run).toHaveTextContent('Run');
+    expect(run).toHaveAttribute('title', failure);
+    expect(run).not.toHaveTextContent('configuration: invalid input');
+  });
+
   it('shows Run when idle and starts the experiment through the same control', () => {
     const startExperiment = vi.fn(async () => undefined);
     const editor = editorFixture();
@@ -544,64 +564,41 @@ describe('ExperimentDashboardTopbar', () => {
     expect(startExperiment).toHaveBeenCalledOnce();
   });
 
-  it('shows Mixed as the composition of an explicit Hybrid Experiment Run',() => {
-    const editor = editorFixture();
-    editor.session.visibleExperiment!.spec.runModes = ['simulation','physical','hybrid'];
-    editor.session.visibleExperiment!.spec.robots = [
-      robotBinding('physical-leader','physical'),
-      robotBinding('sim-wingman','simulation'),
-    ];
-    const runMode = runModeFixture({
-      value: 'hybrid',
-      options: ['simulation','physical','hybrid'],
-      locked: true,
-    });
-    render(
-      <ExperimentDashboardTopbar
-        session={editor.session}
-        dashboards={editor.dashboards}
-        panels={editor.panels}
-        actions={actionsFixture()}
-        runMode={runMode}
-        gcsMode={false}
-        onGcsModeChange={vi.fn()}
-      />,
-    );
-
-    const control = document.querySelector('[data-xgc-role="experiment-run-mode"]');
-    expect(control).toHaveAttribute('data-xgc-value', 'hybrid');
-    expect(screen.getByRole('button', { name: 'Run mode' })).toHaveTextContent('hybrid');
-    expect(document.querySelector('[data-xgc-role="experiment-run-mode-composition"]'))
-      .toHaveTextContent('Mixed');
-    expect(document.querySelector('[data-xgc-role="experiment-run-mode-composition"]'))
-      .toHaveAttribute(
-        'title',
-        'Hybrid Experiment Run: each robot uses its frozen simulation or physical source partition.',
-      );
-    expect(runMode.options).toEqual(['simulation','physical','hybrid']);
-  });
-
-  it.each(['simulation','physical'] as const)(
-    'does not show Mixed when the same authored fleet runs in pure %s mode',
-    (pureMode) => {
+  it.each(['simulation','physical','hybrid'] as const)(
+    'does not insert a Mixed composition label next to run mode %s',
+    (mode) => {
       const editor = editorFixture();
+      editor.session.visibleExperiment!.spec.runModes = ['simulation','physical','hybrid'];
       editor.session.visibleExperiment!.spec.robots = [
         robotBinding('physical-leader','physical'),
         robotBinding('sim-wingman','simulation'),
       ];
+      const runMode = runModeFixture({
+        value: mode,
+        options: ['simulation','physical','hybrid'],
+        locked: mode === 'hybrid',
+      });
       render(
         <ExperimentDashboardTopbar
           session={editor.session}
           dashboards={editor.dashboards}
           panels={editor.panels}
           actions={actionsFixture()}
-          runMode={runModeFixture({ value: pureMode })}
+          runMode={runMode}
           gcsMode={false}
           onGcsModeChange={vi.fn()}
         />,
       );
 
+      const control = document.querySelector('[data-xgc-role="experiment-run-mode"]');
+      expect(control).toHaveAttribute('data-xgc-value', mode);
+      expect(screen.getByRole('button', { name: 'Run mode' })).toHaveTextContent(mode);
       expect(document.querySelector('[data-xgc-role="experiment-run-mode-composition"]')).toBeNull();
+      const actions = document.querySelector('[data-xgc-role="experiment-topbar-actions"]');
+      expect(actions).not.toHaveTextContent('Mixed');
+      expect(actions).not.toHaveTextContent(
+        'Hybrid Experiment Run: each robot uses its frozen simulation or physical source partition.',
+      );
     },
   );
 
@@ -697,6 +694,51 @@ describe('ExperimentDashboardTopbar', () => {
     expect(stopExperiment).toHaveBeenCalledOnce();
     expect(editor.session.start).not.toHaveBeenCalled();
   });
+
+  it.each([false,true])('keeps deployment controls out of the run toolbar (running=%s)', (running) => {
+    const editor = editorFixture();
+    const startExperiment = vi.fn(async () => undefined);
+    const stopExperiment = vi.fn(async () => undefined);
+    const { container } = render(
+      <ExperimentDashboardTopbar
+        session={editor.session}
+        dashboards={editor.dashboards}
+        panels={editor.panels}
+        actions={actionsFixture({
+          experimentIsRunning:running,activeRun:running ? planRunFixture() : undefined,
+          canStopExperiment:running,startExperiment,stopExperiment,
+        })}
+        runMode={runModeFixture({ locked:running })}
+        gcsMode={false}
+        onGcsModeChange={vi.fn()}
+      />,
+    );
+    expect(container.querySelector('[data-xgc-role="experiment-algorithm-placement-select-trigger"]')).toBeNull();
+    expect(container.querySelector('[data-xgc-role="experiment-environment-open"]')).toBeNull();
+    expect(container.querySelector('[data-xgc-role="experiment-run-mode-select"]')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name:running ? 'Stop experiment' : 'Run experiment' }));
+    expect(running ? stopExperiment : startExperiment).toHaveBeenCalledOnce();
+  });
+
+  it('opens the saved Deploy dashboard through the existing tabs', () => {
+    const editor = editorFixture();
+    editor.dashboards.items.push({ id:'deploy',name:'Deploy',description:'',panels:[] });
+    render(
+      <ExperimentDashboardTopbar
+        session={editor.session}
+        dashboards={editor.dashboards}
+        panels={editor.panels}
+        actions={actionsFixture()}
+        runMode={runModeFixture()}
+        gcsMode={false}
+        onGcsModeChange={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole('tab', { name:'Deploy' }));
+    expect(editor.dashboards.select).toHaveBeenCalledWith('deploy');
+    expect(editor.dashboards.create).not.toHaveBeenCalled();
+    expect(editor.session.start).not.toHaveBeenCalled();
+  });
 });
 
 function editorFixture(overrides: Partial<DashboardTopbarEditSession> = {}): {
@@ -710,7 +752,7 @@ function editorFixture(overrides: Partial<DashboardTopbarEditSession> = {}): {
     visibleExperiment: {
       head: { domain: 'experiment',resourceId: 'experiment-a',name: 'Experiment A',tags: [],mainCommitId: 'c1',currentVersion: 1,digest: 'd',revision: 1,createdAt: '',updatedAt: '' },
       branch: { domain: 'experiment',resourceId: 'experiment-a',name: 'main',headCommitId: 'c1',headVersion: 1,revision: 1,createdAt: '',updatedAt: '' },
-      spec: { schemaVersion: 15,name: 'Experiment A',description: '',tags: [],runModes: ['simulation','physical'],localizationOffset:{ x:0,y:0,z:0 },
+      spec: { worldBoundary:null,schemaVersion:16,name: 'Experiment A',description: '',tags: [],runModes: ['simulation','physical'],localizationOffset:{ x:0,y:0,z:0 },
         robots: [],workflowInstances: [],
         dashboards: [{ id: 'gcs',name: 'GCS',description: '',panels: [] }] },
     },

@@ -1,11 +1,18 @@
 import { beforeEach,describe,expect,it,vi } from 'vitest';
 import { request } from '../../api/http';
-import { checkRobotAssetReachability } from './robotAssetService';
+import { checkRobotAssetReachability, listRobotSimulationImages } from './robotAssetService';
 
 vi.mock('../../api/http',() => ({ request: vi.fn() }));
 
 describe('robotAssetService', () => {
   beforeEach(() => vi.clearAllMocks());
+
+  it('queries supported images only for the selected kind and model with cancellation', async () => {
+    vi.mocked(request).mockResolvedValue([]);
+    const controller = new AbortController();
+    await listRobotSimulationImages('px4_multirotor', 'fs150', controller.signal);
+    expect(request).toHaveBeenCalledWith('/robot-assets/simulation-images?kind=px4_multirotor&model=fs150', { signal: controller.signal });
+  });
 
   it('checks the stored Robot management address through Core', async () => {
     vi.mocked(request).mockResolvedValue({

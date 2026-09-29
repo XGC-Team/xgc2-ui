@@ -55,8 +55,6 @@ export const automationCanvasZhMessages: MessageCatalog = {
   'Sticky note content': '便笺内容',
   'Sticky note {id}': '便笺 {id}',
   'Tidy up': '整理布局',
-  'Zoom in': '放大',
-  'Zoom out': '缩小',
   'Zoom to fit': '缩放至适合',
   '{label} actions': '{label} 操作',
   'Node properties': '节点属性',

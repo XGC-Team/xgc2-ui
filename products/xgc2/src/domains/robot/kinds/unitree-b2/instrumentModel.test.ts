@@ -61,7 +61,8 @@ describe('b2RobotInstrumentReadout', () => {
     expect(value.jointsStale).toBe(false);
     expect(value.pose).toBe('fresh');
     expect(value.streamState).toBe('live');
-    expect(value.link).toBe('live');
+    expect(value.connectionPresentation).toBe('connected');
+    expect(value.link).toBe('connected');
     expect(value.frequencies.pose).toBeCloseTo(15);
     expect(value.frequencies.power).toBeCloseTo(2);
   });
@@ -96,7 +97,23 @@ describe('b2RobotInstrumentReadout', () => {
 
   it('distinguishes an individual stale stream from an offline adapter', () => {
     expect(b2RobotInstrumentReadout(baseTelemetry({ powerStale: true })).streamState).toBe('stale');
-    expect(b2RobotInstrumentReadout(baseTelemetry({ online: false })).streamState).toBe('offline');
+    const closedWithStreams = b2RobotInstrumentReadout(baseTelemetry({
+      online: false,connectionState: 'closed',
+    }));
+    expect(closedWithStreams.streamState).toBe('live');
+    expect(closedWithStreams.connectionPresentation).toBe('disconnected');
+    expect(closedWithStreams.link).toBe('disconnected');
+    expect(closedWithStreams.battery).toBeCloseTo(72);
+    expect(b2RobotInstrumentReadout(baseTelemetry({
+      online: false,
+      connectionState: 'closed',
+      poseFresh: false,
+      velocityStale: true,
+      speedStale: true,
+      powerStale: true,
+      locomotionStale: true,
+      jointsStale: true,
+    })).streamState).toBe('offline');
   });
 });
 

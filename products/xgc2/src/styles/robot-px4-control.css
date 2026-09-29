@@ -3,12 +3,6 @@
  * Arm / Disarm / Kill / Reboot use the same column width below. The two rows
  * equally split the panel body. Do not lock tiles to aspect-ratio 1. */
 
-.xgc-panel-frame:has(> .xgc-panel-frame-body > .robot-control-panel.robot-px4-control-panel) > .xgc-panel-frame-body {
-  min-height: 0;
-  max-height: 100%;
-  overflow: hidden;
-}
-
 .robot-control-panel.robot-px4-control-panel {
   container-type: size;
   min-height: 0;
@@ -146,7 +140,7 @@
 
 /* The latched halo is an outer box-shadow. Ancestor overflow:hidden on the
  * UAV two-row grid would clip it; UGV only has this one tile. Specificity
- * must beat the UAV frame-body overflow:hidden rule above. */
+ * must beat the PanelFrame fillBody frame-body overflow:hidden rule. */
 .xgc-panel-frame:has(> .xgc-panel-frame-body > [data-xgc-role="ugv-control-view"].robot-control-panel.robot-px4-control-panel) > .xgc-panel-frame-body,
 [data-xgc-role="ugv-control-view"].robot-px4-control-panel,
 [data-xgc-role="ugv-control-view"] .robot-px4-operator-layout,
@@ -198,3 +192,30 @@ button[data-xgc-role="ugv-chassis-hold"][data-xgc-layout="tile"][data-xgc-appear
     padding: var(--space-xs);
   }
 }
+
+/* Per-robot results use shared modal and button surfaces. */
+.preflight-arm-test-content { display: grid; gap: var(--space-md); }
+.preflight-arm-test-content p { margin: 0; }
+.preflight-arm-test-list {
+  display: grid;
+  gap: var(--space-lg);
+  padding: var(--space-sm) 0;
+  margin: 0;
+  list-style: none;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+.preflight-arm-test-list li { display: flex; gap: var(--space-md); align-items: flex-start; }
+.preflight-arm-test-list li > div { display: grid; gap: var(--space-xs); min-width: 0; overflow-wrap: anywhere; }
+.preflight-arm-test-list small { color: var(--color-text-muted); }
+.preflight-arm-test-icon { width: var(--size-icon-lg); height: var(--size-icon-lg); flex: none; }
+.preflight-arm-test-list [data-state="passed"] > svg { color: var(--color-success); }
+.preflight-arm-test-list [data-state="failed"] > svg { color: var(--color-danger); }
+.preflight-arm-test-list [data-state="excluded"] > svg { color: var(--color-text-muted); }
+/* 测速中态有意比共享 spin（--duration-deliberate * 3）慢一档：* 4 节奏是 preflight 测试进行中的专属语义，不并轨。 */
+.preflight-arm-test-icon.is-testing { color: var(--color-preflight-test-activity); background: var(--color-preflight-test-activity-surface); border-radius: var(--radius-pill); padding: var(--space-2xs); box-sizing: border-box; animation: preflight-arm-test-spin calc(var(--duration-deliberate) * 4) linear infinite; }
+@keyframes preflight-arm-test-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .preflight-arm-test-icon.is-testing { animation: none; } }
+
+.preflight-arm-test-actions { display: flex; flex-wrap: wrap; gap: var(--space-sm); width: 100%; }
+.preflight-arm-test-actions > button { flex: 1 0 auto; }

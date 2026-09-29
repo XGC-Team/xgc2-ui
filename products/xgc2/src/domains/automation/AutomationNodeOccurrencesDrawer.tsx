@@ -1,7 +1,8 @@
+import { formatOperatorDateTime } from '../../shared/operatorTime';
 import { useAutomationExecutionText } from './automationExecutionMessages';
 import { ConfigDrawer } from '../../components/ConfigDrawer';
 import { ControlButton } from '../../components/controls/ControlButton';
-import { CodeBlock,StatusText } from '@xgc2/ui-react';
+import { CodeBlock,EmptyState,StatusText } from '@xgc2/ui-react';
 import '../../styles/automation-occurrences.css';
 import { AutomationExecutionRelationsView } from './AutomationExecutionRelations';
 import type {
@@ -46,10 +47,12 @@ export function AutomationNodeOccurrencesDrawer({
       dataXgcId={`${runId}:${nodeId}`}
     >
       {ordered.length === 0 ? (
-        <div className="automation-occurrences-empty">
-          <strong>{t('No invocation recorded')}</strong>
-          <span>{t('This node did not execute in the selected Run.')}</span>
-        </div>
+        <EmptyState
+          className="automation-occurrences-empty"
+          appearance="plain"
+          title={t('No invocation recorded')}
+          description={t('This node did not execute in the selected Run.')}
+        />
       ) : ordered.map((invocation, index) => (
         <article
           className="automation-occurrences-card"
@@ -181,8 +184,7 @@ function outputRefValue(invocation: AutomationNodeInvocation) {
 
 function formatTimestamp(value?: string) {
   if (!value) return '—';
-  const timestamp = new Date(value);
-  return Number.isNaN(timestamp.getTime()) ? value : timestamp.toLocaleString();
+  return formatOperatorDateTime(value);
 }
 
 function shortID(value: string) {

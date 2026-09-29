@@ -1,10 +1,10 @@
 import { workflowRuntimeDatasources } from '../../shared/workflowRuntimeProtocol';
 import { definePanelPlugin } from '../types';
 import { GazeboScenePanel } from './GazeboScenePanel';
-import { gazeboSceneActions } from './gazeboScenePanelModel';
+import { GAZEBO_SCENE_PANEL_PLUGIN_ID,gazeboSceneActions } from './gazeboScenePanelModel';
 
 export const gazeboScenePanelPlugin = definePanelPlugin({
-  id: 'gazebo-scene-composer',
+  id: GAZEBO_SCENE_PANEL_PLUGIN_ID,
   name: 'Gazebo scene composer',
   localizedName: { 'en-US':'Gazebo scene composer','zh-CN':'Gazebo 场景编排' },
   category: 'Control',

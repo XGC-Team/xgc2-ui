@@ -53,16 +53,6 @@
   color: var(--color-danger);
 }
 
-.robot-instrument-power-details {
-  margin-left: 3px;
-  color: var(--color-text-muted);
-  font-family: var(--font-mono);
-  font-size: var(--font-xs);
-  font-variant-numeric: tabular-nums;
-  line-height: var(--line-height-none);
-  white-space: nowrap;
-}
-
 .robot-instrument-connection-group {
   display: flex;
   align-items: center;
@@ -94,6 +84,7 @@
   fill: currentcolor;
 }
 
+/* fixed-geometry HUD: monospace per DESIGN_CONTRACT type-role exception */
 .robot-instrument-battery text {
   fill: var(--color-text-inverse);
   font-family: var(--font-mono);

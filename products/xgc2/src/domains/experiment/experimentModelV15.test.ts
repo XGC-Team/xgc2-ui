@@ -37,6 +37,24 @@ describe('Experiment v15 authoring contract',() => {
     expect(validateExperimentSpec(spec)).toContain('Localization offset');
   });
 
+  it('preserves an optional authored scene and deep-copies its parameters',() => {
+    const scene = {
+      asset:'warehouse',
+      simulator:'gazebo',
+      parameters:{ physics:{ gravity:[0,0,-9.81] } },
+    };
+    const created = newExperimentSpec({ name:'Scene',scene });
+    scene.parameters.physics.gravity[0] = 99;
+    expect(created.scene?.parameters).toEqual({ physics:{ gravity:[0,0,-9.81] } });
+
+    const normalized = normalizeExperimentSpec(created);
+    (created.scene!.parameters!.physics as { gravity:number[] }).gravity[1] = 88;
+    expect(normalized.scene?.parameters).toEqual({ physics:{ gravity:[0,0,-9.81] } });
+
+    const withoutScene = normalizeExperimentSpec(newExperimentSpec({ name:'No scene' }));
+    expect(withoutScene.scene).toBeUndefined();
+  });
+
   it('normalizes and sorts Action preset expression bindings',() => {
     const spec = newExperimentSpec({ name:'Bindings' });
     const preset = spec.workflowInstances[0]!.actionPresets[0]!;
@@ -61,6 +79,32 @@ describe('Experiment v15 authoring contract',() => {
     expect(validateExperimentSpec(spec)).toContain('exported by its Panel Workflow');
   });
 
+  it('preserves explicit modes and old omission through normalization',() => {
+    const spec = newExperimentSpec({ name:'Independent actions' });
+    const owner = spec.workflowInstances.find((instance) => instance.id === 'panel-robot-assets')!;
+    owner.actionPresets.push({ id:'archive',actionId:'archive',inputs:{},parameterBindings:[] });
+    const panel = spec.dashboards[0]!.panels[0]!;
+    panel.portBindings.push({ portId:'archive',kind:'action',presetId:'archive',executionMode:'standalone' });
+    expect(validateExperimentSpec(normalizeExperimentSpec(spec))).toBe('');
+    expect(normalizeExperimentSpec(spec).dashboards[0]!.panels[0]!.portBindings.at(-1)).toEqual(panel.portBindings.at(-1));
+    const old = newExperimentSpec({ name:'Old' });
+    expect(normalizeExperimentSpec(old).dashboards).toEqual(old.dashboards);
+    const binding = panel.portBindings.at(-1)!;if (binding.kind !== 'action') throw new Error('test fixture');
+    binding.executionMode = 'session';
+    expect(normalizeExperimentSpec(spec).dashboards[0]!.panels[0]!.portBindings.at(-1)).toHaveProperty('executionMode','session');
+  });
+  it('rejects primary standalone, mixed routing and unknown modes',() => {
+    const spec = newExperimentSpec({ name:'Independent actions' });
+    spec.workflowInstances.find((instance) => instance.id === 'panel-robot-assets')!.actionPresets.push({ id:'archive',actionId:'archive',inputs:{},parameterBindings:[] });
+    const panel = spec.dashboards[0]!.panels[0]!;
+    panel.portBindings.push({ portId:'archive-a',kind:'action',presetId:'run',executionMode:'standalone' });
+    expect(validateExperimentSpec(spec)).toContain('primary workflow');
+    const binding = panel.portBindings.at(-1)!;if (binding.kind !== 'action') throw new Error('test fixture');
+    binding.presetId = 'archive';panel.portBindings.push({ portId:'archive-b',kind:'action',presetId:'archive' });
+    expect(validateExperimentSpec(spec)).toContain('same execution mode');
+    panel.portBindings.pop();Object.assign(binding,{ executionMode:null });
+    expect(validateExperimentSpec(normalizeExperimentSpec(spec))).toContain('valid Action execution mode');
+  });
   it('keeps one top-level Panel Workflow while allowing multiple Action bindings',() => {
     const spec = newExperimentSpec({ name:'Dynamic Actions' });
     const panel = spec.dashboards[0]!.panels[0]!;

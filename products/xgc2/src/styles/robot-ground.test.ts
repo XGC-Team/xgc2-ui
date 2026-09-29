@@ -6,6 +6,11 @@ import { describe,expect,it } from 'vitest';
 const css = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'robot-ground.css'), 'utf8');
 
 describe('robot ground instrument layout contract', () => {
+  it('does not restyle HUD identity with page body type', () => {
+    expect(css).not.toMatch(/robot-ground-identity[\s\S]{0,200}--font-base/);
+    expect(css).not.toContain('font-size: var(--font-base)');
+  });
+
   it('reuses the flight HUD chrome instead of a beige numeric board', () => {
     expect(css).toContain('.robot-flight-instrument[data-xgc-role="robot-ground-instrument"]');
     expect(css).toContain('.robot-ground-header-status.robot-instrument-status-icons');
@@ -47,10 +52,11 @@ describe('robot ground instrument layout contract', () => {
     expect(css).not.toContain('.robot-ground-status-label-compact');
   });
 
-  it('keeps Scout chassis mode on a single-column pedestal and hides Mecanum bump', () => {
+  it('keeps Scout chassis mode on a two-column pedestal and Mecanum controller bump', () => {
     expect(css).toContain('[data-xgc-pedestal="chassis"] .robot-flight-bottom-status');
-    expect(css).toContain('grid-template-columns: minmax(0, 1fr)');
-    expect(css).toContain('[data-xgc-pedestal="none"] .robot-flight-bottom-panel::before');
-    expect(css).toContain('content: none');
+    expect(css).toContain('grid-template-columns: minmax(0, 1fr) minmax(0, 1fr)');
+    expect(css).toContain('[data-xgc-pedestal="controller"] .robot-flight-bottom-status');
+    expect(css).not.toContain('[data-xgc-pedestal="none"]');
+    expect(css).not.toContain('content: none');
   });
 });

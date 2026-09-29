@@ -34,10 +34,11 @@ describe('Host policy and Maintenance synchronization',() => {
     const target = { targetCoreId: 'core-a',managedHostId: 'agent-a' };
     const { container } = render(<>
       <HostSettingsPanel apiTarget={target} actionsEnabled />
-      <HostSettingsPanel apiTarget={target} actionsEnabled presentation="performance" />
+      <HostSettingsPanel apiTarget={target} actionsEnabled />
     </>);
-    await waitFor(() => expect(screen.getByLabelText('Performance mode')).toBeEnabled());
-    selectControlOption('Performance mode','performance');
+    await waitFor(() => expect(screen.getAllByLabelText('Performance mode').every((node) => !node.hasAttribute('disabled'))).toBe(true));
+    fireEvent.click(screen.getAllByLabelText('Performance mode')[0]!);
+    fireEvent.click(screen.getByRole('option',{ name: 'performance' }));
     await waitFor(() => expect(screen.getAllByLabelText('Performance mode')).toHaveLength(2));
     expect(vi.mocked(request).mock.calls[2]).toEqual([
       '/managed-hosts/agent-a/settings',
@@ -56,7 +57,8 @@ describe('Host policy and Maintenance synchronization',() => {
       expect(control).toHaveTextContent('performance');
       expect(control).toBeEnabled();
     }
-    expect(container.querySelectorAll('[data-xgc-role="system-host-settings"]')).toHaveLength(1);
+    expect(container.querySelectorAll('[data-xgc-role="system-host-settings"]')).toHaveLength(2);
+    expect(container.querySelector('[data-xgc-role="maintenance-performance"]')).toBeNull();
     expect(notifyHostError.mock.calls.some((call) => call[1] === 'Old Host read failed')).toBe(false);
   });
 
@@ -64,12 +66,12 @@ describe('Host policy and Maintenance synchronization',() => {
     vi.mocked(request).mockResolvedValue(policy());
     const oldTarget = { targetCoreId: 'core-a',managedHostId: 'agent-a' };
     const nextTarget = { ...oldTarget,managedHostId: 'agent-b' };
-    const { rerender } = render(<HostSettingsPanel apiTarget={oldTarget} actionsEnabled presentation="performance" />);
+    const { rerender } = render(<HostSettingsPanel apiTarget={oldTarget} actionsEnabled />);
     await waitFor(() => expect(screen.getByLabelText('Performance mode')).toBeEnabled());
     const pendingApply = deferred<HostSettings>();
     vi.mocked(request).mockReturnValueOnce(pendingApply.promise);
     selectControlOption('Performance mode','performance');
-    rerender(<HostSettingsPanel apiTarget={nextTarget} actionsEnabled presentation="performance" />);
+    rerender(<HostSettingsPanel apiTarget={nextTarget} actionsEnabled />);
     await waitFor(() => expect(screen.getByLabelText('Performance mode')).toHaveTextContent('powersave'));
     await act(async () => pendingApply.resolve(policy({ cpuGovernor: 'performance' })));
     expect(screen.getByLabelText('Performance mode')).toHaveTextContent('powersave');
@@ -87,32 +89,33 @@ describe('Host policy and Maintenance synchronization',() => {
     expect(user).toHaveValue('draft-user');
   });
 
-  it('applies concurrent changes from both presentations in request order without restoring an older snapshot',async () => {
+  it('applies concurrent changes from both Host forms in request order without restoring an older snapshot',async () => {
     vi.mocked(request).mockResolvedValue(policy());
-    const { container } = render(<>
+    render(<>
       <HostSettingsPanel apiTarget={{}} actionsEnabled />
-      <HostSettingsPanel apiTarget={{}} actionsEnabled presentation="performance" />
+      <HostSettingsPanel apiTarget={{}} actionsEnabled />
     </>);
-    await screen.findByLabelText('Host timezone');
+    await screen.findAllByLabelText('Host timezone');
     await waitFor(() => expect(screen.getAllByLabelText('Performance mode').every((node) => !node.hasAttribute('disabled'))).toBe(true));
     const firstApply = deferred<HostSettings>();
     vi.mocked(request)
       .mockReturnValueOnce(firstApply.promise)
       .mockResolvedValueOnce(policy({ timezone: 'Asia/Tokyo',cpuGovernor: 'performance' }));
-    selectControlOption('Host timezone','Asia/Tokyo');
-    fireEvent.click(container.querySelector('[data-xgc-role="maintenance-performance-mode-trigger"]')!);
+    fireEvent.click(screen.getAllByLabelText('Host timezone')[0]!);
+    fireEvent.click(screen.getByRole('option',{ name: 'Asia/Tokyo' }));
+    fireEvent.click(screen.getAllByLabelText('Performance mode')[1]!);
     fireEvent.click(screen.getByRole('option',{ name: 'performance' }));
     expect(vi.mocked(request).mock.calls.filter((call) => call[1]?.method === 'PUT')).toHaveLength(1);
     await act(async () => firstApply.resolve(policy({ timezone: 'Asia/Tokyo' })));
     await waitFor(() => expect(screen.getAllByLabelText('Performance mode').every((node) => node.textContent === 'performance')).toBe(true));
-    expect(screen.getByLabelText('Host timezone')).toHaveTextContent('Asia/Tokyo');
+    expect(screen.getAllByLabelText('Host timezone').every((node) => node.textContent === 'Asia/Tokyo')).toBe(true);
     expect(vi.mocked(request).mock.calls.filter((call) => call[1]?.method === 'PUT')).toHaveLength(2);
   });
 
   it('drops the old host password and does not retry a late privilege challenge after switching hosts',async () => {
     vi.mocked(request).mockResolvedValue(policy());
     const firstTarget = { managedHostId: 'agent-a' };
-    const { rerender } = render(<HostSettingsPanel apiTarget={firstTarget} actionsEnabled presentation="performance" />);
+    const { rerender } = render(<HostSettingsPanel apiTarget={firstTarget} actionsEnabled />);
     await waitFor(() => expect(screen.getByLabelText('Performance mode')).toBeEnabled());
     vi.mocked(request)
       .mockRejectedValueOnce(new HTTPError(403,'Forbidden',{ code: 'privilege_required' }))
@@ -127,7 +130,7 @@ describe('Host policy and Maintenance synchronization',() => {
     const lateChallenge = deferred<HostSettings>();
     vi.mocked(request).mockReturnValueOnce(lateChallenge.promise);
     selectControlOption('Performance mode','powersave');
-    rerender(<HostSettingsPanel apiTarget={{ managedHostId: 'agent-b' }} actionsEnabled presentation="performance" />);
+    rerender(<HostSettingsPanel apiTarget={{ managedHostId: 'agent-b' }} actionsEnabled />);
     await waitFor(() => expect(screen.getByLabelText('Performance mode')).toBeEnabled());
     await act(async () => {
       lateChallenge.reject(new HTTPError(403,'Forbidden',{ code: 'privilege_required' }));

@@ -1,4 +1,4 @@
-import { ArrowDownUp, Bot, Folder, LoaderCircle, Settings, Trash2, Wifi, WifiOff } from 'lucide-react';
+import { ArrowDownUp, Bot, Folder, Settings, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { ControlButton } from '../../components/controls/ControlButton';
 import { SelectControl } from '../../components/controls/SelectControl';
@@ -15,14 +15,9 @@ import {
   useAssetsText,
 } from '../assets/assetsPublic';
 import { configResourceArchiveLocked } from '../../shared/configResourceProtection';
-import {
-  PX4_MODEL_FS150,
-  isMecanumRobotAsset,
-  isPX4RobotAsset,
-  isScoutRobotAsset,
-  px4RobotModelId,
-  type RobotAssetDocument,
-} from './robotAssetContracts';
+import { type RobotAssetDocument } from './robotAssetContracts';
+import { RobotAssetReachabilityButton } from './RobotAssetReachabilityButton';
+import { robotAssetManagementReachabilitySupported } from './robotAssetReachability';
 import {
   robotAssetEndpoint,
   robotAssetKind,
@@ -177,8 +172,6 @@ export function RobotAssetsPage({
           const kind = robotAssetKind(asset.spec, composition);
           const attrs = robotAssetOverviewAttributes(asset, composition);
           const reachability = reachabilityById[asset.head.resourceId];
-          const connectivityLevel = robotAssetConnectivityLevel(reachability);
-          const reachabilityLabel = robotReachabilityLabel(reachability,t);
           const reachabilitySupported = robotAssetManagementReachabilitySupported(asset);
           const archiveLocked = configResourceArchiveLocked(asset.head);
           return (
@@ -221,27 +214,12 @@ export function RobotAssetsPage({
               </div>
               <ListPageItemActions className="robot-asset-card-actions">
                 {reachabilitySupported && (
-                  <ControlButton
-                    iconOnly
-                    size="compact"
-                    tone={connectivityLevel === 'success' ? 'success'
-                      : connectivityLevel === 'danger' ? 'danger' : 'default'}
+                  <RobotAssetReachabilityButton
                     dataXgcRole="robot-asset-connectivity"
                     dataXgcId={asset.head.resourceId}
-                    data-xgc-state={connectivityLevel}
-                    data-xgc-check-state={reachability?.status ?? 'unknown'}
-                    data-xgc-latency-ms={reachability?.result?.reachable
-                      ? reachability.result.latencyMs : undefined}
-                    aria-label={reachabilityLabel}
-                    title={reachabilityLabel}
-                    disabled={reachability?.status === 'checking'}
+                    state={reachability}
                     onClick={() => onCheckReachability(asset)}
-                  >
-                    {reachability?.status === 'checking'
-                      ? <LoaderCircle data-xgc-spinning="true" size={15} />
-                      : connectivityLevel === 'danger'
-                        ? <WifiOff size={15} /> : <Wifi size={15} />}
-                  </ControlButton>
+                  />
                 )}
                 <ControlButton
                   iconOnly
@@ -276,39 +254,4 @@ export function RobotAssetsPage({
       />
     </ListPageHost>
   );
-}
-
-type RobotAssetConnectivityLevel = 'neutral' | 'success' | 'warning' | 'danger';
-
-function robotAssetConnectivityLevel(
-  state: RobotAssetReachabilityState | undefined,
-): RobotAssetConnectivityLevel {
-  if (!state) return 'neutral';
-  if (state.status === 'error' || state.status === 'unreachable') return 'danger';
-  if (!state.result) return 'neutral';
-  if (!state.result.reachable) return 'danger';
-  return state.result.latencyMs < 15 ? 'success' : 'warning';
-}
-
-function robotReachabilityLabel(
-  state: RobotAssetReachabilityState | undefined,
-  t: (message: string) => string,
-) {
-  if (!state) return t('Check management reachability');
-  if (state.status === 'checking') return t('Checking management reachability…');
-  const prefix = state.status === 'checked' ? `${t('Last management reachability check')} · ` : '';
-  if (!state.result) {
-    return `${prefix}${t('Management reachability check failed')} · ${state.message || t('Unknown error')}`;
-  }
-  const outcome = t(state.result.reachable
-    ? 'Management address reachable'
-    : 'Management address unreachable');
-  const latency = state.result.reachable
-    ? ` · ${state.result.latencyMs < 1 ? '<1' : Math.round(state.result.latencyMs)} ms` : '';
-  return `${prefix}${outcome} · ${state.result.address}${latency} · ${state.result.detail}`;
-}
-
-function robotAssetManagementReachabilitySupported(asset: RobotAssetDocument) {
-  if (isScoutRobotAsset(asset) || isMecanumRobotAsset(asset)) return true;
-  return isPX4RobotAsset(asset) && px4RobotModelId(asset.spec) === PX4_MODEL_FS150;
 }

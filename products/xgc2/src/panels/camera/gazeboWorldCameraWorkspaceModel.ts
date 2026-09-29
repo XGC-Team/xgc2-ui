@@ -148,6 +148,16 @@ export function ownedProcessByDefinition(
   return latestByUpdatedAt(ready.length ? ready : matches);
 }
 
+/** A camera provider has one current Edge; timestamps cannot resolve ambiguity. */
+export function ownedMediaEdgeProcess(processes: readonly ProcessInstance[]) {
+  const matches = processes.filter((instance) => instance.definitionId === MEDIA_EDGE_DEFINITION_ID);
+  const ready = matches.filter(processReady);
+  const current = matches.filter((instance) => instance.desiredState === 'running'
+    && instance.observedState !== 'stopped');
+  const candidates = ready.length ? ready : current.length ? current : matches;
+  return candidates.length === 1 ? candidates[0] : undefined;
+}
+
 export function ownedCameraSourceProcess(processes: readonly ProcessInstance[]) {
   const sources = processes.filter((instance) => (
     CAMERA_SOURCE_DEFINITION_IDS.some((definitionId) => instance.definitionId === definitionId)
@@ -201,6 +211,12 @@ export function calibrationCameraEmptyState(input: {
     return {
       lifecycle: 'media-preparing',
       title: 'Preparing calibration camera',
+    };
+  }
+  if (input.running && input.cameraReady && input.mediaReady) {
+    return {
+      lifecycle: 'ready',
+      title: 'Calibration camera',
     };
   }
   return {
@@ -272,7 +288,7 @@ export function calibrationCameraOwnedProcesses(
 ) {
   const owned = experimentOwnedProcessInstances(runtime, runIds);
   const camera = ownedCameraSourceProcess(owned);
-  const mediaEdge = ownedProcessByDefinition(owned, MEDIA_EDGE_DEFINITION_ID);
+  const mediaEdge = ownedMediaEdgeProcess(owned);
   const calibrator = ownedProcessByDefinition(owned, EXTRINSIC_CALIBRATOR_DEFINITION_ID);
   return {
     camera,

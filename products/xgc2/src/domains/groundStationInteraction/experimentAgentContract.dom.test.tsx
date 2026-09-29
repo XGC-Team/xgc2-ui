@@ -1,10 +1,18 @@
 // @vitest-environment jsdom
 import { describe,expect,it,vi } from 'vitest';
-import { render,screen,fireEvent } from '@testing-library/react';
+import { render,screen,fireEvent,waitFor } from '@testing-library/react';
 import { decodeExperimentAgentAction,decodeAgentAdmission } from './experimentAgentContract';
 import { decodeGroundStationInteraction } from './groundStationInteractionDecoder';
 import { GroundStationDecisionResponseControls } from './GroundStationDecisionResponse';
 import type { GroundStationDecisionInteraction } from './groundStationInteractionTypes';
+
+vi.mock('../operatorAccess/operatorAccessPublic', async (importOriginal) => ({
+  ...(await importOriginal() as object),
+  ensureOperatorControlSession: async () => true,
+  operatorControlSessionReady: () => true,
+  useOperatorControlSession: () => ({ phase: 'ready', ensuring: false, blocked: false, retry: vi.fn() }),
+  OperatorControlSessionNotice: () => null,
+}));
 
 const action = {
  schema:'xgc.experiment-agent-action/v1',delegationId:'ag_abc',conversationId:'conversation-a',targetId:'local',experimentId:'experiment-a',
@@ -39,7 +47,7 @@ describe('controlled Action immutable review contract',()=>{
   expect(decodeGroundStationInteraction(fixture({...resolved,response:{...response,admission}}))).toBeDefined();
   expect(decodeGroundStationInteraction(fixture({...resolved,response:{...response,admission:{...admission,runId:'other'}}}))).toBeUndefined();
  });
- it('shows the action and exact parameters without exposing internal admission identifiers',()=>{
+ it('shows the action and exact parameters without exposing internal admission identifiers',async ()=>{
   const interaction=decodeGroundStationInteraction(fixture()) as GroundStationDecisionInteraction;
   const respond=vi.fn(async()=>interaction);
   render(<GroundStationDecisionResponseControls interaction={interaction} appearance="dialog" onRespond={respond}/>);
@@ -48,6 +56,6 @@ describe('controlled Action immutable review contract',()=>{
   for (const internal of ['session-a','automations.run','snapshot-digest','request-digest']) expect(review).not.toHaveTextContent(internal);
   expect(respond).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole('button',{name:'Approve Action'}));
-  expect(respond).toHaveBeenCalledExactlyOnceWith(interaction,'approved',{});
+  await waitFor(() => expect(respond).toHaveBeenCalledExactlyOnceWith(interaction,'approved',{}));
  });
 });

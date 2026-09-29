@@ -147,7 +147,7 @@ describe('TerminalPage', () => {
     expect(page).toHaveClass('terminal-page','xgc-workspace-full-span');
   });
 
-  it('drops resume-only before reconnecting a restored session after it closes', async () => {
+  it('keeps a restored session closed instead of automatically creating a replacement', async () => {
     const sessionId = 'ssh-6b1ec96f-bf55-4bdd-b6c3-5706fc27e680-restored';
     window.localStorage.setItem('xgc.terminal.local__local.sessions', JSON.stringify([{
       id: sessionId,
@@ -170,10 +170,8 @@ describe('TerminalPage', () => {
 
     act(() => restoredConnection.onClose());
 
-    await waitFor(() => {
-      const reconnectCalls = vi.mocked(connectTerminalTransport).mock.calls.slice(restoredCallIndex + 1);
-      expect(reconnectCalls.some(([options]) => options.resumeOnly === false)).toBe(true);
-    });
+    await act(async () => {});
+    expect(vi.mocked(connectTerminalTransport).mock.calls.slice(restoredCallIndex + 1)).toHaveLength(0);
   });
 
   it('never restores sessions belonging to another routed Core', async () => {
@@ -511,6 +509,29 @@ describe('TerminalPage', () => {
     expect(listTerminalHosts).not.toHaveBeenCalled();
     // Workspace still available under the default Terminal surface.
     expect(container.querySelector('[data-xgc-role="terminal-workspace"]')).not.toBeNull();
+  });
+
+  it('embeds the selected Agent shell without a second target rail and keeps new-session control', async () => {
+    const props = { activeTab:'terminal' as const,onTabChange:vi.fn(),composition:hostsOnlyComposition,embedded:true };
+    const { container,rerender } = render(<TerminalPage {...props} managedHostId="agent-one" initialDirectory="/workspace/one with spaces" />);
+    await waitFor(() => expect(connectTerminalTransport).toHaveBeenCalledWith(expect.objectContaining({ managedHostId:'agent-one',hostId:'default-direct-shell',initialDirectory:'/workspace/one with spaces' })));
+    expect(container.querySelector('[data-xgc-role="terminal-targets-list"]')).toBeNull();
+    expect(container.querySelector('[data-xgc-role="terminal-targets-heading"]')).toBeNull();
+    expect(container.querySelectorAll('[data-xgc-role="terminal-session-tab"]')).toHaveLength(1);
+    fireEvent.click(screen.getByRole('button', { name:'New terminal session' }));
+    await waitFor(() => expect(container.querySelectorAll('[data-xgc-role="terminal-session-tab"]')).toHaveLength(2));
+    rerender(<TerminalPage {...props} managedHostId="agent-two" initialDirectory="/workspace/two" />);
+    await waitFor(() => expect(connectTerminalTransport).toHaveBeenCalledWith(expect.objectContaining({ managedHostId:'agent-two',hostId:'default-direct-shell',initialDirectory:'/workspace/two' })));
+    const selectedSessions = () => container.querySelectorAll('[data-xgc-role="terminal-page"]:not([hidden]) [data-xgc-role="terminal-session-tab"]');
+    expect(selectedSessions()).toHaveLength(1);
+    const calls = vi.mocked(connectTerminalTransport).mock.calls.length;
+    rerender(<TerminalPage {...props} managedHostId="agent-one" initialDirectory="/workspace/one with spaces" />);
+    expect(selectedSessions()).toHaveLength(2);
+    expect(connectTerminalTransport).toHaveBeenCalledTimes(calls);
+    fireEvent.click(screen.getByRole('button', { name:'New terminal session' }));
+    await waitFor(() => expect(connectTerminalTransport).toHaveBeenCalledTimes(calls + 1));
+    expect(vi.mocked(connectTerminalTransport).mock.lastCall?.[0]).toMatchObject({ managedHostId:'agent-one',initialDirectory:'/workspace/one with spaces' });
+    expect(listTerminalHosts).not.toHaveBeenCalled();
   });
 
   it('keeps a unified chrome row and session navigation in the center slot', async () => {

@@ -62,7 +62,7 @@ describe('useExperimentCatalog', () => {
 
     expect(service.commitExperiment).toHaveBeenCalledWith('exp-1', 'main', expect.objectContaining({
       baseCommitId: 'c1',expectedBranchRevision: 1,expectedResourceRevision: 1,
-      spec: expect.objectContaining({ schemaVersion: 15,localizationOffset:{ x:0,y:0,z:0 } }),
+      spec: expect.objectContaining({ schemaVersion:16,localizationOffset:{ x:0,y:0,z:0 } }),
     }), expect.objectContaining({ contributions: expect.any(Array) }));
     expect(result.current.experiments[0]?.branch.headCommitId).toBe('c2');
   });
@@ -144,7 +144,7 @@ function experiment({ revision = 1,commitId = 'c1' }: { revision?: number;commit
   return {
     head: { domain: 'experiment',resourceId: 'exp-1',name: 'Experiment',tags: [],mainCommitId: commitId,currentVersion: revision,digest: 'd',revision,createdAt: '',updatedAt: '' },
     branch: { domain: 'experiment',resourceId: 'exp-1',name: 'main',headCommitId: commitId,headVersion: revision,revision,createdAt: '',updatedAt: '' },
-    spec: { schemaVersion: 15,name: 'Experiment',description: '',tags: [],runModes: ['simulation','physical'],localizationOffset:{ x:0,y:0,z:0 },dashboards: [{ id: 'gcs',name: 'GCS',description: '',panels: [] }],
+    spec: { worldBoundary:null,schemaVersion:16,name: 'Experiment',description: '',tags: [],runModes: ['simulation','physical'],localizationOffset:{ x:0,y:0,z:0 },dashboards: [{ id: 'gcs',name: 'GCS',description: '',panels: [] }],
       robots: [],workflowInstances: [] },
   };
 }

@@ -11,13 +11,14 @@ describe('Robot instrument readouts', () => {
   it('maps semantic Robot Adapter channels into flight-instrument values', () => {
     const orientation = quaternionFromEuler(10,-5,123);
     const value = flightRobotInstrumentReadout({
-      presentation: 'fs150',
+      presentation: 'fs150',connectionState: 'live',
       online: true,
       linkFresh: true,
       poseFresh: true,
       mocapState: 'fresh',
       healthTone: 'healthy',
       flight: { connected: true,armed: true,mode: 'OFFBOARD',landedState: 3 },
+      controller: { text: 'TakeoffInit' },
       pose: { position: { x: 12.5,y: -3.25,z: 4.75 },orientation },
       mocapPose: { position: { x: 12.25,y: -3,z: 4.5 } },
       imu: { orientation },
@@ -44,7 +45,7 @@ describe('Robot instrument readouts', () => {
     expect(value.yaw).toBeCloseTo(123,5);
     expect(value.speed).toBeCloseTo(Math.hypot(3,4,-0.5),5);
     expect(value).toMatchObject({
-      online: true,connected: true,armed: true,mode: 'OFFBOARD',flightStage: 'TAKEOFF',
+      online: true,connected: true,armed: true,mode: 'OFFBOARD',flightStage: 'TakeoffInit',
       altitude: 4.5,climb: 0.3,positionErrorCm: 12.3,x: 12.5,y: -3.25,
       battery: 76,batteryVoltage: 27.11,batteryCurrent: -2.4,
       mocapPosition: { x: 12.25,y: -3,z: 4.5 },mocapVelocity: { x: 3,y: 4,z: -0.5 },
@@ -55,7 +56,7 @@ describe('Robot instrument readouts', () => {
 
   it('does not synthesize battery or FCU latency when channels are absent', () => {
     const value = flightRobotInstrumentReadout({
-      presentation: 'fs150',online: false,linkFresh: false,poseFresh: false,mocapState: 'missing',healthTone: 'unavailable',
+      presentation: 'fs150',connectionState: 'live',online: false,linkFresh: false,poseFresh: false,mocapState: 'missing',healthTone: 'unavailable',
       flight: {},pose: {},mocapPose: {},imu: {},localVelocity: {},mocapVelocity: {},mocapSpeed: {},localizationError: {},
       localSetpoint: {},localSetpointState: 'missing',power: {},streamHealth: {},fcuLink: {},
     });
@@ -71,7 +72,7 @@ describe('Robot instrument readouts', () => {
 
   it('uses Adapter source rates and never substitutes throttled output rates',() => {
     const value = flightRobotInstrumentReadout({
-      presentation:'fs150',online:true,linkFresh:true,poseFresh:true,mocapState:'fresh',healthTone:'healthy',
+      presentation:'fs150',connectionState:'live',online:true,linkFresh:true,poseFresh:true,mocapState:'fresh',healthTone:'healthy',
       flight:{ connected:true },pose:{},mocapPose:{},imu:{},localVelocity:{},mocapVelocity:{},mocapSpeed:{},
       localizationError:{},localSetpoint:{},localSetpointState:'missing',power:{},fcuLink:{},
       streamHealth:{ channels:[
@@ -88,13 +89,13 @@ describe('Robot instrument readouts', () => {
 
   it('reads measured vision pose sourceRateHz and never assumes 30 Hz', () => {
     const missing = flightRobotInstrumentReadout({
-      presentation:'fs150',online:true,linkFresh:true,poseFresh:true,mocapState:'fresh',healthTone:'healthy',
+      presentation:'fs150',connectionState:'live',online:true,linkFresh:true,poseFresh:true,mocapState:'fresh',healthTone:'healthy',
       flight:{ connected:true },pose:{},mocapPose:{},imu:{},localVelocity:{},mocapVelocity:{},mocapSpeed:{},
       localizationError:{},localSetpoint:{},localSetpointState:'missing',power:{},fcuLink:{},
       streamHealth:{ channels:[] },
     });
     const measured = flightRobotInstrumentReadout({
-      presentation:'fs150',online:true,linkFresh:true,poseFresh:true,mocapState:'fresh',healthTone:'healthy',
+      presentation:'fs150',connectionState:'live',online:true,linkFresh:true,poseFresh:true,mocapState:'fresh',healthTone:'healthy',
       flight:{ connected:true },pose:{},mocapPose:{},imu:{},localVelocity:{},mocapVelocity:{},mocapSpeed:{},
       localizationError:{},localSetpoint:{},localSetpointState:'missing',power:{},fcuLink:{},
       streamHealth:{ channels:[
@@ -105,26 +106,79 @@ describe('Robot instrument readouts', () => {
     expect(measured.frequencies.visionPose).toBe(28.4);
   });
 
-  it('uses placeholders for unavailable flight state', () => {
+  it('uses placeholders for unavailable flight fields without inventing connected', () => {
     const disconnected = flightRobotInstrumentReadout({
-      presentation: 'fs150',online: false,linkFresh: false,poseFresh: false,mocapState: 'missing',healthTone: 'unavailable',
-      flight: { armed: false },pose: {},mocapPose: {},imu: {},localVelocity: {},mocapVelocity: {},mocapSpeed: {},localizationError: {},
+      presentation: 'fs150',
+      connectionState: 'revoked',
+      connectionDetail: 'orchestration runtime released robot connection',
+      online: false,linkFresh: false,poseFresh: false,mocapState: 'missing',healthTone: 'unavailable',
+      flight: { armed: false,mode: 'MANUAL',landedState: 1 },pose: {},mocapPose: {},imu: {},localVelocity: {},mocapVelocity: {},mocapSpeed: {},localizationError: {},
+      localSetpoint: {},localSetpointState: 'missing',power: {},streamHealth: {},fcuLink: {},
+    });
+    const sourceLoss = flightRobotInstrumentReadout({
+      presentation: 'fs150',connectionState: 'closed',online: false,linkFresh: false,poseFresh: false,mocapState: 'missing',healthTone: 'unavailable',
+      flight: { armed: false,mode: 'OFFBOARD',landedState: 1 },pose: {},mocapPose: {},imu: {},localVelocity: {},mocapVelocity: {},mocapSpeed: {},localizationError: {},
       localSetpoint: {},localSetpointState: 'missing',power: {},streamHealth: {},fcuLink: {},
     });
     const connected = flightRobotInstrumentReadout({
-      presentation: 'fs150',online: true,linkFresh: true,poseFresh: false,mocapState: 'missing',healthTone: 'fault',
+      presentation: 'fs150',connectionState: 'live',online: true,linkFresh: true,poseFresh: false,mocapState: 'missing',healthTone: 'fault',
       flight: { connected: true },pose: {},mocapPose: {},imu: {},localVelocity: {},mocapVelocity: {},mocapSpeed: {},localizationError: {},
       localSetpoint: {},localSetpointState: 'stale',power: {},streamHealth: {},fcuLink: {},
     });
 
-    expect(disconnected).toMatchObject({ armed: null });
-    expect(connected.armed).toBe(false);
+    expect(disconnected).toMatchObject({
+      armed: null,
+      connected: false,
+      connectionPresentation: 'disconnected',
+      mode: '--',
+      flightStage: '--',
+    });
+    expect(sourceLoss).toMatchObject({
+      armed: null,
+      connectionPresentation: 'disconnected',
+      mode: '--',
+      flightStage: '--',
+    });
+    expect(connected.armed).toBeNull();
+    expect(connected.connected).toBe(true);
+    expect(connected.connectionPresentation).toBe('recovering');
+    const staleFlight = flightRobotInstrumentReadout({
+      presentation: 'fs150',connectionState: 'live',online: true,linkFresh: true,poseFresh: false,mocapState: 'missing',healthTone: 'healthy',
+      flight: { connected: true,armed: false,mode: 'MANUAL',landedState: 1 },pose: {},mocapPose: {},imu: {},localVelocity: {},mocapVelocity: {},mocapSpeed: {},localizationError: {},
+      localSetpoint: {},localSetpointState: 'missing',power: {},fcuLink: {},
+      flightChannelStale: true,
+      streamHealth: { channels: [
+        { channelId: 'state.imu',sourceRateHz: 50,stale: false },
+      ] },
+    });
+    expect(staleFlight).toMatchObject({
+      armed: null,
+      connected: true,
+      connectionPresentation: 'connected',
+      mode: '--',
+      flightStage: '--',
+    });
+    const adapterFlightHealthStale = flightRobotInstrumentReadout({
+      presentation: 'fs150',connectionState: 'live',online: true,linkFresh: true,poseFresh: false,mocapState: 'missing',healthTone: 'healthy',
+      flight: { connected: true,armed: false,mode: 'MANUAL',landedState: 1 },pose: {},mocapPose: {},imu: {},localVelocity: {},mocapVelocity: {},mocapSpeed: {},localizationError: {},
+      localSetpoint: {},localSetpointState: 'missing',power: {},fcuLink: {},
+      streamHealth: { channels: [
+        { channelId: 'state.flight',stale: true },
+        { channelId: 'state.imu',sourceRateHz: 50,stale: false },
+      ] },
+    });
+    expect(adapterFlightHealthStale).toMatchObject({
+      armed: false,
+      connected: true,
+      connectionPresentation: 'connected',
+      mode: 'MANUAL',
+    });
   });
 
   it('uses the Mocap Rotor local-state channels without requiring FS150 VRPN inputs', () => {
     const value = flightRobotInstrumentReadout({
-      presentation: 'mocap_rotor',online: true,linkFresh: true,poseFresh: true,mocapState: 'missing',healthTone: 'healthy',
-      flight: { connected: true,armed: false,mode: 'POSCTL' },
+      presentation: 'mocap_rotor',connectionState: 'live',online: true,linkFresh: true,poseFresh: true,mocapState: 'missing',healthTone: 'healthy',
+      flight: { connected: true,armed: false,mode: 'POSCTL',landedState: 1 },
       pose: { position: { x: 1,y: 2,z: 3 },orientation: { x: 0,y: 0,z: 0,w: 1 } },
       mocapPose: {},imu: { orientation: { x: 0,y: 0,z: 0,w: 1 } },
       localVelocity: { linear: { x: 0.5,y: 0,z: -0.1 } },mocapVelocity: {},mocapSpeed: { metersPerSecond: 0.5 },
@@ -138,7 +192,7 @@ describe('Robot instrument readouts', () => {
 
     expect(value).toMatchObject({
       presentation: 'mocap_rotor',linkReady: true,positioning: true,mocap: '--',
-      altitude: 3,climb: -0.1,x: 1,y: 2,
+      altitude: 3,climb: -0.1,x: 1,y: 2,flightStage: 'GROUND',
       frequencies: { localPosition: 15,mocapVelocity: 15,imu: 10,localSetpoint: 0 },
     });
     expect(value.speed).toBeCloseTo(Math.hypot(0.5,0,-0.1),5);
@@ -146,7 +200,7 @@ describe('Robot instrument readouts', () => {
 
   it('uses MAVROS local pose/velocity and connected when FS150 mocap and timesync are missing', () => {
     const value = flightRobotInstrumentReadout({
-      presentation: 'fs150',online: true,linkFresh: false,poseFresh: true,mocapState: 'missing',healthTone: 'healthy',
+      presentation: 'fs150',connectionState: 'live',online: true,linkFresh: false,poseFresh: true,mocapState: 'missing',healthTone: 'healthy',
       flight: { connected: true,armed: false,mode: 'MANUAL',landedState: 1 },
       pose: { position: { x: 1.25,y: -0.5,z: 2.0 } },
       mocapPose: {},imu: {},
@@ -162,26 +216,37 @@ describe('Robot instrument readouts', () => {
     });
 
     expect(value).toMatchObject({
-      connected: true,linkReady: false,armed: false,mode: 'MANUAL',flightStage: 'GROUND',
+      connected: true,linkReady: false,armed: false,mode: 'MANUAL',flightStage: '--',
       altitude: null,climb: -0.2,x: 1.25,y: -0.5,positioning: true,mocap: '--',battery: 81,
       frequencies: { localPosition: 20,mocapVelocity: 0,localSetpoint: 0 },
     });
     expect(value.speed).toBeNull();
   });
 
-  it('uses MAVROS connected or semantic online as the link when timesync is absent', () => {
+  it('does not treat missing MAVROS connected or RTT 0 as a live connection', () => {
     const omitted = flightRobotInstrumentReadout({
-      presentation: 'fs150',online: true,linkFresh: false,poseFresh: true,mocapState: 'missing',healthTone: 'healthy',
+      presentation: 'fs150',connectionState: 'live',online: true,linkFresh: false,poseFresh: true,mocapState: 'missing',healthTone: 'healthy',
       flight: { mode: 'POSCTL' },pose: {},mocapPose: {},imu: {},localVelocity: {},mocapVelocity: {},mocapSpeed: {},
       localizationError: {},localSetpoint: {},localSetpointState: 'missing',power: {},streamHealth: {},fcuLink: {},
     });
-    expect(omitted.connected).toBe(true);
+    expect(omitted.connected).toBe(false);
+    expect(omitted.connectionPresentation).toBe('recovering');
     expect(omitted.mode).toBe('POSCTL');
+    const measured = flightRobotInstrumentReadout({
+      presentation: 'fs150',connectionState: 'live',online: true,linkFresh: false,poseFresh: true,mocapState: 'missing',healthTone: 'healthy',
+      flight: { connected: true,mode: 'POSCTL' },pose: {},mocapPose: {},imu: {},localVelocity: {},mocapVelocity: {},mocapSpeed: {},
+      localizationError: {},localSetpoint: {},localSetpointState: 'missing',power: {},
+      streamHealth: { channels: [{ channelId: 'state.imu',stale: false }] },
+      fcuLink: { roundTripTimeMs: 0 },
+    });
+    expect(measured.connected).toBe(true);
+    expect(measured.connectionPresentation).toBe('connected');
+    expect(measured.roundTripTimeMs).toBe(0);
   });
 
   it('keeps local pose and velocity zeros instead of placeholders', () => {
     const value = flightRobotInstrumentReadout({
-      presentation: 'fs150',online: true,linkFresh: false,poseFresh: true,mocapState: 'missing',healthTone: 'healthy',
+      presentation: 'fs150',connectionState: 'live',online: true,linkFresh: false,poseFresh: true,mocapState: 'missing',healthTone: 'healthy',
       flight: { connected: true,armed: false,mode: 'MANUAL',landed_state: 1 },
       pose: { position: { x: 0,y: 0,z: 0 } },
       mocapPose: {},imu: {},
@@ -191,7 +256,7 @@ describe('Robot instrument readouts', () => {
       fcuLink: {},streamHealth: {},
     });
     expect(value).toMatchObject({
-      mode: 'MANUAL',flightStage: 'GROUND',x: 0,y: 0,altitude: null,climb: 0,speed: null,battery: 0,
+      mode: 'MANUAL',flightStage: '--',x: 0,y: 0,altitude: null,climb: 0,speed: null,battery: 0,
     });
   });
 
@@ -216,7 +281,11 @@ describe('Robot instrument readouts', () => {
       chassis: {
         controlMode: 'CONTROL_MODE_COMMAND_CAN',nativeControlMode: 1,
       },
-      health: { online: true,summary: 'nominal' },
+      controller: { text: 'Ready' },
+      health: {
+        online: true,summary: 'nominal',
+        positioning: { state: 'POSITIONING_STATE_STABLE' },
+      },
       streamHealth: { channels: [
         { channelId: 'vrpn.position',sourceRateHz: 20 },
         { channelId: 'vrpn.speed',sourceRateHz: 15 },
@@ -224,6 +293,7 @@ describe('Robot instrument readouts', () => {
         { channelId: 'state.power',sourceRateHz: 1.5 },
         { channelId: 'command.velocity',sourceRateHz: 10 },
         { channelId: 'state.health',sourceRateHz: 2 },
+        { channelId: 'state.controller',sourceRateHz: 5,stale: false },
       ] },
     });
 
@@ -232,6 +302,7 @@ describe('Robot instrument readouts', () => {
       x: 8.25,y: -1.5,z: 0,commandLinear: 1.5,
       commandAngular: -0.2,actualAngular: -0.25,
       battery: 95,batteryVoltage: 28.765,batteryCurrent: -2.4,controlMode: 'CMD',
+      controllerStatus: 'Ready',
       health: 'nominal',connectionState: 'live',
       imuAgeMs: 20,imuStale: false,hasChassisContract: true,
       pose: 'fresh',positioningStatus:'ready',
@@ -265,21 +336,39 @@ describe('Robot instrument readouts', () => {
     expect(value.frequencies.imu).toBe(20);
   });
 
-  it('labels unknown Scout native control modes instead of a blank dash', () => {
+  it('maps Scout Mini native 0 and 1 to CMD green', () => {
     expect(scoutControlModeLabel({ controlMode:'CONTROL_MODE_REMOTE' })).toBe('RC');
     expect(scoutControlModeLabel({ controlMode:'CONTROL_MODE_COMMAND_CAN' })).toBe('CMD');
     expect(scoutControlModeLabel({ controlMode:'CONTROL_MODE_COMMAND_UART' })).toBe('UART');
-    expect(scoutControlModeLabel({ nativeControlMode: 3 })).toBe('MODE 3');
-    expect(scoutControlModeLabel({ controlMode: 2 })).toBe('--');
-    expect(scoutControlModeLabel({ nativeControlMode: 0 })).toBe('MODE 0');
-    expect(scoutControlModeLabel({ nativeControlMode: 1 })).toBe('MODE 1');
-    expect(scoutControlModeLabel({ nativeControlMode: 3 })).not.toBe('RC');
+    expect(scoutControlModeLabel({ nativeControlMode: 0 })).toBe('CMD');
+    expect(scoutControlModeLabel({ nativeControlMode: 1 })).toBe('CMD');
+    expect(scoutControlModeLabel({ nativeControlMode: 255 })).toBe('MODE 255');
+    expect(scoutControlModeLabel({ nativeControlMode: 2 })).toBe('UART');
+    expect(scoutControlModeLabel({ nativeControlMode: 3 })).toBe('RC');
+    expect(scoutControlModeLabel({ controlMode: 2 })).toBe('CMD');
+    expect(scoutControlModeLabel({ controlMode:'CONTROL_MODE_UNSPECIFIED',nativeControlMode:0 })).toBe('CMD');
     expect(scoutControlModeLabel({ control_mode:'CONTROL_MODE_REMOTE',native_control_mode:3 })).toBe('--');
     expect(scoutChassisModeTone({ controlMode:'CONTROL_MODE_REMOTE' })).toBe('danger');
     expect(scoutChassisModeTone({ controlMode:'CONTROL_MODE_COMMAND_CAN' })).toBe('success');
     expect(scoutChassisModeTone({ controlMode:'CONTROL_MODE_COMMAND_UART' })).toBe('danger');
-    expect(scoutChassisModeTone({ nativeControlMode:3 })).toBe('normal');
+    expect(scoutChassisModeTone({ nativeControlMode:0 })).toBe('success');
+    expect(scoutChassisModeTone({ nativeControlMode:3 })).toBe('danger');
+    expect(scoutChassisModeTone({ nativeControlMode:255 })).toBe('normal');
     expect(scoutChassisModeTone({})).toBe('normal');
+  });
+
+  it('does not let controller freshness change Ground connection presentation', () => {
+    const value = groundRobotInstrumentReadout({
+      online: true,operationalReady: true,connectionState: 'live',poseFresh: true,
+      healthTone: 'healthy',pose: {},velocity: {},commandVelocity: {},speed: {},
+      power: {},chassis: {},controller: {},controllerStale: true,health: {},
+      streamHealth: { channels: [
+        { channelId: 'state.imu',sourceRateHz: 20,sourceAgeMs: 40,stale: false },
+        { channelId: 'state.controller',stale: true },
+      ] },
+    });
+    expect(value.connectionPresentation).toBe('connected');
+    expect(value.controllerStatus).toBe('--');
   });
 
   it('paints PX4 OFFBOARD green and leaves other flight modes white', () => {
@@ -378,6 +467,144 @@ describe('Robot instrument readouts', () => {
     expect(groundRobotInstrumentReadout({
       ...base,poseFresh:false,health:{ positioning:{ state:'POSITIONING_STATE_TIMED_OUT' } },
     }).positioningStatus).toBe('unavailable');
+  });
+
+  it('does not impersonate missing UAV attitude with identity and does not extend pose with IMU', () => {
+    const missing = flightRobotInstrumentReadout({
+      presentation: 'fs150',connectionState: 'live',online: true,linkFresh: true,poseFresh: true,mocapState: 'missing',healthTone: 'healthy',
+      flight: { connected: true },
+      pose: { position: { x: 1,y: 2,z: 3 },orientation: quaternionFromEuler(10,-5,90) },
+      mocapPose: {},imu: {},localVelocity: {},mocapVelocity: {},mocapSpeed: {},
+      localizationError: {},localSetpoint: {},localSetpointState: 'missing',power: {},
+      health: { positioning: { state: 'POSITIONING_STATE_ACTIVE' } },
+      fcuLink: {},
+      streamHealth: { channels: [
+        { channelId: 'state.imu',stale: true },
+        { channelId: 'state.pose',stale: false },
+      ] },
+    });
+    expect(missing.roll).toBeNull();
+    expect(missing.pitch).toBeNull();
+    expect(missing.yaw).toBeNull();
+    expect(missing.x).toBe(1);
+    expect(missing.y).toBe(2);
+    expect(missing.positioningStatus).toBe('ready');
+    expect(missing.connectionPresentation).toBe('recovering');
+
+    const imuOnly = flightRobotInstrumentReadout({
+      presentation: 'fs150',connectionState: 'closed',online: false,linkFresh: false,poseFresh: false,mocapState: 'missing',healthTone: 'unavailable',
+      flight: { connected: true },
+      pose: { position: { x: 9,y: 9,z: 9 },orientation: quaternionFromEuler(10,0,0) },
+      mocapPose: {},imu: { orientation: quaternionFromEuler(4,-3,20) },
+      localVelocity: {},mocapVelocity: {},mocapSpeed: {},localizationError: {},
+      localSetpoint: {},localSetpointState: 'missing',power: {},fcuLink: {},
+      streamHealth: { channels: [
+        { channelId: 'state.imu',stale: false },
+        { channelId: 'state.pose',stale: true },
+      ] },
+    });
+    expect(imuOnly.x).toBeNull();
+    expect(imuOnly.y).toBeNull();
+    expect(imuOnly.roll).toBeNull();
+    expect(imuOnly.pitch).toBeNull();
+    expect(imuOnly.yaw).toBeNull();
+    expect(imuOnly.connectionPresentation).toBe('disconnected');
+
+    const degenerate = flightRobotInstrumentReadout({
+      presentation: 'fs150',connectionState: 'live',online: true,linkFresh: true,poseFresh: false,mocapState: 'missing',healthTone: 'healthy',
+      flight: { connected: true },pose: {},mocapPose: {},
+      imu: { orientation: { x: 0,y: 0,z: 0,w: 0 } },
+      localVelocity: {},mocapVelocity: {},mocapSpeed: {},localizationError: {},
+      localSetpoint: {},localSetpointState: 'missing',power: {},fcuLink: {},
+      streamHealth: { channels: [{ channelId: 'state.imu',stale: false }] },
+    });
+    expect(degenerate.roll).toBeNull();
+    expect(degenerate.connectionPresentation).toBe('connected');
+  });
+
+  it('keeps ground VRPN pose when the robot row is source-loss, and blanks it when the pose channel is stale', () => {
+    const sourceLoss = groundRobotInstrumentReadout({
+      online: false,operationalReady: false,connectionState: 'closed',poseFresh: true,
+      healthTone: 'unavailable',
+      pose: { position: { x: 8,y: -1,z: 0 },orientation: quaternionFromEuler(0,0,90) },
+      velocity: {},commandVelocity: {},speed: {},power: { percentageState:'PERCENTAGE_STATE_AVAILABLE',percentage:0.4,voltageV:12 },
+      chassis: {},
+      health: { positioning: { state: 'POSITIONING_STATE_STABLE' } },
+      streamHealth: { channels: [
+        { channelId: 'vrpn.position',stale: false },
+        { channelId: 'state.imu',stale: true },
+      ] },
+    });
+    expect(sourceLoss.connectionPresentation).toBe('disconnected');
+    expect(sourceLoss.heading).toBeCloseTo(90,5);
+    expect(sourceLoss.x).toBe(8);
+    expect(sourceLoss.battery).toBe(40);
+    expect(sourceLoss.batteryVoltage).toBeNull();
+    expect(sourceLoss.batteryCurrent).toBeNull();
+    expect(sourceLoss.frequencies.power).toBe(0);
+    expect(sourceLoss.frequencies.imu).toBe(0);
+    expect(sourceLoss.positioningStatus).toBe('ready');
+    expect(sourceLoss.controlMode).toBe('--');
+    expect(sourceLoss.commandRate).toBe(0);
+    expect(sourceLoss.frequencies.command).toBe(0);
+
+    const latched = groundRobotInstrumentReadout({
+      online: false,operationalReady: false,connectionState: 'closed',poseFresh: true,
+      healthTone: 'unavailable',
+      pose: { position: { x: 8,y: -1,z: 0 },orientation: quaternionFromEuler(0,0,90) },
+      velocity: {},
+      commandVelocity: { linear: { x: 1.5 },angular: { z: -0.2 } },
+      speed: {},power: { percentageState:'PERCENTAGE_STATE_AVAILABLE',percentage:0.4,voltageV:12 },
+      chassis: { controlMode: 'CONTROL_MODE_COMMAND_CAN',nativeControlMode: 1 },
+      health: { positioning: { state: 'POSITIONING_STATE_STABLE' } },
+      streamHealth: { channels: [
+        { channelId: 'vrpn.position',stale: false },
+        { channelId: 'state.imu',stale: true },
+        { channelId: 'command.velocity',sourceRateHz: 10,stale: false },
+      ] },
+    });
+    expect(latched.connectionPresentation).toBe('disconnected');
+    expect(latched.controlMode).toBe('--');
+    expect(latched.hasChassisContract).toBe(false);
+    expect(latched.commandLinear).toBeNull();
+    expect(latched.commandAngular).toBeNull();
+    expect(latched.commandRate).toBe(0);
+    expect(latched.frequencies.command).toBe(0);
+    expect(latched.batteryVoltage).toBeNull();
+    expect(latched.frequencies.power).toBe(0);
+
+    const stalePose = groundRobotInstrumentReadout({
+      online: true,operationalReady: true,connectionState: 'live',poseFresh: true,
+      healthTone: 'healthy',
+      pose: { position: { x: 8,y: -1,z: 0 },orientation: quaternionFromEuler(0,0,90) },
+      velocity: { linear: { x: 1 } },commandVelocity: {},speed: {},power: {},chassis: {},
+      health: { positioning: { state: 'POSITIONING_STATE_STABLE' } },
+      streamHealth: { channels: [
+        { channelId: 'vrpn.position',stale: true },
+        { channelId: 'state.imu',stale: false },
+      ] },
+    });
+    expect(stalePose.heading).toBeNull();
+    expect(stalePose.x).toBeNull();
+    expect(stalePose.connectionPresentation).toBe('connected');
+    expect(stalePose.positioningStatus).toBe('ready');
+  });
+
+  it('treats Ground connection as IMU readiness even when VRPN attitude is unknown', () => {
+    const value = groundRobotInstrumentReadout({
+      online: true,operationalReady: true,connectionState: 'live',poseFresh: false,
+      healthTone: 'healthy',
+      pose: {},velocity: {},commandVelocity: {},speed: {},power: {},chassis: {},
+      health: {},
+      streamHealth: { channels: [
+        { channelId: 'state.imu',stale: false,sourceRateHz: 20,sourceAgeMs: 40 },
+      ] },
+    });
+    expect(value.connectionPresentation).toBe('connected');
+    expect(value.heading).toBeNull();
+    expect(value.roll).toBeNull();
+    expect(value.pitch).toBeNull();
+    expect(value.imuStale).toBe(false);
   });
 });
 

@@ -25,21 +25,54 @@ import { HostFilesBrowser } from './HostFilesBrowser';
 import { HostFileEditorDrawer,HostRecycleDrawer } from './HostFileDrawers';
 import { useHostTask } from './useHostTask';
 import { useDeferSystemTabReady } from './hostSystemTabSurface';
-import { useProductRouteVisible } from '../../shared/routeReady';
+import { ProductRouteVisibilityProvider,useProductRouteVisible } from '../../shared/routeReady';
 import './HostFilesWorkspace.css';
 
-export function HostFilesWorkspace({ targetCoreId,managedHostId,executionTargetId,isRemoteManagedHost }: {
+export type HostFilesWorkspaceProps = {
   targetCoreId?: string;
   managedHostId: string;
   executionTargetId: string;
   isRemoteManagedHost: boolean;
-}) {
+  initialDirectory?: string;
+};
+
+export function HostFilesWorkspace(props: HostFilesWorkspaceProps) {
+  const { targetCoreId,managedHostId,executionTargetId,isRemoteManagedHost } = props;
+  const targetIdentity = [
+    targetCoreId?.trim() || 'local-core',
+    isRemoteManagedHost ? managedHostId : 'core-host',
+    executionTargetId || 'local',
+  ].join(':');
+  const visible = useProductRouteVisible();
+  const [visitedTargets,setVisitedTargets] = useState(() => new Map([[targetIdentity,props]]));
+  useEffect(() => {
+    setVisitedTargets((current) => current.has(targetIdentity)
+      ? current
+      : new Map(current).set(targetIdentity,props));
+  },[props,targetIdentity]);
+  const targets = visitedTargets.has(targetIdentity)
+    ? visitedTargets
+    : new Map(visitedTargets).set(targetIdentity,props);
+  // Keep only this mounted workspace's visited host scopes, like parked System
+  // tabs. Each keeps its own file draft and in-flight task bound to that host.
+  return <>{[...targets].map(([identity,target]) => (
+    <ProductRouteVisibilityProvider key={identity} visible={visible && identity === targetIdentity}>
+      <HostFilesWorkspaceScope {...(identity === targetIdentity ? props : target)} targetIdentity={identity} />
+    </ProductRouteVisibilityProvider>
+  ))}</>;
+}
+
+function HostFilesWorkspaceScope({
+  targetCoreId,managedHostId,executionTargetId,isRemoteManagedHost,initialDirectory,targetIdentity,
+}: HostFilesWorkspaceProps & { targetIdentity: string }) {
   const requestedPath = useSyncExternalStore(subscribeRequestedHostFilePath,requestedHostFilePath,requestedHostFilePath);
   const localTarget = !isRemoteManagedHost && !targetCoreId?.trim();
   const surfaceVisible = useProductRouteVisible();
-  // Core and Agent both open at the process user home (`~` → OS UserHomeDir).
-  // No product data path or ManagedRoot is hardcoded as the Files root.
-  const [initialPath] = useState(() => (localTarget && requestedPath) || defaultHostFilePath);
+  const visibleRef = useRef(surfaceVisible);
+  visibleRef.current = surfaceVisible;
+  const refreshPending = useRef<{ savedContent?: HostFileContent } | null>(null);
+  // The embedding environment can open its existing persistent workspace.
+  const [initialPath] = useState(() => (localTarget && requestedPath) || initialDirectory || defaultHostFilePath);
   const initialLoad = useRef(true);
   const [files,setFiles] = useState<HostFileList | null>(null);
   const [listing,setListing] = useState<{ settled: boolean; error: string | null; search: string }>({
@@ -52,14 +85,14 @@ export function HostFilesWorkspace({ targetCoreId,managedHostId,executionTargetI
   const [initialShowHidden] = useState(showHidden);
   const [recycleItems,setRecycleItems] = useState<HostRecycleItem[]>([]);
   const [recycleOpen,setRecycleOpen] = useState(false);
-  const task = useHostTask();
+  const task = useHostTask(targetIdentity);
   const { run } = task;
   const busy = task.isBusy();
   const writableDirectory = !busy && listing.error === null && files?.path === path ? files.path : null;
   const writableDirectoryRef = useRef(writableDirectory);
   writableDirectoryRef.current = writableDirectory;
   const waitingForFiles = !listing.settled;
-  useDeferSystemTabReady(waitingForFiles);
+  useDeferSystemTabReady(surfaceVisible && waitingForFiles);
   const toastTargetId = executionTargetId || 'local';
   const apiTarget = useMemo(() => ({
     ...(targetCoreId ? { targetCoreId } : {}),
@@ -77,18 +110,22 @@ export function HostFilesWorkspace({ targetCoreId,managedHostId,executionTargetI
     });
   }, [toastTargetId]);
 
-  const applyFiles = useCallback((next: HostFileList) => {
+  const applyFiles = useCallback((next: HostFileList,savedContent?: HostFileContent) => {
     setFiles(next);
     setPath(next.path);
-    setContent(null);
+    // A save only clears the draft it submitted, including a refresh deferred
+    // while this host is parked. Later edits remain available to save again.
+    setContent((current) => savedContent && current
+      && (current.path !== savedContent.path || current.content !== savedContent.content)
+      ? current : null);
   }, []);
 
-  const fetchFiles = useCallback(async (nextPath: string,hidden: boolean,query: string) => {
+  const fetchFiles = useCallback(async (nextPath: string,hidden: boolean,query: string,savedContent?: HostFileContent) => {
     setPath(nextPath);
     setListing((current) => ({ ...current,error: null }));
     try {
       const next = await getHostFiles(nextPath,hidden,query,apiTarget);
-      applyFiles(next);
+      applyFiles(next,savedContent);
       setListing({ settled: true,error: null,search: query });
       return next;
     } catch (error) {
@@ -100,23 +137,34 @@ export function HostFilesWorkspace({ targetCoreId,managedHostId,executionTargetI
   }, [apiTarget,applyFiles]);
 
   useEffect(() => {
-    if (busy) return;
+    if (!surfaceVisible || busy) return;
     // Open folder requests originate on the station. A parked Agent/remote
     // Core must not consume a local directory before navigation selects local.
-    const navigationPath = localTarget && surfaceVisible ? requestedPath : '';
-    if (!initialLoad.current && !navigationPath) return;
+    const navigationPath = localTarget ? requestedPath : '';
+    if (!initialLoad.current && !navigationPath && !refreshPending.current) return;
     if (navigationPath && !consumeRequestedHostFilePath(navigationPath)) return;
+    const refresh = refreshPending.current;
     initialLoad.current = false;
+    refreshPending.current = null;
     if (navigationPath) setSearch('');
-    void run('files',() => fetchFiles(navigationPath || initialPath,navigationPath ? showHidden : initialShowHidden,''));
-  }, [busy,fetchFiles,initialPath,initialShowHidden,localTarget,requestedPath,run,showHidden,surfaceVisible]);
+    void run('files',() => fetchFiles(
+      navigationPath || (refresh ? path : initialPath),
+      navigationPath || refresh ? showHidden : initialShowHidden,
+      refresh && !navigationPath ? search : '',
+      !navigationPath ? refresh?.savedContent : undefined,
+    ));
+  }, [busy,fetchFiles,initialPath,initialShowHidden,localTarget,path,requestedPath,run,search,showHidden,surfaceVisible]);
 
   const loadFiles = useCallback(async (nextPath: string) => {
     await run('files',() => fetchFiles(nextPath,showHidden,search));
   }, [fetchFiles,run,search,showHidden]);
 
-  const refreshFiles = useCallback(async () => {
-    await fetchFiles(files?.path ?? path,showHidden,search);
+  const refreshFiles = useCallback(async (savedContent?: HostFileContent) => {
+    if (!visibleRef.current) {
+      refreshPending.current = { savedContent };
+      return;
+    }
+    await fetchFiles(files?.path ?? path,showHidden,search,savedContent);
   }, [fetchFiles,files?.path,path,search,showHidden]);
 
   async function openFile(item: HostFileInfo) {
@@ -129,7 +177,7 @@ export function HostFilesWorkspace({ targetCoreId,managedHostId,executionTargetI
     if (!content) return;
     await run('save-file',async () => {
       await saveHostFileContent(content.path,content.content,apiTarget);
-      await refreshFiles();
+      await refreshFiles(content);
     }, { successMessage: `Saved ${content.path}.` });
   }
 
@@ -155,7 +203,7 @@ export function HostFilesWorkspace({ targetCoreId,managedHostId,executionTargetI
     await run(`download:${item.path}`,async () => {
       if (item.isDir) {
         // Automatic ZIP + browser download (works for local Core and remote Agent
-        // via list/read). No in-page success banner — browser download is enough.
+        // via list/download). No in-page success banner — browser download is enough.
         const archiveName = folderDownloadArchiveName(item.name);
         const blob = await zipHostDirectory(item.path, item.name, apiTarget);
         saveBlob(blob, archiveName);
@@ -242,7 +290,7 @@ export function HostFilesWorkspace({ targetCoreId,managedHostId,executionTargetI
   };
 
   return (
-    <div className="xgc-host-files-workspace">
+    <div className="xgc-host-files-workspace" hidden={!surfaceVisible} inert={!surfaceVisible ? true : undefined} aria-hidden={!surfaceVisible}>
       <HostFilesBrowser
         files={files}
         listingError={listing.error}
@@ -267,8 +315,8 @@ export function HostFilesWorkspace({ targetCoreId,managedHostId,executionTargetI
         onUpload={(file) => void upload(file)}
         onOpenRecycle={() => void loadRecycle()}
       />
-      {content && <HostFileEditorDrawer content={content} busy={task.isBusy('save-file')} onChange={setContent} onClose={() => setContent(null)} onSave={() => void saveFile()} />}
-      {recycleOpen && <HostRecycleDrawer items={recycleItems} busy={task.isBusy()} onClose={() => setRecycleOpen(false)} onRestore={(item) => void restore(item)} />}
+      {content && <HostFileEditorDrawer open={surfaceVisible} content={content} busy={task.isBusy('save-file')} onChange={setContent} onClose={() => setContent(null)} onSave={() => void saveFile()} />}
+      {recycleOpen && <HostRecycleDrawer open={surfaceVisible} items={recycleItems} busy={task.isBusy()} onClose={() => setRecycleOpen(false)} onRestore={(item) => void restore(item)} />}
     </div>
   );
 }

@@ -13,6 +13,8 @@ import {
   completedExperimentStopEvidence,
   emptyLiveLayers,
   isLiveHarnessError,
+  managedWorkflowBindingIds,
+  managedWorkflowPolicies,
   reconcileForeignActiveExperimentSessions,
   runWithLiveReport,
   startExperimentThroughUI,
@@ -180,7 +182,30 @@ test('Start reports the accepted exact root before a later dispatch-boundary fai
   assert.deepEqual(observed,['run-accepted']);
 });
 
-test('Start passes a durable boundary inside ten seconds despite slower observation',async () => {
+test('Start observes a placement-bearing 404 immediately instead of timing out',async () => {
+  const response=startRunnerResponse(404,{ error:'deployment placement rejected' });
+  let waits=0;
+  const page={
+    isClosed:() => false,
+    locator:() => ({
+      waitFor:async () => undefined,
+      isDisabled:async () => false,
+      click:async () => undefined,
+    }),
+    waitForResponse:async (match) => {
+      waits+=1;
+      assert.equal(match(response),true);
+      return response;
+    },
+  };
+
+  await assert.rejects(() => startExperimentThroughUI({
+    page,context:{},webUrl:'http://127.0.0.1:5174',experiment:experimentFixture(),runMode:'simulation',timeoutMs:50,
+  }),/System Runner Start HTTP 404: \{"error":"deployment placement rejected"\}/);
+  assert.equal(waits,1);
+});
+
+test('Start matches deployment placement and passes a durable boundary inside ten seconds despite slower observation',async () => {
   const clockStart=Date.parse('2026-08-30T05:00:00.000Z');
   await withMockClock(clockStart,async (advance) => {
     const accepted=acceptedRunnerRoot();
@@ -232,6 +257,48 @@ test('Start boundary rejects a non-exact managed member set',async () => {
   });
   await assert.rejects(() => waitForStartBoundary(
     context,'http://127.0.0.1:5174',experimentFixture(),'run-accepted','simulation',5,
+  ),/did not open its Session and seal the managed Panel dispatch set/);
+});
+
+test('managed dispatch expectations without ROS Control include only managed Panel bindings',() => {
+  const experiment=experimentFixture();
+  assert.deepEqual(managedWorkflowBindingIds(experiment),['panel-a']);
+  assert.deepEqual([...managedWorkflowPolicies(experiment)],[[
+    'panel-a',{ relation:'supervised',cancelPolicy:'cascade' },
+  ]]);
+});
+
+test('managed dispatch expectations add xgc-world-services for a ROS Control workflow',async () => {
+  const experiment=experimentFixture({ rosControl:true });
+  assert.deepEqual(managedWorkflowBindingIds(experiment),['panel-a','xgc-world-services']);
+  assert.deepEqual([...managedWorkflowPolicies(experiment)],[
+    ['panel-a',{ relation:'supervised',cancelPolicy:'cascade' }],
+    ['xgc-world-services',{ relation:'supervised',cancelPolicy:'cascade' }],
+  ]);
+  const detachedPanelExperiment=experimentFixture({ rosControl:true });
+  detachedPanelExperiment.spec.dashboards[0].panels[0].portBindings[0].relation='detached-observed';
+  assert.deepEqual(managedWorkflowPolicies(detachedPanelExperiment).get('panel-a'),{
+    relation:'detached-observed',cancelPolicy:'retain',
+  });
+
+  const context=startBoundaryContext({
+    clockStart:Date.now(),advance:() => undefined,groupSealedMs:1,childBoundMs:2,readMs:0,
+    extraMemberItemKeys:['xgc-world-services'],
+  });
+  const boundary=await waitForStartBoundary(
+    context,'http://127.0.0.1:5174',experiment,'run-accepted','simulation',5,
+  );
+  assert.deepEqual(boundary.managedBindingIds,['panel-a','xgc-world-services']);
+});
+
+test('Start boundary still rejects an unlisted extra member with ROS Control world services',async () => {
+  const experiment=experimentFixture({ rosControl:true });
+  const context=startBoundaryContext({
+    clockStart:Date.now(),advance:() => undefined,groupSealedMs:1,childBoundMs:2,readMs:0,
+    extraMemberItemKeys:['xgc-world-services','unexpected-extra'],
+  });
+  await assert.rejects(() => waitForStartBoundary(
+    context,'http://127.0.0.1:5174',experiment,'run-accepted','simulation',5,
   ),/did not open its Session and seal the managed Panel dispatch set/);
 });
 
@@ -349,12 +416,19 @@ test('runWithLiveReport always writes JSON and Stops only an accepted root',asyn
   assert.equal(acceptedReport.lock,'released');
 });
 
-function experimentFixture() {
+function experimentFixture({ rosControl=false }={}) {
   return {
     head:{ resourceId:'experiment-a' },
-    spec:{ dashboards:[{ panels:[{ portBindings:[{
+    spec:{
+      deployment:{ placement:'centralized' },
+      workflowInstances:rosControl ? [{
+        id:'ros-control',
+        ref:{ domain:'automation',resourceId:'8933a70a-ddc6-5e43-914b-25e19341fcb1',branch:'main' },
+        actionPresets:[],
+      }] : [],
+      dashboards:[{ panels:[{ portBindings:[{
       kind:'workflow',managed:true,workflowInstanceId:'panel-a',relation:'supervised',
-    }] }] }] },
+      }] }] }] },
   };
 }
 
@@ -395,24 +469,28 @@ function startPage(response,advance,{ responseMs }) {
 
 function startBoundaryContext({
   clockStart,advance,groupSealedMs,childBoundMs,readMs,
-  memberItemKey='panel-a',omitChildBoundAt=false,childBoundAt,
+  memberItemKey='panel-a',extraMemberItemKeys=[],omitChildBoundAt=false,childBoundAt,
 }) {
   const waiting={ ...acceptedRunnerRoot(),status:'waiting',revision:2 };
+  const memberItemKeys=[memberItemKey,...extraMemberItemKeys];
   const session={ session:{
     state:'active',runMode:'simulation',experimentResourceId:'experiment-a',
   } };
   const relations={
     childRunGroups:[{
-      id:'group-a',producerNodeId:'run-panels',state:'sealed',expectedMembers:1,memberCount:1,
+      id:'group-a',producerNodeId:'run-panels',state:'sealed',
+      expectedMembers:memberItemKeys.length,memberCount:memberItemKeys.length,
       sealedAt:new Date(clockStart+groupSealedMs).toISOString(),
     }],
-    childRunGroupMembers:[{ groupId:'group-a',itemKey:memberItemKey,childRunId:'child-a' }],
-    childRuns:[{
-      childRunId:'child-a',relation:'supervised',cancelPolicy:'cascade',
+    childRunGroupMembers:memberItemKeys.map((itemKey,index) => ({
+      groupId:'group-a',itemKey,childRunId:`child-${index+1}`,
+    })),
+    childRuns:memberItemKeys.map((_,index) => ({
+      childRunId:`child-${index+1}`,relation:'supervised',cancelPolicy:'cascade',
       ...(!omitChildBoundAt ? {
         boundAt:childBoundAt ?? new Date(clockStart+childBoundMs).toISOString(),
       } : {}),
-    }],
+    })),
   };
   return { request:{ get:async (url) => {
     const parsed=new URL(url);
@@ -464,7 +542,7 @@ function startRunnerResponse(status,body) {
         domain:'automation',resourceId:'069f036b-9638-4827-9524-73ff03fe99c9',branch:'main',
       },
       experimentRef:{ domain:'experiment',resourceId:'experiment-a',branch:'main' },
-      idempotencyKey:'request-start',parameters:{ runMode:'simulation' },
+      idempotencyKey:'request-start',parameters:{ runMode:'simulation',placement:'centralized' },
       reason:'Run Experiment experiment-a',requestId:'request-start',
     }),
   };

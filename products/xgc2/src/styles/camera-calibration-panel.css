@@ -68,15 +68,6 @@
   background: var(--color-bg-canvas);
 }
 
-.panels-camera-calibration-image-placeholder {
-  display: grid;
-  place-content: center;
-  justify-items: center;
-  gap: var(--space-md);
-  color: var(--color-text-muted);
-  font-size: var(--font-sm);
-}
-
 .panels-camera-calibration-frame-meta {
   min-width: 0;
   display: flex;
@@ -85,7 +76,8 @@
   gap: var(--space-md);
   padding: 0 var(--space-xs);
   color: var(--color-text-muted);
-  font: var(--font-xs)/var(--line-height-none) var(--font-mono);
+  font: var(--type-caption-size)/var(--line-height-none) var(--font-sans);
+  font-variant-numeric: var(--type-numeric-variant);
 }
 
 .panels-camera-calibration-frame-meta span {
@@ -119,7 +111,7 @@
   background: var(--color-bg-subtle);
   border: var(--stroke-thin) solid var(--color-border);
   border-radius: var(--radius-control);
-  font-size: var(--font-xs);
+  font-size: var(--type-meta-size);
 }
 
 .panels-camera-calibration-result dl,
@@ -136,15 +128,23 @@
   margin: 0;
   overflow: hidden;
   color: var(--color-text-heading);
-  font-family: var(--font-mono);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.panels-camera-calibration-result dd {
+  font-family: var(--font-sans);
+  font-variant-numeric: var(--type-numeric-variant);
+}
+
+.panels-camera-calibration-details dd {
+  font-family: var(--type-code-family);
 }
 
 .panels-camera-calibration-details {
   margin-top: auto;
   color: var(--color-text-muted);
-  font-size: var(--font-xs);
+  font-size: var(--type-meta-size);
 }
 
 .panels-camera-calibration-details summary {

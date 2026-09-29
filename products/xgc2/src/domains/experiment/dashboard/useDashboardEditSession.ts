@@ -1,4 +1,6 @@
-import { useEffect,useRef,useState } from 'react';
+import { useEffect,useMemo,useRef,useState } from 'react';
+import { useStableCallback } from '../../../hooks/useStableCallback';
+import { canonicalJSON } from '../../../shared/canonicalJson';
 import { configResourceDefinitionEditLocked } from '../../../shared/configResourceProtection';
 import type { ExperimentDocument } from '../experimentModel';
 import { ExperimentCommitConflict } from '../useExperimentCatalog';
@@ -12,6 +14,7 @@ export function useDashboardEditSession({
 }) {
   const [editingRequested,setEditingRequested] = useState(false);
   const [draft,setDraft] = useState<ExperimentDocument | null>(null);
+  const [baselineSpecJson,setBaselineSpecJson] = useState<string | null>(null);
   const [exitConfirmationOpen,setExitConfirmationOpen] = useState(false);
   const [saving,setSaving] = useState(false);
   const [commitConflict,setCommitConflict] = useState('');
@@ -34,6 +37,7 @@ export function useDashboardEditSession({
     saveRevisionRef.current += 1;
     saveInFlightRef.current = false;
     setDraft(null);
+    setBaselineSpecJson(null);
     setEditingRequested(false);
     setExitConfirmationOpen(false);
     setCommitConflict('');
@@ -45,6 +49,7 @@ export function useDashboardEditSession({
     saveRevisionRef.current += 1;
     saveInFlightRef.current = false;
     setDraft(structuredClone(nextDraft));
+    setBaselineSpecJson(canonicalJSON(nextDraft.spec));
     setExitConfirmationOpen(false);
     setCommitConflict('');
     setSaveError('');
@@ -76,6 +81,7 @@ export function useDashboardEditSession({
     saveRevisionRef.current += 1;
     saveInFlightRef.current = false;
     setDraft(null);
+    setBaselineSpecJson(null);
     setEditingRequested(false);
     setExitConfirmationOpen(false);
     setSaving(false);
@@ -101,6 +107,7 @@ export function useDashboardEditSession({
       await saveExperimentDraft(savingDraft, 'Update experiment dashboards');
       if (saveRevisionRef.current !== revision) return;
       setDraft(null);
+      setBaselineSpecJson(null);
       setEditingRequested(false);
       setExitConfirmationOpen(false);
       setCommitConflict('');
@@ -120,28 +127,51 @@ export function useDashboardEditSession({
     }
   }
 
+  // Canonical JSON is O(spec); recompute only when the draft or baseline moves.
+  const dirty = useMemo(() => Boolean(
+    activeDraft && baselineSpecJson && canonicalJSON(activeDraft.spec) !== baselineSpecJson,
+  ),[activeDraft,baselineSpecJson]);
+
   function requestExit() {
-    if (editing) setExitConfirmationOpen(true);
+    if (!editing) return;
+    if (!dirty) {
+      discard();
+      return;
+    }
+    setExitConfirmationOpen(true);
   }
 
-  return {
+  // Commands keep one identity so the dashboard render context does not change
+  // on every host render; each call still runs against the latest state.
+  const stableStart = useStableCallback(start);
+  const stableStartWithDraft = useStableCallback(startWithDraft);
+  const stableDiscard = useStableCallback(discard);
+  const stableSave = useStableCallback(save);
+  const stableRequestExit = useStableCallback(requestExit);
+  const cancelExit = useStableCallback(() => setExitConfirmationOpen(false));
+
+  return useMemo(() => ({
     activeDraft,
     visibleExperiment,
     editing,
+    dirty,
     readOnly,
     saving,
     commitConflict,
     saveError,
     exitConfirmationOpen,
-    start,
-    startWithDraft,
-    discard,
-    save,
-    requestExit,
-    cancelExit: () => setExitConfirmationOpen(false),
+    start: stableStart,
+    startWithDraft: stableStartWithDraft,
+    discard: stableDiscard,
+    save: stableSave,
+    requestExit: stableRequestExit,
+    cancelExit,
     updateDraft: setDraft,
     reportError: setSaveError,
-  };
+  }),[
+    activeDraft,cancelExit,commitConflict,dirty,editing,exitConfirmationOpen,readOnly,saveError,saving,
+    stableDiscard,stableRequestExit,stableSave,stableStart,stableStartWithDraft,visibleExperiment,
+  ]);
 }
 
 function messageOf(error: unknown) {

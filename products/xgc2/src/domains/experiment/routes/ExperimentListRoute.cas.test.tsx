@@ -336,8 +336,9 @@ function experiment(commitId: string, revision: number): ExperimentDocument {
       headVersion: revision,revision,createdAt: '',updatedAt: '',
     },
     spec: {
-      schemaVersion: 15,name: 'Experiment',description: '',tags: ['demo'],
+      schemaVersion:16,name: 'Experiment',description: '',tags: ['demo'],
       runModes: ['simulation','physical'],
+      worldBoundary:null,
       localizationOffset:{ x:0,y:0,z:0 },
       robots: [],workflowInstances: [],
       dashboards: [{ id: 'gcs',name: 'GCS',description: '',panels: [] }],

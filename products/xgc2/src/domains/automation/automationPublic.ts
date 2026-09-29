@@ -13,6 +13,8 @@ export type {
 } from './automationDefinitionContracts';
 export type {
   AutomationRun,
+  AutomationPanelActionSelector,
+  AutomationPanelActionInvocation,
   AutomationRunAssetContext,
   AutomationRunSnapshot,
   AutomationRunSourceKind,
@@ -86,8 +88,6 @@ export {
   getAutomationExecutionRelations,
   getAutomationRun,
   getAutomationRunSnapshot,
-  listAutomationNodeExecutionSummaries,
-  listAutomationNodeInvocations,
   recoverAutomationStartOutcome,
   startAutomationRun,
   stopAutomationRun,
@@ -99,6 +99,7 @@ export { validateAutomationRelationLedger } from './automationRelationsModel';
 export { isAutomationRunRevisionConflict,messageOf } from './automationErrorModel';
 export type { StartAutomationRunInput } from './automationRunService';
 export { useAutomationWorkspace } from './useAutomationWorkspace';
+export { useAutomationBoundDocuments } from './useAutomationBoundDocuments';
 export { useAutomationExecutionText } from './automationExecutionMessages';
 export { AutomationCommitConflict } from './automationErrorModel';
 export {
@@ -118,6 +119,6 @@ export {
 export { AutomationGraph } from './AutomationGraphView';
 /** Host filesystem path picker (input + Browse) for panel/process path fields. */
 export { AutomationPathPicker } from './AutomationPathPicker';
-export { listAutomationTargetFiles } from './automationTargetService';
+export { listAutomationTargetFiles,readAutomationTargetFileFingerprint } from './automationTargetService';
 export { isROSBagPlayPathField } from './automationPathPickerModel';
 export type { AutomationPathKind,AutomationPathPickerVariant } from './automationPathPickerModel';

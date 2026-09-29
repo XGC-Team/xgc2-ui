@@ -35,7 +35,7 @@ function hostSettingsTarget(options?: ApiTargetOptions) {
   return JSON.stringify([options?.targetCoreId ?? '',options?.managedHostId ?? '']);
 }
 
-/** Keep the Host form and Maintenance performance control on the same applied snapshot. */
+/** Keep every mounted Host policy form on the same applied snapshot. */
 export function subscribeHostSettings(options: ApiTargetOptions,changed: (settings: HostSettings) => void) {
   const listener = { target: hostSettingsTarget(options),changed };
   settingsListeners.add(listener);

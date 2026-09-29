@@ -1,4 +1,9 @@
 import type { LocalizedText } from '../../shared/localization/localizedText';
+import {
+  connectionPresentationLabelKey,
+  connectionPresentationTone,
+  type RobotConnectionPresentation,
+} from './robotConnectionPresentation';
 import { firstNumber,objectValue,stringValue } from './robotTelemetryValues';
 
 export const ADAPTER_POSITIONING_SOURCE = 'state.health.positioning';
@@ -22,14 +27,15 @@ export type RobotListHeaderStatusItem = {
   source?: string;
   value?: number | null;
   active?: boolean;
+  estimated?: boolean;
 };
 
 export type RobotListCommunicationStatus = {
-  measurement: 'rtt' | 'imu-age';
+  measurement: 'rtt' | 'imu-age' | 'link-age';
   milliseconds: number | null;
   source: string;
   stale?: boolean;
-  /** MAVROS/FCU connected even when timesync RTT is missing. */
+  /** MAVROS/FCU connected field. Measurement only; never a connected proof. */
   connected?: boolean;
   warningAfterMs?: number;
   dangerAfterMs?: number;
@@ -44,7 +50,6 @@ export type RobotListPositioningStatus = {
   source?: string;
   stale?: boolean;
   available?: boolean;
-  online?: boolean;
 };
 
 export const LIST_HEADER_IMU_AGE_WARNING_MS = 500;
@@ -86,29 +91,30 @@ export function listHeaderPositionError(
 }
 
 export function listHeaderStatusItems(input: {
+  connection?: RobotConnectionPresentation;
   communication?: RobotListCommunicationStatus;
   battery?: {
+    estimated?: boolean;
     percentage?: number | null;
     voltageV?: number | null;
     source?: string;
     stale?: boolean;
   };
   position?: RobotListPositioningStatus;
-  /** Before Total Run: keep glyphs muted like UAV HUD. Missing VRPN is not a live fault. */
-  idle?: boolean;
 }, t: LocalizedText = identityRobotText): RobotListHeaderStatusItem[] {
+  const connection = input.connection ?? 'disconnected';
   const communicationMs = finiteNonNegative(input.communication?.milliseconds);
   const batteryPercentage = normalizedPercentage(input.battery?.percentage);
   const batteryVoltage = finiteNonNegative(input.battery?.voltageV);
-  const items: RobotListHeaderStatusItem[] = [
+  return [
     {
       kind: 'latency',
       role: 'robot-network-indicator',
-      label: communicationLabel(input.communication,t),
-      tone: communicationTone(input.communication),
+      label: communicationLabel(connection,input.communication,t),
+      tone: connectionPresentationTone(connection),
       source: input.communication?.source,
       value: communicationMs,
-      active: communicationMs != null || input.communication?.connected === true,
+      active: connection !== 'disconnected',
     },
     {
       kind: 'position',
@@ -125,6 +131,7 @@ export function listHeaderStatusItems(input: {
         batteryPercentage,
         batteryVoltage,
         input.battery?.stale === true,
+        input.battery?.estimated === true,
         t,
       ),
       tone: batteryStatusTone(
@@ -134,17 +141,16 @@ export function listHeaderStatusItems(input: {
       ),
       source: input.battery?.source,
       value: batteryPercentage,
+      estimated: input.battery?.estimated === true,
       active: batteryPercentage != null || batteryVoltage != null,
     },
   ];
-  if (!input.idle) return items;
-  return items.map((item) => ({ ...item,tone: 'muted' as const }));
 }
 
-/** Project Adapter `state.health.positioning` only. Never derive liveness from pose/mocap channels. */
+/** Project Adapter `state.health.positioning` only. Never derive liveness from pose/mocap or overall online. */
 export function adapterPositioningStatus(
   health: Record<string,unknown> | undefined,
-  options?: { streamStale?: boolean; stale?: boolean; online?: boolean },
+  options?: { streamStale?: boolean; stale?: boolean },
 ): RobotListPositioningStatus {
   const positioning = objectValue(health?.positioning);
   const streamStale = options?.stale === true || options?.streamStale === true;
@@ -153,7 +159,6 @@ export function adapterPositioningStatus(
       available: false,
       source: ADAPTER_POSITIONING_SOURCE,
       stale: streamStale,
-      online: options?.online,
     };
   }
   const state = stringValue(positioning.state);
@@ -166,7 +171,6 @@ export function adapterPositioningStatus(
     source: ADAPTER_POSITIONING_SOURCE,
     stale: streamStale,
     available: state != null && state !== 'POSITIONING_STATE_UNSPECIFIED',
-    online: options?.online,
   };
 }
 
@@ -217,6 +221,16 @@ export function imuAgeCommunicationStatus(channel: {
 }
 
 function communicationLabel(
+  connection: RobotConnectionPresentation,
+  communication: RobotListCommunicationStatus | undefined,
+  t: LocalizedText,
+) {
+  const head = t(connectionPresentationLabelKey(connection));
+  const detail = communicationMeasurementLabel(communication,t);
+  return detail ? t('{connection}; {detail}',{ connection:head,detail }) : head;
+}
+
+function communicationMeasurementLabel(
   communication: RobotListCommunicationStatus | undefined,
   t: LocalizedText,
 ) {
@@ -225,10 +239,9 @@ function communicationLabel(
     if (communication?.measurement === 'imu-age' && communication.stale) {
       return t('Communication freshness from IMU age unavailable; stream stale');
     }
-    if (communication?.connected) return t('Communication link connected');
-    return t('Communication freshness unavailable');
+    return null;
   }
-  if (communication?.measurement === 'imu-age') {
+  if (communication?.measurement === 'imu-age' || communication?.measurement === 'link-age') {
     return t(communication.stale
       ? 'Communication freshness from last IMU receipt age {age} ms; stream stale'
       : 'Communication freshness from last IMU receipt age {age} ms',{
@@ -242,25 +255,11 @@ function communicationLabel(
   });
 }
 
-function communicationTone(
-  communication: RobotListCommunicationStatus | undefined,
-): RobotListHeaderStatusTone {
-  const milliseconds = finiteNonNegative(communication?.milliseconds);
-  if (communication?.stale) return 'danger';
-  if (milliseconds == null) return communication?.connected ? 'info' : 'neutral';
-  if (communication?.dangerAfterMs != null && milliseconds >= communication.dangerAfterMs) return 'danger';
-  if (communication?.warningAfterMs != null && milliseconds >= communication.warningAfterMs) return 'warning';
-  if (communication?.measurement === 'imu-age') return 'success';
-  if (milliseconds <= 60) return 'success';
-  if (milliseconds <= 100) return 'info';
-  if (milliseconds <= 150) return 'warning';
-  return 'danger';
-}
-
 function batteryStatusLabel(
   percentage: number | null,
   voltageV: number | null,
   stale: boolean,
+  estimated: boolean,
   t: LocalizedText,
 ) {
   const voltage = voltageV == null ? null : `${voltageV.toFixed(1)} V`;
@@ -268,7 +267,7 @@ function batteryStatusLabel(
     ? voltage == null
       ? t('Battery status unavailable')
       : t('Battery {voltage}; percentage unavailable',{ voltage })
-    : t('Battery {percentage}%{voltage}',{
+    : t(estimated ? 'Battery estimated from voltage: {percentage}%{voltage}' : 'Battery {percentage}%{voltage}',{
       percentage:Math.round(percentage),
       voltage:voltage == null ? '' : `; ${voltage}`,
     });
@@ -309,21 +308,13 @@ function displayedBatteryPercent(value: number | null | undefined) {
 function positionLabel(position: RobotListPositioningStatus | undefined,t: LocalizedText) {
   const state = normalizedText(position?.state);
   if (state != null && position) return structuredPositionLabel(position,state,t);
-  if (!position?.available) return t('VRPN position unavailable');
-  const age = finiteNonNegative(position.observedAgeMs);
-  const suffix = age == null ? '' : '; age {age} ms';
-  const values = age == null ? undefined : { age:Math.round(age) };
-  if (position.stale) return t(`VRPN positioning stale${suffix}`,values);
-  if (position.online === false) return t(`VRPN positioning offline${suffix}`,values);
-  if (position.online !== true) return t(`VRPN positioning freshness unavailable${suffix}`,values);
-  return t(`VRPN positioning fresh${suffix}`,values);
+  return t('VRPN position unavailable');
 }
 
 function positionTone(position: RobotListPositioningStatus | undefined): RobotListHeaderStatusTone {
   const state = normalizedText(position?.state);
-  if (position?.stale) return 'danger';
   if (state != null) {
-    if (state === 'POSITIONING_STATE_TIMED_OUT') return 'danger';
+    if (position?.stale || state === 'POSITIONING_STATE_TIMED_OUT') return 'danger';
     if (
       state === 'POSITIONING_STATE_WARMING_UP'
       || state === 'POSITIONING_STATE_JITTERING'
@@ -340,9 +331,7 @@ function positionTone(position: RobotListPositioningStatus | undefined): RobotLi
     }
     return 'neutral';
   }
-  if (!position?.available) return 'neutral';
-  if (position.online === false) return 'danger';
-  return position.online === true ? 'info' : 'neutral';
+  return 'neutral';
 }
 
 function structuredPositionLabel(
@@ -369,10 +358,9 @@ function structuredPositionLabel(
 
 function positionActive(position: RobotListPositioningStatus | undefined) {
   const state = normalizedText(position?.state);
-  if (state != null) {
-    return state !== 'POSITIONING_STATE_UNSPECIFIED' && state !== 'POSITIONING_STATE_TIMED_OUT';
-  }
-  return Boolean(position?.available && position.online && !position.stale);
+  return state != null
+    && state !== 'POSITIONING_STATE_UNSPECIFIED'
+    && state !== 'POSITIONING_STATE_TIMED_OUT';
 }
 
 function translatePositionToken(

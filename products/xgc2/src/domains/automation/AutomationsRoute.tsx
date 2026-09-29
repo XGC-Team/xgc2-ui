@@ -19,7 +19,7 @@ import type { AutomationNodeWebComposition } from './nodes/automationNodeWebComp
 export function AutomationsRoute({ nodeComposition }: {
   nodeComposition?: AutomationNodeWebComposition;
 }) {
-  const nav = useNavigation();
+  const nav = useNavigation((state) => ({ page: state.page,managedHostId: state.managedHostId }));
   const { selectedTargetCore } = useTargetCore();
   const targetId = selectedExecutionTargetId({ managedHostId: nav.managedHostId,selectedTargetCore });
   const [resourceId, setResourceId] = useState(() => {

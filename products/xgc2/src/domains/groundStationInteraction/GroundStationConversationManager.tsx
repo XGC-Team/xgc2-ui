@@ -1,3 +1,4 @@
+import { formatOperatorDateTime } from '../../shared/operatorTime';
 import { Plus } from 'lucide-react';
 import { ControlButton } from '../../components/controls/ControlButton';
 import { SelectControl } from '../../components/controls/SelectControl';
@@ -19,14 +20,15 @@ export function GroundStationConversationManager({experimentId,binding,connectio
   return <>
     <GroundStationConversationHeaderPortal slot="leading">
     <SelectControl size="compact" ariaLabel={t('Conversations')} value={binding?.sessionId ?? ''}
+      placeholder={t('New conversation')}
       dataXgcRole="ground-station-conversation-select" dataXgcId={experimentId} disabled={!active || connection.busy}
       className="ground-station-conversation-picker" onOpen={() => void registry.refresh(experimentId)}
-      options={[{value:'',label:t('New conversation')},...conversations.map(item => ({value:item.sessionId,
-        label:item.session!.title || `${item.session!.provider} · ${new Date(item.session!.createdAt).toLocaleString()}`})),
+      options={[...conversations.map(item => ({value:item.sessionId,
+        label:item.session!.title || `${item.session!.provider} · ${formatOperatorDateTime(item.session!.createdAt)}`})),
         ...(inventory?.nextCursor ? [{value:'load-older',label:t('Load older')}] : [])]}
       onChange={value => {
         if (value === 'load-older') void registry.refresh(experimentId,undefined,true);
-        else registry.select(experimentId,value || null);
+        else if (value) registry.select(experimentId,value);
       }} />
     </GroundStationConversationHeaderPortal>
     <GroundStationConversationHeaderPortal slot="trailing">

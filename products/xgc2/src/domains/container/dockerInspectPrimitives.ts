@@ -1,3 +1,5 @@
+import { formatOperatorDateTime } from '../../shared/operatorTime';
+
 export type DockerInspectRecord = Record<string,unknown>;
 
 export type DockerInspectFact = {
@@ -28,8 +30,7 @@ export function dockerInspectString(value: unknown): string {
 
 export function dockerInspectTime(value: string): string {
   if (!value || value.startsWith('0001-01-01')) return '';
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+  return formatOperatorDateTime(value);
 }
 
 export function shortDockerInspectId(value: string): string {

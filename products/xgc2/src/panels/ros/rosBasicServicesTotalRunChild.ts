@@ -111,7 +111,6 @@ export function pickRosTotalRunServiceChild<T extends { id:string }>(
     });
   });
   latestByChildRun.forEach(({ status,revision },childRunId) => {
-    if (!isAutomationExecutionRunActive({ id:childRunId,status,revision })) return;
     const resolved = resolveChild(childRunId,status,revision);
     if (resolved) matches.push(resolved);
   });

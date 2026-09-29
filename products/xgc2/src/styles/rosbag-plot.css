@@ -32,7 +32,7 @@
 .rosbag-plot-hint {
   margin: 0;
   color: var(--color-text-muted);
-  font-size: var(--font-sm);
+  font-size: var(--type-meta-size);
 }
 
 .rosbag-plot-tree,
@@ -55,6 +55,7 @@
   justify-content: space-between;
   gap: var(--space-xs);
   width: 100%;
+  height: auto;
   margin: 0;
   padding: var(--space-2xs) var(--space-xs);
   border: 0;
@@ -66,13 +67,14 @@
 
 .rosbag-plot-topic-toggle {
   cursor: pointer;
-  font-weight: var(--weight-semibold);
+  font-weight: var(--type-emphasis-weight);
 }
 
 .rosbag-plot-topic-toggle small,
 .rosbag-plot-field {
-  font-family: var(--font-mono);
-  font-size: var(--font-xs);
+  font-family: var(--type-code-family);
+  font-size: var(--type-caption-size);
+  font-weight: var(--type-code-weight);
 }
 
 .rosbag-plot-fields {
@@ -98,8 +100,8 @@
   flex-wrap: wrap;
   gap: var(--space-xs);
   min-height: 0;
-  font-family: var(--font-mono);
-  font-size: var(--font-xs);
+  font-family: var(--type-code-family);
+  font-size: var(--type-caption-size);
 }
 
 .rosbag-plot-legend span {
@@ -144,12 +146,13 @@
 
 .rosbag-plot-axis {
   fill: var(--color-chart-label);
-  font-size: 10px;
+  font-size: var(--type-caption-size);
 }
 
 .rosbag-plot-readout {
   margin: 0;
   color: var(--color-text-muted);
-  font-family: var(--font-mono);
-  font-size: var(--font-xs);
+  font-family: var(--font-sans);
+  font-size: var(--type-caption-size);
+  font-variant-numeric: var(--type-numeric-variant);
 }

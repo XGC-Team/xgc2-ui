@@ -5,7 +5,7 @@
  */
 
 import type { ApiTargetOptions } from '../../api/http';
-import { downloadHostFile,getHostFileContent,getHostFiles } from './hostFileService';
+import { downloadHostFile,getHostFiles } from './hostFileService';
 import {
   HOST_FOLDER_ZIP_MAX_BYTES,
   HOST_FOLDER_ZIP_MAX_DEPTH,
@@ -58,12 +58,12 @@ export async function zipHostDirectory(
         throw new Error(`Folder has more than ${HOST_FOLDER_ZIP_MAX_FILES} files; download subfolders instead.`);
       }
       onProgress?.(`Reading ${entry.name}…`);
-      const file = await getHostFileContent(entry.path, options);
-      const bytes = new TextEncoder().encode(file.content ?? '');
-      totalBytes += bytes.byteLength;
+      const file = await downloadHostFile(entry.path, options);
+      totalBytes += file.size;
       if (totalBytes > HOST_FOLDER_ZIP_MAX_BYTES) {
         throw new Error(`Folder exceeds ${formatByteBudget(HOST_FOLDER_ZIP_MAX_BYTES)} download budget.`);
       }
+      const bytes = new Uint8Array(await file.arrayBuffer());
       const relative = entry.path.startsWith(`${root}/`)
         ? entry.path.slice(root.length + 1)
         : entry.name;

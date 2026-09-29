@@ -12,7 +12,7 @@ export function sce1LayoutFixture() {
     ['trigger.manual',2,undefined],['process.run-bash',1,['completed','error']],
     ['ros1.wait-topic-message',1,['ready','error']],['ros1.publish-topic',3,['published','error']],
     ['experiment.session.context',3,['context']],['asset.experiment-robots',4,undefined],
-    ['ros1.record-bag',1,['ready','stopped','error']],['ros1.wait-record-bag-ready',1,['ready','error']],
+    ['ros1.record-bag',1,['ready','stopped','error']],
     ['automation.call',4,undefined],
   ].map(([kind,typeVersion,ports]) => ({
     kind: kind as string,typeVersion: typeVersion as number,label: kind as string,category: 'test',traits: [],parameterSchema: {},
@@ -34,11 +34,10 @@ export function sce1LayoutFixture() {
   for (const action of ['custom1','hold','land','start','takeoff']) {
     const chain = [
       node(`trigger-${action}`,'trigger.manual'),node(`wait-algorithm-ready-${action}`,'ros1.wait-topic-message'),
-      node(`session-context-${action}`,'experiment.session.context'),node(`wait-recorder-${action}`,'ros1.wait-record-bag-ready'),
-      node(`publish-${action}`,'ros1.publish-topic'),
+      node(`session-context-${action}`,'experiment.session.context'),node(`publish-${action}`,'ros1.publish-topic'),
     ];
     groups.push(chain);
-    for (let index = 0;index < chain.length - 1;index += 1) edge(chain[index],chain[index + 1],[undefined,'ready','context','ready'][index]);
+    for (let index = 0;index < chain.length - 1;index += 1) edge(chain[index],chain[index + 1],[undefined,'ready','context'][index]);
   }
   groups.push([node('trigger-reset','trigger.manual'),node('wait-status-reset','ros1.wait-topic-message'),node('publish-reset','ros1.publish-topic')]);
   edge('trigger-reset','wait-status-reset');edge('wait-status-reset','publish-reset','ready');

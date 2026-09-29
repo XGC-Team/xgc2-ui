@@ -1,5 +1,5 @@
 import { Maximize,ZoomIn,ZoomOut } from 'lucide-react';
-import { useCallback,useRef,useState } from 'react';
+import { useCallback,useEffect,useRef,useState } from 'react';
 import { AutomationGraph } from '../automation/automationPublic';
 import { ControlButton } from '../../components/controls/ControlButton';
 import '../../styles/experiment-startup-graph.css';
@@ -35,6 +35,14 @@ export function ExperimentStartupGraphView({
   const graph = runSelection
     ? projectExperimentRunGraph(runtime,runSelection)
     : projectExperimentStartupGraph(runtime,selectedId,workflowResourceIds);
+  const runId=graph.executionRunId;
+  const detail=runtime?.runDetailsById[runId];
+  const loadRunDetail=runtime?.loadRunDetail;
+  useEffect(() => {
+    if (runId && loadRunDetail && !detail?.snapshot && !detail?.loading && !detail?.error) {
+      void loadRunDetail(runId);
+    }
+  },[detail?.snapshot,detail?.loading,detail?.error,loadRunDetail,runId]);
   const graphRef = useRef<GraphInstance | null>(null);
   const [graphReady,setGraphReady] = useState(false);
   const handleReady = useCallback((instance:GraphInstance) => {

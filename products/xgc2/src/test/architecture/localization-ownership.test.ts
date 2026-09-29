@@ -1,3 +1,5 @@
+import { createElement,type ReactNode } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import type * as TypeScript from 'typescript';
 import { describe,expect,it } from 'vitest';
 import { navigationZhMessages } from '../../app/navigation/navigationMessages';
@@ -8,16 +10,18 @@ import { automationSharedZhMessages } from '../../domains/automation/automationS
 import { automationTriggerZhMessages } from '../../domains/automation/automationTriggerMessages';
 import { assetsZhMessages } from '../../domains/assets/assetsMessages';
 import { executionZhMessages } from '../../domains/execution/executionMessages';
-import { experimentZhMessages } from '../../domains/experiment/experimentMessages';
+import { experimentMessageSources,experimentZhMessages,useExperimentText } from '../../domains/experiment/experimentMessages';
 import { experimentAgentZhMessages } from '../../domains/groundStationInteraction/experimentAgentMessages';
 import { groundStationZhMessages } from '../../domains/groundStationInteraction/groundStationMessages';
 import { hostZhMessages } from '../../domains/host/hostMessages';
-import { robotZhMessages } from '../../domains/robot/robotMessages';
+import { robotMessageSources,robotZhMessages,useRobotText } from '../../domains/robot/robotMessages';
+import { useVenueText,venueMessageSources,venueZhMessages } from '../../domains/venue/venueMessages';
 import { terminalZhMessages } from '../../domains/terminal/terminalMessages';
 import { commonZhMessages } from '../../shared/localization/commonMessages';
-import { cameraZhMessages } from '../../panels/camera/cameraMessages';
+import { cameraMessageSources,cameraZhMessages,useCameraText } from '../../panels/camera/cameraMessages';
 import { rosPanelZhMessages } from '../../panels/ros/rosMessages';
 import { runtimePanelZhMessages } from '../../panels/runtime/runtimeMessages';
+import { LanguageContext } from '../../shared/localization/languageContext';
 import { formatLocalizedText,type MessageCatalog } from '../../shared/localization/localizedText';
 
 declare const process: { cwd: () => string };
@@ -46,6 +50,7 @@ const catalogs: ReadonlyArray<{ owner: string; messages: MessageCatalog }> = [
   { owner: 'ground-station',messages: groundStationZhMessages },
   { owner: 'experiment-agent',messages: experimentAgentZhMessages },
   { owner: 'robot',messages: robotZhMessages },
+  { owner: 'venue',messages: venueZhMessages },
   { owner: 'terminal',messages: terminalZhMessages },
   { owner: 'assets',messages: assetsZhMessages },
   { owner: 'host',messages: hostZhMessages },
@@ -97,6 +102,28 @@ describe('localized message ownership', () => {
     expect(formatLocalizedText('en-US', hostZhMessages, 'No files')).toBe('No files');
   });
 
+  it('resolves borrowed Chinese through the live hooks, including parameter t', () => {
+    function BorrowedChineseProbe() {
+      const experimentT = useExperimentText();
+      const robotT = useRobotText();
+      const venueT = useVenueText();
+      const cameraT = useCameraText();
+      return createElement('span', null, [
+        experimentT('skipped'),
+        robotT('Simulation setup'),
+        robotT('Result'),
+        venueT('Camera'),
+        venueT('Media'),
+        venueT('Recording'),
+        cameraT('Maximum'),
+      ].join('|'));
+    }
+    const zh = (child: ReactNode) => createElement(LanguageContext.Provider, { value: 'zh-CN' }, child);
+    expect(renderToStaticMarkup(zh(createElement(BorrowedChineseProbe)))).toBe(
+      '<span>已跳过|仿真部署|结果|相机|媒体|录制|最大</span>',
+    );
+  });
+
   it('catalogs every literal key used through the audited localization hooks', () => {
     const webRoot = process.cwd();
     const shared = [commonZhMessages];
@@ -120,7 +147,7 @@ describe('localized message ownership', () => {
       },
       {
         root: resolve(webRoot,'src/domains/experiment'),hook: 'useExperimentText',
-        messages: [experimentZhMessages,...shared],
+        messages: [...experimentMessageSources,...shared],
       },
       {
         root: resolve(webRoot,'src/domains/execution'),hook: 'useExecutionText',
@@ -132,11 +159,15 @@ describe('localized message ownership', () => {
       },
       {
         root: resolve(webRoot,'src/domains/robot'),hook: 'useRobotText',
-        messages: [robotZhMessages,...shared],
+        messages: [...robotMessageSources,...shared],
+      },
+      {
+        root: resolve(webRoot,'src/domains/venue'),hook: 'useVenueText',
+        messages: [...venueMessageSources,...shared],
       },
       {
         root: resolve(webRoot,'src/panels/robot'),hook: 'useRobotText',
-        messages: [robotZhMessages,...shared],
+        messages: [...robotMessageSources,...shared],
       },
       {
         root: resolve(webRoot,'src/panels/automation'),hook: 'useAutomationExecutionText',
@@ -144,7 +175,7 @@ describe('localized message ownership', () => {
       },
       {
         root: resolve(webRoot,'src/panels/camera'),hook: 'useCameraText',
-        messages: [cameraZhMessages,...shared],
+        messages: [...cameraMessageSources,...shared],
       },
       {
         root: resolve(webRoot,'src/panels/ros'),hook: 'useRosPanelText',

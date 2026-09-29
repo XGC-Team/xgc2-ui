@@ -1,4 +1,5 @@
 import type { AppLanguage } from '../../shared/localization/languagePreference';
+import { formatOperatorDateTime } from '../../shared/operatorTime';
 
 export function formatBytes(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
@@ -20,10 +21,8 @@ export function formatDuration(durationMs: number | undefined): string {
 }
 
 export function formatTimestamp(iso: string, language: AppLanguage): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return iso;
   const locale = language === 'zh-CN' ? 'zh-CN' : 'en-US';
-  return date.toLocaleString(locale, {
+  return formatOperatorDateTime(iso, locale, {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',

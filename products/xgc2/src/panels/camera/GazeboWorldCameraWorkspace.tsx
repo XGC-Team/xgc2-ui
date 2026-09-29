@@ -9,6 +9,7 @@ import type { PanelPluginProps } from '../types';
 import { usePanelFrameControl } from '../usePanelFrameControl';
 import { CameraExtrinsicCalibrationRuntimePanel } from './CameraExtrinsicCalibrationRuntimePanel';
 import { CameraVideoPanel } from './CameraVideoPanel';
+import type { CameraVideoObservationPort } from './cameraVideoSurfaceTypes';
 import { GazeboWorldCameraFrameBinding } from './GazeboWorldCameraPanelFrame';
 import { GazeboWorldCameraPoseEditor } from './GazeboWorldCameraPoseEditor';
 import { GazeboWorldCameraWorkflowView } from './GazeboWorldCameraWorkflowView';
@@ -16,10 +17,12 @@ import { useGazeboWorldCameraFrame } from './gazeboWorldCameraPanelFrameContext'
 import { gazeboWorldCameraOptions } from './gazeboWorldCameraPanelModel';
 import { gazeboWorldCameraPoseParameters,type GazeboWorldCameraPose } from './gazeboWorldCameraPoseModel';
 import { CameraCalibrationLifecyclePipeline } from './CameraCalibrationLifecyclePipeline';
+import { useWorkflowStartupPresentation,workflowStartupGeneration } from '../../components/useWorkflowStartupPresentation';
 import {
   calibrationCameraEmptyState,
   calibrationCameraSourceError,
   calibrationCameraViewerProjection,
+  GAZEBO_STATIC_CAMERA_DEFINITION_ID,
   projectWorldCameraStartup,
   type CalibrationCameraViewerMemory,
 } from './gazeboWorldCameraWorkspaceModel';
@@ -61,6 +64,7 @@ function WorldCameraSurface({ panel,context,view }: PanelPluginProps<readonly ['
   });
   const [posePending,setPosePending] = useState(false);
   const [poseError,setPoseError] = useState('');
+  const [calibrationObservation,setCalibrationObservation]=useState<CameraVideoObservationPort>();
   if (frame.calibrationOpen && activeInvocation && calibratorReady && calibrator
     && !calibratorProcessIdRef.current) calibratorProcessIdRef.current=calibrator.id;
   const lifecycleStopping = viewer.stopping;
@@ -85,6 +89,16 @@ function WorldCameraSurface({ panel,context,view }: PanelPluginProps<readonly ['
     sourceError,
     disabledReason:service?.disabledReason || '',
   });
+  const startupGeneration = workflowStartupGeneration(
+    viewer.ownerRunId || activeInvocation?.id || '',
+    panel.id,
+  );
+  const { presented,onPresentationComplete } = useWorkflowStartupPresentation(
+    startupGeneration,
+    emptyState.lifecycle === 'stopped',
+  );
+  const contentVisible = presented && showVideo && view !== 'workflow';
+  const keepPipelineMounted = view === 'workflow' || lifecycleStopping || !contentVisible;
   useGroundStationErrorNotification(
     workflowRuntime?.targetId || context.executionTargetId || 'local',
     showVideo ? '' : sourceError,
@@ -92,7 +106,10 @@ function WorldCameraSurface({ panel,context,view }: PanelPluginProps<readonly ['
   );
   const poseRefusal = setPose?.disabledReason
     || (!setPose?.connected ? t('Connect the Set camera pose Action port.') : '')
-    || (!viewer.running ? t('Start the world camera first.') : '');
+    || (!viewer.running ? t('Start the world camera first.') : '')
+    || (owned.camera && owned.camera.definitionId !== GAZEBO_STATIC_CAMERA_DEFINITION_ID
+      ? t('This control moves the Gazebo world camera. Physical and hybrid images come from the USB camera.')
+      : '');
   const calibrationRefusal = !viewer.running
     ? t('Start the calibration camera first.')
     : !calibratorReady ? t('Waiting for the selected provider calibration service.') : '';
@@ -106,7 +123,7 @@ function WorldCameraSurface({ panel,context,view }: PanelPluginProps<readonly ['
       ...panel.options,
       edgeUrl:configured.edgeUrl,
       sourceId:configured.sourceId,
-      imageFit:'cover',showMetadata:false,reconnectPolicy:'automatic',
+      imageFit:'contain',showMetadata:false,reconnectPolicy:'automatic',
     },
   };
 
@@ -127,7 +144,8 @@ function WorldCameraSurface({ panel,context,view }: PanelPluginProps<readonly ['
       className="gazebo-world-camera-panel-workspace"
       data-xgc-role="gazebo-world-camera-workspace"
       data-xgc-id={panel.id}
-      data-xgc-camera-lifecycle={showVideo ? 'ready' : emptyState.lifecycle}
+      data-xgc-camera-lifecycle={contentVisible ? 'ready' : emptyState.lifecycle}
+      data-xgc-startup-presented={presented ? 'true' : 'false'}
     >
       {view === 'workflow' ? (
         <GazeboWorldCameraWorkflowView
@@ -135,23 +153,31 @@ function WorldCameraSurface({ panel,context,view }: PanelPluginProps<readonly ['
           runtime={workflowRuntime}
           workflowResourceId={service?.trace.automationResourceId ?? ''}
         />
-      ) : (
-        <div
-          className="gazebo-world-camera-panel-image-view"
-          data-xgc-role="gazebo-world-camera-image-view"
-          data-xgc-id={panel.id}
-        >
+      ) : null}
+      <div
+        className="gazebo-world-camera-panel-image-view"
+        data-xgc-role="gazebo-world-camera-image-view"
+        data-xgc-id={panel.id}
+        hidden={view === 'workflow' || undefined}
+      >
           {viewerMounted && (
             <CameraVideoPanel key={viewerKey} panel={videoPanel} context={context}
+              mediaEdgeProcess={{ targetId:workflowRuntime?.targetId || context.executionTargetId || 'local',instanceId:viewer.ownerProcessId }}
               connectionEnabled={showVideo && !viewer.stopRequested && video?.connected !== false}
               ownerLifecycle={viewer.stopRequested ? 'stopping' : 'running'}
-              surfaceVisible={showVideo} />
+              // The full-workspace calibration dialog covers this viewer and opens its
+              // own session to the same source; a second hidden 4K decode is waste.
+              surfaceVisible={showVideo && view === 'image' && !frame.calibrationOpen} />
           )}
-          {!showVideo && (
+          {keepPipelineMounted && (
             <CameraCalibrationLifecyclePipeline
               panelId={panel.id}
               role="gazebo-world-camera-empty-state"
               title={t('Calibration camera')}
+              generation={startupGeneration}
+              paused={view === 'workflow'}
+              hidden={view === 'workflow'}
+              onPresentationComplete={onPresentationComplete}
               {...projectWorldCameraStartup({
                 lifecycle: emptyState.lifecycle,
                 running: viewer.running,
@@ -162,7 +188,7 @@ function WorldCameraSurface({ panel,context,view }: PanelPluginProps<readonly ['
               })}
             />
           )}
-          {frame.poseOpen && <GazeboWorldCameraPoseEditor
+          {frame.poseOpen && view !== 'workflow' && <GazeboWorldCameraPoseEditor
               id={`gazebo-world-camera-pose-editor-${panel.id}`}
               panelId={panel.id}
               initialPose={pose}
@@ -171,8 +197,7 @@ function WorldCameraSurface({ panel,context,view }: PanelPluginProps<readonly ['
               disabledReason={poseRefusal}
               onApply={applyPose}
               onClose={() => frame.setPoseOpen(false)} />}
-        </div>
-      )}
+      </div>
     </section>
     <Modal open={frame.calibrationOpen} onClose={() => frame.setCalibrationOpen(false)} title={t('Extrinsic calibration')}
       backdropClassName="gazebo-world-camera-calibration-backdrop"
@@ -183,10 +208,15 @@ function WorldCameraSurface({ panel,context,view }: PanelPluginProps<readonly ['
           processInstanceId={calibrationProcessId}
           targetId={workflowRuntime?.targetId || context.executionTargetId || 'local'}
           panelId={panel.id}
-          liveStage={<CameraVideoPanel key={`calibration:${viewerKey}`} panel={videoPanel} context={context}
+          observationPort={calibrationObservation}
+          liveStage={<CameraVideoPanel key={`calibration:${viewerKey}`} panel={{
+            ...videoPanel,id:`${panel.id}:extrinsic`,options:{ ...videoPanel.options,imageFit:'contain' },
+          }} context={context}
+            mediaEdgeProcess={{ targetId:workflowRuntime?.targetId || context.executionTargetId || 'local',instanceId:viewer.ownerProcessId }}
             connectionEnabled={calibratorReady && !calibrationOwnerStopping && video?.connected !== false}
             ownerLifecycle={calibrationOwnerStopping ? 'stopping' : 'running'}
-            surfaceVisible={calibratorReady && !calibrationOwnerStopping} />}
+            surfaceVisible={calibratorReady && !calibrationOwnerStopping}
+            onObservationPortChange={setCalibrationObservation} />}
         />
       ) : (
         <CameraCalibrationLifecyclePipeline

@@ -5,7 +5,7 @@ import type React from 'react';
 import { beforeEach,describe,expect,it,vi,type Mock } from 'vitest';
 import type { AutomationPanelContext } from '../../../panels/types';
 import type * as AutomationPublicModule from '../../automation/automationPublic';
-import { getAutomationExecutionRelations,type AutomationRun,type AutomationRunControl } from '../../automation/automationPublic';
+import { getAutomationExecutionRelations,type AutomationRun,type AutomationRunControl,type AutomationRunDetail,type AutomationStopRunSetResponse } from '../../automation/automationPublic';
 import { newExperimentSpec,type ExperimentDocument,type ExperimentRunMode,type PanelInstance } from '../experimentModel';
 import { panelToEditor } from '../experimentPanelModel';
 import { robotSelectionKey } from '../../robot/robotPublic';
@@ -14,6 +14,8 @@ import {
   fullRunPanelInvocationFallback,
 } from './ExperimentDashboardCanvas';
 import type { ExperimentDashboardActions } from './useExperimentDashboardActions';
+
+vi.mock('../../../panels/environment/ExperimentEnvironmentPanel', () => ({ ExperimentEnvironmentPanel: () => null }));
 
 vi.mock('./useDashboardSurfaceSize', () => ({
   useDashboardSurfaceSize: () => ({
@@ -29,11 +31,46 @@ vi.mock('react-grid-layout', () => ({
 vi.mock('../../automation/automationPublic',async (importOriginal) => ({
   ...await importOriginal<typeof AutomationPublicModule>(),getAutomationExecutionRelations:vi.fn(),
 }));
+vi.mock('../useExperimentListRunningIds',async (importOriginal) => ({
+  ...await importOriginal() as object,
+  useExperimentStationOccupancy:() => ({
+    runningExperimentIds:new Set<string>(),sessions:[],resolved:true,error:'',
+    refresh:async () => undefined,convergeStoppedExperiment:async () => undefined,
+  }),
+}));
+vi.mock('../../operatorAccess/operatorAccessPublic',async (importOriginal) => ({
+  ...await importOriginal() as object,
+  ensureOperatorControlSession: async () => true,
+  operatorControlSessionReady: () => true,
+  useOperatorControlSession: () => ({ phase:'ready',ensuring:false,blocked:false,retry:vi.fn() }),
+  OperatorControlSessionNotice: () => null,
+}));
 
 describe('ExperimentDashboardCanvas v9',() => {
   beforeEach(() => {
     vi.mocked(getAutomationExecutionRelations).mockReset();
     window.localStorage.clear();
+  });
+
+  it('drops retired recording-control and standalone video tiles',() => {
+    const { container } = render(<ExperimentDashboardCanvas
+      session={{ editing:false,readOnly:false,commitConflict:'',saveError:'' }}
+      dashboard={{ id:'gcs',name:'GCS',description:'',panels:[] }}
+      panels={{
+        items:[
+          { ...panel('recording-control','Recording control'),pluginId:'recording-control' },
+          { ...panel('offline-video-production','Video production'),pluginId:'experiment-video-production' },
+          panel('panel-a','Panel A'),
+        ],
+        selectedPanelId:'',select:vi.fn(),openConfig:vi.fn(),remove:vi.fn(),updateLayout:vi.fn(),
+      }}
+      drop={{ onDragOver:vi.fn(),onDrop:vi.fn() }} actions={actions()} gcsMode
+      coreNodes={[]} executionTargetId="local" automation={automation()}
+    />);
+
+    expect(container.querySelector('[data-xgc-role="experiment-panel-header"][data-xgc-id="recording-control"]')).toBeNull();
+    expect(container.querySelector('[data-xgc-role="experiment-panel"][data-xgc-id="offline-video-production"]')).toBeNull();
+    expect(container.querySelector('[data-xgc-role="experiment-panel"][data-xgc-id="panel-a"]')).not.toBeNull();
   });
 
   it('renders an empty dashboard without constructing Session or workflow-slot state',() => {
@@ -126,6 +163,43 @@ describe('ExperimentDashboardCanvas v9',() => {
     expect(container.querySelector('[data-xgc-role="panel-config"][data-xgc-id="robot-assets"]')).toBeNull();
     expect(container.querySelector('[data-xgc-role="panel-delete"][data-xgc-id="robot-assets"]')).not.toBeNull();
     expect(container.querySelector('[data-xgc-role="experiment-panel"][data-xgc-id="robot-assets"]')).toHaveAttribute('data-chrome','flat');
+    expect(container.querySelector('[data-xgc-role="experiment-dashboard-canvas"]')).toHaveAttribute('data-xgc-fill-remaining','true');
+  });
+
+  it('fills Deploy while retaining the same framed panel chrome as control panels',() => {
+    const environment = { ...panel('experiment-environment','Environment'),pluginId:'experiment-environment' };
+    const { container } = render(<ExperimentDashboardCanvas
+      session={{ visibleExperiment:experiment(),editing:false,readOnly:false,commitConflict:'',saveError:'' }}
+      dashboard={{ id:'deploy',name:'Deploy',description:'',panels:[] }}
+      panels={{ items:[environment],selectedPanelId:'',select:vi.fn(),openConfig:vi.fn(),remove:vi.fn(),updateLayout:vi.fn() }}
+      drop={{ onDragOver:vi.fn(),onDrop:vi.fn() }} actions={actions()} gcsMode={false}
+      coreNodes={[]} executionTargetId="local" automation={automation()}
+    />);
+    expect(container.querySelector('[data-xgc-role="experiment-panel"][data-xgc-id="experiment-environment"]')).toHaveAttribute('data-chrome','framed');
+    expect(container.querySelector('[data-xgc-role="experiment-panel-header"][data-xgc-id="experiment-environment"]')).toBeVisible();
+    expect(container.querySelector('[data-xgc-role="experiment-dashboard-canvas"]')).toHaveAttribute('data-xgc-fill-remaining','true');
+  });
+
+  it('still treats Config as a standalone page when a retired recording-control tile is leftover',() => {
+    const robotAssets = panel('robot-assets','Robot assets');
+    robotAssets.pluginId = 'experiment-robot-assets';
+    const { container } = render(<ExperimentDashboardCanvas
+      session={{ visibleExperiment:experiment(),editing:false,readOnly:false,commitConflict:'',saveError:'' }}
+      dashboard={{ id:'config',name:'Config',description:'',panels:[] }}
+      panels={{
+        items:[
+          robotAssets,
+          { ...panel('recording-control','Recording control'),pluginId:'recording-control' },
+        ],
+        selectedPanelId:'',select:vi.fn(),openConfig:vi.fn(),remove:vi.fn(),updateLayout:vi.fn(),
+      }}
+      drop={{ onDragOver:vi.fn(),onDrop:vi.fn() }} actions={actions()} gcsMode={false}
+      coreNodes={[]} executionTargetId="local" automation={automation()}
+    />);
+
+    expect(container.querySelector('[data-xgc-role="experiment-panel"][data-xgc-id="recording-control"]')).toBeNull();
+    expect(container.querySelector('[data-xgc-role="experiment-panel"][data-xgc-id="robot-assets"]')).toHaveAttribute('data-chrome','flat');
+    expect(container.querySelector('[data-xgc-role="experiment-dashboard-canvas"]')).toHaveAttribute('data-xgc-fill-remaining','true');
   });
 
   it('renders the new Experiment default Assets data without main search and limits page chrome to standalone authoring',() => {
@@ -148,6 +222,7 @@ describe('ExperimentDashboardCanvas v9',() => {
     const { container,rerender } = render(<ExperimentDashboardCanvas {...props} />);
     const frame = () => container.querySelector('[data-xgc-role="experiment-panel"][data-xgc-id="roster-copy"]');
     expect(frame()).toHaveAttribute('data-chrome','flat');
+    expect(container.querySelector('[data-xgc-role="experiment-dashboard-canvas"]')).toHaveAttribute('data-xgc-fill-remaining','true');
     expect(frame()?.querySelector('[data-xgc-role="experiment-panel-header"]')).not.toBeVisible();
     expect(frame()?.querySelector('[data-xgc-role="panel-workflow-run"]')).toBeNull();
     expect(frame()?.querySelector('[data-xgc-role="panel-workflow-stop"]')).toBeNull();
@@ -167,6 +242,7 @@ describe('ExperimentDashboardCanvas v9',() => {
     expect(container.querySelector('[data-xgc-role="panel-delete"][data-xgc-id="roster-copy"]')).not.toBeNull();
     rerender(<ExperimentDashboardCanvas {...props} panels={{ ...props.panels,items:[robotAssets,other] }} />);
     expect(frame()).toHaveAttribute('data-chrome','framed');
+    expect(container.querySelector('[data-xgc-role="experiment-dashboard-canvas"]')).not.toHaveAttribute('data-xgc-fill-remaining');
     rerender(<ExperimentDashboardCanvas {...props} panels={{ ...props.panels,items:[other] }} />);
     expect(container.querySelector('[data-xgc-role="experiment-panel"]')).toHaveAttribute('data-chrome','framed');
     rerender(<ExperimentDashboardCanvas {...props} gcsMode />);
@@ -195,7 +271,7 @@ describe('ExperimentDashboardCanvas v9',() => {
     expectPanelBodyInteractiveWhileEditing(container,'panel-a',false);
   });
 
-  it('renders the shared stable Panel workflow Run control for any workflow-bound panel',() => {
+  it('renders the shared stable Panel workflow Run control for any workflow-bound panel',async () => {
     const lifecycle = actions();
     const workflowPanel = panel('panel-workflow','User panel');
     workflowPanel.portBindings = [{
@@ -220,7 +296,7 @@ describe('ExperimentDashboardCanvas v9',() => {
     expect(container.querySelectorAll('[data-xgc-role="panel-workflow-stop"]')).toHaveLength(0);
     expectIconOnlyWorkflowControl(run, 'run');
     fireEvent.click(run);
-    expect(lifecycle.startPanel).toHaveBeenCalledWith('panel-workflow',{});
+    await waitFor(() => expect(lifecycle.startPanel).toHaveBeenCalledWith('panel-workflow',{}));
   });
 
   it('projects Total Run admission into each managed Panel as an enabled Square Stop',async () => {
@@ -624,6 +700,9 @@ describe('ExperimentDashboardCanvas v9',() => {
 
     rerender(renderCanvas());
     const restart=container.querySelector('[data-xgc-role="panel-workflow-run"]');
+    expect(restart).toBeDisabled();
+    lifecycle.runDetailsById[firstSelectionRoot.id]!.run!.status='stopped';
+    rerender(renderCanvas());
     expectInstrumentConnectionPair(
       container.querySelector('[data-xgc-role="experiment-panel-header-trailing"]'),
       { selected: true, connected: false },
@@ -712,6 +791,19 @@ describe('ExperimentDashboardCanvas v9',() => {
         'Stop Panel panel-instruments',
       ));
       expect(lifecycle.startPanel).toHaveBeenCalledTimes(1);
+      await waitFor(() => expect(
+        container.querySelector('[data-xgc-role="panel-workflow-stop"]'),
+      ).toBeDisabled());
+      expect(container.querySelector('[data-xgc-role="panel-workflow-run"]')).toBeDisabled();
+      lifecycle.runDetailsById[selectedRoot.id]!.run!.status='stopping';
+      rerender(renderCanvas());
+      expect(container.querySelector('[data-xgc-role="panel-workflow-run"]')).toBeDisabled();
+      lifecycle.runDetailsById[selectedRoot.id]!.run!.status='stopped';
+      rerender(renderCanvas());
+      expectInstrumentConnectionPair(
+        container.querySelector('[data-xgc-role="experiment-panel-header-trailing"]'),
+        { selected:true,connected:false },
+      );
     },
   );
 
@@ -875,6 +967,14 @@ describe('ExperimentDashboardCanvas v9',() => {
     expect(runtime.stopRunSet).toHaveBeenCalledTimes(1);
     expect(lifecycle.stopPanelAction).not.toHaveBeenCalled();
     expect(lifecycle.stopExperiment).not.toHaveBeenCalled();
+    expectInstrumentConnectionPair(
+      container.querySelector('[data-xgc-role="experiment-panel-header-trailing"]'),
+      {
+        selected:true,connectEnabled:false,disconnectEnabled:false,
+        connectTitle:'Waiting for previous disconnect to finish',
+        disconnectTitle:'Waiting for previous disconnect to finish',
+      },
+    );
   });
 
   it('connects remaining selected robots and disconnects only the already connected ones',async () => {
@@ -993,6 +1093,101 @@ describe('ExperimentDashboardCanvas v9',() => {
     expect(runtime.stopRunSet).toHaveBeenCalledTimes(1);
     expect(lifecycle.stopPanelAction).not.toHaveBeenCalled();
     expect(lifecycle.stopExperiment).not.toHaveBeenCalled();
+    expectInstrumentConnectionPair(
+      container.querySelector('[data-xgc-role="experiment-panel-header-trailing"]'),
+      {
+        selected:true,connectEnabled:false,disconnectEnabled:false,
+        connectTitle:'Waiting for previous disconnect to finish',
+        disconnectTitle:'Waiting for previous disconnect to finish',
+      },
+    );
+  });
+
+  it('disconnects only the selected slot and leaves Adapter observer running',async () => {
+    window.localStorage.setItem(
+      robotSelectionKey({ experimentId:'experiment-a',shared:'experiment' }),
+      JSON.stringify(['scout-01']),
+    );
+    const lifecycle=actions();
+    const fullRoot={
+      id:'full-root',targetId:'local',experimentRef:{ domain:'experiment' as const,resourceId:'experiment-a',branch:'main' },
+      automationResourceId:'069f036b-9638-4827-9524-73ff03fe99c9',actionId:'run',runMode:'simulation',
+      status:'waiting' as const,revision:3,rootRunId:'full-root',createdAt:'t',updatedAt:'t',workflowTargets:[],
+    };
+    lifecycle.activeRuns=[fullRoot];
+    const slotChild={
+      childRunId:'slot-scout-01',targetId:'local',runStatus:'waiting' as const,runRevision:4,revision:2,
+    };
+    const observerChild={
+      childRunId:'observer-scout-01',targetId:'local',runStatus:'waiting' as const,runRevision:6,revision:2,
+    };
+    lifecycle.runDetailsById={
+      'full-child':{
+        run:{ id:'full-child',parameters:{ panelId:'panel-instruments',runMode:'simulation' } },
+        invocations:[],nodeSummaries:[],loading:false,error:'',
+        relations:{
+          runId:'full-child',
+          childRunGroups:[
+            { id:'slots',producerNodeId:'robot-slots' },
+            { id:'observers',producerNodeId:'robot-observers' },
+          ],
+          childRunGroupMembers:[
+            { groupId:'slots',itemKey:'scout-01',childRunId:'slot-scout-01',state:'dispatched' },
+            { groupId:'slots',itemKey:'scout-02',childRunId:'slot-scout-02',state:'dispatched' },
+            { groupId:'observers',itemKey:'scout-01',childRunId:'observer-scout-01',state:'dispatched' },
+            { groupId:'observers',itemKey:'scout-02',childRunId:'observer-scout-02',state:'dispatched' },
+          ],
+          childRuns:[
+            slotChild,
+            observerChild,
+            { childRunId:'slot-scout-02',targetId:'local',runStatus:'waiting',runRevision:5,revision:2 },
+            { childRunId:'observer-scout-02',targetId:'local',runStatus:'waiting',runRevision:8,revision:2 },
+          ],
+          waits:[],effects:[],runtimeGroups:[],runtimes:[],resources:[],
+        },
+      } as never,
+    };
+    const instruments=panel('panel-instruments','Robot instruments');
+    instruments.pluginId='robot-instruments-grid';
+    instruments.portBindings=[{
+      portId:'panel-workflow',kind:'workflow',workflowInstanceId:'panel-robot-instruments',presetId:'run',
+      managed:true,relation:'supervised',failurePolicy:'stop-experiment',
+    }];
+    const runtime=automation();
+    vi.mocked(getAutomationExecutionRelations).mockResolvedValueOnce({
+      runId:'full-root',childRunGroups:[{ id:'group',producerNodeId:'run-panels' }],
+      childRunGroupMembers:[{
+        groupId:'group',itemKey:'panel-robot-instruments',childRunId:'full-child',state:'dispatched',
+      }],
+      childRuns:[{ childRunId:'full-child',targetId:'local',runStatus:'waiting',runRevision:7,revision:2 }],
+      waits:[],effects:[],runtimeGroups:[],runtimes:[],resources:[],
+    } as never);
+    const { container }=render(<ExperimentDashboardCanvas
+      session={{ visibleExperiment:experiment(),editing:false,readOnly:false,commitConflict:'',saveError:'' }}
+      dashboard={{ id:'gcs',name:'GCS',description:'',panels:[] }}
+      panels={{ items:[instruments],selectedPanelId:'',select:vi.fn(),openConfig:vi.fn(),remove:vi.fn(),updateLayout:vi.fn() }}
+      drop={{ onDragOver:vi.fn(),onDrop:vi.fn() }} actions={lifecycle} gcsMode={false}
+      coreNodes={[]} executionTargetId="local" automation={runtime}
+    />);
+    await waitFor(() => expect(
+      container.querySelector('[data-xgc-role="panel-workflow-stop"]'),
+    ).not.toBeDisabled());
+    fireEvent.click(container.querySelector('[data-xgc-role="panel-workflow-stop"]')!);
+    await waitFor(() => expect(runtime.stopRunSet).toHaveBeenCalledTimes(1));
+    expect(runtime.stopRunSet).toHaveBeenCalledWith(
+      { id:'slot-scout-01',status:'waiting',revision:4 },
+      expect.objectContaining({ reason:'Stop Panel panel-instruments' }),
+    );
+    expect(runtime.stopRunSet).not.toHaveBeenCalledWith(
+      expect.objectContaining({ id:'observer-scout-01' }),
+      expect.anything(),
+    );
+    expect(runtime.stopRunSet).not.toHaveBeenCalledWith(
+      expect.objectContaining({ id:'slot-scout-02' }),
+      expect.anything(),
+    );
+    expect(lifecycle.stopPanelAction).not.toHaveBeenCalled();
+    expect(lifecycle.stopExperiment).not.toHaveBeenCalled();
   });
 
   it('reconnects a selected slot after the full-roster instrument child has stopped that slot',async () => {
@@ -1013,14 +1208,21 @@ describe('ExperimentDashboardCanvas v9',() => {
         invocations:[],nodeSummaries:[],loading:false,error:'',
         relations:{
           runId:'full-child',
-          childRunGroups:[{ id:'slots',producerNodeId:'robot-slots' }],
+          childRunGroups:[
+            { id:'slots',producerNodeId:'robot-slots' },
+            { id:'observers',producerNodeId:'robot-observers' },
+          ],
           childRunGroupMembers:[
             { groupId:'slots',itemKey:'scout-01',childRunId:'slot-scout-01',state:'terminal' },
+            { groupId:'observers',itemKey:'scout-01',childRunId:'observer-scout-01',state:'dispatched' },
             { groupId:'slots',itemKey:'scout-02',childRunId:'slot-scout-02',state:'dispatched' },
+            { groupId:'observers',itemKey:'scout-02',childRunId:'observer-scout-02',state:'dispatched' },
           ],
           childRuns:[
             { childRunId:'slot-scout-01',targetId:'local',runStatus:'stopped',runRevision:4,revision:2 },
+            { childRunId:'observer-scout-01',targetId:'local',runStatus:'waiting',runRevision:6,revision:2 },
             { childRunId:'slot-scout-02',targetId:'local',runStatus:'waiting',runRevision:5,revision:2 },
+            { childRunId:'observer-scout-02',targetId:'local',runStatus:'waiting',runRevision:8,revision:2 },
           ],
           waits:[],effects:[],runtimeGroups:[],runtimes:[],resources:[],
         },
@@ -1059,6 +1261,77 @@ describe('ExperimentDashboardCanvas v9',() => {
     await waitFor(() => expect(lifecycle.startPanel).toHaveBeenCalledWith('panel-instruments',{
       robotId:'scout-01',robotIds:['scout-01'],selectionKey:'selected:["scout-01"]',
     }));
+  });
+
+  it('keeps a directed multi-robot instrument run connected after one slot stops so Plug cannot collide with occupancy',async () => {
+    window.localStorage.setItem(
+      robotSelectionKey({ experimentId:'experiment-a',shared:'experiment' }),
+      JSON.stringify(['mecanum-01']),
+    );
+    const lifecycle=actions();
+    const connectedRoot={
+      id:'selected-root-a',targetId:'local',experimentRef:{ domain:'experiment' as const,resourceId:'experiment-a',branch:'main' },
+      automationResourceId:'069f036b-9638-4827-9524-73ff03fe99c9',actionId:'run-panel',runMode:'simulation',
+      status:'waiting' as const,revision:1,rootRunId:'selected-root-a',createdAt:'t',updatedAt:'t',workflowTargets:[],
+      panelId:'panel-instruments',
+    };
+    lifecycle.activeRuns=[connectedRoot];
+    lifecycle.runDetailsById={
+      [connectedRoot.id]:{
+        ...(panelRunDetail(connectedRoot.id,'panel-instruments',['mecanum-01','px4-03','px4-04']) as object),
+        relations:{
+          runId:connectedRoot.id,
+          childRunGroups:[
+            { id:'slots',producerNodeId:'robot-slots' },
+            { id:'observers',producerNodeId:'robot-observers' },
+          ],
+          childRunGroupMembers:[
+            { groupId:'slots',itemKey:'mecanum-01',childRunId:'slot-mecanum-01',state:'terminal' },
+            { groupId:'observers',itemKey:'mecanum-01',childRunId:'observer-mecanum-01',state:'dispatched' },
+            { groupId:'slots',itemKey:'px4-03',childRunId:'slot-px4-03',state:'dispatched' },
+            { groupId:'observers',itemKey:'px4-03',childRunId:'observer-px4-03',state:'dispatched' },
+            { groupId:'slots',itemKey:'px4-04',childRunId:'slot-px4-04',state:'dispatched' },
+            { groupId:'observers',itemKey:'px4-04',childRunId:'observer-px4-04',state:'dispatched' },
+          ],
+          childRuns:[
+            { childRunId:'slot-mecanum-01',targetId:'local',runStatus:'stopped',runRevision:4,revision:2 },
+            { childRunId:'observer-mecanum-01',targetId:'local',runStatus:'waiting',runRevision:3,revision:2 },
+            { childRunId:'slot-px4-03',targetId:'local',runStatus:'waiting',runRevision:5,revision:2 },
+            { childRunId:'observer-px4-03',targetId:'local',runStatus:'waiting',runRevision:6,revision:2 },
+            { childRunId:'slot-px4-04',targetId:'local',runStatus:'waiting',runRevision:7,revision:2 },
+            { childRunId:'observer-px4-04',targetId:'local',runStatus:'waiting',runRevision:8,revision:2 },
+          ],
+          waits:[],effects:[],runtimeGroups:[],runtimes:[],resources:[],
+        },
+      } as never,
+    };
+    const instruments=panel('panel-instruments','Robot instruments');
+    instruments.pluginId='robot-instruments-grid';
+    instruments.portBindings=[{
+      portId:'panel-workflow',kind:'workflow',workflowInstanceId:'panel-robot-instruments',presetId:'run',
+      managed:true,relation:'supervised',failurePolicy:'stop-experiment',
+    }];
+    const { container }=render(<ExperimentDashboardCanvas
+      session={{ visibleExperiment:experiment(),editing:false,readOnly:false,commitConflict:'',saveError:'' }}
+      dashboard={{ id:'gcs',name:'GCS',description:'',panels:[] }}
+      panels={{ items:[instruments],selectedPanelId:'',select:vi.fn(),openConfig:vi.fn(),remove:vi.fn(),updateLayout:vi.fn() }}
+      drop={{ onDragOver:vi.fn(),onDrop:vi.fn() }} actions={lifecycle} gcsMode={false}
+      coreNodes={[]} executionTargetId="local" automation={automation()}
+    />);
+    await waitFor(() => expect(
+      container.querySelector('[data-xgc-role="panel-workflow-run"]'),
+    ).toBeDisabled());
+    expectInstrumentConnectionPair(
+      container.querySelector('[data-xgc-role="experiment-panel-header-trailing"]'),
+      {
+        selected:true,
+        connectEnabled:false,
+        disconnectEnabled:false,
+        connectTitle:'Selected robots already connected',
+        disconnectTitle:'Cannot disconnect selected robots without stopping others',
+      },
+    );
+    expect(lifecycle.startPanel).not.toHaveBeenCalled();
   });
 
   it('keeps Panel lifecycle controls exact without hydrating a mounted non-runtime panel',async () => {
@@ -1119,6 +1392,47 @@ describe('ExperimentDashboardCanvas v9',() => {
     expect(loadRunDetail.mock.calls.length).toBe(loads);
   });
 
+  it('shares one full-Run relations read across every mounted dashboard until its last reader leaves',async () => {
+    const lifecycle=actions();
+    lifecycle.activeRuns=[{
+      id:'full-root',targetId:'local',experimentRef:{ domain:'experiment',resourceId:'experiment-a',branch:'main' },
+      automationResourceId:'069f036b-9638-4827-9524-73ff03fe99c9',actionId:'run',runMode:'simulation',
+      status:'waiting',revision:3,rootRunId:'full-root',createdAt:'t',updatedAt:'t',workflowTargets:[],
+    }];
+    const runtime=automation();
+    const workflowPanel=panel('panel-workflow','User panel');
+    workflowPanel.portBindings=[{
+      portId:'panel-workflow',kind:'workflow',workflowInstanceId:'user-workflow',presetId:'run',
+      managed:true,relation:'supervised',failurePolicy:'keep-experiment',
+    }];
+    let complete!:(value:unknown) => void;
+    vi.mocked(getAutomationExecutionRelations).mockImplementation(() => new Promise((resolve) => { complete=resolve; }) as never);
+    const canvas=(id:string) => <ExperimentDashboardCanvas
+      key={id}
+      session={{ editing:false,readOnly:false,commitConflict:'',saveError:'' }}
+      dashboard={{ id,name:id,description:'',panels:[] }}
+      panels={{ items:[{ ...workflowPanel,id:`${id}-panel` }],selectedPanelId:'',select:vi.fn(),openConfig:vi.fn(),remove:vi.fn(),updateLayout:vi.fn() }}
+      drop={{ onDragOver:vi.fn(),onDrop:vi.fn() }} actions={lifecycle} gcsMode={false}
+      coreNodes={[]} executionTargetId="local" automation={runtime}
+    />;
+    const { container,rerender }=render(<>{canvas('gcs')}{canvas('algo')}</>);
+    await waitFor(() => expect(getAutomationExecutionRelations).toHaveBeenCalledTimes(1));
+    const signal=vi.mocked(getAutomationExecutionRelations).mock.calls[0]![2]!.signal!;
+    // One dashboard leaves; the read it shared stays alive for the other.
+    rerender(<>{canvas('gcs')}</>);
+    expect(signal.aborted).toBe(false);
+    await act(async () => {
+      complete({
+        runId:'full-root',childRunGroups:[{ id:'group',producerNodeId:'run-panels' }],
+        childRunGroupMembers:[{ groupId:'group',itemKey:'user-workflow',childRunId:'child-root',state:'dispatched' }],
+        childRuns:[{ childRunId:'child-root',targetId:'local',runStatus:'waiting',runRevision:7,revision:2 }],
+        waits:[],effects:[],runtimeGroups:[],runtimes:[],resources:[],
+      });
+    });
+    expect(container.querySelector('[data-xgc-role="panel-workflow-stop"][data-xgc-id="gcs-panel"]')).not.toBeDisabled();
+    expect(getAutomationExecutionRelations).toHaveBeenCalledTimes(1);
+  });
+
   it('hydrates only the exact mounted runtime Panel root, never its sibling Panel',async () => {
     const lifecycle=actions();
     lifecycle.activeRuns=[{
@@ -1152,9 +1466,9 @@ describe('ExperimentDashboardCanvas v9',() => {
       drop={{ onDragOver:vi.fn(),onDrop:vi.fn() }} actions={lifecycle} gcsMode={false}
       coreNodes={[]} executionTargetId="local" automation={runtime}
     />);
-    await waitFor(() => expect(runtime.loadRunDetail).toHaveBeenCalledWith('viz-root',7));
-    expect(runtime.loadRunDetail).not.toHaveBeenCalledWith('sibling-root',expect.anything());
-    expect(runtime.loadRunDetail).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(runtime.retainRunObservation).toHaveBeenCalledWith('viz-root'));
+    expect(runtime.retainRunObservation).not.toHaveBeenCalledWith('sibling-root');
+    expect(runtime.retainRunObservation).toHaveBeenCalledTimes(1);
   });
 
   it('projects one exact active child after its dispatch member becomes terminal',() => {
@@ -1430,10 +1744,16 @@ function expectInstrumentConnectionPair(
   const cluster = trailing?.querySelector('[data-xgc-role="robot-instruments-connection"]');
   const connect = trailing?.querySelector<HTMLElement>('[data-xgc-role="panel-workflow-run"]');
   const disconnect = trailing?.querySelector<HTMLElement>('[data-xgc-role="panel-workflow-stop"]');
+  const reconnect = trailing?.querySelector<HTMLElement>('[data-xgc-role="panel-workflow-reconnect"]');
   expect(cluster).toHaveAttribute('aria-label', 'Selected robot connection');
   expect(cluster?.querySelector('[data-xgc-role="panel-workflow-run"]')).toBe(connect);
   expect(cluster?.querySelector('[data-xgc-role="panel-workflow-stop"]')).toBe(disconnect);
-  for (const control of [connect, disconnect]) {
+  expect(cluster?.querySelectorAll('button')).toHaveLength(3);
+  expect(reconnect).toHaveAttribute('aria-label', 'Reconnect selected robots');
+  expect(reconnect).toHaveAttribute('data-xgc-tone', 'default');
+  expect(reconnect?.querySelector('svg.lucide-rotate-cw')).not.toBeNull();
+  if (!options.selected) expect(reconnect).toBeDisabled();
+  for (const control of [connect, disconnect, reconnect]) {
     expect(control).toHaveAttribute('data-xgc-icon-only', 'true');
     expect(control).toHaveAttribute('data-xgc-size', 'compact');
     expect(control).toHaveClass('xgc-panel-runtime-action');
@@ -1542,11 +1862,14 @@ function writeInstrumentSelection(ids: string[]) {
 function actions():ExperimentDashboardActions {
   return {
     experimentIsRunning:false,activeRun:undefined,activeRuns:[],sessionViews:[],runDetailsById:{},runMode:'simulation',
+    placement:'centralized',
     stopAllInFlight:false,startInFlight:false,lifecycleStateLoading:false,actionError:'',startDisabledReason:'',
     canStartExperiment:true,canStopExperiment:false,updateRobotBindings:vi.fn(),updateRobotBindingsDisabledReason:vi.fn(() => '' as const),
     updateLocalizationOffset:vi.fn(),updateLocalizationOffsetDisabledReason:vi.fn(() => '' as const),
+    updateWorldBoundary:vi.fn(),updateWorldBoundaryDisabledReason:vi.fn(() => '' as const),
+    updateScene:vi.fn(),updateSceneDisabledReason:vi.fn(() => '' as const),
     updateWorkflowPresetInputs:vi.fn(),updateWorkflowPresetInputsDisabledReason:vi.fn(() => '' as const),
-    startExperiment:vi.fn(),stopExperiment:vi.fn(),startPanel:vi.fn(async () => ({ id:'panel-run' } as never)),
+    startExperiment:vi.fn(),stopExperiment:vi.fn(),restartExperiment:vi.fn(),startPanel:vi.fn(async () => ({ id:'panel-run' } as never)),
     invokePanelAction:vi.fn(),stopPanelAction:vi.fn(),
   };
 }
@@ -1571,8 +1894,8 @@ function experiment(runModes:ExperimentRunMode[]=['simulation']):ExperimentDocum
 }
 function automation():AutomationPanelContext['automation'] {
   return { targetId:'local',documents:[],catalog:[],runSummaries:[],runDetailsById:{},loading:false,error:'',
-    runDocument:vi.fn(),runBoundAutomation:vi.fn(),stop:vi.fn(),stopRunSet:vi.fn(),loadRunDetail:vi.fn(),
-    retainRunDetail:vi.fn(() => vi.fn()),refreshExecutionHistory:vi.fn() } as unknown as AutomationPanelContext['automation'];
+    runDocument:vi.fn(),runBoundAutomation:vi.fn(),stop:vi.fn(),stopRunSet:vi.fn(),loadRunDetail:vi.fn(async () => undefined),
+    retainRunDetail:vi.fn(() => vi.fn()),retainRunObservation:vi.fn(() => vi.fn()),refreshExecutionHistory:vi.fn() } as unknown as AutomationPanelContext['automation'];
 }
 
 function panelRunDetail(
@@ -1592,4 +1915,126 @@ function panelRunDetail(
     },
     invocations:[],nodeSummaries:[],loading:false,error:'',
   } as never;
+}
+
+
+describe('Instrument reconnect selected button',() => {
+  beforeEach(() => { window.localStorage.clear();vi.mocked(getAutomationExecutionRelations).mockReset(); });
+  it.each(['simulation','physical','hybrid'] as const)('waits for every selected disconnect before connecting the frozen batch in %s',async (mode) => {
+    const f=reconnectCanvas(mode,['scout-01','scout-02'],['scout-01','scout-02']);
+    const reconnect=f.container.querySelector('[data-xgc-role="panel-workflow-reconnect"]')!;
+    expect(f.container.querySelector('[data-xgc-role="panel-workflow-run"]')).toBeDisabled();
+    expect(reconnect).not.toBeDisabled();
+    fireEvent.click(reconnect);
+    await waitFor(() => expect(f.lifecycle.stopPanelAction).toHaveBeenCalledTimes(2));
+    expect(f.runtime.stopRunSet).not.toHaveBeenCalled();
+    expect(f.lifecycle.startPanel).not.toHaveBeenCalled();
+    for (const role of ['run','stop','reconnect']) expect(f.container.querySelector(`[data-xgc-role="panel-workflow-${role}"]`)).toBeDisabled();
+    f.finish('scout-01','stopped');f.finish('scout-02','stopping');
+    act(() => writeInstrumentSelection(['scout-03']));
+    expect(f.lifecycle.startPanel).not.toHaveBeenCalled();
+    f.finish('scout-02','stopped');
+    await waitFor(() => expect(f.lifecycle.startPanel).toHaveBeenCalledExactlyOnceWith('panel-instruments',{
+      robotId:'',robotIds:['scout-01','scout-02'],selectionKey:'selected:["scout-01","scout-02"]',
+    }));
+    expect(f.lifecycle.stopExperiment).not.toHaveBeenCalled();
+  });
+  it.each([{ connected:[] as string[] },{ connected:['scout-01'] }])('skips already disconnected robots in Stop, still connects the complete selection ($connected initially connected)',async ({ connected }) => {
+    const f=reconnectCanvas('simulation',['scout-01','scout-02'],connected);
+    fireEvent.click(f.container.querySelector('[data-xgc-role="panel-workflow-reconnect"]')!);
+    await waitFor(() => expect(f.lifecycle.stopPanelAction).toHaveBeenCalledTimes(connected.length));
+    for (const id of connected) f.finish(id,'stopped');
+    await waitFor(() => expect(f.lifecycle.startPanel).toHaveBeenCalledExactlyOnceWith('panel-instruments',{
+      robotId:'',robotIds:['scout-01','scout-02'],selectionKey:'selected:["scout-01","scout-02"]',
+    }));
+  });
+  it('stops only the selected robot-slots child and leaves its observer and unselected sibling alive',async () => {
+    const f=reconnectCanvas('simulation',['scout-01'],['scout-01']);
+    const root=f.lifecycle.activeRuns[0]!;
+    const rootDetail=reconnectDetail(root.id,'waiting',[]);
+    rootDetail.relations!.childRunGroups=[{ id:'slots',producerNodeId:'robot-slots' },{ id:'observers',producerNodeId:'robot-observers' }] as never;
+    rootDetail.relations!.childRunGroupMembers=[
+      { groupId:'slots',itemKey:'scout-01',childRunId:'slot-a',state:'dispatched' },
+      { groupId:'slots',itemKey:'scout-02',childRunId:'slot-b',state:'dispatched' },
+      { groupId:'observers',itemKey:'scout-01',childRunId:'observer-a',state:'dispatched' },
+    ] as never;
+    rootDetail.relations!.childRuns=['slot-a','slot-b','observer-a'].map((id) => ({
+      childRunId:id,targetId:'local',runStatus:'waiting',runRevision:3,boundAt:'t',revision:1,
+    })) as never;
+    f.lifecycle.runDetailsById={
+      [root.id]:rootDetail,'slot-a':reconnectDetail('slot-a','waiting'),
+      'slot-b':reconnectDetail('slot-b','waiting'),'observer-a':reconnectDetail('observer-a','waiting'),
+    };
+    vi.mocked(f.runtime.stopRunSet).mockImplementation(async (run) => reconnectReceipt(run.id));
+    f.refresh();
+    fireEvent.click(f.container.querySelector('[data-xgc-role="panel-workflow-reconnect"]')!);
+    await waitFor(() => expect(f.runtime.stopRunSet).toHaveBeenCalledExactlyOnceWith(
+      { id:'slot-a',status:'waiting',revision:3 },{ includeAnchor:true,includeDetached:true,reason:'Stop Panel panel-instruments' },
+    ));
+    expect(f.lifecycle.stopPanelAction).not.toHaveBeenCalled();expect(f.lifecycle.startPanel).not.toHaveBeenCalled();
+    f.lifecycle.runDetailsById={ ...f.lifecycle.runDetailsById,'slot-a':reconnectDetail('slot-a','stopped') };
+    f.refresh();
+    await waitFor(() => expect(f.lifecycle.startPanel).toHaveBeenCalledExactlyOnceWith('panel-instruments',{
+      robotId:'scout-01',robotIds:['scout-01'],selectionKey:'selected:["scout-01"]',
+    }));
+    expect(f.lifecycle.runDetailsById['slot-b']!.run!.status).toBe('waiting');
+    expect(f.lifecycle.runDetailsById['observer-a']!.run!.status).toBe('waiting');
+  });
+  it.each(['partial','full'] as const)('distinguishes its own partial Session cleanup from full shutdown (%s)',async (mode) => {
+    const f=reconnectCanvas('simulation',['scout-01'],['scout-01']);
+    fireEvent.click(f.container.querySelector('[data-xgc-role="panel-workflow-reconnect"]')!);
+    await waitFor(() => expect(f.lifecycle.stopPanelAction).toHaveBeenCalledTimes(1));
+    f.lifecycle.sessionViews=[{ session:{ id:'session',targetId:'local',experimentResourceId:'experiment-a',
+      state:'stopping',mode,runMode:'simulation',revision:2 },members:[] }];
+    f.refresh();f.lifecycle.sessionViews=[];f.finish('scout-01','stopped');
+    if (mode==='partial') await waitFor(() => expect(f.lifecycle.startPanel).toHaveBeenCalledTimes(1));
+    else expect(f.lifecycle.startPanel).not.toHaveBeenCalled();
+  });
+  it('disables empty selection and never reconnects after Total Stop interrupts the cleanup wait',async () => {
+    const empty=reconnectCanvas('simulation',[],[]);
+    expect(empty.container.querySelector('[data-xgc-role="panel-workflow-reconnect"]')).toBeDisabled();empty.unmount();
+    const f=reconnectCanvas('simulation',['scout-01'],['scout-01']);
+    fireEvent.click(f.container.querySelector('[data-xgc-role="panel-workflow-reconnect"]')!);
+    await waitFor(() => expect(f.lifecycle.stopPanelAction).toHaveBeenCalledTimes(1));
+    f.lifecycle.stopAllInFlight=true;f.refresh();f.lifecycle.stopAllInFlight=false;f.finish('scout-01','stopped');
+    expect(f.lifecycle.startPanel).not.toHaveBeenCalled();
+  });
+});
+
+function reconnectReceipt(id:string):AutomationStopRunSetResponse {
+  return { anchorRunId:id,receipt:{} as AutomationStopRunSetResponse['receipt'],outcomes:[{
+    runId:id,priorStatus:'waiting',accepted:true,alreadyTerminal:false,error:'',
+  }] };
+}
+function reconnectDetail(id:string,status:AutomationRun['status'],robots=[id]):AutomationRunDetail {
+  const base:AutomationRunDetail=panelRunDetail(id,'panel-instruments',robots);
+  return { ...base,run:{ ...base.run!,id,targetId:'local',status,revision:status==='waiting' ? 3 : 4 },
+    relations:{ runId:id,childRuns:[],childRunGroups:[],childRunGroupMembers:[],waits:[],effects:[],runtimeGroups:[],runtimes:[],resources:[] } };
+}
+function reconnectCanvas(mode:ExperimentRunMode,selected:string[],connected:string[]) {
+  writeInstrumentSelection(selected);
+  const lifecycle=actions();lifecycle.runMode=mode;
+  lifecycle.activeRuns=connected.map((id) => ({
+    id:`root-${id}`,targetId:'local',experimentRef:{ domain:'experiment',resourceId:'experiment-a',branch:'main' },
+    automationResourceId:'runner',actionId:'run-panel',runMode:mode,status:'waiting',revision:3,rootRunId:`root-${id}`,
+    createdAt:'t',updatedAt:'t',workflowTargets:[],panelId:'panel-instruments',
+  }));
+  lifecycle.runDetailsById=Object.fromEntries(connected.map((id) => [`root-${id}`,reconnectDetail(`root-${id}`,'waiting',[id])]));
+  vi.mocked(lifecycle.stopPanelAction).mockImplementation(async (run) => reconnectReceipt(run.id));
+  const runtime=automation();
+  const instruments=panel('panel-instruments','Robot instruments');instruments.pluginId='robot-instruments-grid';
+  instruments.portBindings=[{ portId:'panel-workflow',kind:'workflow',workflowInstanceId:'panel-robot-instruments',presetId:'run',
+    managed:true,relation:'supervised',failurePolicy:'stop-experiment' }];
+  const renderCanvas=() => <ExperimentDashboardCanvas
+    session={{ visibleExperiment:experiment(['simulation','physical','hybrid']),editing:false,readOnly:false,commitConflict:'',saveError:'' }}
+    dashboard={{ id:'gcs',name:'GCS',description:'',panels:[] }}
+    panels={{ items:[instruments],selectedPanelId:'',select:vi.fn(),openConfig:vi.fn(),remove:vi.fn(),updateLayout:vi.fn() }}
+    drop={{ onDragOver:vi.fn(),onDrop:vi.fn() }} actions={lifecycle} gcsMode={false}
+    coreNodes={[]} executionTargetId="local" automation={runtime}
+  />;
+  const rendered=render(renderCanvas());
+  const refresh=() => rendered.rerender(renderCanvas());
+  return { ...rendered,lifecycle,runtime,refresh,finish:(id:string,status:AutomationRun['status']) => {
+    lifecycle.runDetailsById={ ...lifecycle.runDetailsById,[`root-${id}`]:reconnectDetail(`root-${id}`,status,[id]) };refresh();
+  } };
 }

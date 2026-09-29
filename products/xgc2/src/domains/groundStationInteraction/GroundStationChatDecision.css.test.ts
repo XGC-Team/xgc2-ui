@@ -22,6 +22,10 @@ describe('ground station authorization request surface', () => {
     expect(css).not.toMatch(/xgc-ground-station-decision-provenance/);
   });
 
+  it('does not mute the compact white countdown ring', () => {
+    expect(css).toContain('.xgc-ground-station-decision-request .xgc-ground-station-decision-deadline:not([data-xgc-variant="ring"])');
+  });
+
   it('does not invert operator receipts or other timeline copy', () => {
     expect(ruleBody('.xgc-ground-station-response-values')).not.toMatch(/--color-bg-primary|--color-text-inverse/);
     expect(ruleBody('.xgc-ground-station-response-field')).not.toMatch(/--color-bg-primary|--color-text-inverse/);

@@ -39,8 +39,8 @@ function expectClearRoutes(result: ReturnType<typeof layout>,edges: AutomationEd
 describe('automation graph layout and routing', () => {
   it('keeps all eight SCE1 action chains in separate bands with aligned headers', () => {
     const fixture = sce1LayoutFixture();
-    expect(fixture.nodes).toHaveLength(38);
-    expect(fixture.edges).toHaveLength(31);
+    expect(fixture.nodes).toHaveLength(33);
+    expect(fixture.edges).toHaveLength(26);
     const result = layout(fixture.nodes,fixture.edges,fixture.catalog);
     const bands = fixture.groups.map((group) => ({
       top: Math.min(...group.map((id) => result.positions[id].y)),

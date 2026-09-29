@@ -23,7 +23,7 @@ export function unitreeB2DefaultName(sequence: number): string {
   return `B2 ${String(sequence).padStart(2, '0')}`;
 }
 
-/** Parse trailing fleet index from a B2 display name (e.g. "B2 03" → 3). */
+/** Parse trailing swarm index from a B2 display name (e.g. "B2 03" → 3). */
 export function unitreeB2NameSequence(name: string): number | undefined {
   const match = name.trim().match(/^B2\s*0*(\d+)$/i);
   return match ? Number(match[1]) : undefined;

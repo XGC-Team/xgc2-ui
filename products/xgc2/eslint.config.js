@@ -156,6 +156,10 @@ function isAllowedTimeoutPath(path) {
     'src/hooks/useTooltipOpen.ts',
     'src/shared/eventCoalescer.ts',
     'src/devtools/mark-prompt/MarkPromptDock.tsx',
+    // Offline frame-RPC transport client: request timeout is the protocol guard.
+    'src/panels/runtime/videoProduction/frameProtocol.ts',
+    // Deferred object-URL revocation after a triggered artifact download.
+    'src/domains/recording/videoProductionService.ts',
   ].includes(path);
 }
 

@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { CodeBlock,Notice } from '@xgc2/ui-react';
 import type { PanelPluginProps } from '../types';
 import '../../styles/automation-workflow-logs.css';
@@ -6,11 +7,16 @@ import { useAutomationExecutionText } from '../../domains/automation/automationP
 export function WorkflowLogsPanel({ panel,context }: PanelPluginProps<readonly ['experiment']>) {
   const t = useAutomationExecutionText();
   const traces = context.ports.data['workflow-traces'];
+  const tracesValue = traces?.value;
+  const renderedTraces = useMemo(
+    () => (tracesValue !== undefined ? JSON.stringify(tracesValue,null,2) ?? '' : undefined),
+    [tracesValue],
+  );
   return (
     <section className="automation-workflow-logs" data-xgc-role="workflow-logs" data-xgc-id={panel.id}>
-      {traces?.value !== undefined ? (
+      {renderedTraces !== undefined ? (
         <CodeBlock
-          content={JSON.stringify(traces.value,null,2) ?? ''}
+          content={renderedTraces}
           copyable={false}
           data-xgc-role="workflow-log-output"
           data-xgc-id={panel.id}

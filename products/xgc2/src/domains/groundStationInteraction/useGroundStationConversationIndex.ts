@@ -6,7 +6,6 @@ import type { GroundStationNativeBinding,AgentConversationInventory } from './gr
 import { startRemoteConversationDraft } from './groundStationRemoteMessages';
 
 const SELECTION_KEY = 'xgc.ground-station.conversation-selection.v2';
-const LEGACY_KEY = 'xgc.ground-station.native-agent.bindings.v1';
 
 /** Server journals define existence; browser storage only remembers selection. */
 export function useGroundStationConversationIndex(executionTargetId: string,focusedExperimentId: string) {
@@ -19,7 +18,6 @@ export function useGroundStationConversationIndex(executionTargetId: string,focu
   useEffect(() => {
     try {
       localStorage.setItem(SELECTION_KEY,JSON.stringify(selected));
-      localStorage.removeItem(LEGACY_KEY);
     } catch { /* Selection is optional; history remains on the workstation. */ }
   },[selected]);
 
@@ -102,11 +100,6 @@ function readSelection(): Record<string,string | null> {
         if (safe.test(experimentId) && (sessionId === null || typeof sessionId === 'string' && safe.test(sessionId))) result[experimentId] = sessionId;
       }
       return result;
-    }
-    // Import the old selection once, without treating it as the session index.
-    const legacy = JSON.parse(localStorage.getItem(LEGACY_KEY) ?? 'null') as {version?:number; bindings?:Array<{experimentId?:unknown; sessionId?:unknown}>} | null;
-    if (legacy?.version === 1 && Array.isArray(legacy.bindings)) for (const entry of legacy.bindings) {
-      if (typeof entry.experimentId === 'string' && safe.test(entry.experimentId) && typeof entry.sessionId === 'string' && safe.test(entry.sessionId)) result[entry.experimentId] = entry.sessionId;
     }
     return result;
   } catch { return {}; }

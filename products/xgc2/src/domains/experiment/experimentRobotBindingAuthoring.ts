@@ -33,6 +33,7 @@ export function newExperimentRobotBinding(
     namespace: `/${namespacePrefix}${sequence}`,
     hybridSource: 'physical',
     runtimeParameters: {},
+    simulationSensors:{ simpleLidar:false },
     initialPose: {
       x: existing.length * 2,
       y: 0,

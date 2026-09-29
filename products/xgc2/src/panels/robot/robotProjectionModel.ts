@@ -23,18 +23,16 @@ import { numberValue,stringValue,type RobotHealthTone } from './robotTelemetryVa
 export type RobotPanelItem = Omit<RunRobot,'adapterDefinitionId'> & { adapterDefinitionId?: string };
 
 /**
- * Robot REST/SSE projection identity is the exact active Session/System root.
+ * Robot REST/SSE projection identity is the active Session's Panel binding.
  * A Panel Automation child may own robot.ensure-connected deeper in its
  * relation tree, but Core aggregates those owners under this stable parent.
  */
 export function robotProjectionSessionRunId(
   runtime:ExperimentProcessRuntimeProjection|undefined,
-  panelInvocationRunId:string|undefined,
   workflowInstanceId:string|undefined,
 ) {
-  const invocationId = panelInvocationRunId?.trim() ?? '';
   const bindingId = workflowInstanceId?.trim() ?? '';
-  if (!runtime || !invocationId || !bindingId || !runtime.targetId) return undefined;
+  if (!runtime || !bindingId || !runtime.targetId) return undefined;
   const activeRuns = runtime.activeRuns
     ?? (runtime.activeRun ? [runtime.activeRun] : []);
   // Session members are retained while lifecycle projections reconcile. Once
@@ -53,7 +51,8 @@ export function robotProjectionSessionRunId(
         member.targetId === runtime.targetId
         && member.kind === 'workflow_run'
         && member.bindingId === bindingId
-        && member.ownerId === invocationId
+        // Action history can still report an old or selected connection Run.
+        // It must not withdraw the current Session's aggregate subscription.
         && (member.status === 'attached' || member.status === 'running')
       ))
       : []
@@ -163,15 +162,12 @@ function mecanumHealthTone(input: {
   robot: Pick<RunRobot,'mecanum' | 'connectionState'>;
   channels: Readonly<Record<string,RobotChannelProjection | undefined>>;
   online: boolean;
-  operationalReady: boolean;
 }): RobotHealthTone {
   if (!input.robot.mecanum) return 'fault';
   if (input.robot.connectionState !== 'live' || !input.online) return 'unavailable';
-  if (!input.operationalReady) return 'fault';
-  return ['state.imu','vrpn.position','vrpn.velocity','vrpn.speed'].every((channelId) => {
-    const channel = input.channels[channelId];
-    return Boolean(channel && !channel.stale);
-  }) ? 'healthy' : 'unavailable';
+  const imu = input.channels['state.imu'];
+  if (!imu || imu.stale) return 'unavailable';
+  return 'healthy';
 }
 
 export function vector(value: Record<string,unknown>) {
@@ -294,6 +290,13 @@ export function splitSignedArrayAxis(value: number, digits = 2) {
  * shown when the frozen roster is empty (e.g. assets still loading), so a
  * genuinely empty composition still reaches the empty state.
  */
+/**
+ * Merged rows are referentially stable while both inputs are: RobotProjectionCard
+ * memo must survive grid re-renders that carry no new report for this robot.
+ * Keyed by the static row so entries die with the roster that produced them.
+ */
+const rosterMergeCache = new WeakMap<object,{ reported:unknown;merged:unknown }>();
+
 export function resolveRobotInstrumentRoster<Row extends { id:string;name?:string }>(
   staticRobots:readonly Row[],
   runtimeRobots:readonly Row[] | undefined,
@@ -306,6 +309,11 @@ export function resolveRobotInstrumentRoster<Row extends { id:string;name?:strin
   const reportedById = new Map(runtimeRobots.map((robot) => [robot.id,robot]));
   return staticRobots.map((robot) => {
     const reported = reportedById.get(robot.id);
-    return reported ? { ...robot,...reported,name:robot.name } : robot;
+    if (!reported) return robot;
+    const cached = rosterMergeCache.get(robot);
+    if (cached && cached.reported === reported) return cached.merged as Row;
+    const merged:Row = { ...robot,...reported,name:robot.name };
+    rosterMergeCache.set(robot,{ reported,merged });
+    return merged;
   });
 }

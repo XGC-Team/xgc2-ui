@@ -4,7 +4,7 @@ import {
 } from '../../domains/execution/cameraCalibrationProcessPublic';
 import type { ProcessInstance } from '../../domains/execution/executionPublic';
 import { cameraIntrinsicPanelOptions } from './cameraIntrinsicPanelModel';
-import { ownedCameraSourceProcess } from './gazeboWorldCameraWorkspaceModel';
+import { ownedCameraSourceProcess,ownedMediaEdgeProcess } from './gazeboWorldCameraWorkspaceModel';
 import type { PanelActionPortRuntime,PanelWorkflowRuntimeProjection } from '../types';
 
 export type IntrinsicWorkflowRuntime = PanelWorkflowRuntimeProjection;
@@ -71,7 +71,7 @@ export function resolveIntrinsicCalibratorOwnerProcess(
   runtime?:IntrinsicWorkflowRuntime,
 ) {
   if (!runId) return undefined;
-  const runIds = intrinsicDescendantRunIds(runtime,runId);
+  const runIds = cameraWorkflowDescendantRunIds(runtime,runId);
   const owned = instances
     .filter((instance) => instance.definitionId === CAMERA_INTRINSIC_CALIBRATION_DEFINITION_ID
       && isWorkflowRunProcess(instance)
@@ -88,10 +88,9 @@ export function resolveIntrinsicMediaEdgeOwnerProcess(
   instances:readonly ProcessInstance[],runId:string,runtime?:IntrinsicWorkflowRuntime,
 ) {
   if (!runId) return undefined;
-  const runIds=intrinsicDescendantRunIds(runtime,runId);
-  return instances.filter((instance) => instance.definitionId===MEDIA_EDGE_DEFINITION_ID
-    && isWorkflowRunProcess(instance) && runIds.has(instance.ownerId))
-    .sort((left,right) => right.updatedAt.localeCompare(left.updatedAt))[0];
+  const runIds=cameraWorkflowDescendantRunIds(runtime,runId);
+  return ownedMediaEdgeProcess(instances.filter((instance) =>
+    isWorkflowRunProcess(instance) && runIds.has(instance.ownerId)));
 }
 
 export function resolveIntrinsicCalibratorOwnerProcessFromRuntime(
@@ -112,7 +111,7 @@ export function resolveIntrinsicCameraSourceOwnerProcess(
   runtime?:IntrinsicWorkflowRuntime,
 ) {
   if (!runId) return undefined;
-  const runIds=intrinsicDescendantRunIds(runtime,runId);
+  const runIds=cameraWorkflowDescendantRunIds(runtime,runId);
   return ownedCameraSourceProcess(instances.filter((instance) => (
     isWorkflowRunProcess(instance) && runIds.has(instance.ownerId)
   )));
@@ -157,7 +156,7 @@ function latestRunningProcess(
     .sort((left,right) => right.updatedAt.localeCompare(left.updatedAt))[0];
 }
 
-function intrinsicDescendantRunIds(runtime:IntrinsicWorkflowRuntime|undefined,anchorRunId:string) {
+export function cameraWorkflowDescendantRunIds(runtime:IntrinsicWorkflowRuntime|undefined,anchorRunId:string) {
   const selected = new Set<string>([anchorRunId]);
   if (!runtime) return selected;
   let changed = true;

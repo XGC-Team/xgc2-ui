@@ -11,6 +11,7 @@ import {
   resolveIntrinsicCalibratorOwnerProcessFromRuntime,
   resolveIntrinsicCameraSourceOwnerProcess,
   resolveIntrinsicMediaEdgeOwnerProcessFromRuntime,
+  resolveIntrinsicMediaEdgeOwnerProcess,
 } from './cameraIntrinsicWorkspaceModel';
 import type { PanelActionPortRuntime } from '../types';
 
@@ -114,6 +115,15 @@ describe('intrinsic workspace workflow projection',() => {
     const unrelated = processFixture('other','other-run','running','gazebo-static-camera');
     expect(resolveIntrinsicCameraSourceOwnerProcess([unrelated,owned],'panel-run')?.id).toBe('cam');
     expect(resolveIntrinsicCameraSourceOwnerProcess([unrelated],'panel-run')).toBeUndefined();
+  });
+
+  it('does not pick an arbitrary latest Media Edge when a provider has two ready owners',() => {
+    const owned = processFixture('edge','panel-run','running','xgc-media-edge');
+    const newer = { ...owned,id:'other-edge',updatedAt:'later' };
+    expect(resolveIntrinsicMediaEdgeOwnerProcess([owned,newer],'panel-run')).toBeUndefined();
+    const stopped = processFixture('old-edge','panel-run','stopped','xgc-media-edge');
+    expect(resolveIntrinsicMediaEdgeOwnerProcess([stopped,owned],'panel-run')).toBe(owned);
+    expect(resolveIntrinsicMediaEdgeOwnerProcess([owned],'unrelated-run')).toBeUndefined();
   });
 
   it('takes Media Edge URL and source ID only from authored panel options',() => {

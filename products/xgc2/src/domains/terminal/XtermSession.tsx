@@ -3,11 +3,12 @@ import { Terminal as XTerm } from '@xterm/xterm';
 import { forwardRef,useCallback,useEffect,useImperativeHandle,useRef } from 'react';
 import { connectTerminalTransport,type TerminalConnection } from '../../features/terminal/terminalTransport';
 import { writeClipboardText } from '../../shared/utils/clipboard';
+import { remeasureTerminalFontWhenReady,resolveTerminalFontFamily } from '../../shared/terminalFont';
 import { getTerminalWebSocketTicket } from './terminalSessionActions';
 import type { TerminalSetting } from './terminalModel';
 import type { TerminalHandle,TerminalSession } from './terminalSessionModel';
 
-export const XtermSession = forwardRef<TerminalHandle, {
+type XtermSessionProps = {
   session: TerminalSession;
   setting: TerminalSetting;
   targetCoreId?: string;
@@ -18,7 +19,25 @@ export const XtermSession = forwardRef<TerminalHandle, {
   active: boolean;
   onStatus: (patch: Partial<TerminalSession>) => void;
   onError: (message: string) => void;
-}>(({ session,setting,targetCoreId,managedHostId,connectPassword = '',active,onStatus,onError }, ref) => {
+};
+
+// A new session ID is the only identity change allowed to remount the terminal.
+export const XtermSession = forwardRef<TerminalHandle,XtermSessionProps>((props,ref) => (
+  <BoundXtermSession key={props.session.id} {...props} ref={ref} />
+));
+
+const BoundXtermSession = forwardRef<TerminalHandle,XtermSessionProps>(({
+  session,setting,targetCoreId,managedHostId,connectPassword = '',active,onStatus,onError,
+},ref) => {
+  const bindingRef = useRef({
+    hostId: session.hostId,
+    sessionId: session.id,
+    initialDirectory: session.initialDirectory,
+    targetCoreId,
+    managedHostId,
+    connectPassword,
+  });
+  const resumeOnlyRef = useRef(Boolean(session.resumeOnly));
   const elementRef = useRef<HTMLDivElement | null>(null);
   const termRef = useRef<XTerm | null>(null);
   const connectionRef = useRef<TerminalConnection | null>(null);
@@ -61,7 +80,7 @@ export const XtermSession = forwardRef<TerminalHandle, {
     connectionRef.current?.close();
   }, []);
 
-  const connect = useCallback(async () => {
+  const connect = useCallback(async (resumeOnly: boolean) => {
     const term = termRef.current;
     if (!term) return;
     const connectSeq = connectSeqRef.current + 1;
@@ -77,18 +96,14 @@ export const XtermSession = forwardRef<TerminalHandle, {
     const rows = Math.max(term.rows || 32,12);
     try {
       const connection = await connectTerminalTransport({
-        hostId: session.hostId,
-        sessionId: session.id,
+        ...bindingRef.current,
         cols,
         rows,
-        targetCoreId,
-        managedHostId,
-        resumeOnly: Boolean(session.resumeOnly),
-        connectPassword,
+        resumeOnly,
         getTicket: getTerminalWebSocketTicket,
         onOpen: () => {
           if (disposedRef.current || connectionRef.current !== connection) return;
-          statusRef.current({ status: 'online' });
+          statusRef.current({ status: 'online',resumeOnly: true });
           // Two frames: first applies CSS height after the session cell is shown,
           // second lets FitAddon measure a non-collapsed host box.
           window.requestAnimationFrame(() => {
@@ -102,7 +117,7 @@ export const XtermSession = forwardRef<TerminalHandle, {
           if (!disposedRef.current && connectionRef.current === connection) errorRef.current(`${titleRef.current} connection error`);
         },
         onClose: () => {
-          if (connectionRef.current === connection && !disposedRef.current) statusRef.current({ status: 'closed',resumeOnly: false });
+          if (connectionRef.current === connection && !disposedRef.current) statusRef.current({ status: 'closed',resumeOnly: true });
         },
         signal: connectAbort.signal,
       });
@@ -112,14 +127,18 @@ export const XtermSession = forwardRef<TerminalHandle, {
       }
       connectAbortRef.current = null;
       connectionRef.current = connection;
+      // Automatic effect re-entry can only attach; creation needs an explicit
+      // reconnect action. Status updates must never cause another connection.
+      resumeOnlyRef.current = true;
     } catch (error) {
       if (disposedRef.current || connectSeqRef.current !== connectSeq) return;
-      statusRef.current({ status: 'closed',resumeOnly: false });
+      resumeOnlyRef.current = true;
+      statusRef.current({ status: 'closed',resumeOnly: true });
       errorRef.current(error instanceof Error ? error.message : String(error));
     } finally {
       if (connectAbortRef.current === connectAbort) connectAbortRef.current = null;
     }
-  }, [connectPassword,fitAndSendResize,managedHostId,session.hostId,session.id,session.resumeOnly,targetCoreId]);
+  }, [fitAndSendResize]);
 
   useImperativeHandle(ref, () => ({
     send(value: string) {
@@ -132,7 +151,7 @@ export const XtermSession = forwardRef<TerminalHandle, {
       termRef.current?.clear();
     },
     reconnect() {
-      void connect();
+      void connect(false);
     },
     close() {
       closeTerminalSession();
@@ -142,8 +161,9 @@ export const XtermSession = forwardRef<TerminalHandle, {
   useEffect(() => {
     const currentSetting = settingRef.current;
     const host = elementRef.current;
+    const fontFamily = resolveTerminalFontFamily(currentSetting.fontFamily);
     const term = new XTerm({
-      fontFamily: currentSetting.fontFamily,
+      fontFamily,
       fontSize: currentSetting.fontSize,
       lineHeight: currentSetting.lineHeight,
       letterSpacing: currentSetting.letterSpacing,
@@ -160,6 +180,13 @@ export const XtermSession = forwardRef<TerminalHandle, {
     if (host) {
       term.open(host);
       fit.fit();
+      void remeasureTerminalFontWhenReady(
+        term,
+        fontFamily,
+        currentSetting.fontSize,
+        () => !disposedRef.current && termRef.current === term,
+        () => fitAndSendResize(),
+      );
     }
     const copySelection = () => {
       const selection = term.getSelection();
@@ -205,7 +232,7 @@ export const XtermSession = forwardRef<TerminalHandle, {
     document.addEventListener('pointercancel', cancelSelection, true);
     term.onData(sendTerminalData);
     disposedRef.current = false;
-    void connect();
+    void connect(resumeOnlyRef.current);
     const resizeObserver = new ResizeObserver(() => fitAndSendResize());
     if (host) resizeObserver.observe(host);
     return () => {
@@ -223,11 +250,11 @@ export const XtermSession = forwardRef<TerminalHandle, {
       connectionRef.current = null;
       term.dispose();
     };
-  }, [connect,fitAndSendResize,sendTerminalData,session.id,session.refresh,targetCoreId]);
+  }, [connect,fitAndSendResize,sendTerminalData,session.refresh]);
 
   useEffect(() => {
     if (!termRef.current) return;
-    termRef.current.options.fontFamily = setting.fontFamily;
+    termRef.current.options.fontFamily = resolveTerminalFontFamily(setting.fontFamily);
     termRef.current.options.fontSize = setting.fontSize;
     termRef.current.options.lineHeight = setting.lineHeight;
     termRef.current.options.letterSpacing = setting.letterSpacing;
@@ -256,4 +283,5 @@ export const XtermSession = forwardRef<TerminalHandle, {
   );
 });
 
+BoundXtermSession.displayName = 'BoundXtermSession';
 XtermSession.displayName = 'XtermSession';

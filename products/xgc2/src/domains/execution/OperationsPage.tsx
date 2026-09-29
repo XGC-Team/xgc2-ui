@@ -15,6 +15,7 @@ import {
   type DataTableSort,
 } from '@xgc2/ui-react';
 import { useExecutionText } from './executionMessages';
+import { formatOperatorDateTime } from '../../shared/operatorTime';
 import { ExecutionLogStreams } from './ExecutionLogStreams';
 import type { ProcessAction,ProcessDefinition,ProcessInstance } from './executionModel';
 import {
@@ -535,9 +536,7 @@ function healthTone(instance: ProcessInstance) {
 
 function formatTimestamp(value?: string) {
   if (!value) return '—';
-  const timestamp = Date.parse(value);
-  if (!Number.isFinite(timestamp)) return '—';
-  return new Date(timestamp).toISOString().replace('T', ' ').replace(/\.000Z$/, 'Z');
+  return formatOperatorDateTime(value);
 }
 
 function processUptime(instance: ProcessInstance, now: number) {

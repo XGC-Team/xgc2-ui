@@ -40,12 +40,13 @@
 
 .automation-editor-run-inspector-title strong {
   color: var(--color-text-heading);
-  font-size: var(--font-sm);
+  font-size: var(--type-emphasis-size);
+  font-weight: var(--type-emphasis-weight);
 }
 
 .automation-editor-run-inspector-title span {
   color: var(--color-text-muted);
-  font-size: var(--font-xs);
+  font-size: var(--type-meta-size);
 }
 
 .automation-editor-run-inspector-tabs {
@@ -60,7 +61,8 @@
 
 .automation-editor-run-inspector-error-count {
   color: var(--color-danger);
-  font-size: var(--font-xs);
+  font-size: var(--type-caption-size);
+  font-variant-numeric: var(--type-numeric-variant);
 }
 
 .automation-editor-run-inspector-close {
@@ -106,7 +108,7 @@
 .automation-editor-node-facts dt,
 .automation-editor-node-facts dd {
   margin: 0;
-  font-size: var(--font-xs);
+  font-size: var(--type-meta-size);
   white-space: nowrap;
 }
 
@@ -116,7 +118,8 @@
 
 .automation-editor-node-facts dd {
   color: var(--color-text-heading);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
+  font-variant-numeric: var(--type-numeric-variant);
 }
 
 .automation-editor-node-data-panes {
@@ -132,7 +135,7 @@
 }
 
 .automation-editor-node-data-panes > *:not(:last-child) {
-  border-right: var(--stroke-thin) solid var(--color-border-strong);
+  border-right: var(--stroke-thin) solid var(--color-border-muted);
 }
 
 .automation-editor-node-data-panes > .automation-runtime-value-panel {
@@ -140,22 +143,6 @@
   min-height: 0;
   padding: var(--space-lg);
   overflow: auto;
-}
-
-.automation-editor-detail-empty {
-  min-height: 0;
-  display: grid;
-  place-content: center;
-  gap: var(--space-xs);
-  padding: var(--space-2xl);
-  color: var(--color-text-muted);
-  font-size: var(--font-sm);
-  text-align: center;
-}
-
-.automation-editor-detail-empty strong {
-  color: var(--color-text-heading);
-  font-size: var(--font-sm);
 }
 
 .automation-editor-log-viewer {
@@ -185,20 +172,7 @@
   align-items: center;
   gap: var(--space-md);
   color: var(--color-text-muted);
-  font-size: var(--font-xs);
-}
-
-.automation-editor-log-toolbar select {
-  min-width: 0;
-  height: 28px;
-  flex: 1;
-  padding: 0 var(--space-2xl) 0 var(--space-md);
-  color: var(--color-text);
-  background: var(--color-bg-control);
-  border: var(--stroke-thin) solid var(--color-border);
-  border-radius: var(--radius-control);
-  font: inherit;
-  font-size: var(--font-xs);
+  font-size: var(--type-meta-size);
 }
 
 .automation-editor-log-source-detail {
@@ -211,13 +185,13 @@
   color: var(--color-text-muted);
   background: transparent;
   border: 0;
-  font-size: var(--font-xs);
+  font-size: var(--type-meta-size);
   white-space: nowrap;
 }
 
 .automation-editor-log-source-detail > strong {
   color: var(--color-text-heading);
-  font-weight: var(--weight-semibold);
+  font-weight: var(--type-emphasis-weight);
 }
 
 .automation-editor-log-viewer > .execution-log-section {
@@ -294,7 +268,7 @@
   border: 0;
   border-bottom: var(--stroke-thin) solid var(--color-border);
   border-radius: 0;
-  font-size: var(--font-sm);
+  font-size: var(--type-meta-size);
   line-height: var(--line-height-relaxed);
 }
 
@@ -306,13 +280,14 @@
 
 .automation-editor-log-source-issues li strong {
   color: var(--color-text-heading);
+  font-weight: var(--type-emphasis-weight);
 }
 
 .automation-editor-log-source-issues li span {
   overflow-wrap: anywhere;
 }
 
-@container automation-editor-logs (max-width: 900px) {
+@container automation-editor-logs (max-width: 960px) {
   .automation-editor-run-inspector-header {
     gap: var(--space-md);
   }
@@ -328,7 +303,7 @@
 
   .automation-editor-node-data-panes > *:not(:last-child) {
     border-right: 0;
-    border-bottom: var(--stroke-thin) solid var(--color-border-strong);
+    border-bottom: var(--stroke-thin) solid var(--color-border-muted);
   }
 }
 

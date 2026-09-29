@@ -7,6 +7,7 @@ import type {
   AutomationTriggerSourceKind,
 } from './automationTriggerContracts';
 import type {
+  AutomationPanelActionInvocation,
   AutomationRunAdmissionConflict,
   AutomationRunSourceKind,
   AutomationRunTerminationKind,
@@ -44,7 +45,8 @@ export type AutomationExecutionRunSummary = {
   executionModel: 'orchestration-occurrence-v1';
   sourceKind?: AutomationRunSourceKind;
   sourceRef?: PinnedConfigRef<AutomationRunSourceKind>;
-  experimentSelector?: { runMode:string;panelId?:string;presetId?:string };
+  panelAction?: AutomationPanelActionInvocation;
+  experimentSelector?: { runMode:string;placement?:string;panelId?:string;presetId?:string };
   status: AutomationRunStatus;
   terminationKind?: AutomationRunTerminationKind;
   revision: number;
@@ -87,7 +89,7 @@ export type AutomationExecutionHistoryPage = {
 export type AutomationRunControl = Pick<AutomationExecutionRunSummary,'id' | 'revision' | 'status'>;
 export type AutomationRunSummaryView = Pick<
   AutomationExecutionRunSummary,
-  'id' | 'targetId' | 'automationResourceId' | 'actionId' | 'actionVersion' | 'sourceKind' | 'sourceRef' | 'experimentSelector' | 'status' | 'revision' | 'parentRunId' | 'rootRunId' | 'createdAt' | 'startedAt' | 'updatedAt' | 'finishedAt'
+  'id' | 'targetId' | 'automationResourceId' | 'actionId' | 'actionVersion' | 'sourceKind' | 'sourceRef' | 'experimentSelector' | 'panelAction' | 'status' | 'revision' | 'parentRunId' | 'rootRunId' | 'createdAt' | 'startedAt' | 'updatedAt' | 'finishedAt'
 >;
 
 export type AutomationIngressTransitionKind =

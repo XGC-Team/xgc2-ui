@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
-import { fireEvent,render,screen,waitFor } from '@testing-library/react';
+import { act,fireEvent,render,screen,waitFor } from '@testing-library/react';
+import type { CameraVideoObservationPort } from './cameraVideoSurfaceTypes';
 import type { ReactNode } from 'react';
 import { beforeEach,describe,expect,it,vi } from 'vitest';
 import type { ExperimentProcessRuntimeProjection,PanelInstance } from '../../domains/experiment/experimentPublic';
@@ -14,6 +15,7 @@ import {
 } from './GazeboWorldCameraPanelFrame';
 import { ExperimentSurfaceVisibilityProvider } from '../../domains/experiment/experimentPublic';
 import { GazeboWorldCameraWorkspace } from './GazeboWorldCameraWorkspace';
+import { handoverWorkflowStartup } from '../../test/handoverWorkflowStartup';
 import {
   calibrationCameraEmptyState,
   calibrationCameraOwnedProcesses,
@@ -23,28 +25,31 @@ import {
 } from './gazeboWorldCameraWorkspaceModel';
 
 const notificationMocks = vi.hoisted(() => ({ useError:vi.fn() }));
-const cameraVideoMocks = vi.hoisted(() => ({ render:vi.fn() }));
+const cameraVideoMocks = vi.hoisted(() => ({ render:vi.fn(),calibration:vi.fn() }));
 
 vi.mock('../../domains/groundStationInteraction/groundStationInteractionPublic',() => ({
   useGroundStationErrorNotification:notificationMocks.useError,
 }));
 
 vi.mock('./CameraVideoPanel',() => ({
-  CameraVideoPanel:({ panel,connectionEnabled,ownerLifecycle,surfaceVisible }:{
+  CameraVideoPanel:({ panel,connectionEnabled,ownerLifecycle,surfaceVisible,mediaEdgeProcess,onObservationPortChange }:{
     panel:PanelInstance;connectionEnabled:boolean;ownerLifecycle:string;surfaceVisible:boolean;
+    mediaEdgeProcess?:{ targetId:string;instanceId:string };onObservationPortChange?:(port:CameraVideoObservationPort|undefined) => void;
   }) => {
-    cameraVideoMocks.render({ panel,connectionEnabled,ownerLifecycle,surfaceVisible });
+    cameraVideoMocks.render({ panel,connectionEnabled,ownerLifecycle,surfaceVisible,mediaEdgeProcess,onObservationPortChange });
     return <div data-testid={surfaceVisible ? 'world-camera-video':'world-camera-video-lifecycle'}
       data-image-fit={String(panel.options.imageFit)} data-connected={String(connectionEnabled)}
-      data-owner-lifecycle={ownerLifecycle} />;
+      data-owner-lifecycle={ownerLifecycle} data-media-target={mediaEdgeProcess?.targetId}
+      data-media-process={mediaEdgeProcess?.instanceId} />;
   },
 }));
 vi.mock('./CameraExtrinsicCalibrationRuntimePanel',() => ({
-  CameraExtrinsicCalibrationRuntimePanel:({ processInstanceId,liveStage }:{
-    processInstanceId:string;liveStage?:ReactNode;
-  }) => (
-    <div data-testid="extrinsic-runtime" data-process={processInstanceId}>{liveStage}</div>
-  ),
+  CameraExtrinsicCalibrationRuntimePanel:({ processInstanceId,liveStage,observationPort }:{
+    processInstanceId:string;liveStage?:ReactNode;observationPort?:CameraVideoObservationPort;
+  }) => {
+    cameraVideoMocks.calibration(observationPort);
+    return <div data-testid="extrinsic-runtime" data-process={processInstanceId}>{liveStage}</div>;
+  },
 }));
 
 class ResizeObserverStub {
@@ -56,14 +61,19 @@ vi.stubGlobal('ResizeObserver',ResizeObserverStub);
 
 beforeEach(() => {
   notificationMocks.useError.mockReset();
-  cameraVideoMocks.render.mockClear();
+  cameraVideoMocks.render.mockClear();cameraVideoMocks.calibration.mockClear();
+  vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+    callback(0);
+    return 1;
+  });
+  vi.stubGlobal('cancelAnimationFrame', () => undefined);
 });
 
 describe('calibration camera empty state',() => {
   it('keeps a failed camera child on source-failed with primaryError',() => {
     const state = calibrationCameraEmptyState({
       stopping:false,running:false,cameraReady:false,mediaReady:false,runFailed:true,
-      sourceError:'readiness: dial unix /run/xgc2-local-fleet/media/gazebo_world_camera.sock: connect: no such file or directory',
+      sourceError:'readiness: dial unix /run/xgc2-local-swarm/media/gazebo_world_camera.sock: connect: no such file or directory',
       disabledReason:'',
     });
     expect(state.lifecycle).toBe('source-failed');
@@ -128,7 +138,7 @@ describe('GazeboWorldCameraWorkspace ports',() => {
     const panel = panelFixture();
     renderWorkspace(panel,context({ 'camera-service':service }));
     const poseButton = screen.getByRole('button',{ name:'Adjust world camera pose' });
-    expect(poseButton).toBeEnabled();
+    expect(poseButton).toBeDisabled();
     expect(poseButton).toHaveAttribute('data-xgc-available','false');
     expect(poseButton).toHaveAttribute(
       'title',
@@ -142,15 +152,26 @@ describe('GazeboWorldCameraWorkspace ports',() => {
     expect(document.querySelector('[data-xgc-role="gazebo-world-camera-header-leading"]'))
       .toHaveAttribute('data-xgc-id', 'world-camera');
     expect(service.invoke).not.toHaveBeenCalled();
-
     fireEvent.click(poseButton);
-    const editor = screen.getByRole('complementary',{ name:'Adjust world camera pose' });
-    expect(editor).toHaveAttribute('aria-disabled','true');
-    expect(editor).not.toHaveTextContent('Adjust the running Gazebo camera pose without restarting video.');
-    expect(editor.querySelector('[data-xgc-role="gazebo-world-camera-pose-unavailable"]'))
-      .toBeNull();
-    expect(screen.getByRole('button',{ name:'Apply pose' })).toBeDisabled();
-    expect(screen.getByRole('button',{ name:'Apply pose' })).toHaveAttribute('title','Connect the Set camera pose Action port.');
+    expect(screen.queryByRole('complementary',{ name:'Adjust world camera pose' })).toBeNull();
+  });
+
+  it('does not offer Gazebo pose controls while the live image is a USB camera',() => {
+    const service = actionPort('camera-service',{ id:'run-camera',status:'running',revision:1 });
+    const setPose = actionPort('set-pose');
+    renderWorkspace(panelFixture(),context(
+      { 'camera-service':service,'set-pose':setPose },
+      workflowRuntimeWithPhysicalSource(),
+    ));
+    const poseButton = screen.getByRole('button',{ name:'Adjust world camera pose' });
+    expect(poseButton).toBeDisabled();
+    expect(poseButton).toHaveAttribute(
+      'title',
+      'Adjust the running Gazebo camera pose without restarting video. This control moves the Gazebo world camera. Physical and hybrid images come from the USB camera.',
+    );
+    fireEvent.click(poseButton);
+    expect(screen.queryByRole('complementary',{ name:'Adjust world camera pose' })).toBeNull();
+    expect(setPose.invoke).not.toHaveBeenCalled();
   });
 
   it('keeps the same media viewer mounted while the Experiment dashboard is parked',() => {
@@ -172,7 +193,7 @@ describe('GazeboWorldCameraWorkspace ports',() => {
     expect(screen.getByTestId('world-camera-video')).toBe(video);
   });
 
-  it('keeps one workspace and exclusive image branches across Run and Stop transitions',() => {
+  it('keeps one workspace and exclusive image branches across Run and Stop transitions',async() => {
     const panel = panelFixture();
     const renderState = (
       activeInvocation:PanelActionPortRuntime['activeInvocation'] | undefined,
@@ -187,7 +208,7 @@ describe('GazeboWorldCameraWorkspace ports',() => {
       { id:'experiment-start-run-1',status:'running',revision:1 },workflowRuntimeWithMediaEdge(),
     ));
 
-    expectExclusiveImageBranch(view.container,'video');
+    await expectPresentedVideo(view.container);
     expect(view.container.querySelector('[data-xgc-role="gazebo-world-camera-intrinsic-file"]')).toBeNull();
     view.rerender(renderState(
       { id:'experiment-start-run-1',status:'stopping',revision:2 },workflowRuntimeWithMediaEdge(),
@@ -207,7 +228,7 @@ describe('GazeboWorldCameraWorkspace ports',() => {
     view.rerender(renderState(
       { id:'experiment-start-run-1',status:'running',revision:3 },workflowRuntimeWithMediaEdge(),
     ));
-    expectExclusiveImageBranch(view.container,'video');
+    await expectPresentedVideo(view.container);
     expect(view.container.querySelector('[data-xgc-role="gazebo-world-camera-intrinsic-file"]')).toBeNull();
   });
 
@@ -220,7 +241,7 @@ describe('GazeboWorldCameraWorkspace ports',() => {
     first.unmount();
     renderWorkspace(panel,context({ 'camera-service':actionPort('camera-service') },runtime));
     expect(screen.getByTestId('world-camera-video')).toBeInTheDocument();
-    expectExclusiveImageBranch(document.body,'video');
+    expectExclusiveImageBranch(document.body,'overlay');
   });
 
   it('retains the viewer through a transient relation and process projection gap',() => {
@@ -241,7 +262,7 @@ describe('GazeboWorldCameraWorkspace ports',() => {
     </GazeboWorldCameraFrameProvider>);
     expect(screen.getByTestId('world-camera-video')).toBe(viewer);
     expect(screen.queryByText('Calibration camera is stopped')).toBeNull();
-    expectExclusiveImageBranch(view.container,'video');
+    expectExclusiveImageBranch(view.container,'overlay');
   });
 
   it('removes the viewer only for an explicit stop and keeps branches exclusive',() => {
@@ -262,7 +283,7 @@ describe('GazeboWorldCameraWorkspace ports',() => {
       .toHaveAttribute('data-state','stopping');
   });
 
-  it('mounts the viewer only after the workflow-owned Media Edge is ready',() => {
+  it('mounts the viewer only after the workflow-owned Media Edge is ready',async() => {
     const panel = panelFixture();
     const service = actionPort('camera-service',{ id:'run-camera',status:'running',revision:1 });
     const view = renderWorkspace(panel,context({ 'camera-service':service },workflowRuntimeWithReadyCamera()));
@@ -274,7 +295,7 @@ describe('GazeboWorldCameraWorkspace ports',() => {
       <GazeboWorldCameraWorkspace panel={panel}
         context={context({ 'camera-service':service },workflowRuntimeWithMediaEdge())} />
     </GazeboWorldCameraFrameProvider>);
-    expectExclusiveImageBranch(view.container,'video');
+    await expectPresentedVideo(view.container);
   });
 
   it('waits for the camera source before Media Edge',() => {
@@ -299,7 +320,7 @@ describe('GazeboWorldCameraWorkspace ports',() => {
   });
 
   it('routes the camera child primaryError to notifications instead of panel content',() => {
-    const error = 'readiness: dial unix /run/xgc2-local-fleet/media/gazebo_world_camera.sock: connect: no such file or directory';
+    const error = 'readiness: dial unix /run/xgc2-local-swarm/media/gazebo_world_camera.sock: connect: no such file or directory';
     renderWorkspace(panelFixture(),context({ 'camera-service':actionPort('camera-service') },workflowRuntimeWithFailedCamera()));
     expect(screen.queryByTestId('world-camera-video')).toBeNull();
     expect(document.querySelector('[data-xgc-camera-lifecycle="source-failed"]')).toBeTruthy();
@@ -337,13 +358,19 @@ describe('GazeboWorldCameraWorkspace ports',() => {
     expect(screen.getByTestId('world-camera-video')).toBeInTheDocument();
   });
 
+  it('letterboxes the live world-camera stream instead of cropping it',() => {
+    const service = actionPort('camera-service',{ id:'run-camera',status:'running',revision:1 });
+    renderWorkspace(panelFixture(),context({ 'camera-service':service },workflowRuntimeWithMediaEdge()));
+    expect(screen.getByTestId('world-camera-video')).toHaveAttribute('data-image-fit', 'contain');
+  });
+
   it('sends edited pose values only through the set-pose Action port',async () => {
     const service = actionPort('camera-service',{ id:'run-camera',status:'running',revision:1 });
     const setPose = actionPort('set-pose');
     const panel = panelFixture();
     renderWorkspace(panel,context({ 'camera-service':service,'set-pose':setPose },workflowRuntimeWithMediaEdge()));
     expect(screen.getByTestId('world-camera-video')).toBeInTheDocument();
-    expect(screen.getByTestId('world-camera-video')).toHaveAttribute('data-image-fit', 'cover');
+    expect(screen.getByTestId('world-camera-video')).toHaveAttribute('data-image-fit', 'contain');
     fireEvent.click(screen.getByRole('button',{ name:'Adjust world camera pose' }));
     fireEvent.click(screen.getByRole('button',{ name:/Apply/ }));
     await waitFor(() => expect(setPose.invoke).toHaveBeenCalledWith(
@@ -372,6 +399,7 @@ describe('GazeboWorldCameraWorkspace ports',() => {
     expect(screen.queryByTestId('world-camera-video')).toBeNull();
     expect(cameraVideoMocks.render).toHaveBeenCalledWith(expect.objectContaining({
       ownerLifecycle:'stopping',surfaceVisible:false,connectionEnabled:false,
+      mediaEdgeProcess:{ targetId:'local',instanceId:'media-edge-process' },
     }));
     expectExclusiveImageBranch(view.container,'empty');
     expect(document.querySelector('[data-xgc-role="gazebo-world-camera-empty-state"]'))
@@ -427,6 +455,7 @@ describe('GazeboWorldCameraWorkspace ports',() => {
     expect(screen.queryByTestId('world-camera-video')).toBeNull();
     expect(cameraVideoMocks.render).toHaveBeenCalledWith(expect.objectContaining({
       ownerLifecycle:'stopping',surfaceVisible:false,connectionEnabled:false,
+      mediaEdgeProcess:{ targetId:'local',instanceId:'media-edge-process' },
     }));
     expectExclusiveImageBranch(view.container,'empty');
 
@@ -490,6 +519,45 @@ describe('GazeboWorldCameraWorkspace ports',() => {
     );
     expect(dialog).toHaveClass('gazebo-world-camera-calibration-dialog');
     expect(dialog?.parentElement).toHaveClass('gazebo-world-camera-calibration-backdrop');
+    expect(dialog?.querySelector('[data-testid="world-camera-video"]')).toHaveAttribute('data-image-fit','contain');
+    expect(dialog?.querySelector('[data-testid="world-camera-video"]'))
+      .toHaveAttribute('data-media-process','media-edge-process');
+    expect(dialog?.querySelector('[data-testid="world-camera-video"]'))
+      .toHaveAttribute('data-media-target','local');
+    // The dialog covers the workspace and owns the only session for this source.
+    const background='[data-xgc-role="gazebo-world-camera-image-view"] [data-testid^="world-camera-video"]';
+    expect(document.querySelector(background)).toHaveAttribute('data-testid','world-camera-video-lifecycle');
+    expect(document.querySelector(background)).toHaveAttribute('data-media-process','media-edge-process');
+    fireEvent.click(screen.getByRole('button',{ name:'Close extrinsic calibration' }));
+    expect(document.querySelector(background)).toHaveAttribute('data-testid','world-camera-video');
+    expect(document.querySelector(background)).toHaveAttribute('data-image-fit','contain');
+  });
+
+  it('opts only the calibration viewer into displayed-frame observation and forwards its exact port',() => {
+    const service=actionPort('camera-service',{ id:'experiment-start-run-1',status:'running',revision:1 });
+    renderWorkspace(panelFixture(),context({ 'camera-service':service },workflowRuntimeWithCalibrator()));
+    expect(cameraVideoMocks.render.mock.calls.every(([props]) => props.onObservationPortChange===undefined)).toBe(true);
+    fireEvent.click(screen.getByRole('button',{ name:'Open extrinsic calibration' }));
+    const calibration=cameraVideoMocks.render.mock.calls.filter(([props]) => props.panel.id==='world-camera:extrinsic').at(-1)![0];
+    expect(calibration.onObservationPortChange).toEqual(expect.any(Function));
+    expect(cameraVideoMocks.render.mock.calls.filter(([props]) => props.panel.id!=='world-camera:extrinsic').every(([props]) => props.onObservationPortChange===undefined)).toBe(true);
+    const port:CameraVideoObservationPort={ sourceId:'front',sourceEpoch:'epoch-a',latch:vi.fn() };
+    act(() => calibration.onObservationPortChange(port));expect(cameraVideoMocks.calibration).toHaveBeenLastCalledWith(port);
+    act(() => calibration.onObservationPortChange(undefined));expect(cameraVideoMocks.calibration).toHaveBeenLastCalledWith(undefined);
+  });
+
+  it('keeps extrinsic video in station mode when its media owner is missing',() => {
+    const service=actionPort('camera-service',{ id:'experiment-start-run-1',status:'running',revision:1 });
+    const runtime=workflowRuntimeWithCalibrator();
+    runtime.processInstances=runtime.processInstances.filter((process) => process.definitionId!=='xgc-media-edge');
+    runtime.processInstances.push(processInstance('unrelated-media','xgc-media-edge','unrelated-run',{
+      desiredState:'running',observedState:'running',readiness:{ status:'passing' },
+    }));
+    renderWorkspace(panelFixture(),context({ 'camera-service':service },runtime));
+    fireEvent.click(screen.getByRole('button',{ name:'Open extrinsic calibration' }));
+    const video=screen.getByTestId('extrinsic-runtime').querySelector('[data-testid="world-camera-video"]');
+    expect(video).toHaveAttribute('data-media-target','local');
+    expect(video).toHaveAttribute('data-media-process','');
   });
 });
 
@@ -500,7 +568,7 @@ function renderWorkspace(panel:PanelInstance,contextValue:PanelPluginContext) {
     <GazeboWorldCameraWorkspace panel={panel} context={contextValue} />
   </GazeboWorldCameraFrameProvider>);
 }
-function expectExclusiveImageBranch(container:HTMLElement,expected:'empty'|'video') {
+function expectExclusiveImageBranch(container:HTMLElement,expected:'empty'|'video'|'overlay') {
   expect(container.querySelectorAll(
     '[data-xgc-role="gazebo-world-camera-workspace"][data-xgc-id="world-camera"]',
   )).toHaveLength(1);
@@ -511,11 +579,19 @@ function expectExclusiveImageBranch(container:HTMLElement,expected:'empty'|'vide
   const empty = imageView!.querySelectorAll('[data-xgc-role="gazebo-world-camera-empty-state"]');
   const video = imageView!.querySelectorAll('[data-testid="world-camera-video"]');
   expect({ empty:empty.length,video:video.length }).toEqual(
-    expected === 'empty' ? { empty:1,video:0 } : { empty:0,video:1 },
+    expected === 'empty' ? { empty:1,video:0 }
+      : expected === 'overlay' ? { empty:1,video:1 }
+      : { empty:0,video:1 },
   );
   if (expected === 'empty') {
     expect(empty[0]).toHaveAttribute('data-xgc-id', 'world-camera');
   }
+}
+
+async function expectPresentedVideo(container:HTMLElement) {
+  expectExclusiveImageBranch(container,'overlay');
+  await handoverWorkflowStartup('gazebo-world-camera-empty-state');
+  expectExclusiveImageBranch(container,'video');
 }
 function panelFixture():PanelInstance {
   return { id:'world-camera',pluginId:'gazebo-world-camera',title:'World camera',gridPos:{ x:0,y:0,w:8,h:6 },
@@ -562,7 +638,7 @@ function workflowRuntimeWithFailedCamera() {
   runtime.runDetailsById['run-camera'] = {
     invocations:[],nodeSummaries:[{
       runId:'run-camera',nodeId:'camera',kind:'process.run-definition',status:'failed',
-      error:'readiness: dial unix /run/xgc2-local-fleet/media/gazebo_world_camera.sock: connect: no such file or directory',
+      error:'readiness: dial unix /run/xgc2-local-swarm/media/gazebo_world_camera.sock: connect: no such file or directory',
       occurrenceCount:1,activeOccurrenceCount:0,completedOccurrenceCount:0,failedOccurrenceCount:1,
       attemptCount:1,updatedAt:'u',revision:1,
     }],loading:false,error:'',
@@ -573,7 +649,7 @@ function workflowRuntimeWithFailedCamera() {
       executionModel:'orchestration-occurrence-v1',sourceKind:'experiment',
       sourceRef:{ domain:'experiment',resourceId:'experiment-1',branch:'main',commitId:'commit-1',version:1,digest:'d'.repeat(64) },
       status:'failed',revision:1,parameters:{},terminationKind:'failed',
-      primaryError:'readiness: dial unix /run/xgc2-local-fleet/media/gazebo_world_camera.sock: connect: no such file or directory',
+      primaryError:'readiness: dial unix /run/xgc2-local-swarm/media/gazebo_world_camera.sock: connect: no such file or directory',
       parentRunId:'experiment-start-run-1',admissionMode:'limited',admissionScope:'root',
       rootRunId:'experiment-start-run-1',depth:1,correlationId:'run-camera',
       acceptedAt:'t',createdAt:'t',updatedAt:'u',finishedAt:'u',
@@ -582,7 +658,7 @@ function workflowRuntimeWithFailedCamera() {
   runtime.processInstances[0] = {
     ...runtime.processInstances[0]!,desiredState:'stopped',observedState:'stopped',
     readiness:{ status:'unknown' },
-    lastError:'readiness: dial unix /run/xgc2-local-fleet/media/gazebo_world_camera.sock: connect: no such file or directory',
+    lastError:'readiness: dial unix /run/xgc2-local-swarm/media/gazebo_world_camera.sock: connect: no such file or directory',
     updatedAt:'u',
   };
   return runtime;

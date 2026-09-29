@@ -451,18 +451,18 @@ function AutomationNodeParameterFields({
   const basicParameters = parameterEntries.filter(([name]) => !groupedParameterNames.has(name)
     && !(node.kind === 'ros1.record-bag' && rosBagCustomNames.has(name)));
   const rosBagLeadingNames = new Set(['assetResourceId','componentId','recordingProfile']);
-  const rosBagTrailingOrder = new Map([['includeMotionCapture',0],['cameraTopicRoots',1]]);
+  const rosBagTrailingOrder = new Map([['includeMotionCapture',0],['cameras',1],['excludedTopics',2]]);
   const showRosBagCameraTopics = values.recordingProfile === 'camera_scientific'
     || (node.parameterBindings ?? []).some((binding) => (
       binding.target === parameterBindingTarget(parameterPath, 'recordingProfile')
-      || binding.target === parameterBindingTarget(parameterPath, 'cameraTopicRoots')
+      || binding.target === parameterBindingTarget(parameterPath, 'cameras')
     ));
   const leadingParameters = node.kind === 'ros1.record-bag'
     ? basicParameters.filter(([name]) => rosBagLeadingNames.has(name))
     : basicParameters;
   const trailingParameters = node.kind === 'ros1.record-bag'
     ? basicParameters
-      .filter(([name]) => !rosBagLeadingNames.has(name) && (name !== 'cameraTopicRoots' || showRosBagCameraTopics))
+      .filter(([name]) => !rosBagLeadingNames.has(name) && (name !== 'cameras' || showRosBagCameraTopics))
       .sort(([left], [right]) => (
         (rosBagTrailingOrder.get(left) ?? 100) - (rosBagTrailingOrder.get(right) ?? 100)
       ))
@@ -516,6 +516,13 @@ function AutomationNodeParameterFields({
   );
 }
 
+// The Gazebo world camera's scientific record: its own encoded stream plus the
+// timing, calibration and transform topics. Authors edit or extend the list.
+const GAZEBO_WORLD_CAMERA_RECORD_SET = {
+  root: '/xgc/camera/world',
+  topics: ['video','video_h264','image_raw/compressed','camera_info','frame_timing','stream_info','tf'],
+};
+
 function rosBagRecordingProfilePatch(
   profile: 'general' | 'camera_scientific',
   values: Record<string,unknown>,
@@ -523,7 +530,7 @@ function rosBagRecordingProfilePatch(
   if (profile === 'general') {
     return {
       recordingProfile: profile,
-      cameraTopicRoots: [],
+      cameras: [],
       expectedDurationMinutes: 60,
       estimatedVideoBitrateMbps: 0,
       capacitySafetyFactor: 1.25,
@@ -533,21 +540,26 @@ function rosBagRecordingProfilePatch(
       compression: 'lz4',
     };
   }
-  const cameraTopicRoots = Array.isArray(values.cameraTopicRoots)
-    && values.cameraTopicRoots.some((value) => typeof value === 'string' && value.trim())
-    ? values.cameraTopicRoots
-    : ['/xgc/camera/world'];
+  const cameras = Array.isArray(values.cameras) && values.cameras.some(isAuthoredROSBagCamera)
+    ? values.cameras
+    : [structuredClone(GAZEBO_WORLD_CAMERA_RECORD_SET)];
   return {
     recordingProfile: profile,
-    cameraTopicRoots,
+    cameras,
     expectedDurationMinutes: 60,
     estimatedVideoBitrateMbps: 24,
     capacitySafetyFactor: 1.25,
-    splitSizeMiB: 2048,
+    splitSizeMiB: 5120,
     maxSplits: 8,
     minFreeSpaceGiB: 4,
     compression: 'none',
   };
+}
+
+function isAuthoredROSBagCamera(value: unknown) {
+  return isAutomationParameterRecord(value)
+    && typeof value.root === 'string' && value.root.trim() !== ''
+    && Array.isArray(value.topics) && value.topics.length > 0;
 }
 
 function automationParameterOrder(property: Record<string,unknown>) {
@@ -583,8 +595,8 @@ function scheduleParameterDescriptors(
     },
     {
       name: 'timezone',
-      property: { type: 'string',title: t('Timezone'),placeholder: 'Asia/Shanghai' },
-      value: typeof parameters.timezone === 'string' ? parameters.timezone : 'UTC',
+      property: { type: 'string',title: t('Timezone'),placeholder: 'system' },
+      value: typeof parameters.timezone === 'string' ? parameters.timezone : 'system',
     },
   ];
 }

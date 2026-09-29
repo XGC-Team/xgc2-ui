@@ -30,11 +30,7 @@ export type PanelWorkflowRunTreeSelectorOption = {
   depth:number;
 };
 
-export type RunRelationHydrationKey = {
-  runId:string;
-  runRevision:number;
-  relationRevision:number;
-};
+
 
 /** Detached, abandoned, or remote targetRoot children are disconnected — do not hydrate or render. */
 export function isDisconnectedChildRun(child:Pick<
@@ -118,38 +114,6 @@ export function panelWorkflowRunTreeSelectorOptions(
   };
   nodes.forEach((node) => append(node,0));
   return options;
-}
-
-/** Children of already-loaded run details that still need a generic loadRunDetail. */
-export function runRelationChildrenToHydrate(
-  detailsById:Readonly<Record<string,AutomationRunDetail>>,
-  rootRunIds:readonly string[],
-):RunRelationHydrationKey[] {
-  const keys:RunRelationHydrationKey[] = [];
-  const seen = new Set<string>();
-  const visited=new Set<string>();
-  const queue=rootRunIds.map((runId) => runId.trim()).filter(Boolean);
-  while (queue.length>0) {
-    const parentRunId=queue.shift()!;
-    if (visited.has(parentRunId)) continue;
-    visited.add(parentRunId);
-    const detail=detailsById[parentRunId];
-    detail?.relations?.childRuns.forEach((child) => {
-      if (isDisconnectedChildRun(child) || !child.boundAt) return;
-      const runRevision = child.runRevision;
-      const relationRevision = child.revision;
-      if (!Number.isSafeInteger(runRevision) || (runRevision ?? 0) < 1) return;
-      if (!Number.isSafeInteger(relationRevision) || relationRevision < 1) return;
-      const runId = child.childRunId.trim();
-      if (!runId || seen.has(runId)) return;
-      seen.add(runId);
-      queue.push(runId);
-      const loaded=detailsById[runId];
-      if (loaded?.loading || (loaded?.run && loaded.run.revision>=runRevision! && loaded.relations)) return;
-      keys.push({ runId,runRevision:runRevision!,relationRevision });
-    });
-  }
-  return keys;
 }
 
 function projectNode(

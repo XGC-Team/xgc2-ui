@@ -1,3 +1,5 @@
+import { formatOperatorDateTime } from '../../shared/operatorTime';
+
 export function formatBytes(bytes: number) {
   if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
   const units = ['B','KB','MB','GB','TB'];
@@ -13,8 +15,7 @@ export function formatByteRate(bytesPerSecond: number) {
 
 export function formatDateTime(value: string) {
   if (!value) return '-';
-  const time = new Date(value);
-  return Number.isNaN(time.getTime()) ? value : time.toLocaleString();
+  return formatOperatorDateTime(value);
 }
 
 /**

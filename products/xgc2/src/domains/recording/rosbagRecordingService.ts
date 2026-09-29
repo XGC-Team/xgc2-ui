@@ -9,6 +9,10 @@ export type ROSBagRecording = {
   size: number;
   createdAt: string;
   experimentId?: string;
+  experimentName?: string;
+  recordingId?: string;
+  runMode?: string;
+  timeSource?: 'recorder' | 'session';
   sessionId?: string;
   bindingId?: string;
   startedAt?: string;
@@ -57,6 +61,13 @@ export function rosbagRecordingDownloadPath(id: string) {
 
 export function downloadROSBagRecording(id: string,signal?: AbortSignal): Promise<Blob> {
   return requestBlob(`/recordings/rosbags/${encodeURIComponent(id)}/download`,{ signal });
+}
+
+export function deleteROSBagRecording(id: string,signal?: AbortSignal): Promise<{ deleted: string }> {
+  return request<{ deleted: string }>(
+    `/recordings/rosbags/${encodeURIComponent(id)}`,
+    { method:'DELETE',signal },
+  );
 }
 
 export type ROSBagPlotTopic = {

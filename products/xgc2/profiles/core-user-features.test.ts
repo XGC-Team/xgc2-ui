@@ -1,4 +1,5 @@
 import { describe,expect,it } from 'vitest';
+import { productSurfaceSupportedByCapabilities } from '../src/app/productSurfacePolicy';
 import {
   ProductWebEntry as coreDevProductWebEntry,
   productWebComposition as coreDevComposition,
@@ -50,55 +51,62 @@ import {
 } from '../src/domains/robot/robotAssetPublic';
 import { unitreeB2RobotAssetKindContribution } from '../src/domains/robot/kinds/unitree-b2';
 
-function homeCardIds(composition: typeof coreDevComposition) {
-  return composition.home?.cards.map((card) => card.id) ?? [];
-}
-
-function hasHomeRoute(composition: typeof coreDevComposition) {
-  return composition.routes.some((route) => route.page === 'home');
-}
-
-function hasHomeNav(composition: typeof coreDevComposition) {
-  return composition.navigation.primary.some((item) => item.id === 'home');
-}
-
 describe('createCoreUserFeatureComposition factory', () => {
-  it('omits Home route/nav/home and defaults to experiment when home is not provided', () => {
+  it('admits the venue catalog with the robot-assets capability Core already advertises', () => {
+    const coreCapabilities = ['product.robot-assets','robot.read'];
+    for (const composition of [coreDevComposition,coreReleaseComposition]) {
+      const route = composition.routes.find((item) => item.page === 'venueAssets');
+      expect(route).toBeDefined();
+      expect(productSurfaceSupportedByCapabilities(route!.surface, coreCapabilities)).toBe(true);
+      expect(composition.navigation.primary.map((item) => item.id)).toEqual([
+        'experiment','robotAssets','venueAssets','automations','sharing',
+      ]);
+    }
+  });
+
+  it('admits sharing with the existing settings capability advertised by Core', () => {
+    // /api/cores advertises product.settings + access.manage; product.sharing
+    // does not exist. Check the actual navigation filter, not route existence.
+    const coreCapabilities = ['product.settings','access.manage'];
+    for (const composition of [coreDevComposition,coreReleaseComposition]) {
+      const route = composition.routes.find((item) => item.page === 'sharing');
+      expect(route).toBeDefined();
+      expect(route!.surface.targetCapabilities).toEqual(['access.manage']);
+      expect(productSurfaceSupportedByCapabilities(route!.surface, coreCapabilities)).toBe(true);
+      expect(productSurfaceSupportedByCapabilities(route!.surface, ['access.manage'])).toBe(false);
+      expect(route!.surface.remoteManagedHostAdmission({})).toBe(false);
+      expect(composition.navigation.primary.some((item) => item.id === 'sharing')).toBe(true);
+    }
+  });
+
+  it('defaults to Experiment as the landing route', () => {
     const composition = createCoreUserFeatureComposition({
-      id: 'factory-without-home',
+      id: 'factory-default-landing',
       agentLinkComputeTargets: true,
     });
 
-    expect(composition.id).toBe('factory-without-home');
-    expect(composition.home).toBeUndefined();
-    expect(hasHomeRoute(composition)).toBe(false);
-    expect(hasHomeNav(composition)).toBe(false);
+    expect(composition.id).toBe('factory-default-landing');
     expect(composition.navigation.defaultPage).toBe('experiment');
     expect(composition.routes[0]?.page).toBe('experiment');
   });
 
   it('contributes Tools settings only when Mark Prompt is composed', () => {
     expect(coreDevComposition.settings.sections.map((section) => section.id))
-      .toEqual(['appearance','field-tooltips','tools','agent-providers']);
+      .toEqual(['device-sign-in','appearance','time','field-tooltips','tools','agent-providers']);
     expect(coreReleaseComposition.settings.sections.map((section) => section.id))
-      .toEqual(['appearance','field-tooltips','agent-providers']);
+      .toEqual(['device-sign-in','appearance','time','field-tooltips','agent-providers']);
     expect(createCoreUserFeatureComposition({
       id: 'factory-without-mark-prompt',
       agentLinkComputeTargets: true,
-    }).settings.sections.map((section) => section.id)).toEqual(['appearance','field-tooltips','agent-providers']);
+    }).settings.sections.map((section) => section.id)).toEqual(['device-sign-in','appearance','time','field-tooltips','agent-providers']);
   });
 
-  it('core-dev and core-release include Home route/nav and both card owners', () => {
+  it('core-dev and core-release land on Experiment with no Home route or nav item', () => {
     for (const composition of [coreDevComposition,coreReleaseComposition]) {
-      expect(composition.home).toBeDefined();
-      expect(hasHomeRoute(composition)).toBe(true);
-      expect(hasHomeNav(composition)).toBe(true);
-      expect(composition.navigation.defaultPage).toBe('home');
-      expect(composition.routes[0]?.page).toBe('home');
-      expect(homeCardIds(composition)).toEqual(['recording-library']);
-      expect(composition.home?.cards.map((card) => card.owner)).toEqual([
-        'Home.RecordingLibrary',
-      ]);
+      expect(composition.navigation.defaultPage).toBe('experiment');
+      expect(composition.routes[0]?.page).toBe('experiment');
+      expect(composition.routes.map((route) => route.page as string)).not.toContain('home');
+      expect(composition.navigation.primary.map((item) => item.id as string)).not.toContain('home');
     }
   });
 

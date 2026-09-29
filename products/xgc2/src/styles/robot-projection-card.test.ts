@@ -17,7 +17,8 @@ describe('robot projection card hover overlay', () => {
     expect(css).toContain('.robot-instrument-detail-row {');
     expect(css).toContain('display: grid;');
     expect(css).not.toMatch(/\.robot-instrument-detail-row \{[^}]*display:\s*contents/s);
-    expect(css).toContain('font-family: var(--font-mono);');
+    expect(css).not.toContain('font-family: var(--font-mono)');
+    expect(css).toContain('font-family: var(--font-sans);');
     expect(css).toContain('color: var(--color-text-muted);');
   });
 });

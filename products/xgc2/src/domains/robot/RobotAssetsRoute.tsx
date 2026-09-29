@@ -22,7 +22,7 @@ import './robot-assets.css';
 const ROBOT_ASSET_SORT_MODE_STORAGE_KEY = 'xgc.robot.catalog.local.sortMode';
 
 export function RobotAssetsRoute() {
-  const nav = useNavigation();
+  const nav = useNavigation((state) => ({ page: state.page }));
   const {
     resourceId,
     open: openLocation,
@@ -128,6 +128,7 @@ export function RobotAssetsRoute() {
       />
       {editor && (
         <RobotAssetConfigDrawer
+          key={editor === 'new' ? 'new' : editor.branch.headCommitId}
           document={editor === 'new' ? undefined : editor}
           assets={store.assets}
           onClose={() => {

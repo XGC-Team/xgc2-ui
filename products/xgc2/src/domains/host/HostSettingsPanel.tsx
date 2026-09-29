@@ -1,14 +1,11 @@
 import { useCallback,useEffect,useMemo,useRef,useState } from 'react';
 import { Notice,useTextPromptDialog } from '@xgc2/ui-react';
-import { RefreshCw } from 'lucide-react';
 import { ConfigSection } from '../../components/ConfigSection';
-import { ControlButton } from '../../components/controls/ControlButton';
 import { SelectControl } from '../../components/controls/SelectControl';
 import { FormField,SwitchControl } from '../../components/FormPrimitives';
 import { InputControl } from '../../components/controls/TextControls';
 import { useHostTask } from './useHostTask';
 import { useDeferSystemTabReady } from './hostSystemTabSurface';
-import { useDeferRouteReady } from '../../shared/routeReady';
 import { useHostText } from './hostMessages';
 import { executionTargetKeyForCore } from '../execution/executionPublic';
 import { useGroundStationErrorNotification } from '../groundStationInteraction/groundStationInteractionPublic';
@@ -44,7 +41,6 @@ const idleOptions = [
 type HostSettingsPanelProps = {
   apiTarget: ApiTargetOptions;
   actionsEnabled: boolean;
-  presentation?: 'section' | 'performance';
 };
 
 export function HostSettingsPanel(props: HostSettingsPanelProps) {
@@ -53,7 +49,7 @@ export function HostSettingsPanel(props: HostSettingsPanelProps) {
   return <HostSettingsContent key={key} {...props} />;
 }
 
-function HostSettingsContent({ apiTarget: target,actionsEnabled,presentation = 'section' }: HostSettingsPanelProps) {
+function HostSettingsContent({ apiTarget: target,actionsEnabled }: HostSettingsPanelProps) {
   const { targetCoreId,managedHostId,auth,timeoutMs } = target;
   const apiTarget = useMemo<ApiTargetOptions>(() => ({
     ...(targetCoreId ? { targetCoreId } : {}),
@@ -77,7 +73,6 @@ function HostSettingsContent({ apiTarget: target,actionsEnabled,presentation = '
   const { run } = task;
   const waitingForSettings = settings === null && !error;
   useDeferSystemTabReady(waitingForSettings);
-  useDeferRouteReady(presentation === 'performance' && waitingForSettings);
   busyRef.current = task.isBusy();
   settingsRef.current = settings;
 
@@ -229,36 +224,18 @@ function HostSettingsContent({ apiTarget: target,actionsEnabled,presentation = '
   },[draft?.timezone]);
 
   const disabled = task.isBusy() || !actionsEnabled;
-  const performanceRole = presentation === 'performance' ? 'maintenance-performance-mode' : 'system-host-settings-governor';
   const performance = (
-    <FormField className={presentation === 'performance' ? 'xgc-host-performance-field' : undefined} label={t('Performance mode')} dataXgcRole={`${performanceRole}-field`} dataXgcId={`${performanceRole}-field`}>
+    <FormField label={t('Performance mode')} dataXgcRole="system-host-settings-governor-field" dataXgcId="system-host-settings-governor-field">
       <SelectControl
         value={draft?.cpuGovernor || ''}
         options={governorOptions.length > 0 ? governorOptions : [{ value: '',label: waitingForSettings ? '—' : t('Unavailable') }]}
         ariaLabel={t('Performance mode')}
-        dataXgcRole={performanceRole} dataXgcId={performanceRole}
-        size={presentation === 'performance' ? 'compact' : 'default'}
+        dataXgcRole="system-host-settings-governor" dataXgcId="system-host-settings-governor"
         fill
         disabled={disabled || !draft?.availableGovernors?.length}
         onChange={(value) => { if (draft) void applyField({ ...draft,cpuGovernor: value },'cpuGovernor'); }}
       />
     </FormField>
-  );
-
-  if (presentation === 'performance') return (
-    <div className="xgc-host-performance-control" data-xgc-role="maintenance-performance" data-xgc-id="maintenance-performance" aria-busy={task.isBusy() || undefined}>
-      {performance}
-      <ControlButton
-        iconOnly
-        size="compact"
-        title={t('Refresh performance mode')}
-        aria-label={t('Refresh performance mode')}
-        dataXgcRole="maintenance-performance-refresh" dataXgcId="maintenance-performance"
-        disabled={disabled}
-        onClick={() => void load()}
-      ><RefreshCw size={14} aria-hidden="true" /></ControlButton>
-      {passwordDialog}
-    </div>
   );
 
   return (

@@ -18,7 +18,7 @@ afterEach(() => { cleanup(); window.history.replaceState(null, '', '/'); });
 describe('Experiment source navigation', () => {
   it('replaces a parked location through its owner before the page restore runs', async () => {
     const hook = renderHook(({ page }) => useExperimentLocation(page, 'agent-a'), { initialProps: { page: 'experiment' } });
-    hook.rerender({ page: 'home' });
+    hook.rerender({ page: 'robotAssets' });
     window.history.replaceState(null, '', '/');
     await act(async () => {
       const result = await openExperimentSourceLocation({ targetId: 'agent-a',resourceId: 'requested',preferActivity: true }, () => {
@@ -31,7 +31,7 @@ describe('Experiment source navigation', () => {
     expect(hook.result.current.selectedDashboardId).toBe('activity');
     expect(window.location.hash).toBe('#/experiments/requested/activity');
     expect(readStoredExperimentLocation()).toEqual({ resourceId: 'requested',dashboardId: 'activity' });
-    hook.rerender({ page: 'home' });
+    hook.rerender({ page: 'robotAssets' });
     window.history.replaceState(null, '', '/');
     hook.rerender({ page: 'experiment' });
     expect(window.location.hash).toBe('#/experiments/requested/activity');
@@ -48,7 +48,7 @@ describe('Experiment source navigation', () => {
   });
 
   it('preserves the parked location when the source or dashboard no longer exists', async () => {
-    const hook = renderHook(() => useExperimentLocation('home', 'agent-a'));
+    const hook = renderHook(() => useExperimentLocation('robotAssets', 'agent-a'));
     const activate = vi.fn();
     await act(async () => {
       expect(await openExperimentSourceLocation({ targetId: 'agent-a',resourceId: 'requested',dashboardId: 'deleted' }, activate)).toBe(false);
@@ -63,7 +63,7 @@ describe('Experiment source navigation', () => {
   });
 
   it('rejects an unrelated target without reading the source', async () => {
-    renderHook(() => useExperimentLocation('home', 'agent-b'));
+    renderHook(() => useExperimentLocation('robotAssets', 'agent-b'));
     await expect(openExperimentSourceLocation({ targetId: 'agent-a',resourceId: 'requested' }, vi.fn())).resolves.toBe(false);
     expect(getExperiment).not.toHaveBeenCalled();
   });
@@ -71,7 +71,7 @@ describe('Experiment source navigation', () => {
   it('cancels a late source read when the execution target changes', async () => {
     let resolve!: (value: ExperimentDocument) => void;
     vi.mocked(getExperiment).mockReturnValueOnce(new Promise((done) => { resolve = done; }));
-    const hook = renderHook(({ targetId }) => useExperimentLocation('home', targetId), { initialProps: { targetId: 'agent-a' } });
+    const hook = renderHook(({ targetId }) => useExperimentLocation('robotAssets', targetId), { initialProps: { targetId: 'agent-a' } });
     const activate = vi.fn();
     const pending = openExperimentSourceLocation({ targetId: 'agent-a',resourceId: 'late' }, activate);
     await act(async () => { await Promise.resolve(); });

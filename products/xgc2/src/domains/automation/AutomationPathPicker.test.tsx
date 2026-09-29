@@ -47,6 +47,41 @@ describe('AutomationPathPicker', () => {
     expect(onSelect).toHaveBeenCalledWith('/opt/rviz/lab.rviz');
   });
 
+  it('keeps folder and timestamped YAML names on the marked entry host', async () => {
+    vi.mocked(listAutomationTargetFiles).mockResolvedValue({
+      path: '/calibration/phy/usb_cam',
+      parent: '/calibration/phy',
+      entries: [
+        { name: 'validation',path: '/calibration/phy/usb_cam/validation',isDir: true },
+        { name: 'captures',path: '/calibration/phy/usb_cam/captures',isDir: true },
+        {
+          name: 'intrinsics-20260904T021713.263963Z.yaml',
+          path: '/calibration/phy/usb_cam/intrinsics-20260904T021713.263963Z.yaml',
+          isDir: false,
+        },
+      ],
+    });
+    const { container } = render(<AutomationPathPicker
+      targetId="local"
+      kind="file"
+      fileExtensions={['.yaml']}
+      value="/calibration/phy/usb_cam/intrinsics-20260904T021713.263963Z.yaml"
+      onSelect={vi.fn()}
+      onClose={vi.fn()}
+    />);
+
+    await waitFor(() => expect(listAutomationTargetFiles).toHaveBeenCalledWith('local', '/calibration/phy/usb_cam'));
+    const validation = screen.getByRole('button', { name: 'validation' });
+    const captures = screen.getByRole('button', { name: 'captures' });
+    const yaml = screen.getByRole('button', { name: 'intrinsics-20260904T021713.263963Z.yaml' });
+    expect(validation).toHaveAttribute('data-xgc-role', 'automation-path-picker-entry');
+    expect(validation).toHaveAttribute('data-xgc-kind', 'directory');
+    expect(captures).toHaveAttribute('data-xgc-kind', 'directory');
+    expect(yaml).toHaveAttribute('data-xgc-role', 'automation-path-picker-entry');
+    expect(yaml).toHaveClass('automation-path-picker-entry');
+    expect(container.querySelectorAll('[data-xgc-role="automation-path-picker-entry"]')).toHaveLength(3);
+  });
+
   it('keeps Gazebo world selection with scene preview on the world variant only', async () => {
     vi.mocked(listAutomationTargetFiles).mockResolvedValue({
       path: '/opt/ros/noetic/share/worlds',

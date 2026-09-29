@@ -36,17 +36,17 @@ beforeEach(() => {
 });
 
 describe('global interaction attention', () => {
-  it('keeps the pending request reachable without a popup covering the open drawer', () => {
+  it('keeps the pending request reachable without a popup covering the open drawer', async () => {
     renderSurface();
     expect(document.querySelector('[data-xgc-role="ground-station-interaction-toast"]')).not.toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'View and handle' }));
     expect(document.querySelector('[data-xgc-role="ground-station-interaction-toast"]')).toBeNull();
-    expect(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel' })).toBeEnabled();
+    expect(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Cancel' })).toBeEnabled();
     expect(feed.respond).not.toHaveBeenCalled();
     expect(feed.dismiss).not.toHaveBeenCalled();
   });
 
-  it('opens retained local notifications when no execution subscription is available', () => {
+  it('opens retained local notifications when no execution subscription is available', async () => {
     const published = publishLocalGroundStationNotification({ targetId: 'offline-target',title: 'Download failed',
       message: 'The recording could not be downloaded.',source: 'recording-test' });
     function LocalSurface() {
@@ -58,7 +58,7 @@ describe('global interaction attention', () => {
       render(<LocalSurface />);
       fireEvent.click(screen.getByRole('button', { name: 'View details' }));
       expect(document.querySelector('[data-xgc-role="ground-station-interaction-toast"]')).toBeNull();
-      expect(within(screen.getByRole('dialog')).getByText('Download failed')).toBeInTheDocument();
+      expect(within(await screen.findByRole('dialog')).getByText('Download failed')).toBeInTheDocument();
     } finally { if (published) act(() => dismissLocalGroundStationNotification('offline-target',published.id)); }
   });
 
@@ -69,7 +69,7 @@ describe('global interaction attention', () => {
       ],questions: [] } }];
     renderSurface();
     fireEvent.click(screen.getByRole('button', { name: /Notifications · Pending 2/ }));
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Decline inspection' }));
+    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Decline inspection' }));
     await waitFor(() => expect(native.answer).toHaveBeenCalledWith(native.items[0],{ optionId: 'decline' }));
     expect(feed.respond).not.toHaveBeenCalled();
     expect(feed.dismiss).not.toHaveBeenCalled();
@@ -81,7 +81,7 @@ describe('global interaction attention', () => {
     const openSource = vi.fn().mockResolvedValue(false);
     render(<GroundStationNotificationCenter targetId="agent-remote" onOpenNativeSource={openSource} />);
     fireEvent.click(screen.getByRole('button', { name: /Notifications · Pending 1/ }));
-    fireEvent.click(screen.getByRole('button', { name: 'View source' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'View source' }));
     await screen.findByText('Notification source is unavailable');
     expect(openSource).toHaveBeenCalledWith('experiment-b');
     expect(screen.getByRole('button', { name: 'Cancel request' })).toBeEnabled();
@@ -97,6 +97,7 @@ describe('global interaction attention', () => {
     const surface = (open: boolean) => <GroundStationNotificationCenter targetId="local" open={open}
       onOpenNativeSource={openSource} />;
     const view = render(surface(true));
+    await screen.findByRole('dialog');
     const entrySelector = '[data-xgc-role="ground-station-agent-notification"][data-xgc-id="session-a:request-a"]';
     const entry = () => {
       const element = document.querySelector<HTMLElement>(entrySelector);
@@ -143,7 +144,7 @@ describe('global interaction attention', () => {
     renderSurface();
     expect(document.querySelector('[data-xgc-role="ground-station-interaction-toast"]')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: /Notifications · Pending 1/ }));
-    const drawer = screen.getByRole('dialog');
+    const drawer = await screen.findByRole('dialog');
     expect(within(drawer).getByText('Area clear?')).toBeInTheDocument();
     fireEvent.click(within(drawer).getByRole('button', { name: 'Mark as read' }));
     expect(screen.getByRole('button', { name: /Notifications · Pending 1/ })).toBeInTheDocument();
@@ -175,7 +176,7 @@ describe('global interaction attention', () => {
     const onOpenSource = vi.fn().mockResolvedValue(false);
     renderSurface(onOpenSource);
     fireEvent.click(screen.getByRole('button', { name: /Notifications · Pending 1/ }));
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'View source' }));
+    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'View source' }));
     await screen.findByText('Notification source is unavailable');
     expect(feed.respond).not.toHaveBeenCalled();
     expect(feed.dismiss).not.toHaveBeenCalled();

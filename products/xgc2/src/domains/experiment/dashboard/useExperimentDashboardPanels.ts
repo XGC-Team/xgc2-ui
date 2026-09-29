@@ -1,4 +1,5 @@
 import { useEffect,useMemo,useState } from 'react';
+import { useStableCallback } from '../../../hooks/useStableCallback';
 import { getPanelPlugin } from '../../../panels/builtinPanels';
 import type { PanelPluginDefinition } from '../../../panels/types';
 import type { GridPos } from '../../../types/common';
@@ -153,20 +154,35 @@ export function useExperimentDashboardPanels({
     if (panel) setConfigPanelId(panelId);
   }
 
-  return {
+  // Stable command identities keep the canvas render context unchanged across
+  // host renders; each call still runs against the latest dashboard state.
+  const stableOpenConfig = useStableCallback(openConfig);
+  const closeConfig = useStableCallback(() => setConfigPanelId(null));
+  const openLibrary = useStableCallback(() => { if (editing) setLibraryOpen(true); });
+  const closeLibrary = useStableCallback(() => setLibraryOpen(false));
+  const stableSaveConfig = useStableCallback(saveConfig);
+  const stableMove = useStableCallback(move);
+  const stableUpdateLayout = useStableCallback(updateLayout);
+  const stableAdd = useStableCallback(add);
+  const stableRemove = useStableCallback(remove);
+
+  return useMemo(() => ({
     items,
     selectedPanelId,
     select: setSelectedPanelId,
     configTarget,
-    openConfig,
-    closeConfig: () => setConfigPanelId(null),
+    openConfig: stableOpenConfig,
+    closeConfig,
     libraryOpen,
-    openLibrary: () => { if (editing) setLibraryOpen(true); },
-    closeLibrary: () => setLibraryOpen(false),
-    saveConfig,
-    move,
-    updateLayout,
-    add,
-    remove,
-  };
+    openLibrary,
+    closeLibrary,
+    saveConfig: stableSaveConfig,
+    move: stableMove,
+    updateLayout: stableUpdateLayout,
+    add: stableAdd,
+    remove: stableRemove,
+  }),[
+    closeConfig,closeLibrary,configTarget,items,libraryOpen,openLibrary,selectedPanelId,stableAdd,
+    stableMove,stableOpenConfig,stableRemove,stableSaveConfig,stableUpdateLayout,
+  ]);
 }

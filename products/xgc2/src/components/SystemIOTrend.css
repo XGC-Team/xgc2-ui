@@ -32,7 +32,7 @@
   gap: var(--space-lg);
   padding-inline: var(--space-xs);
   color: var(--color-chart-label);
-  font-size: var(--font-xs);
+  font-size: var(--type-caption-size);
 }
 
 .xgc-system-io-chart-legend span {
@@ -76,7 +76,7 @@
 .xgc-system-io-chart-gridline text,
 .xgc-system-io-chart-time {
   fill: var(--color-chart-label);
-  font-size: var(--font-xs);
+  font-size: var(--type-caption-size);
 }
 
 .xgc-system-io-chart-gridline text {

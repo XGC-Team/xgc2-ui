@@ -55,7 +55,8 @@ export function lichtblickWorkspaceIsPreparing(input: {
   hasOwnedLiveProcess: boolean;
   runtimeReady: boolean;
 }): boolean {
-  if (!input.connected || input.runtimeReady) return false;
+  if (input.runtimeReady) return false;
+  if (!input.connected) return input.active || input.hasOwnedLiveProcess;
   return input.active || input.runtimeLoading || input.hasOwnedLiveProcess;
 }
 
@@ -67,5 +68,23 @@ export function lichtblickWorkspaceEmptyKind(input: {
   if (input.runtimeError.trim()) return 'error';
   if (input.stopping) return 'stopping';
   if (input.preparing) return 'preparing';
+  return 'stopped';
+}
+
+/**
+ * Viewer ready is a domain fact, not a reason to freeze startup rails.
+ * `emptyKind` can be `stopped` once WebUI is ready; the pipeline must stay
+ * `starting` until presentation handover so Run/Viewer/Bridge can play.
+ */
+export function lichtblickWorkspaceStartupPhase(input: {
+  stopping: boolean;
+  runtimeError: string;
+  active: boolean;
+  hasOwnedLiveProcess: boolean;
+  hasEmbed: boolean;
+}): 'stopped' | 'starting' | 'stopping' {
+  if (input.runtimeError.trim()) return 'starting';
+  if (input.stopping) return 'stopping';
+  if (input.active || input.hasOwnedLiveProcess || input.hasEmbed) return 'starting';
   return 'stopped';
 }

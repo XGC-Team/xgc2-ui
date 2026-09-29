@@ -17,7 +17,7 @@ import {
 const summaryKeys = new Set([
   'runId','nodeId','kind','status','latestInvocationId',
   'occurrenceCount','activeOccurrenceCount','completedOccurrenceCount','failedOccurrenceCount','attemptCount',
-  'inputs','output','route','errorClass','error','nextAttemptAt','startedAt','finishedAt','updatedAt','revision',
+  'inputs','output','progress','route','errorClass','error','nextAttemptAt','startedAt','finishedAt','updatedAt','revision',
 ]);
 const statuses = new Set<AutomationNodeExecutionSummaryStatus>([
   'pending','running','waiting','succeeded','failed','canceled','skipped','compensating','compensated',
@@ -57,14 +57,18 @@ function parseAutomationNodeExecutionSummary(value: unknown, path: string): Auto
   const revision = nonNegativeInteger(entry.revision, `${path}.revision`);
   const status = enumField(entry.status, statuses, `${path}.status`);
   const latestInvocationId = optionalString(entry, 'latestInvocationId', path);
-  if (activeOccurrenceCount + completedOccurrenceCount > occurrenceCount || failedOccurrenceCount > completedOccurrenceCount) {
+  // Execution can be terminal while compensation for the same invocation is
+  // still active. The storage and invocation projections count it in both.
+  if (activeOccurrenceCount > occurrenceCount || completedOccurrenceCount > occurrenceCount
+    || failedOccurrenceCount > completedOccurrenceCount
+    || (status !== 'compensating' && activeOccurrenceCount + completedOccurrenceCount > occurrenceCount)) {
     throw invalidExecution(path, 'contains inconsistent occurrence counters');
   }
   if (occurrenceCount === 0) {
-    if (latestInvocationId || status !== 'pending' || attemptCount !== 0 || revision !== 0) {
-      throw invalidExecution(path, 'pending Definition node carries occurrence state');
+    if (latestInvocationId || (status !== 'pending' && status !== 'skipped') || attemptCount !== 0 || revision !== 0) {
+      throw invalidExecution(path, 'unactivated Definition node carries occurrence state');
     }
-  } else if (!latestInvocationId || status === 'pending' || revision === 0) {
+  } else if (!latestInvocationId || revision === 0) {
     throw invalidExecution(path, 'activated node omits its latest occurrence identity');
   }
   if (entry.inputs !== undefined && !isObject(entry.inputs)) {
@@ -83,6 +87,7 @@ function parseAutomationNodeExecutionSummary(value: unknown, path: string): Auto
     attemptCount,
     ...optionalDefined('inputs', entry.inputs),
     ...optionalDefined('output', entry.output),
+    ...optionalDefined('progress', entry.progress),
     ...optionalDefined('route', optionalString(entry, 'route', path)),
     ...optionalDefined('errorClass', entry.errorClass === undefined
       ? undefined

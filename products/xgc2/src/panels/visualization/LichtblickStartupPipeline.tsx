@@ -23,9 +23,17 @@ const RUN_FACTS = ['No run','Admitted','unavailable','Stopping'] as const;
 
 export function LichtblickStartupPipeline({
   panelId,
+  paused = false,
+  hidden = false,
+  generation,
+  onPresentationComplete,
   ...input
 }: {
   panelId: string;
+  paused?: boolean;
+  hidden?: boolean;
+  generation?: string;
+  onPresentationComplete?: (generation: string) => void;
 } & Parameters<typeof projectLichtblickStartup>[0]) {
   const projected = projectLichtblickStartup(input);
   return (
@@ -34,6 +42,10 @@ export function LichtblickStartupPipeline({
       role="lichtblick-empty-state"
       title="Lichtblick"
       phase={projected.phase}
+      paused={paused}
+      hidden={hidden}
+      generation={generation}
+      onPresentationComplete={onPresentationComplete}
       stages={projected.stages.map(presentStage)}
     />
   );

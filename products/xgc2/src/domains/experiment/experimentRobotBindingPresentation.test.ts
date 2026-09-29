@@ -9,17 +9,17 @@ describe('Experiment Robot binding presentation',() => {
   it('separates the Experiment role from the physical asset identity',() => {
     expect(experimentRobotRoleLabel({ id:'px4-1' })).toBe('UAV-01');
     expect(experimentRobotAssignmentLabel({ id:'px4-01' },'FS150-04'))
-      .toBe('UAV-01 — FS150-04');
+      .toBe('FS150-04 — UAV-01');
     expect(experimentRobotAssignmentLabel({ id:'ugv-02' },'Mecanum-18'))
-      .toBe('UGV-02 — Mecanum-18');
+      .toBe('Mecanum-18 — UGV-02');
     expect(experimentRobotAssignmentLabel({ id:'scout-04' },'Scout-04'))
-      .toBe('UGV-04 — Scout-04');
+      .toBe('Scout-04 — UGV-04');
     expect(experimentRobotRoleLabel({ id:'mecanum-2' })).toBe('UGV-02');
   });
 
   it('preserves authored custom role IDs',() => {
     expect(experimentRobotAssignmentLabel({ id:'leader' },'FS150-04'))
-      .toBe('leader — FS150-04');
+      .toBe('FS150-04 — leader');
   });
 
   it('clusters native slots as ordered UAV followed by ordered shared UGV',() => {

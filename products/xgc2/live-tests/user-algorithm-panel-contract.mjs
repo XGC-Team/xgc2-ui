@@ -5,14 +5,14 @@ const activeStatuses=new Set(['accepted','queued','running','waiting','stopping'
 
 export const USER_ALGORITHM_PANEL_LANES=Object.freeze([
   Object.freeze({
-    key:'four-scout',label:'4 Scout',experimentName:'4 Scout Mini vehicles experiment',
+    key:'four-scout',label:'4 Scout',experimentName:'TASE-4UGVs',
     requiredTags:Object.freeze(['devfixture','scout']),
     robotNamespaces:Object.freeze(['/ugv1','/ugv2','/ugv3','/ugv4']),
   }),
   Object.freeze({
-    key:'six-fs150',label:'6 FS150',experimentName:'6 PX4 multirotors experiment',
+    key:'fs150-knot',label:'FS150 knot',experimentName:'TASE-5UAVs',
     requiredTags:Object.freeze(['devfixture','px4']),
-    robotNamespaces:Object.freeze(['/uav1','/uav2','/uav3','/uav4','/uav5','/uav6']),
+    robotNamespaces:Object.freeze(['/uav1','/uav2','/uav3','/uav4','/uav5']),
   }),
 ]);
 

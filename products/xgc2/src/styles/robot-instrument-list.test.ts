@@ -164,6 +164,10 @@ describe('robot instrument list shell', () => {
     expect(dt).toContain('padding-inline: var(--space-2xs)');
     expect(dt).toContain('box-sizing: border-box');
     expect(title).not.toContain('width: 100%');
+    expect(title).toContain('font-size: clamp(8px, 11cqi, var(--robot-list-font-metric))');
+    expect(title).toContain('line-height: var(--line-height-none)');
+    expect(rate).toContain('font-size: clamp(8px, 11cqi, var(--robot-list-font-metric))');
+    expect(rate).toContain('line-height: var(--line-height-none)');
     expect(body).not.toContain('9px');
     expect(body).toContain('place-items: center');
     expect(readout).toContain('justify-content: center');
@@ -207,7 +211,7 @@ describe('robot instrument list shell', () => {
     expect(narrow).toMatch(/dl > div > dt \{[^}]*padding-inline:\s*var\(--space-2xs\)/s);
     expect(narrow).not.toMatch(/dl > div > dt \{[^}]*padding-inline:\s*0/s);
     expect(narrow).not.toMatch(/--robot-instrument-inline-gutter:\s*0/);
-    expect(narrow).toContain('font-size: var(--font-xs)');
+    expect(narrow).toContain('font-size: var(--robot-list-font-metric)');
     expect(narrow).not.toContain('display: none');
     expect(narrow).not.toMatch(/\.robot-(?:metric-vector|list-metric-(?:value|readout|rate|digits))[\w-]*[^{}]*\{[^}]*text-overflow:\s*ellipsis/);
     expect(narrow).not.toMatch(/order\s*:/);
@@ -241,9 +245,20 @@ describe('robot instrument list shell', () => {
     expect(css).toContain('.robot-list-flight-primary-state [data-xgc-tone="success"]');
   });
 
+  it('pins list type to the measured instrument steps instead of the shared scale', () => {
+    // P24/P42/P87: the 87px row, 20px topbar band and 11px label band were
+    // verified at 10px metrics / 11px identity. The shared type floor may rise
+    // (0.16.19: --font-xs 11px, --font-sm 12px) without resizing these tracks.
+    expect(css).toMatch(/xgc2-style-policy: fixed-geometry-typography — P24\/P42\/P87/);
+    const root = ruleBody(css, '.robot-instrument-grid[data-xgc-layout="list"]');
+    expect(root).toContain('--robot-list-font-metric: 10px');
+    expect(root).toContain('--robot-list-font-identity: 11px');
+    expect(css).not.toMatch(/var\(--font-(?:xs|sm|md)\)/);
+  });
+
   it('puts list header identity and MANUAL/ARMED/GROUND on the same markable word type', () => {
     expect(css).toMatch(
-      /\.robot-card-identity > strong,\s*\.robot-instrument-grid\[data-xgc-layout="list"\] \.robot-list-header-word \{\s*font-family:\s*var\(--font-sans\);\s*font-size:\s*var\(--font-sm\);\s*font-weight:\s*var\(--weight-regular\);\s*line-height:\s*var\(--line-height-none\);\s*pointer-events:\s*auto;/,
+      /\.robot-card-identity > strong,\s*\.robot-instrument-grid\[data-xgc-layout="list"\] \.robot-list-header-word \{\s*font-family:\s*var\(--font-sans\);\s*font-size:\s*var\(--robot-list-font-identity\);\s*font-weight:\s*var\(--weight-regular\);\s*line-height:\s*var\(--line-height-none\);\s*pointer-events:\s*auto;/,
     );
     const primary = ruleBody(
       css,
@@ -251,9 +266,9 @@ describe('robot instrument list shell', () => {
     );
 
     expect(primary).not.toContain('font-family: var(--font-mono)');
-    expect(primary).not.toContain('font-size: var(--font-xs)');
+    expect(primary).not.toContain('font-size: var(--robot-list-font-metric)');
     expect(css).not.toMatch(
-      /\[data-xgc-density="comfortable"\][^{]*header strong[^{]*\{[^}]*font-size:\s*var\(--font-sm\)/,
+      /\[data-xgc-density="comfortable"\][^{]*header strong[^{]*\{[^}]*font-size:\s*var\(--robot-list-font-identity\)/,
     );
     expect(css).toContain('.robot-list-header-word[data-xgc-tone="success"]');
     expect(css).toContain('.robot-list-header-word[data-xgc-tone="danger"]');

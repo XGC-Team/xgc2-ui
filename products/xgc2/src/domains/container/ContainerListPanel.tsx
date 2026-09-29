@@ -1,7 +1,8 @@
 import { Info,Play,Plus,RefreshCw,RotateCcw,ScrollText,Search,Square,Trash2 } from 'lucide-react';
-import { Input,Panel,SortableDataTable,Toolbar } from '@xgc2/ui-react';
+import { Input,Panel,Toolbar } from '@xgc2/ui-react';
 import { ControlButton } from '../../components/controls/ControlButton';
 import { SegmentedControl } from '../../components/SegmentedControl';
+import { SortableDataTable } from '../../components/SortableDataTable';
 import type { ContainerOperation,DockerContainerInfo } from './containerModel';
 import { ContainerCreateDrawer } from './ContainerCreateDrawer';
 import { ContainerStatusText } from './ContainerStatusText';
@@ -90,6 +91,7 @@ export function ContainerListPanel({
 
       <SortableDataTable
         className="container-data-table-shell"
+        data-xgc-id="container-list"
         columns={[
           {
             id: 'name',

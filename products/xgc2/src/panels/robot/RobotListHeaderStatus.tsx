@@ -29,6 +29,7 @@ export function RobotListHeaderStatus({ robotId,items,children }: {
             tone={item.tone}
             source={item.source}
             value={item.value}
+            estimated={item.estimated}
             active={item.active}
           />
         ))}

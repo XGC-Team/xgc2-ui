@@ -119,6 +119,23 @@ export type AgentCapabilityManifest = {
   security: { sandboxLevel: string;allowedRoots: string[];highRiskAllowed: boolean };
 };
 
+/**
+ * AgentLink ops health Core observed since it started (D-116 M2). Robot
+ * xgc-agent connectivity only; resets when Core restarts.
+ */
+export type AgentLinkStats = {
+  sessions: number;
+  reconnects: number;
+  connectedAt?: string;
+  heartbeats: number;
+  lastHeartbeatAt?: string;
+  maxHeartbeatGapMs: number;
+  lastEndAt?: string;
+  lastEndReason?: string;
+  lastSessionMs?: number;
+  leaseExpired: number;
+};
+
 /** Exact read-only projection returned by GET /managed-hosts. */
 export type ManagedHost = {
   id: string;
@@ -134,6 +151,8 @@ export type ManagedHost = {
   managementConnection: AgentManagementConnection;
   effectiveProfile: AgentEffective | null;
   capabilityManifest: AgentCapabilityManifest;
+  /** Absent until the Agent first connects after Core started. */
+  link?: AgentLinkStats;
 };
 
 export type ManagedHostOption = {

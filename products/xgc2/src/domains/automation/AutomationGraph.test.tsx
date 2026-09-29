@@ -391,7 +391,7 @@ describe('AutomationGraph', () => {
     }
   });
 
-  it('keeps an active supervised process readable without animated chrome or a completion icon', () => {
+  it('keeps an active supervised process spinning without a completion icon', () => {
     const service = { ...newAutomationNode('process.run-definition', { definitionId: 'roscore',parameters: {} }),id: 'service',displayName: 'Start ROS Core' };
     const { container } = render(<div style={{ width: 400,height: 300 }}><AutomationGraph
       definition={{ nodes: [service],edges: [] }}
@@ -409,7 +409,7 @@ describe('AutomationGraph', () => {
     expect(node).toHaveAttribute('data-xgc-engine-status', 'succeeded');
     expect(node).toHaveAttribute('data-xgc-runtime-state', 'active');
     expect(node).toHaveAttribute('data-xgc-status', 'active');
-    expect(node.querySelector('[data-xgc-role="automation-node-tile"]')).not.toHaveAttribute('data-running');
+    expect(node.querySelector('[data-xgc-role="automation-node-tile"]')).toHaveAttribute('data-running', 'true');
     expect(node.querySelector('[data-xgc-role="automation-node-status"]')).toHaveTextContent('running');
     expect(node.querySelector('.lucide-loader-circle')).toBeNull();
     expect(node.querySelector('.lucide-check')).toBeNull();
@@ -423,7 +423,13 @@ describe('AutomationGraph', () => {
       nodeRuntimeFacts={{ service: { status: operatorStatus } }}
     /></div>);
     const state = container.querySelector('[data-xgc-role="automation-node-operator-status"][data-xgc-id="service"]');
+    const tile = container.querySelector('[data-xgc-role="automation-node-tile"]');
     expect(state).toHaveTextContent(operatorStatus === 'passing' || operatorStatus === 'idle' ? 'running' : operatorStatus);
+    if (operatorStatus === 'failing' || operatorStatus === 'stopping') {
+      expect(tile).not.toHaveAttribute('data-running');
+    } else {
+      expect(tile).toHaveAttribute('data-running', 'true');
+    }
   });
 
   it('projects edge condition, completion, and selection through the edge owner data contract', async () => {
