@@ -82,3 +82,50 @@ test('body and element defaults consume roles instead of user-agent styling', ()
   assert.match(css, /:where\(th\)\s*\{\s*font-weight:\s*var\(--type-table-header-weight\);\s*\}/);
   assert.match(css, /:where\(code, kbd, samp, pre\)\s*\{\s*font-family:\s*var\(--type-code-family\);\s*\}/);
 });
+
+function skinDeclarations(css, selector) {
+  const escaped = selector.replace(/[[\]"=]/g, (character) => `\\${character}`);
+  const block = withoutComments(css).match(new RegExp(`${escaped}\\s*\\{([\\s\\S]*?)\\n\\}`));
+  assert.ok(block, `expected a ${selector} block`);
+  return new Map(
+    [...block[1].matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)].map((match) => [match[1], match[2].trim()]),
+  );
+}
+
+function relativeLuminance(hex) {
+  const channel = (offset) => {
+    const value = parseInt(hex.slice(offset, offset + 2), 16) / 255;
+    return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5);
+}
+
+function contrast(foreground, background) {
+  const [lighter, darker] = [relativeLuminance(foreground), relativeLuminance(background)].sort((a, b) => b - a);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+// Captions render at the 11px floor, so every paired text colour must meet
+// WCAG AA for normal text (4.5:1) on every neutral surface of both skins.
+test('role text colours keep WCAG AA contrast on every neutral surface of both skins', () => {
+  const TEXT = ['--color-text', '--color-text-heading', '--color-text-muted', '--color-text-faint'];
+  const SURFACES = [
+    '--color-bg-app', '--color-bg-chrome', '--color-bg-sidebar', '--color-bg-surface', '--color-bg-surface-hover',
+    '--color-bg-subtle', '--color-bg-muted', '--color-bg-control', '--color-bg-control-hover', '--color-bg-active',
+    '--color-bg-selected', '--color-bg-code', '--color-bg-canvas',
+  ];
+  for (const selector of [':root[data-skin="dark"]', ':root[data-skin="light"]']) {
+    const skin = skinDeclarations(v016Css, selector);
+    const surfaces = SURFACES.map((token) => [token, skin.get(token)]).filter(([, value]) => /^#[0-9a-f]{6}$/i.test(value ?? ''));
+    assert.ok(surfaces.length >= 8, `${selector} must define its neutral surfaces as hex colours`);
+    for (const token of TEXT) {
+      const colour = skin.get(token);
+      assert.match(colour ?? '', /^#[0-9a-f]{6}$/i, `${selector} ${token} must be a hex colour`);
+      for (const [surface, background] of surfaces) {
+        const ratio = contrast(colour, background);
+        assert.ok(ratio >= 4.5, `${selector} ${token} ${colour} on ${surface} ${background} is ${ratio.toFixed(2)}:1, below 4.5:1`);
+      }
+    }
+  }
+});
+
