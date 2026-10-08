@@ -160,8 +160,8 @@ test('rejects product CSS that reaches into shared component classes', () => {
 
 test('allows shared skin lifecycle APIs and unrelated product persistence', () => {
   const fixture = `
-    initializeSkin({ storageKey: 'xgc2-product.skin' });
-    const [skin, setSkin] = useSkin({ storageKey: SKIN_STORAGE_KEY });
+    initializeSkin({ store: preferencesSkinStore });
+    const [skin, setSkin] = useSkin({ store: preferencesSkinStore });
     localStorage.getItem('xgc2-stt.endpoint');
     window.localStorage.setItem(SECTION_STORAGE_KEY, value);
     widget.dataset.skin = previewSkin;

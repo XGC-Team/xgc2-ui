@@ -1,5 +1,12 @@
 # @xgc2/ui-react
 
+## 0.17.0
+
+### Minor Changes
+
+- Require an explicit `SkinStore` in `initializeSkin` and `useSkin`. Products restore and own managed preferences; the shared library owns the document skin and React subscription only. Remove `readStoredSkin`, `SkinStorageOptions`, `storageKey`, default storage, and browser persistence fallbacks.
+- Return an awaitable setter that forwards commit errors and reads functional updates from the current owner snapshot. Late acknowledgements cannot repaint an old requested skin. Add `createMemorySkinStore(initialSkin)` for explicitly nonpersistent applications and previews.
+
 ## 0.16.19
 
 ### Patch Changes

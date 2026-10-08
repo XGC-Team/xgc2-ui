@@ -23,8 +23,9 @@ Every supplied path must exist, and a run that finds no CSS or no production
 script/HTML source is a configuration error. The command prints the number of
 roots and files it actually scanned.
 
-The contract rejects product-owned theme/skin persistence, numeric spacing
-tokens, spacing disguised as fixed geometry, shared component selector or
+The contract rejects product document theme mutation and browser theme/skin
+persistence. Products inject a managed `SkinStore` into the shared lifecycle;
+the library does not own persistence. It also rejects numeric spacing tokens, spacing disguised as fixed geometry, shared component selector or
 token overrides, raw foundation motion/opacity, semantic status ornaments and
 materials, and left-edge selection/dialog markers. Product CSS must compose
 shared components through public props and product-owned classes.

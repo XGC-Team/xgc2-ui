@@ -16,7 +16,7 @@ async function fixture() {
   await Promise.all([
     writeFile(join(directory, 'package.json'), '{"type":"module"}\n'),
     writeFile(join(directory, 'index.html'), '<!doctype html><html data-skin="light"><script type="module" src="/src/main.tsx"></script></html>\n'),
-    writeFile(join(source, 'main.tsx'), "initializeSkin({ storageKey: 'fixture.skin' });\n"),
+    writeFile(join(source, 'main.tsx'), "initializeSkin({ store: preferencesSkinStore });\n"),
     writeFile(join(source, 'styles.css'), '.fixture { padding: var(--space-md); color: var(--color-text); }\n'),
   ]);
   return { directory, source };

@@ -152,8 +152,9 @@ const THEME_STORAGE_KEY_LITERAL = /(?:^|[._:-])(?:skin|theme)(?:$|[._:-])/i;
 const THEME_STORAGE_KEY_IDENTIFIER = /(?:skin|theme).*key|key.*(?:skin|theme)/i;
 
 /**
- * Products consume the shared skin lifecycle. Direct document mutation and
- * theme-key persistence belong to ui-react's initializeSkin/useSkin contract.
+ * Products inject their managed SkinStore into the shared DOM/subscription
+ * lifecycle. Product document mutation and browser theme persistence are banned;
+ * ui-react's initializeSkin/useSkin never own persistence.
  */
 export function skinLifecycleViolations(source, { sourceType = 'script' } = {}) {
   const executableSource = sourceType === 'html'

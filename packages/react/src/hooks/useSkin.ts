@@ -2,101 +2,74 @@ import { useCallback, useEffect, useSyncExternalStore, type SetStateAction } fro
 
 export type XGCSkin = 'dark' | 'light';
 
-export type SkinStorageOptions = {
-  defaultSkin?: XGCSkin;
-  storageKey?: string;
-};
-
-function validSkin(value: string | null): value is XGCSkin {
-  return value === 'dark' || value === 'light';
+/**
+ * A product-owned, already initialized skin authority. Successful writes publish
+ * the committed snapshot and notify subscribers before resolving. Failed writes
+ * reject without replacing the authoritative snapshot. The owner defines commit
+ * ordering/conflicts; ui-react does not queue, retry, or persist writes.
+ */
+export interface SkinStore {
+  getSnapshot(): XGCSkin;
+  subscribe(listener: () => void): () => void;
+  setSkin(next: XGCSkin): Promise<void>;
 }
 
-const skinSubscribers = new Map<string, Set<() => void>>();
-const volatileSkinValues = new Map<string, XGCSkin>();
-let listeningForStorage = false;
+export type SkinOptions = { store: SkinStore };
 
-function emitSkinChange(storageKey: string) {
-  skinSubscribers.get(storageKey)?.forEach((listener) => listener());
-}
-
-function handleSkinStorage(event: StorageEvent) {
-  if (event.storageArea && event.storageArea !== window.localStorage) return;
-  if (event.key === null) {
-    volatileSkinValues.clear();
-    skinSubscribers.forEach((listeners) => listeners.forEach((listener) => listener()));
-  } else {
-    if (validSkin(event.newValue)) volatileSkinValues.set(event.key, event.newValue);
-    else volatileSkinValues.delete(event.key);
-    emitSkinChange(event.key);
+function checkedSkin(value: unknown): XGCSkin {
+  if (value !== 'dark' && value !== 'light') {
+    throw new TypeError(`Unsupported XGC skin: ${String(value)}`);
   }
+  return value;
 }
 
-function subscribeToSkin(storageKey: string, listener: () => void) {
-  const subscribers = skinSubscribers.get(storageKey) ?? new Set<() => void>();
-  subscribers.add(listener);
-  skinSubscribers.set(storageKey, subscribers);
-  if (!listeningForStorage) {
-    window.addEventListener('storage', handleSkinStorage);
-    listeningForStorage = true;
-  }
-  return () => {
-    subscribers.delete(listener);
-    if (!subscribers.size) skinSubscribers.delete(storageKey);
-    if (listeningForStorage && !skinSubscribers.size) {
-      window.removeEventListener('storage', handleSkinStorage);
-      listeningForStorage = false;
-    }
+function applySkin(skin: XGCSkin) {
+  if (typeof document !== 'undefined') document.documentElement.dataset.skin = skin;
+}
+
+/** An explicit, nonpersistent store for previews and applications without saved preferences. */
+export function createMemorySkinStore(initialSkin: XGCSkin): SkinStore {
+  let skin = checkedSkin(initialSkin);
+  const listeners = new Set<() => void>();
+  return {
+    getSnapshot: () => skin,
+    subscribe(listener) {
+      // Each registration owns its cleanup, even if the callback is reused.
+      const notify = () => listener();
+      listeners.add(notify);
+      return () => { listeners.delete(notify); };
+    },
+    async setSkin(next) {
+      const resolved = checkedSkin(next);
+      if (skin === resolved) return;
+      skin = resolved;
+      listeners.forEach((listener) => listener());
+    },
   };
 }
 
-export function readStoredSkin({ defaultSkin = 'light', storageKey = 'xgc2.skin' }: SkinStorageOptions = {}): XGCSkin {
-  if (typeof window === 'undefined') return defaultSkin;
-  const volatile = volatileSkinValues.get(storageKey);
-  if (volatile) return volatile;
-  try {
-    const stored = window.localStorage.getItem(storageKey);
-    return validSkin(stored) ? stored : defaultSkin;
-  } catch {
-    return defaultSkin;
-  }
-}
-
-/** Apply before the first React render to avoid a light/dark theme flash. */
-export function initializeSkin(options: SkinStorageOptions = {}): XGCSkin {
-  const skin = readStoredSkin(options);
-  if (typeof document !== 'undefined') document.documentElement.dataset.skin = skin;
+/** Call after the product restores its store, before the first React render. Never writes the store. */
+export function initializeSkin({ store }: SkinOptions): XGCSkin {
+  const skin = checkedSkin(store.getSnapshot());
+  applySkin(skin);
   return skin;
 }
 
-/** Shared skin state, persistence, and document contract for every product. */
-export function useSkin(options: SkinStorageOptions = {}) {
-  const { defaultSkin = 'light', storageKey = 'xgc2.skin' } = options;
-  const subscribe = useCallback((listener: () => void) => subscribeToSkin(storageKey, listener), [storageKey]);
-  const getSnapshot = useCallback(() => readStoredSkin({ defaultSkin, storageKey }), [defaultSkin, storageKey]);
-  const getServerSnapshot = useCallback(() => defaultSkin, [defaultSkin]);
-  const skin = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+/** Shared document skin and subscriptions; persistence belongs to the injected store. */
+export function useSkin({ store }: SkinOptions) {
+  const subscribe = useCallback((listener: () => void) => store.subscribe(listener), [store]);
+  const getSnapshot = useCallback(() => checkedSkin(store.getSnapshot()), [store]);
+  const skin = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 
-  const setSkin = useCallback((next: SetStateAction<XGCSkin>) => {
-    const current = readStoredSkin({ defaultSkin, storageKey });
-    const resolved = typeof next === 'function' ? next(current) : next;
-    if (!validSkin(resolved)) throw new TypeError(`Unsupported XGC skin: ${String(resolved)}`);
-    try {
-      window.localStorage.setItem(storageKey, resolved);
-      // A successful write proves persistence has recovered and retires any
-      // same-document value retained after an earlier failed write.
-      volatileSkinValues.delete(storageKey);
-    } catch {
-      // The operator's latest choice remains authoritative for this document,
-      // even when an older persistent value is still readable.
-      volatileSkinValues.set(storageKey, resolved);
-    }
-    if (typeof document !== 'undefined') document.documentElement.dataset.skin = resolved;
-    emitSkinChange(storageKey);
-  }, [defaultSkin, storageKey]);
+  const setSkin = useCallback(async (next: SetStateAction<XGCSkin>): Promise<void> => {
+    const resolved = checkedSkin(typeof next === 'function' ? next(getSnapshot()) : next);
+    await store.setSkin(resolved);
+  }, [store, getSnapshot]);
 
   useEffect(() => {
-    document.documentElement.dataset.skin = skin;
-  }, [skin]);
+    // Read the current authority, never a requested value from an older promise.
+    applySkin(getSnapshot());
+  }, [skin, getSnapshot]);
 
   return [skin, setSkin] as const;
 }

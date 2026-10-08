@@ -57,14 +57,14 @@ import {
 } from '@xgc2/ui-react';
 ```
 
-Applications initialize `data-skin="dark"` or `data-skin="light"` on the root HTML element with `initializeSkin`, then use `useSkin` for persisted operator changes. Both APIs intentionally default to light when no preference has been selected.
+Applications restore their product-owned `SkinStore`, pass it explicitly to `initializeSkin` before rendering, and share it with `useSkin`. The library owns the document skin and subscriptions; it never reads or writes browser persistence. `setSkin` returns a promise so callers can await the owner commit and present failures. For intentionally nonpersistent previews, use `createMemorySkinStore('light')`. See [the 0.17 skin migration](docs/skin-store.md).
 
-Production consumers install immutable npm tarballs attached to GitHub releases. Relative `file:` dependencies and direct imports from this repository are intentionally unsupported.
+Production consumers install immutable npm tarballs attached to GitHub releases. The URL below is the prepared 0.17.0 release coordinate, usable only after the matching package and policy releases are published. Relative `file:` dependencies and direct imports from this repository are intentionally unsupported.
 
 ```json
 {
   "dependencies": {
-    "@xgc2/ui-react": "https://github.com/XGC-Team/xgc2-ui/releases/download/v0.16.19/xgc2-ui-react-0.16.19.tgz"
+    "@xgc2/ui-react": "https://github.com/XGC-Team/xgc2-ui/releases/download/v0.17.0/xgc2-ui-react-0.17.0.tgz"
   }
 }
 ```

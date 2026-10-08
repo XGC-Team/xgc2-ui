@@ -12,8 +12,8 @@ export type {
   TopbarProps,
 } from './components/AppShell';
 export { XGC_BREAKPOINTS, XGC_MEDIA_QUERIES, useMediaQuery, useViewportMode } from './hooks/useMediaQuery';
-export { initializeSkin, readStoredSkin, useSkin } from './hooks/useSkin';
-export type { SkinStorageOptions, XGCSkin } from './hooks/useSkin';
+export { createMemorySkinStore, initializeSkin, useSkin } from './hooks/useSkin';
+export type { SkinOptions, SkinStore, XGCSkin } from './hooks/useSkin';
 export { AudioCaptureControl, AudioWaveform } from './components/AudioCapture';
 export type {
   AudioCaptureControlProps,

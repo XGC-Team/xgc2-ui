@@ -1,5 +1,5 @@
 import { createRoot } from 'react-dom/client';
-import { initializeSkin } from '@xgc2/ui-react';
+import { createMemorySkinStore, initializeSkin } from '@xgc2/ui-react';
 import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
 import 'monaco-editor/min/vs/editor/editor.main.css';
 import '@xgc2/ui-react/styles.css';
@@ -13,6 +13,6 @@ self.MonacoEnvironment = {
   },
 };
 
-initializeSkin({ defaultSkin: 'light' });
+initializeSkin({ store: createMemorySkinStore('light') });
 
 createRoot(document.getElementById('root')!).render(<App />);

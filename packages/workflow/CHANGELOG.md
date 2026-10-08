@@ -1,5 +1,11 @@
 # @xgc2/ui-workflow
 
+## 0.4.2
+
+### Patch Changes
+
+- Align the React peer floor with the prepared 0.17 family (`>=0.17 <1`). Workflow component behavior is unchanged.
+
 ## 0.4.1
 
 ### Patch Changes

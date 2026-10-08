@@ -1,5 +1,11 @@
 # @xgc2/ui-policy
 
+## 0.17.0
+
+### Minor Changes
+
+- Pair with `@xgc2/ui-react` 0.17.0 and document the explicit product-owned `SkinStore` boundary. Positive fixtures use injected stores; direct document theme mutation and browser theme persistence remain rejected with unchanged rules.
+
 ## 0.16.19
 
 ### Patch Changes
