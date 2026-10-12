@@ -1,5 +1,11 @@
 # @xgc2/ui-policy
 
+## 0.17.1
+
+### Patch Changes
+
+- Pair with `@xgc2/ui-react` 0.17.1 and its Tooltip geometry and dismissal fixes. The explicit product-owned SkinStore and existing policy rules remain unchanged.
+
 ## 0.17.0
 
 ### Minor Changes

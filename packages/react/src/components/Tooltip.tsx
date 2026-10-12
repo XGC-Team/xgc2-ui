@@ -73,19 +73,25 @@ export function Tooltip({
   const overlay = useOverlayStack({ close: dismiss, open, rootRef: tooltipRef });
   const scheduleShow = useCallback(() => {
     if (!active) return;
-    if (hideTimer.current !== undefined) clearTimeout(hideTimer.current);
+    // A browser dispatches both pointer-enter and mouse-enter for one hover.
+    clearTimers();
     showTimer.current = setTimeout(() => setOpen(true), Math.max(0, delayMs));
-  }, [active, delayMs]);
+  }, [active, clearTimers, delayMs]);
   const scheduleHide = useCallback(() => {
-    if (showTimer.current !== undefined) clearTimeout(showTimer.current);
+    clearTimers();
     hideTimer.current = setTimeout(() => setOpen(false), Math.max(0, hideDelayMs));
-  }, [hideDelayMs]);
+  }, [clearTimers, hideDelayMs]);
 
   useEffect(() => clearTimers, [clearTimers]);
+  useEffect(() => {
+    if (!active) dismiss();
+  }, [active, dismiss]);
   useLayoutEffect(() => {
     if (!open || !active) return undefined;
     const place = () => {
-      const trigger = triggerRef.current?.getBoundingClientRect();
+      // The display:contents event host has no box. The wrapped control or
+      // label supplies the actual geometry.
+      const trigger = triggerRef.current?.firstElementChild?.getBoundingClientRect();
       const tooltip = tooltipRef.current;
       if (!trigger || !tooltip) return;
       const width = Math.max(tooltip.offsetWidth, tooltip.getBoundingClientRect().width, 160);
@@ -104,15 +110,14 @@ export function Tooltip({
     };
     place();
     const frame = window.requestAnimationFrame(place);
-    const dismissOnScroll = () => setOpen(false);
     window.addEventListener('resize', place);
-    window.addEventListener('scroll', dismissOnScroll, true);
+    window.addEventListener('scroll', dismiss, true);
     return () => {
       window.cancelAnimationFrame(frame);
       window.removeEventListener('resize', place);
-      window.removeEventListener('scroll', dismissOnScroll, true);
+      window.removeEventListener('scroll', dismiss, true);
     };
-  }, [active, open]);
+  }, [active, dismiss, open]);
 
   if (!active) return <>{children}</>;
   const focus = (event: FocusEvent<HTMLSpanElement>) => {

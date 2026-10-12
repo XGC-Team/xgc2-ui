@@ -1,5 +1,12 @@
 # @xgc2/ui-react
 
+## 0.17.1
+
+### Patch Changes
+
+- Position Tooltip help from the wrapped control or label instead of its boxless `display: contents` event host. Preserve the existing transparent trigger and form layout.
+- Cancel both pending hover timers when pointer and mouse events describe the same hover. Leaving, disabling help, and scrolling cannot resurrect a dismissed tooltip.
+
 ## 0.17.0
 
 ### Minor Changes
