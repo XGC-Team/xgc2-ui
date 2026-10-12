@@ -1,12 +1,14 @@
 {
   "name": "@xgc2/ui-policy",
-  "version": "0.17.1",
+  "version": "0.17.2",
   "description": "Fail-closed visual and interaction policy for XGC2 product frontends",
   "type": "module",
   "engines": {
     "node": ">=22"
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "bin": {
     "xgc2-style-policy": "./dist/cli.mjs"
   },
@@ -20,7 +22,7 @@
     "typecheck": "node scripts/validate.mjs"
   },
   "peerDependencies": {
-    "@xgc2/ui-react": "0.17.1"
+    "@xgc2/ui-react": "0.17.2"
   },
   "devDependencies": {
     "@xgc2/ui-react": "workspace:^"

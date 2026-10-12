@@ -5,6 +5,67 @@ import { describe, expect, it, vi } from 'vitest';
 import { WorkflowStatusCard } from './WorkflowStatusCard';
 
 describe('WorkflowStatusCard', () => {
+  const completedCard = (completion?:{ id:string;percent:number },paused=false,onClick=vi.fn()) => (
+    <WorkflowStatusCard ariaLabel="Publish" dataXgcRole="command" dataXgcId="publish"
+      layout="tile" metrics={{ primary:'' }} title="Publish" tone="neutral"
+      status="stopped" running={false} onClick={onClick} paused={paused}
+      progress={{ percent:0,color:'var(--color-progress-measured)',completion }} />
+  );
+  const finish = () => {
+    // jsdom exposes WebkitAnimation but omits AnimationEvent, so React
+    // registers the prefixed end event in this environment.
+    const event = new Event(typeof window.AnimationEvent === 'function' ? 'animationend' : 'webkitAnimationEnd', { bubbles:true });
+    Object.defineProperty(event, 'animationName', { value:'xgc-workflow-status-card-complete' });
+    fireEvent(document.querySelector('.xgc-progress-fill')!, event);
+  };
+
+  it('plays a measured immediate success once without keeping execution busy', () => {
+    const onClick=vi.fn();
+    const { rerender }=render(completedCard(undefined,false,onClick));
+    rerender(completedCard({ id:'accepted-a',percent:100 },false,onClick));
+    const button=screen.getByRole('button',{ name:'Publish' });
+    expect(button).toHaveAttribute('data-xgc-completion-id','accepted-a');
+    expect(button).toHaveAttribute('data-xgc-running','false');
+    expect(button).toHaveAttribute('data-xgc-progress','0');
+    expect(button).toBeEnabled();
+    expect(button.querySelector('.xgc-progress-fill')).toHaveStyle({ '--xgc-progress-percent':'100%' });
+    fireEvent.click(button);
+    expect(onClick).toHaveBeenCalledOnce();
+    finish();
+    expect(button).not.toHaveAttribute('data-xgc-completion-id');
+    expect(button.querySelector('.xgc-progress-fill')).toHaveStyle({ '--xgc-progress-percent':'0%' });
+    rerender(completedCard({ id:'accepted-a',percent:100 },false,onClick));
+    expect(button).not.toHaveAttribute('data-xgc-completion-id');
+    rerender(completedCard({ id:'accepted-b',percent:100 },false,onClick));
+    expect(button).toHaveAttribute('data-xgc-completion-id','accepted-b');
+    finish();
+    rerender(completedCard({ id:'accepted-a',percent:100 },false,onClick));
+    expect(button).not.toHaveAttribute('data-xgc-completion-id');
+  });
+
+  it('consumes hidden receipts and does not replay a parked presentation', () => {
+    const { rerender }=render(completedCard({ id:'accepted-a',percent:100 }));
+    expect(screen.getByRole('button')).toHaveAttribute('data-xgc-completion-id','accepted-a');
+    rerender(completedCard({ id:'accepted-a',percent:100 },true));
+    rerender(completedCard({ id:'accepted-a',percent:100 }));
+    expect(screen.getByRole('button')).not.toHaveAttribute('data-xgc-completion-id');
+    rerender(completedCard({ id:'accepted-b',percent:100 },true));
+    rerender(completedCard({ id:'accepted-b',percent:100 }));
+    expect(screen.getByRole('button')).not.toHaveAttribute('data-xgc-completion-id');
+  });
+
+  it('does not delay clearing or replay when reduced motion finishes immediately', () => {
+    render(completedCard({ id:'accepted-a',percent:75 }));
+    expect(screen.getByRole('button').querySelector('.xgc-progress-fill'))
+      .toHaveStyle({ '--xgc-progress-percent':'75%' });
+    // The family motion floor shortens animation duration, while the same
+    // animationend path releases presentation without an execution timer.
+    finish();
+    expect(screen.getByRole('button')).not.toHaveAttribute('data-xgc-completion-id');
+    expect(screen.getByRole('button').querySelector('.xgc-progress-fill'))
+      .toHaveStyle({ '--xgc-progress-percent':'0%' });
+  });
+
   it('keeps state in typography and progress without semantic chip chrome', () => {
     const { container } = render(
       <WorkflowStatusCard

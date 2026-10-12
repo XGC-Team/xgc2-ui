@@ -1,10 +1,14 @@
 {
   "name": "@xgc2/ui-react",
-  "version": "0.17.1",
+  "version": "0.17.2",
   "description": "Shared React components and application shell for XGC2 products",
   "type": "module",
-  "sideEffects": ["*.css"],
-  "files": ["dist"],
+  "sideEffects": [
+    "*.css"
+  ],
+  "files": [
+    "dist"
+  ],
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/types/index.d.ts",

@@ -1,5 +1,11 @@
 # @xgc2/ui-policy
 
+## 0.17.2
+
+### Patch Changes
+
+- Pair with @xgc2/ui-react 0.17.2 and its shared terminal progress presentation contract; existing policy gates remain unchanged.
+
 ## 0.17.1
 
 ### Patch Changes

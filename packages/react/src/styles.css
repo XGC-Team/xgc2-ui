@@ -3645,6 +3645,17 @@ button.xgc-workflow-status-card[data-xgc-layout='tile']:disabled {
   opacity: var(--opacity-full);
 }
 .xgc-workflow-status-card-progress { width: 100%; flex: 0 0 auto; margin-top: auto; }
+/* A confirmed terminal receipt finishes one presentation without retaining
+ * execution occupancy. The reduced-motion floor also emits animationend. */
+.xgc-workflow-status-card-completing .xgc-progress-fill {
+  transition: none;
+  animation: xgc-workflow-status-card-complete var(--duration-deliberate) var(--easing-standard);
+}
+@keyframes xgc-workflow-status-card-complete {
+  from { width: 0; }
+  50% { width: var(--xgc-progress-percent); }
+  to { width: 0; }
+}
 .xgc-workflow-status-card[data-xgc-tone='success'] { --xgc-workflow-status-color: var(--color-success); }
 .xgc-workflow-status-card[data-xgc-tone='accent'] { --xgc-workflow-status-color: var(--color-accent); }
 .xgc-workflow-status-card[data-xgc-tone='warning'] { --xgc-workflow-status-color: var(--color-warning); }

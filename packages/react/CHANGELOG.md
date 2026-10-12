@@ -1,5 +1,11 @@
 # @xgc2/ui-react
 
+## 0.17.2
+
+### Patch Changes
+
+- WorkflowStatusCard presents a caller-confirmed measured completion receipt once, independently of execution occupancy. Completion uses shared motion tokens and the reduced-motion end path; paused surfaces consume receipts without replay. No execution delay, private skin or fake progress is added.
+
 ## 0.17.1
 
 ### Patch Changes
