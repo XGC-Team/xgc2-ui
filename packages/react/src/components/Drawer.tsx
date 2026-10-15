@@ -2,6 +2,7 @@ import { useCallback, useId, useRef, type HTMLAttributes, type ReactNode } from 
 import { createPortal } from 'react-dom';
 import { useConfirmationDialog } from '../hooks/useConfirmationDialog';
 import { useDialogFocus } from '../hooks/useDialogFocus';
+import { usePresence } from '../hooks/usePresence';
 import { classNames } from '../utils';
 import { Button, type ButtonProps } from './Button';
 import { OverlayOwner, useOverlayStack } from './OverlayStack';
@@ -127,9 +128,13 @@ export function Drawer({
     onClose,
   ]);
 
+  const backdropRef = useRef<HTMLDivElement>(null);
   const overlay = useOverlayStack({ close: requestClose, dismissible, open, rootRef: drawerRef });
   const onKeyDown = useDialogFocus({ dialogId: overlay.overlayId, dialogRef: drawerRef, dismissible, open });
-  if (!open || typeof document === 'undefined') return null;
+  // Keep a closing drawer mounted for its exit animation; the overlay stack
+  // and focus contract still see the close immediately.
+  const presence = usePresence(open, backdropRef);
+  if (!presence.mounted || typeof document === 'undefined') return null;
   const helpers = { dirty, requestClose };
   const resolvedActions = typeof actions === 'function' ? actions(helpers) : actions;
   const resolvedChildren = typeof children === 'function' ? children(helpers) : children;
@@ -139,10 +144,14 @@ export function Drawer({
     <>
       <div
         {...backdropProps}
+        aria-hidden={presence.exiting || undefined}
         className={classNames('xgc-drawer-backdrop', backdropClassName, backdropProps?.className)}
+        data-xgc-presence={presence.exiting ? 'exit' : undefined}
+        inert={presence.exiting ? true : undefined}
         onMouseDown={(event) => {
           if (closeOnBackdrop && event.target === event.currentTarget) requestClose();
         }}
+        ref={backdropRef}
         role="presentation"
       >
         <aside

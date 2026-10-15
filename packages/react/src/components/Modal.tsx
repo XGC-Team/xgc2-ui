@@ -1,6 +1,7 @@
 import { useId, useRef, type HTMLAttributes, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useDialogFocus } from '../hooks/useDialogFocus';
+import { usePresence } from '../hooks/usePresence';
 import { classNames } from '../utils';
 import { Button } from './Button';
 import { OverlayOwner, useOverlayStack } from './OverlayStack';
@@ -49,16 +50,24 @@ export function Modal({
   title,
 }: ModalProps) {
   const dialogRef = useRef<HTMLElement>(null);
+  const backdropRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
   const descriptionId = useId();
   const overlay = useOverlayStack({ close: onClose, dismissible, open, rootRef: dialogRef });
   const onKeyDown = useDialogFocus({ dialogId: overlay.overlayId, dialogRef, dismissible, open });
+  // Keep a closing modal mounted for its exit animation; the overlay stack
+  // and focus contract still see the close immediately.
+  const presence = usePresence(open, backdropRef);
 
-  if (!open) return null;
+  if (!presence.mounted) return null;
   const modal = (
     <div
       {...backdropProps}
+      aria-hidden={presence.exiting || undefined}
       className={classNames('xgc-modal-backdrop', backdropProps?.className)}
+      data-xgc-presence={presence.exiting ? 'exit' : undefined}
+      inert={presence.exiting ? true : undefined}
+      ref={backdropRef}
       role="presentation"
       onMouseDown={(event) => {
         if (closeOnBackdrop && dismissible && event.target === event.currentTarget) onClose();

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from
 import type { AriaAttributes, CSSProperties, ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import type { ComponentSize } from './Button';
+import { usePresence } from '../hooks/usePresence';
 import { classNames } from '../utils';
 import { overlayStyleEquals, useOverlayStack } from './OverlayStack';
 
@@ -75,6 +76,9 @@ export function SelectMenu({
     triggerRef.current?.focus();
   }, []);
   const overlay = useOverlayStack({ close: closeAndRestoreFocus, open, rootRef: menuRef });
+  // Keep a closing menu mounted for its exit animation; the overlay stack and
+  // trigger aria still see the close immediately.
+  const presence = usePresence(open, menuRef);
 
   useEffect(() => {
     if (!open) return;
@@ -166,15 +170,18 @@ export function SelectMenu({
     items[(current + direction + items.length) % items.length]?.focus();
   };
 
-  const menu = open ? (
+  const menu = presence.mounted ? (
     <div
+      aria-hidden={presence.exiting || undefined}
       aria-label={ariaLabel}
       className="xgc-select-menu"
       data-xgc-menu-align={menuAlign}
       data-xgc-menu-placement={resolvedPlacement}
       data-xgc-overlay-root="true"
       data-xgc-portaled="true"
+      data-xgc-presence={presence.exiting ? 'exit' : undefined}
       id={menuId}
+      inert={presence.exiting ? true : undefined}
       onKeyDown={(event) => {
         if (event.key === 'Escape') {
           overlay.closeTopOverlay(event);

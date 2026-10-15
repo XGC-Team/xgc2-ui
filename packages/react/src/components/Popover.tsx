@@ -14,6 +14,7 @@ import {
   type ReactNode,
 } from 'react';
 import { createPortal } from 'react-dom';
+import { usePresence } from '../hooks/usePresence';
 import { classNames } from '../utils';
 import { Button, type ButtonProps, type ButtonTone } from './Button';
 import { overlayStyleEquals, OverlayOwner, useOverlayStack } from './OverlayStack';
@@ -86,6 +87,9 @@ export function Popover({
     anchorRef.current?.querySelector<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')?.focus();
   };
   const overlay = useOverlayStack({ close: closeAndRestoreFocus, open, rootRef: surfaceRef });
+  // Keep a closing surface mounted for its exit animation; overlay stack,
+  // focus restore, and trigger aria still see the close immediately.
+  const presence = usePresence(open, surfaceRef);
 
   useEffect(() => {
     if (previousOpen.current && !open) {
@@ -110,7 +114,9 @@ export function Popover({
 
   useLayoutEffect(() => {
     if (!open) {
-      setPosition(hiddenPopoverPosition);
+      // During the exit window the surface keeps its last measured position;
+      // only a fully closed popover resets to the hidden parking slot.
+      if (!presence.exiting) setPosition(hiddenPopoverPosition);
       return;
     }
     const updatePosition = () => {
@@ -203,17 +209,20 @@ export function Popover({
       if (!event.defaultPrevented) onOpenChange(!open);
     },
   });
-  const surface = open && typeof document !== 'undefined' ? createPortal(
+  const surface = presence.mounted && typeof document !== 'undefined' ? createPortal(
     <div
       {...surfaceProps}
+      aria-hidden={presence.exiting || undefined}
       aria-label={ariaLabel}
       aria-labelledby={ariaLabelledBy}
       className={classNames('xgc-popover', className, surfaceProps?.className)}
       data-xgc-id={dataXgcId}
       data-xgc-overlay-root="true"
       data-xgc-placement={placement}
+      data-xgc-presence={presence.exiting ? 'exit' : undefined}
       data-xgc-role={dataXgcRole}
       id={popoverId}
+      inert={presence.exiting ? true : undefined}
       onKeyDown={(event) => {
         surfaceProps?.onKeyDown?.(event);
         overlay.closeTopOverlay(event);

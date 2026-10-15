@@ -4570,3 +4570,74 @@ button.xgc-workflow-status-card[data-xgc-layout='tile'][data-xgc-appearance='sol
     opacity: var(--opacity-secondary);
   }
 }
+
+/* Overlay presence motion. Enter runs once on mount; exit runs while the
+ * closing surface stays mounted under [data-xgc-presence='exit'] (the shared
+ * usePresence hook owns that window and unmounts instantly for reduced
+ * motion). Durations, easings, and travel distances are tokens only. */
+
+.xgc-drawer-backdrop,
+.xgc-modal-backdrop {
+  animation: xgc-overlay-fade-in var(--duration-fast) var(--easing-enter) both;
+}
+
+.xgc-drawer-backdrop[data-xgc-presence='exit'],
+.xgc-modal-backdrop[data-xgc-presence='exit'] {
+  animation: xgc-overlay-fade-out var(--duration-fast) var(--easing-exit) both;
+  pointer-events: none;
+}
+
+.xgc-drawer {
+  animation: xgc-drawer-enter var(--duration-deliberate) var(--easing-enter) both;
+}
+
+.xgc-drawer-backdrop[data-xgc-presence='exit'] .xgc-drawer {
+  animation: xgc-drawer-exit var(--duration-fast) var(--easing-exit) both;
+}
+
+.xgc-popover,
+.xgc-select-menu,
+.xgc-modal {
+  animation: xgc-float-enter var(--duration-fast) var(--easing-enter) both;
+}
+
+.xgc-popover[data-xgc-presence='exit'],
+.xgc-select-menu[data-xgc-presence='exit'],
+.xgc-modal-backdrop[data-xgc-presence='exit'] .xgc-modal {
+  animation: xgc-float-exit var(--duration-fast) var(--easing-exit) both;
+}
+
+.xgc-popover[data-xgc-presence='exit'],
+.xgc-select-menu[data-xgc-presence='exit'] {
+  pointer-events: none;
+}
+
+@keyframes xgc-overlay-fade-in {
+  from { opacity: var(--opacity-hidden); }
+  to { opacity: var(--opacity-full); }
+}
+
+@keyframes xgc-overlay-fade-out {
+  from { opacity: var(--opacity-full); }
+  to { opacity: var(--opacity-hidden); }
+}
+
+@keyframes xgc-drawer-enter {
+  from { opacity: var(--opacity-hidden); translate: var(--space-2xl) 0; }
+  to { opacity: var(--opacity-full); translate: 0 0; }
+}
+
+@keyframes xgc-drawer-exit {
+  from { opacity: var(--opacity-full); translate: 0 0; }
+  to { opacity: var(--opacity-hidden); translate: var(--space-2xl) 0; }
+}
+
+@keyframes xgc-float-enter {
+  from { opacity: var(--opacity-hidden); translate: 0 var(--space-xs); }
+  to { opacity: var(--opacity-full); translate: 0 0; }
+}
+
+@keyframes xgc-float-exit {
+  from { opacity: var(--opacity-full); translate: 0 0; }
+  to { opacity: var(--opacity-hidden); translate: 0 var(--space-xs); }
+}

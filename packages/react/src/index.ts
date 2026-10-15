@@ -216,4 +216,5 @@ export type { TooltipProps } from './components/Tooltip';
 export { TextPromptDialog } from './components/TextPromptDialog';
 export type { TextPromptDialogProps, TextPromptDialogRequest } from './components/TextPromptDialog';
 export { useConfirmationDialog } from './hooks/useConfirmationDialog';
+export { usePresence, type PresenceState } from './hooks/usePresence';
 export { useTextPromptDialog } from './hooks/useTextPromptDialog';
