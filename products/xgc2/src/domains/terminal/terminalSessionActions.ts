@@ -1,1 +1,0 @@
-export { getTerminalWebSocketTicket } from './terminalService';

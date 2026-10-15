@@ -16,10 +16,6 @@ if args.product == 'xgc2':
     if not (backend / 'core-xgc/go.mod').is_file():
         parser.exit(1, 'Set XGC2_PRODUCT_ROOT to the XGC2 backend checkout\n')
     target = backend / 'web'
-    prepared = subprocess.run([sys.executable, str(owner / 'scripts/sync-product-frontend.py'),
-                               '--product', 'xgc2', '--target', str(target)])
-    if prepared.returncode:
-        raise SystemExit(prepared.returncode)
     if args.action == 'install':
         subprocess.run([sys.executable, str(backend / 'scripts/prepare-native-agent.py')], check=True)
         command = [sys.executable, str(backend / 'scripts/ensure-web-dependencies.py')]

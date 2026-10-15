@@ -1,12 +1,12 @@
 # XGC2 UI
 
-Shared UI packages and independently maintained product frontends.
+Shared UI packages and the Research OS frontend.
 
 - `packages/`: reusable libraries. Product frontends are not forced into a common shell.
-- `products/xgc2`: XGC2 product frontend.
+- XGC2 product frontend: `web/` in the XGC2 repository.
 - `products/research-os`: Research OS product frontend.
 
-Each product keeps its own npm lock and build/test entry. These directories are outside the library pnpm workspace.
+Research OS keeps its own npm lock and build/test entry outside the library pnpm workspace. XGC2 consumes immutable shared package tarballs in its product-owned frontend.
 
 See [Product frontends](docs/product-frontends.md) for build commands.
 

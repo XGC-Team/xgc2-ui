@@ -75,7 +75,7 @@ def synchronize(source, target, *, adopt=False, check=False):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--product', choices=['xgc2', 'research-os'], required=True)
+    parser.add_argument('--product', choices=['research-os'], required=True)
     parser.add_argument('--target', type=Path, required=True)
     parser.add_argument('--adopt', action='store_true')
     parser.add_argument('--check', action='store_true')
