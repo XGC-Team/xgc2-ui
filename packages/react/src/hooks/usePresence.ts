@@ -9,14 +9,28 @@ export type PresenceState = {
 
 /**
  * Owns the closing window of an overlay. Enter motion is pure CSS on mount;
- * this hook only keeps a closing surface mounted until its exit animations
- * finish (`getAnimations({ subtree: true })` on the surface the caller hands
- * in), with a safety timer so a cancelled animation can never leak the node.
+ * this hook only keeps a closing surface mounted until its finite exit
+ * animations finish (`getAnimations({ subtree: true })` on the surface the
+ * caller hands in, infinite descendant motion excluded), with a safety timer
+ * so a cancelled animation can never leak the node.
  *
  * Reduced-motion operators and environments without matchMedia (test DOMs)
  * get the instant path: `mounted` tracks `open` exactly, preserving the
  * historical immediate-unmount behavior.
  */
+/**
+ * The exit window waits only for animations that can actually end. Infinite
+ * descendant motion (spinners, skeleton pulses) never resolves `finished`;
+ * waiting on it would stretch the exit window to the leak guard and pin a
+ * half-faded overlay over the page.
+ */
+function isFiniteAnimation(animation: Animation): boolean {
+  const timing = animation.effect && typeof animation.effect.getComputedTiming === 'function'
+    ? animation.effect.getComputedTiming()
+    : null;
+  return !timing || Number.isFinite(timing.iterations);
+}
+
 export function usePresence(open: boolean, surfaceRef: RefObject<HTMLElement | null>): PresenceState {
   const motionAllowed = typeof window !== 'undefined'
     && typeof window.matchMedia === 'function'
@@ -39,7 +53,7 @@ export function usePresence(open: boolean, surfaceRef: RefObject<HTMLElement | n
     };
     const node = surfaceRef.current;
     const animations = node && typeof node.getAnimations === 'function'
-      ? node.getAnimations({ subtree: true })
+      ? node.getAnimations({ subtree: true }).filter(isFiniteAnimation)
       : [];
     if (animations.length === 0) {
       finish();
