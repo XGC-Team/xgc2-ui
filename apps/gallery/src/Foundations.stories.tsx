@@ -244,8 +244,8 @@ function FormAndMediaExample() {
           fill
           onValueChange={setTarget}
           options={[
-            { group: 'Local', label: 'Development lab', value: 'lab' },
-            { group: 'Remote', label: 'Robot A', value: 'robot-a' },
+            { description: 'Run on this workstation', group: 'Local', label: 'Development lab', value: 'lab' },
+            { description: 'Run on the selected robot computer', group: 'Remote', label: 'Robot A', value: 'robot-a' },
           ]}
           value={target}
         />

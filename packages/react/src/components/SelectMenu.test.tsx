@@ -35,6 +35,65 @@ describe('SelectMenu', () => {
     expect(onValueChange).toHaveBeenCalledWith('name');
   });
 
+  it('keeps a one-line option description out of the selected trigger name', () => {
+    const onValueChange = vi.fn();
+    render(
+      <SelectMenu
+        ariaLabel="Experiment type"
+        onValueChange={onValueChange}
+        options={[
+          { description: 'Gazebo physics and scripted worlds', label: 'Simulation', value: 'simulation' },
+          { description: '   ', label: 'Blank', value: 'blank' },
+          { label: 'Field', value: 'field' },
+        ]}
+        value="simulation"
+      />,
+    );
+    const trigger = screen.getByRole('button', { name: 'Experiment type' });
+    expect(trigger).toHaveTextContent('Simulation');
+    expect(trigger).not.toHaveTextContent('Gazebo');
+    fireEvent.click(trigger);
+    const simulation = screen.getByRole('option', { name: 'Simulation' });
+    const description = simulation.querySelector('.xgc-select-option-description');
+    expect(description).toHaveTextContent('Gazebo physics and scripted worlds');
+    expect(simulation).toHaveAttribute('aria-describedby', description?.id);
+    expect(screen.getByRole('option', { name: 'Field' }).querySelector('.xgc-select-option-description')).toBeNull();
+    expect(screen.getByRole('option', { name: 'Blank' }).querySelector('.xgc-select-option-description')).toBeNull();
+    fireEvent.keyDown(screen.getByRole('listbox', { name: 'Experiment type' }), { key: 'ArrowDown' });
+    expect(screen.getByRole('option', { name: 'Blank' })).toHaveFocus();
+    fireEvent.click(screen.getByRole('option', { name: 'Field' }));
+    expect(onValueChange).toHaveBeenCalledWith('field');
+    expect(trigger).toHaveTextContent('Simulation');
+    expect(trigger).not.toHaveTextContent('Gazebo');
+  });
+
+  it('keeps separate description targets when values would sanitize to one id', () => {
+    render(
+      <SelectMenu
+        ariaLabel="Paths"
+        onValueChange={() => undefined}
+        options={[
+          { description: 'Dot path', label: 'Dot', value: 'a.b' },
+          { description: 'Slash path', label: 'Slash', value: 'a/b' },
+        ]}
+        value="a.b"
+      />,
+    );
+    const trigger = screen.getByRole('button', { name: 'Paths' });
+    expect(trigger).toHaveTextContent('Dot');
+    expect(trigger).not.toHaveTextContent('Dot path');
+    fireEvent.click(trigger);
+    const dot = screen.getByRole('option', { name: 'Dot' });
+    const slash = screen.getByRole('option', { name: 'Slash' });
+    const dotDescription = document.getElementById(dot.getAttribute('aria-describedby') ?? '');
+    const slashDescription = document.getElementById(slash.getAttribute('aria-describedby') ?? '');
+    expect(dot.getAttribute('aria-describedby')).not.toBe(slash.getAttribute('aria-describedby'));
+    expect(dotDescription).toHaveTextContent('Dot path');
+    expect(slashDescription).toHaveTextContent('Slash path');
+    expect(document.getElementById(dot.getAttribute('aria-labelledby') ?? '')).toHaveTextContent('Dot');
+    expect(document.getElementById(slash.getAttribute('aria-labelledby') ?? '')).toHaveTextContent('Slash');
+  });
+
   it('flips above when the preferred space below is too small', () => {
     Object.defineProperty(window, 'innerHeight', { configurable: true, value: 400 });
     const { container } = render(

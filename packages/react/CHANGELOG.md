@@ -1,5 +1,11 @@
 # @xgc2/ui-react
 
+## 0.17.5
+
+### Patch Changes
+
+- Add optional, accessible one-line descriptions to SelectMenu options. Keep the selected trigger and option accessible name as the label; isolate description IDs across values and groups.
+
 ## 0.17.4
 
 ### Patch Changes

@@ -7,6 +7,7 @@ import { classNames } from '../utils';
 import { overlayStyleEquals, useOverlayStack } from './OverlayStack';
 
 export type SelectMenuOption = {
+  description?: string;
   disabled?: boolean;
   group?: string;
   label: string;
@@ -224,25 +225,35 @@ export function SelectMenu({
           role={group.label ? 'group' : undefined}
         >
           {group.label ? <span aria-hidden="true" className="xgc-select-group-label">{group.label}</span> : null}
-          {group.options.map((option) => (
-            <button
-              aria-selected={option.value === value}
-              className="xgc-select-option"
-              data-xgc-id={dataXgcId ? `${dataXgcId}:${option.value}` : option.value}
-              data-xgc-role="select-option"
-              disabled={option.disabled}
-              key={option.value}
-              onClick={() => {
-                onValueChange(option.value);
-                closeAndRestoreFocus();
-              }}
-              role="option"
-              type="button"
-            >
-              <span>{option.label}</span>
-              <svg aria-hidden="true" className="xgc-select-check" viewBox="0 0 16 16"><path d="m3 8 3 3 7-7" /></svg>
-            </button>
-          ))}
+          {group.options.map((option, optionIndex) => {
+            const description = option.description?.trim() ?? '';
+            const labelId = description ? optionPartId(menuId, groupIndex, optionIndex, 'label') : undefined;
+            const descriptionId = description ? optionPartId(menuId, groupIndex, optionIndex, 'description') : undefined;
+            return (
+              <button
+                aria-describedby={descriptionId}
+                aria-labelledby={labelId}
+                aria-selected={option.value === value}
+                className="xgc-select-option"
+                data-xgc-id={dataXgcId ? `${dataXgcId}:${option.value}` : option.value}
+                data-xgc-role="select-option"
+                disabled={option.disabled}
+                key={option.value}
+                onClick={() => {
+                  onValueChange(option.value);
+                  closeAndRestoreFocus();
+                }}
+                role="option"
+                type="button"
+              >
+                <span className="xgc-select-option-copy">
+                  <span id={labelId}>{option.label}</span>
+                  {description ? <span className="xgc-select-option-description" id={descriptionId}>{description}</span> : null}
+                </span>
+                <svg aria-hidden="true" className="xgc-select-check" viewBox="0 0 16 16"><path d="m3 8 3 3 7-7" /></svg>
+              </button>
+            );
+          })}
         </div>
       ))}
     </div>
@@ -312,6 +323,10 @@ export function SelectMenu({
       {menu ? createPortal(menu, document.body) : null}
     </div>
   );
+}
+
+function optionPartId(menuId: string, groupIndex: number, optionIndex: number, part: 'label' | 'description') {
+  return `${menuId}-${part}-${groupIndex}-${optionIndex}`;
 }
 
 function groupSelectOptions(options: readonly SelectMenuOption[]) {

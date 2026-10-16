@@ -580,6 +580,16 @@ button.xgc-workflow-status-card[data-xgc-layout='tile'][data-xgc-appearance='sol
   cursor: pointer;
 }
 
+.xgc-select-option-copy { min-width: 0; display: grid; }
+.xgc-select-option:has(.xgc-select-option-description) { height: auto; padding-block: var(--space-xs); }
+.xgc-select-option-description {
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--type-meta-size);
+  line-height: var(--type-meta-line-height);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .xgc-select-option:hover:not(:disabled),
 .xgc-select-option:focus-visible { color: var(--color-text-strong); background: var(--color-bg-surface-hover); }
 .xgc-select-option[aria-selected='true'] { color: var(--color-text-strong); background: var(--color-bg-active); }
