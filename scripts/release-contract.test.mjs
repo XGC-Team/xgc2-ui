@@ -43,10 +43,7 @@ test('keeps the prepared package family internally coherent', () => {
   assert.equal(currentChangelogVersion(tokensChangelog, packages[0].name), packages[0].version);
   assert.equal(currentChangelogVersion(reactChangelog, packages[1].name), packages[1].version);
   assert.equal(currentChangelogVersion(workflowChangelog, packages[2].name), packages[2].version);
-  assert.match(
-    readme,
-    new RegExp(`https://github\\.com/XGC-Team/xgc2-ui/releases/download/v${packages[1].version.replaceAll('.', '\\.')}\/xgc2-ui-react-${packages[1].version.replaceAll('.', '\\.')}\\.tgz`),
-  );
+  assert.match(readme, /https:\/\/github\.com\/XGC-Team\/xgc2-dev-memory\/blob\/master\/now\/visual-system\.md#shared-ui-package-and-consumer-reference/);
 });
 
 test('hosted publishers share the immutable release executor and require an explicit dispatch', () => {

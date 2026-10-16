@@ -68,13 +68,27 @@ export function SelectMenu({
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const blurFrame = useRef<number | null>(null);
+  const blurEpoch = useRef(0);
   const menuId = useId();
   const selected = options.find((option) => option.value === value);
   const optionGroups = groupSelectOptions(options);
-  const closeAndRestoreFocus = useCallback(() => {
-    setOpen(false);
-    triggerRef.current?.focus();
+  const cancelQueuedBlur = useCallback(() => {
+    blurEpoch.current += 1;
+    const frame = blurFrame.current;
+    if (frame === null) return;
+    blurFrame.current = null;
+    cancelAnimationFrame(frame);
   }, []);
+  useEffect(() => cancelQueuedBlur, [cancelQueuedBlur]);
+  const closeMenu = useCallback(() => {
+    cancelQueuedBlur();
+    setOpen(false);
+  }, [cancelQueuedBlur]);
+  const closeAndRestoreFocus = useCallback(() => {
+    closeMenu();
+    triggerRef.current?.focus();
+  }, [closeMenu]);
   const overlay = useOverlayStack({ close: closeAndRestoreFocus, open, rootRef: menuRef });
   // Keep a closing menu mounted for its exit animation; the overlay stack and
   // trigger aria still see the close immediately.
@@ -85,15 +99,15 @@ export function SelectMenu({
     const closeFromOutside = (event: MouseEvent) => {
       const target = event.target as Node;
       if (rootRef.current?.contains(target) || menuRef.current?.contains(target)) return;
-      setOpen(false);
+      closeMenu();
     };
     document.addEventListener('mousedown', closeFromOutside);
     return () => document.removeEventListener('mousedown', closeFromOutside);
-  }, [open]);
+  }, [closeMenu, open]);
 
   useEffect(() => {
-    if (disabled) setOpen(false);
-  }, [disabled]);
+    if (disabled) closeMenu();
+  }, [closeMenu, disabled]);
 
   useLayoutEffect(() => {
     if (!open) return;
@@ -160,6 +174,7 @@ export function SelectMenu({
   const isInsideSurface = (node: Node | null) => Boolean(node && (rootRef.current?.contains(node) || menuRef.current?.contains(node)));
   const openMenu = () => {
     if (disabled || open) return;
+    cancelQueuedBlur();
     setOpen(true);
     void onOpen?.();
   };
@@ -250,8 +265,15 @@ export function SelectMenu({
       data-xgc-size={uiSize}
       onBlur={(event) => {
         if (isInsideSurface(event.relatedTarget as Node | null)) return;
-        requestAnimationFrame(() => {
-          if (!isInsideSurface(document.activeElement)) setOpen(false);
+        // One owner epoch. Cancel, replacement, close, and unmount advance it.
+        // The frame captures that epoch and must match before it clears the
+        // handle or closes, so a forced old callback cannot drop a newer frame.
+        cancelQueuedBlur();
+        const epoch = blurEpoch.current;
+        blurFrame.current = requestAnimationFrame(() => {
+          if (epoch !== blurEpoch.current) return;
+          blurFrame.current = null;
+          if (!isInsideSurface(document.activeElement)) closeMenu();
         });
       }}
       ref={rootRef}
@@ -271,7 +293,7 @@ export function SelectMenu({
         data-dialog-initial-focus={autoFocus || undefined}
         disabled={disabled}
         id={id}
-        onClick={() => open ? setOpen(false) : openMenu()}
+        onClick={() => open ? closeMenu() : openMenu()}
         onKeyDown={(event) => {
           if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
             event.preventDefault();

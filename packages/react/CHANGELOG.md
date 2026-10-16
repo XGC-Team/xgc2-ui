@@ -1,5 +1,12 @@
 # @xgc2/ui-react
 
+## 0.17.4
+
+### Patch Changes
+
+- Cancel queued SelectMenu blur callbacks when their owner closes, is replaced, or unmounts. A retired callback cannot close a newly opened menu.
+- Wait only for finite overlay exit animations; infinite descendant spinners do not extend the closing window.
+
 ## 0.17.3
 
 ### Patch Changes
