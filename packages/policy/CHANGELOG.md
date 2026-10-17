@@ -1,5 +1,11 @@
 # @xgc2/ui-policy
 
+## 0.17.6
+
+### Patch Changes
+
+- Pair with @xgc2/ui-react 0.17.6. Existing policy rules are unchanged.
+
 ## 0.17.5
 
 ### Patch Changes

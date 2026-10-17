@@ -3351,6 +3351,7 @@ button.xgc-stat-card:disabled {
 }
 
 .xgc-app-sidebar {
+  --xgc-sidebar-icon-size: 17px;
   /* True width motion: the layout box really is 36px when collapsed, so the
    * seam is honest and nothing invisible overlaps the workspace. Webpage
    * flash comes from snapping inner padding/opacity/display while width
@@ -3385,11 +3386,17 @@ button.xgc-stat-card:disabled {
 .xgc-sidebar-brand {
   height: var(--size-shell-chrome);
   flex: 0 0 var(--size-shell-chrome);
-  /* Left inset centers the 24px mark at x=18 — identical to its centered
-   * position inside the collapsed rail, so collapse never moves it. */
-  padding: 0 var(--space-md) 0 var(--space-sm);
+  /* Match the default navigation icon axis while accounting for the larger
+   * brand mark. Both insets follow the same collapse motion. */
+  padding: 0 var(--space-md);
+  padding-left: calc(var(--space-sm) + var(--space-lg) + (var(--xgc-sidebar-icon-size) - var(--size-icon-xl)) / 2);
+  transition: padding-left var(--duration-fast) var(--easing-standard);
   color: var(--color-text-strong);
   border-bottom: var(--stroke-thin) solid var(--color-border-muted);
+}
+
+.xgc-app-sidebar[data-collapsed='true'] .xgc-sidebar-brand {
+  padding-left: calc((var(--size-sidebar-collapsed) - var(--size-icon-xl)) / 2);
 }
 
 .xgc-sidebar-toggle {
@@ -3468,7 +3475,6 @@ button.xgc-stat-card:disabled {
 }
 
 .xgc-sidebar-nav-item {
-  --xgc-sidebar-icon-size: 17px;
   width: 100%;
   /* 36px row = one chrome unit; identical in expanded and collapsed states. */
   height: var(--size-header-page);
@@ -3534,9 +3540,9 @@ button.xgc-stat-card:disabled {
 }
 
 .xgc-sidebar-nav-icon {
-  width: 17px;
-  height: 17px;
-  flex: 0 0 17px;
+  width: var(--xgc-sidebar-icon-size);
+  height: var(--xgc-sidebar-icon-size);
+  flex: 0 0 var(--xgc-sidebar-icon-size);
   display: grid;
   place-items: center;
 }
@@ -3581,6 +3587,7 @@ button.xgc-stat-card:disabled {
 
 @media (prefers-reduced-motion: reduce) {
   .xgc-app-sidebar,
+  .xgc-sidebar-brand,
   .xgc-sidebar-collapse-indicator,
   .xgc-sidebar-footer,
   .xgc-sidebar-nav,

@@ -1,5 +1,11 @@
 # @xgc2/ui-react
 
+## 0.17.6
+
+### Patch Changes
+
+- Align the sidebar brand with navigation icons in expanded and collapsed states while retaining the clipped inner track and reduced-motion behavior.
+
 ## 0.17.5
 
 ### Patch Changes

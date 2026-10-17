@@ -113,6 +113,31 @@ describe('page-family visual geometry', () => {
     expect(collapsedItem.get('justify-content')).toBeUndefined();
   });
 
+  it('aligns the brand and default navigation icon axes in expanded and collapsed sidebars', () => {
+    const css = readFileSync(stylesPath, 'utf8');
+    const sidebar = ruleDeclarations(css, '.xgc-app-sidebar');
+    const brand = ruleDeclarations(css, '.xgc-sidebar-brand');
+    const collapsedBrand = ruleDeclarations(css, ".xgc-app-sidebar[data-collapsed='true'] .xgc-sidebar-brand");
+    const item = ruleDeclarations(css, '.xgc-sidebar-nav-item');
+    const icon = ruleDeclarations(css, '.xgc-sidebar-nav-icon');
+
+    expect(sidebar.get('--xgc-sidebar-icon-size')).toBe('17px');
+    expect(item.has('--xgc-sidebar-icon-size')).toBe(false);
+    expect(icon.get('width')).toBe('var(--xgc-sidebar-icon-size)');
+    expect(icon.get('height')).toBe('var(--xgc-sidebar-icon-size)');
+    expect(icon.get('flex')).toBe('0 0 var(--xgc-sidebar-icon-size)');
+    expect(brand.get('padding-left')).toBe(
+      'calc(var(--space-sm) + var(--space-lg) + (var(--xgc-sidebar-icon-size) - var(--size-icon-xl)) / 2)',
+    );
+    expect(collapsedBrand.get('padding-left')).toBe(
+      'calc((var(--size-sidebar-collapsed) - var(--size-icon-xl)) / 2)',
+    );
+    expect(brand.get('transition')).toBe('padding-left var(--duration-fast) var(--easing-standard)');
+    const reducedMotion = css.match(/@media \(prefers-reduced-motion: reduce\) \{\s+\.xgc-app-sidebar,[\s\S]*?\n\}/)?.[0];
+    expect(reducedMotion).toContain('.xgc-sidebar-brand,');
+    expect(reducedMotion).toContain('transition: none;');
+  });
+
   it('uses the thin progress size token for command-tile tracks', () => {
     const css = readFileSync(stylesPath, 'utf8');
     const progress = ruleDeclarations(
