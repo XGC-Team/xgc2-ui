@@ -5,6 +5,25 @@ import { describe, expect, it, vi } from 'vitest';
 import { WorkflowStatusCard } from './WorkflowStatusCard';
 
 describe('WorkflowStatusCard', () => {
+  it('exposes a public progress presentation class without changing its default or semantics', () => {
+    const props = {
+      ariaLabel: 'Build', dataXgcRole: 'command', dataXgcId: 'build',
+      metrics: { primary: '' }, title: 'Build', tone: 'neutral' as const,
+      status: 'running', running: true, busy: true, onClick: vi.fn(),
+      progress: { percent: 50, value: 1, max: 2, label: 'Build progress' },
+    };
+    const { rerender } = render(<WorkflowStatusCard {...props} progressClassName="build-progress" />);
+    const progress = screen.getByRole('progressbar', { name: 'Build progress' });
+    expect(progress).toHaveClass('build-progress', 'xgc-workflow-status-card-progress');
+    expect(progress).toHaveAttribute('aria-valuenow', '1');
+    expect(screen.getByRole('button', { name: 'Build' })).toHaveAttribute('aria-busy', 'true');
+    expect(screen.getByRole('button', { name: 'Build' })).not.toHaveClass('build-progress');
+    rerender(<WorkflowStatusCard {...props} />);
+    expect(screen.getByRole('progressbar', { name: 'Build progress' })).toBe(progress);
+    expect(progress).toHaveAttribute('class', 'xgc-progress xgc-workflow-status-card-progress');
+    expect(progress).toHaveAttribute('aria-valuenow', '1');
+  });
+
   const completedCard = (completion?:{ id:string;percent:number },paused=false,onClick=vi.fn()) => (
     <WorkflowStatusCard ariaLabel="Publish" dataXgcRole="command" dataXgcId="publish"
       layout="tile" metrics={{ primary:'' }} title="Publish" tone="neutral"

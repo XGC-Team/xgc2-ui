@@ -1,5 +1,11 @@
 # @xgc2/ui-react
 
+## 0.18.5
+
+### Patch Changes
+
+- Expose WorkflowStatusCard progressClassName so product layouts can select their own progress presentation without reaching into shared component classes. Existing cards retain their default behavior.
+
 ## 0.18.4
 
 ### Patch Changes

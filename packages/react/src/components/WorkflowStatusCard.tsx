@@ -39,6 +39,8 @@ export type WorkflowStatusCardProps = {
   /** Hidden/parked presentations consume receipts without replaying on return. */
   paused?: boolean;
   progress: WorkflowStatusCardProgress;
+  /** Public progress presentation class for consumer-owned responsive layout. */
+  progressClassName?: string;
   runId?: string;
   running: boolean;
   status: string;
@@ -50,7 +52,7 @@ export type WorkflowStatusCardProps = {
 
 export function WorkflowStatusCard({
   appearance = 'default', ariaLabel, busy, children, className, dataXgcId, dataXgcRole, disabled,
-  layout = 'default', metrics, onClick, paused = false, pressed, progress, runId, running, status,
+  layout = 'default', metrics, onClick, paused = false, pressed, progress, progressClassName, runId, running, status,
   statusLabel, title, titleAttr, tone,
 }: WorkflowStatusCardProps) {
   const percent = Math.min(100, Math.max(0, progress.percent));
@@ -85,7 +87,7 @@ export function WorkflowStatusCard({
       <ProgressBar
         ariaHidden={!progress.label}
         key={presentation?.id}
-        className={classNames('xgc-workflow-status-card-progress',
+        className={classNames('xgc-workflow-status-card-progress', progressClassName,
           presentation && 'xgc-workflow-status-card-completing')}
         color={progress.color}
         indeterminate={progress.indeterminate}
