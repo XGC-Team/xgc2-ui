@@ -1,5 +1,11 @@
 # @xgc2/ui-react
 
+## 0.18.1
+
+### Patch Changes
+
+- Body-scroll data tables no longer measure body column widths into React state; one inner viewport scrolls a single table whose sticky header shares the body's native column widths, removing the second geometry owner.
+
 ## 0.18.0
 
 ### Minor Changes

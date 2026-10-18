@@ -1,5 +1,11 @@
 # @xgc2/ui-policy
 
+## 0.18.1
+
+### Patch Changes
+
+- Track the react 0.18.1 data-table viewport contract.
+
 ## 0.18.0
 
 ### Minor Changes
