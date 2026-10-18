@@ -1993,10 +1993,16 @@ button.xgc-list-tag:disabled { cursor: not-allowed; opacity: var(--opacity-deemp
 }
 
 .xgc-modal-header strong {
+  /* Same header-label contract as panel titles: one line, clipped with an
+     ellipsis inside the min-width:0 grid cell instead of pushing the close
+     button out. */
+  overflow: hidden;
   color: var(--color-text-heading);
   font-size: var(--type-title-size);
   font-weight: var(--type-title-weight);
   line-height: var(--type-title-line-height);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .xgc-modal-header p {
@@ -3851,6 +3857,18 @@ button.xgc-workflow-status-card[data-xgc-layout='tile'][data-xgc-appearance='sol
   gap: var(--space-layout-tight);
   padding-block-end: var(--space-layout-comfortable);
   border-block-end: var(--stroke-thin) solid var(--color-border-muted);
+  /* The section is the measuring container for its own body: the two-column
+     field grid collapses against the space it is actually drawn in (narrow
+     drawer, docked pane), not against the viewport. */
+  container-type: inline-size;
+}
+
+/* Two comfortable field columns need roughly 2 x 280px; below that the body
+   stacks, wherever the section happens to live. */
+@container (max-width: 600px) {
+  .xgc-form-section-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .xgc-form-section:last-child {

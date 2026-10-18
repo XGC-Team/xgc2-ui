@@ -85,9 +85,8 @@
     padding: var(--space-lg);
   }
 
-  .xgc-form-section-body {
-    grid-template-columns: minmax(0, 1fr);
-  }
+  /* .xgc-form-section collapses by its own container query in styles.css;
+     viewport width is not its measuring contract. */
 
   .xgc-config-section-body > .xgc-form-field { grid-template-columns: minmax(0, 1fr); align-items: start; }
   .xgc-config-section-body > .xgc-form-field > :is(.xgc-control, .xgc-select-control, .xgc-boolean-control, .xgc-input-action-control, .xgc-input, .xgc-select, .xgc-switch, .xgc-checkbox) {

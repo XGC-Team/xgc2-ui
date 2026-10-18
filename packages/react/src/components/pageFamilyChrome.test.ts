@@ -186,6 +186,29 @@ describe('page-family visual geometry', () => {
     );
   });
 
+  it('collapses the FormSection field grid against its own container, not the viewport', () => {
+    const css = readFileSync(stylesPath, 'utf8');
+    const section = ruleDeclarations(css, '.xgc-form-section');
+    const collapseStart = css.indexOf('@container (max-width: 600px)');
+
+    // The section measures itself; the body stacks inside the space it is
+    // actually drawn in (narrow drawer, docked pane), so no viewport media
+    // query may carry this contract.
+    expect(section.get('container-type')).toBe('inline-size');
+    expect(collapseStart).toBeGreaterThan(-1);
+    expect(css.slice(collapseStart, css.indexOf('}', collapseStart + 1))).toContain('.xgc-form-section-body');
+    expect(css).not.toMatch(/@media[^{]*\{[^@]*\.xgc-form-section-body/);
+  });
+
+  it('truncates the modal title like every other header label', () => {
+    const css = readFileSync(stylesPath, 'utf8');
+    const title = ruleDeclarations(css, '.xgc-modal-header strong');
+
+    expect(title.get('overflow')).toBe('hidden');
+    expect(title.get('text-overflow')).toBe('ellipsis');
+    expect(title.get('white-space')).toBe('nowrap');
+  });
+
   it('keeps every field hint label on the FormSection specimen and textarea content on input type', () => {
     const css = readFileSync(stylesPath, 'utf8');
     const field = ruleDeclarations(css, '.xgc-form-field');
