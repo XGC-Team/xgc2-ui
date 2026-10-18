@@ -108,8 +108,11 @@ describe('data display primitives', () => {
     expect(rowViewport).toHaveAttribute('aria-label', 'Table rows');
     expect(rowViewport).toHaveAttribute('tabindex', '0');
     expect(rowViewport).toContainElement(screen.getByRole('cell', { name: 'alpha' }));
-    expect(rowViewport).not.toContainElement(header);
+    // One scroll viewport: the sticky header rides inside it, nothing measured.
+    expect(rowViewport).toContainElement(header);
+    expect(rowViewport).toBe(tableContainer);
     expect(container.querySelector('thead')).not.toHaveAttribute('style');
+    expect(header).not.toHaveAttribute('style');
     expect(container.querySelector('.xgc-pagination')).toBeNull();
   });
 
@@ -129,7 +132,7 @@ describe('data display primitives', () => {
     const header = screen.getByRole('columnheader', { name: 'Package' });
     expect(tableContainer).toHaveAttribute('data-body-scroll', 'true');
     expect(tableContainer).toHaveAttribute('data-sticky-header', 'true');
-    expect(rowViewport).not.toContainElement(header);
+    expect(rowViewport).toContainElement(header);
     expect(rowViewport).toContainElement(screen.getByText('No packages'));
 
     rerender(
@@ -145,7 +148,7 @@ describe('data display primitives', () => {
     expect(container.querySelector('.xgc-data-table')).toHaveAttribute('data-sticky-header', 'true');
     expect(container.querySelector('[data-xgc-role="data-table-row-viewport"]')).toHaveAttribute('tabindex', '0');
     expect(screen.getByText('package-39')).toBeInTheDocument();
-    expect(container.querySelector('[data-xgc-role="data-table-row-viewport"]')).not.toContainElement(
+    expect(container.querySelector('[data-xgc-role="data-table-row-viewport"]')).toContainElement(
       screen.getByRole('columnheader', { name: 'Package' }),
     );
   });
@@ -191,15 +194,15 @@ describe('data display primitives', () => {
     expect(nameHeader).toHaveAttribute('aria-sort', 'none');
     expect(rowViewport).toHaveAttribute('aria-label', 'Cleanup entries');
     expect(rowViewport).toHaveAttribute('tabindex', '0');
-    expect(rowViewport?.children).toHaveLength(1); // only the empty-state message row
+    expect(rowViewport?.querySelector('tbody')?.children).toHaveLength(1); // only the empty-state message row
     expect(rowViewport).toContainElement(screen.getByText('Nothing cleanable'));
-    expect(rowViewport).not.toContainElement(nameHeader);
+    expect(rowViewport).toContainElement(nameHeader);
     // No duplicate standalone empty block next to the table.
     expect(container.querySelector('.xgc-data-table-empty')).toBeNull();
     expect(container.querySelectorAll('table')).toHaveLength(1);
   });
 
-  it('never syncs column widths from the empty-state message row onto the headers', () => {
+  it('keeps headers free of measured inline widths around the empty-state row', () => {
     const { container, rerender } = render(
       <SortableDataTable<{ id: string; name: string; size: number }>
         bodyScroll
@@ -214,8 +217,8 @@ describe('data display primitives', () => {
         rows={[]}
       />,
     );
-    // The colSpan message row exists but must not feed width sync: no header
-    // carries an inline width and the message row itself is never observed-sized.
+    // One table owns column geometry: headers never carry measured inline
+    // widths, with or without the colSpan message row.
     const nameHeader = screen.getByRole('columnheader', { name: 'Name' });
     const sizeHeader = screen.getByRole('columnheader', { name: 'Size' });
     expect(nameHeader).not.toHaveAttribute('style');
@@ -236,13 +239,14 @@ describe('data display primitives', () => {
         rows={[{ id: 'a', name: 'alpha', size: 1024 }]}
       />,
     );
-    // Real data rows resume normal synchronization (widths measured from row cells).
+    // Data rows return without any width synchronization either.
     expect(screen.getByRole('cell', { name: 'alpha' })).toBeInTheDocument();
     expect(container.querySelector('.xgc-data-table-empty-row')).toBeNull();
+    expect(screen.getByRole('columnheader', { name: 'Name' })).not.toHaveAttribute('style');
+    expect(screen.getByRole('cell', { name: 'alpha' })).not.toHaveAttribute('style');
   });
 
-  it('remeasures natural data columns when the row viewport shrinks', () => {
-    let availableWidth = 240;
+  it('leaves column geometry to the single table when the viewport resizes', () => {
     let notifyResize = () => {};
     vi.stubGlobal('ResizeObserver', class {
       constructor(callback: ResizeObserverCallback) {
@@ -251,14 +255,7 @@ describe('data display primitives', () => {
       observe() {}
       disconnect() {}
     });
-    // jsdom has no table layout. Model the browser's natural column proportions
-    // and its preservation of explicit pixel widths as the viewport changes.
-    vi.spyOn(HTMLTableCellElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLTableCellElement) {
-      const naturalWidth = availableWidth * (this.cellIndex === 0 ? 0.25 : 0.75);
-      const width = this.style.width.endsWith('px') ? Number.parseFloat(this.style.width) : naturalWidth;
-      return new DOMRect(0, 0, width, 30);
-    });
-    const { container } = render(
+    render(
       <SortableDataTable
         bodyScroll
         columns={[
@@ -269,19 +266,12 @@ describe('data display primitives', () => {
         rows={[{ id: 'a', name: 'alpha', size: 1024 }, { id: 'b', name: 'beta', size: 2048 }]}
       />,
     );
-    expect(screen.getByRole('columnheader', { name: 'Name' })).toHaveStyle({ width: '60px' });
-    availableWidth = 160;
     act(() => notifyResize());
-    expect(screen.getByRole('columnheader', { name: 'Name' })).toHaveStyle({ width: '40px' });
-    expect(screen.getByRole('columnheader', { name: 'Size' })).toHaveStyle({ width: '120px' });
-    expect(Array.from(container.querySelectorAll('tbody tr'), (row) => (
-      Array.from(row.querySelectorAll('td'), (cell) => cell.getBoundingClientRect().width)
-    ))).toEqual([[40, 120], [40, 120]]);
-    // Small per-column changes still accumulate at the table's right edge.
-    availableWidth = 159.75;
-    act(() => notifyResize());
-    expect(screen.getByRole('columnheader', { name: 'Name' })).toHaveStyle({ width: '39.9375px' });
-    expect(screen.getByRole('columnheader', { name: 'Size' })).toHaveStyle({ width: '119.8125px' });
+    // No measurement writes back onto the table: the browser's table layout is
+    // the only column-width authority at every viewport size.
+    expect(screen.getByRole('columnheader', { name: 'Name' })).not.toHaveAttribute('style');
+    expect(screen.getByRole('columnheader', { name: 'Size' })).not.toHaveAttribute('style');
+    for (const cell of document.querySelectorAll('td')) expect(cell).not.toHaveAttribute('style');
   });
 
   it('renders an optional selection header in table mode with an empty viewport', () => {
@@ -309,7 +299,7 @@ describe('data display primitives', () => {
     // A focusable viewport always carries its accessible name (default label here).
     expect(rowViewport).toHaveAttribute('aria-label', 'Table rows');
     expect(rowViewport).toHaveAttribute('tabindex', '0');
-    expect(rowViewport).toBeEmptyDOMElement();
+    expect(rowViewport?.querySelector('tbody')).toBeEmptyDOMElement();
     fireEvent.click(selectAll);
     expect(onChange).not.toHaveBeenCalled(); // disabled bulk control stays inert
   });
@@ -325,7 +315,7 @@ describe('data display primitives', () => {
     );
     expect(container.querySelector('.xgc-data-table-empty-row')).toBeNull();
     expect(screen.queryByText('No data')).not.toBeInTheDocument();
-    expect(container.querySelector('[data-xgc-role="data-table-row-viewport"]')).toBeEmptyDOMElement();
+    expect(container.querySelector('[data-xgc-role="data-table-row-viewport"] tbody')).toBeEmptyDOMElement();
   });
 
   it('transitions between message and populated states without losing table chrome', () => {
@@ -468,16 +458,17 @@ describe('data display primitives', () => {
     expect(container.querySelector('.xgc-data-table')).toHaveAttribute('data-virtualized', 'true');
     const viewport = container.querySelector('[data-xgc-role="data-table-row-viewport"]')!;
     expect(viewport).toHaveAttribute('tabindex', '0');
-    const dataRows = viewport.querySelectorAll('tr:not(.xgc-data-table-spacer-row)');
+    const tbody = viewport.querySelector('tbody')!;
+    const dataRows = tbody.querySelectorAll('tr:not(.xgc-data-table-spacer-row)');
     expect(dataRows.length).toBeGreaterThan(0);
     expect(dataRows.length).toBeLessThan(100);
     expect(screen.getByRole('cell', { name: 'package-0' })).toBeInTheDocument();
     expect(screen.queryByRole('cell', { name: 'package-499' })).toBeNull();
     // At the top there is no leading spacer; one trailing spacer reserves the tail.
-    const spacers = viewport.querySelectorAll('.xgc-data-table-spacer-row');
+    const spacers = tbody.querySelectorAll('.xgc-data-table-spacer-row');
     expect(spacers).toHaveLength(1);
-    expect(viewport.firstElementChild).not.toHaveClass('xgc-data-table-spacer-row');
-    expect(viewport.lastElementChild).toHaveClass('xgc-data-table-spacer-row');
+    expect(tbody.firstElementChild).not.toHaveClass('xgc-data-table-spacer-row');
+    expect(tbody.lastElementChild).toHaveClass('xgc-data-table-spacer-row');
     const pad = Number.parseFloat((spacers[0]!.querySelector('td')!).style.height);
     expect(pad + dataRows.length * 31).toBe(500 * 31);
   });
@@ -500,13 +491,14 @@ describe('data display primitives', () => {
     expect(screen.getByRole('cell', { name: 'package-499' })).toBeInTheDocument();
     expect(screen.queryByRole('cell', { name: 'package-0' })).toBeNull();
     // Scrolled to the tail: one leading spacer, and the last data row stays the
-    // viewport's last child so its borderless-last-row contract still applies.
-    const spacers = viewport.querySelectorAll('.xgc-data-table-spacer-row');
+    // tbody's last child so its borderless-last-row contract still applies.
+    const tbody = viewport.querySelector('tbody')!;
+    const spacers = tbody.querySelectorAll('.xgc-data-table-spacer-row');
     expect(spacers).toHaveLength(1);
-    expect(viewport.firstElementChild).toHaveClass('xgc-data-table-spacer-row');
-    expect(viewport.lastElementChild).not.toHaveClass('xgc-data-table-spacer-row');
+    expect(tbody.firstElementChild).toHaveClass('xgc-data-table-spacer-row');
+    expect(tbody.lastElementChild).not.toHaveClass('xgc-data-table-spacer-row');
     const pad = Number.parseFloat((spacers[0]!.querySelector('td')!).style.height);
-    const dataRows = viewport.querySelectorAll('tr:not(.xgc-data-table-spacer-row)');
+    const dataRows = tbody.querySelectorAll('tr:not(.xgc-data-table-spacer-row)');
     expect(pad + dataRows.length * 31).toBe(500 * 31);
     // getRowProps stamping survives windowing for every rendered row.
     const stamped = viewport.querySelectorAll('[data-xgc-role="package-row"]');
@@ -531,9 +523,9 @@ describe('data display primitives', () => {
       />,
     );
     const viewport = container.querySelector('[data-xgc-role="data-table-row-viewport"]')!;
-    const firstDataCell = () => viewport.querySelector('tr:not(.xgc-data-table-spacer-row) td');
+    const firstDataCell = () => viewport.querySelector('tbody tr:not(.xgc-data-table-spacer-row) td');
     expect(firstDataCell()).toHaveTextContent('1');
-    expect(viewport.querySelectorAll('tr:not(.xgc-data-table-spacer-row)').length).toBeLessThan(200);
+    expect(viewport.querySelectorAll('tbody tr:not(.xgc-data-table-spacer-row)').length).toBeLessThan(200);
     fireEvent.click(screen.getByRole('button', { name: 'Sort by Size' }));
     expect(screen.getByRole('columnheader', { name: 'Size' })).toHaveAttribute('aria-sort', 'descending');
     expect(firstDataCell()).toHaveTextContent('200');

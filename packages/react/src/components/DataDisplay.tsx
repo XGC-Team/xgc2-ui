@@ -10,6 +10,7 @@ import {
   type HTMLAttributes,
   type InputHTMLAttributes,
   type ReactNode,
+  type Ref,
   type TableHTMLAttributes,
 } from 'react';
 import { classNames } from '../utils';
@@ -66,6 +67,8 @@ export type DataTableProps = HTMLAttributes<HTMLDivElement> & {
   children: ReactNode;
   empty?: boolean;
   emptyMessage?: ReactNode;
+  /** React 19 ref-as-prop: forwarded to the wrapper, the body-scroll viewport. */
+  ref?: Ref<HTMLDivElement>;
 };
 
 export function DataTable({
@@ -224,11 +227,10 @@ export function SortableDataTable<Row>({
   ...props
 }: SortableDataTableProps<Row>) {
   const [internalSort, setInternalSort] = useState<DataTableSort | undefined>(defaultSort);
-  const [bodyColumnWidths, setBodyColumnWidths] = useState<number[]>([]);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(0);
   const [measuredRowHeight, setMeasuredRowHeight] = useState(FALLBACK_VIRTUAL_ROW_HEIGHT);
-  const bodyViewportRef = useRef<HTMLTableSectionElement>(null);
+  const bodyViewportRef = useRef<HTMLDivElement>(null);
   const activeSort = sort ?? internalSort;
   const activeColumn = activeSort ? columns.find((column) => column.id === activeSort.columnId) : undefined;
   const visibleRows = useMemo(() => {
@@ -271,50 +273,37 @@ export function SortableDataTable<Row>({
     return { start, end, topPad: start * rowHeight, bottomPad: (visibleRows.length - end) * rowHeight };
   }, [rowHeight, scrollTop, viewportHeight, virtualized, visibleRows.length]);
 
+  // One table owns all column geometry: the wrapper is the single scroll
+  // viewport and the sticky header shares the body's column widths, so there
+  // is nothing to measure back onto headers. The only measurements left feed
+  // row windowing (viewport height, real row height).
   useLayoutEffect(() => {
-    if (!bodyScroll) {
-      setBodyColumnWidths([]);
-      return undefined;
-    }
+    if (!virtualized) return undefined;
     const viewport = bodyViewportRef.current;
     if (!viewport) return undefined;
-    // The first real row owns natural column sizing; measured widths are applied
-    // to headers and (except for the sizing owner in a fully rendered table) to
-    // data rows. Never measure the empty-mode colSpan row or a virtualization
-    // spacer as if it were a data row. Under windowing the sizing owner scrolls
-    // out, so resolve the first mounted data row at measurement time instead of
+    // Never measure the empty-mode colSpan row or a virtualization spacer as
+    // if it were a data row. Under windowing the sizing row scrolls out, so
+    // resolve the first mounted data row at measurement time instead of
     // pinning the one present when this effect ran.
-    const findFirstDataRow = () => Array.from(viewport.rows).find(
+    const findFirstDataRow = () => Array.from(viewport.querySelectorAll('tbody tr')).find(
       (row) => !row.classList.contains('xgc-data-table-empty-row')
         && !row.classList.contains('xgc-data-table-spacer-row'),
     );
-    const synchronizeColumns = () => {
-      const firstDataRow = findFirstDataRow();
-      const nextWidths = firstDataRow
-        ? Array.from(firstDataRow.cells, (cell) => cell.getBoundingClientRect().width)
-        : [];
-      setBodyColumnWidths((current) => (
-        current.length === nextWidths.length
-        && current.every((width, index) => width === nextWidths[index])
-          ? current
-          : nextWidths
-      ));
-      if (virtualized) {
-        if (viewport.clientHeight > 0) {
-          setViewportHeight((current) => (current === viewport.clientHeight ? current : viewport.clientHeight));
-        }
-        const height = firstDataRow?.getBoundingClientRect().height ?? 0;
-        if (height > 0) setMeasuredRowHeight((current) => (current === height ? current : height));
+    const synchronizeViewport = () => {
+      if (viewport.clientHeight > 0) {
+        setViewportHeight((current) => (current === viewport.clientHeight ? current : viewport.clientHeight));
       }
+      const height = findFirstDataRow()?.getBoundingClientRect().height ?? 0;
+      if (height > 0) setMeasuredRowHeight((current) => (current === height ? current : height));
     };
-    synchronizeColumns();
+    synchronizeViewport();
     if (typeof ResizeObserver === 'undefined') return undefined;
-    const observer = new ResizeObserver(synchronizeColumns);
+    const observer = new ResizeObserver(synchronizeViewport);
     observer.observe(viewport);
     const firstDataRow = findFirstDataRow();
     if (firstDataRow) observer.observe(firstDataRow);
     return () => observer.disconnect();
-  }, [bodyScroll, columns, selection, virtualized, visibleRows]);
+  }, [virtualized, visibleRows]);
 
   const toggleAll = () => {
     if (!selection || selection.disabled) return;
@@ -327,14 +316,21 @@ export function SortableDataTable<Row>({
   const emptyTable = rows.length === 0 && emptyMode === 'table';
   const stickyHeader = bodyScroll || (props as DataTableDataAttributes)['data-sticky-header'] === 'true';
 
+  const messageEmpty = rows.length === 0 && emptyMode !== 'table';
+  const viewportNamed = !messageEmpty && (bodyScroll || emptyTable);
   return (
     <DataTable
       {...props}
+      ref={bodyViewportRef}
+      aria-label={viewportNamed ? bodyScrollLabel : undefined}
       data-body-scroll={bodyScroll || undefined}
       data-sticky-header={stickyHeader ? 'true' : undefined}
       data-virtualized={virtualized || undefined}
-      empty={rows.length === 0 && emptyMode !== 'table'}
+      data-xgc-role={viewportNamed ? 'data-table-row-viewport' : undefined}
+      empty={messageEmpty}
       emptyMessage={emptyMessage}
+      tabIndex={viewportNamed ? 0 : undefined}
+      onScroll={virtualized ? (event) => setScrollTop(event.currentTarget.scrollTop) : undefined}
     >
       <table {...tableProps} className={classNames('xgc-sortable-data-table', tableProps?.className)}>
         <thead>
@@ -343,7 +339,6 @@ export function SortableDataTable<Row>({
               <th
                 className="xgc-data-table-selection"
                 scope="col"
-                style={bodyColumnWidths[0] === undefined ? undefined : { width: bodyColumnWidths[0] }}
               >
                 <DataTableCheckbox
                   aria-label={selection.rowHeaderLabel ?? 'Select all rows'}
@@ -363,9 +358,6 @@ export function SortableDataTable<Row>({
                   className={column.headerClassName}
                   key={column.id}
                   scope="col"
-                  style={bodyColumnWidths[index + (selection ? 1 : 0)] === undefined
-                    ? undefined
-                    : { width: bodyColumnWidths[index + (selection ? 1 : 0)] }}
                 >
                   {column.sortable ? (
                     <button
@@ -386,13 +378,7 @@ export function SortableDataTable<Row>({
             })}
           </tr>
         </thead>
-        <tbody
-          aria-label={bodyScroll || emptyTable ? bodyScrollLabel : undefined}
-          data-xgc-role="data-table-row-viewport"
-          ref={bodyViewportRef}
-          tabIndex={bodyScroll || emptyTable ? 0 : undefined}
-          onScroll={virtualized ? (event) => setScrollTop(event.currentTarget.scrollTop) : undefined}
-        >
+        <tbody>
           {emptyTable && emptyMessage != null ? (
             <tr aria-busy="false" className="xgc-data-table-empty-row">
               <td colSpan={(selection ? 1 : 0) + columns.length}>{emptyMessage}</td>
@@ -417,7 +403,6 @@ export function SortableDataTable<Row>({
                 {selection ? (
                   <td
                     className="xgc-data-table-selection"
-                    style={rowIndex === 0 || bodyColumnWidths[0] === undefined ? undefined : { width: bodyColumnWidths[0] }}
                   >
                     <DataTableCheckbox
                       aria-label={selection.getRowLabel?.(row) ?? `Select row ${key}`}
@@ -442,12 +427,7 @@ export function SortableDataTable<Row>({
                         {...cellProps}
                         className={classNames(column.className, cellProps?.className)}
                         key={column.id}
-                        style={{
-                          ...cellProps?.style,
-                          ...(rowIndex === 0 || bodyColumnWidths[index + (selection ? 1 : 0)] === undefined
-                            ? undefined
-                            : { width: bodyColumnWidths[index + (selection ? 1 : 0)] }),
-                        }}
+                        style={cellProps?.style}
                       >
                         {column.cell(row)}
                       </td>

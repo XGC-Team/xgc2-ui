@@ -33,7 +33,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       data-size={uiSize}
       data-tone={tone}
     >
-      {children}
+      {typeof children === 'string' ? <span className="xgc-button-label">{children}</span> : children}
     </button>
   );
 });
@@ -64,7 +64,7 @@ export const ButtonLink = forwardRef<HTMLAnchorElement, ButtonLinkProps>(functio
       data-size={uiSize}
       data-tone={tone}
     >
-      {children}
+      {typeof children === 'string' ? <span className="xgc-button-label">{children}</span> : children}
     </a>
   );
 });

@@ -6,9 +6,11 @@ import {
 } from 'react';
 import { classNames } from '../utils';
 
+import { SIZE_HEADER_PANEL_PX } from '@xgc2/ui-tokens/geometry';
+
 export const WORKSPACE_PANEL_DRAG_HANDLE_SELECTOR = '.xgc-workspace-panel-drag-handle';
-/** JS geometry companion to the shared `--size-header-panel` design token. */
-export const WORKSPACE_PANEL_HEADER_HEIGHT_PX = 35;
+/** JS companion generated from the shared `--size-header-panel` design token. */
+export const WORKSPACE_PANEL_HEADER_HEIGHT_PX = SIZE_HEADER_PANEL_PX;
 const WORKSPACE_PANEL_INTERACTIVE_HOSTS = [
   'a', 'button', 'input', 'select', 'textarea', 'summary',
   '[contenteditable="true"]',

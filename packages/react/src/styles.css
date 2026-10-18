@@ -13,6 +13,8 @@
   align-items: center;
   justify-content: center;
   gap: var(--space-control-gap);
+  overflow: hidden;
+  white-space: nowrap;
   padding: var(--xgc-control-button-padding, var(--xgc-control-button-padding-block, 0) var(--xgc-control-button-padding-inline, var(--space-control-padding-inline)));
   color: var(--xgc-control-color, var(--color-text-muted));
   background: var(--xgc-control-background, var(--background-control, var(--color-bg-control)));
@@ -29,6 +31,15 @@
     background-color var(--duration-quick) var(--easing-standard),
     border-color var(--duration-quick) var(--easing-standard),
     box-shadow var(--duration-quick) var(--easing-standard);
+}
+
+/* String labels truncate with ellipsis; mixed icon/text children clip at the
+   button's padding box instead of wrapping or spilling. */
+.xgc-button-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .xgc-button:active:not(:disabled) {
@@ -466,7 +477,9 @@ button.xgc-workflow-status-card[data-xgc-layout='tile'][data-xgc-appearance='sol
   --xgc-select-trigger-padding-inline: var(--space-md);
   --xgc-select-trigger-font-size: var(--type-body-size);
   position: relative;
-  min-width: 180px;
+  /* Fixed-min with a container cap: the trigger may shrink below the floor
+     inside a narrow host, never spill out of it. */
+  min-width: min(100%, 180px);
   height: var(--xgc-control-height, var(--size-control-default));
   display: inline-flex;
   align-items: center;
@@ -483,7 +496,7 @@ button.xgc-workflow-status-card[data-xgc-layout='tile'][data-xgc-appearance='sol
   height: var(--xgc-control-height, var(--size-control-compact));
 }
 
-.xgc-select-control[data-xgc-compact='true'] { min-width: 190px; }
+.xgc-select-control[data-xgc-compact='true'] { min-width: min(100%, 190px); }
 .xgc-select-control[data-xgc-fill='true'] { width: 100%; min-width: 0; }
 
 .xgc-select-control:hover:not([data-disabled='true']) {
@@ -933,6 +946,11 @@ button.xgc-workflow-status-card[data-xgc-layout='tile'][data-xgc-appearance='sol
   align-items: center;
   gap: var(--space-2xs);
   padding: var(--space-2xs);
+  /* Labels truncate inside each tab; if the shrunken tabs still exceed the
+     host, clip the trailing edge. `clip` keeps overflow-y visible so focus
+     rings and hover material are never boxed in by a scroll container. */
+  overflow-x: clip;
+  overflow-y: visible;
   background: var(--background-control, var(--color-bg-control));
   border: var(--stroke-thin) solid var(--color-border);
   border-radius: var(--radius-control);
@@ -949,6 +967,7 @@ button.xgc-workflow-status-card[data-xgc-layout='tile'][data-xgc-appearance='sol
   align-items: center;
   gap: var(--space-sm);
   padding: 0 var(--space-md);
+  overflow: hidden;
   color: var(--color-text-muted);
   background: transparent;
   border: 0;
@@ -958,6 +977,16 @@ button.xgc-workflow-status-card[data-xgc-layout='tile'][data-xgc-appearance='sol
   font-size: var(--type-control-size);
   line-height: var(--type-control-line-height);
   white-space: nowrap;
+}
+
+:is(.xgc-tab, .xgc-tab-item) .xgc-tab-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+:is(.xgc-tab, .xgc-tab-item) .xgc-tab-icon {
+  flex: 0 0 auto;
 }
 
 :is(.xgc-tabs[data-size='compact'], .xgc-tab-strip[data-xgc-size='compact']) :is(.xgc-tab, .xgc-tab-item) {
@@ -1491,7 +1520,9 @@ button.xgc-list-tag:disabled { cursor: not-allowed; opacity: var(--opacity-deemp
 }
 
 .xgc-list-item-meta {
-  min-width: 190px;
+  /* Fixed-min with a row cap: narrow rows truncate the meta instead of
+     starving the main column. */
+  min-width: min(190px, 40%);
   display: grid;
   align-content: center;
   justify-items: end;
@@ -2784,51 +2815,14 @@ button.xgc-stat-card:disabled {
   box-sizing: border-box;
   width: 100%;
   min-height: 0;
-  display: flex;
-  flex-direction: column;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-gutter: auto;
-}
-
-.xgc-data-table[data-body-scroll='true'] > table {
-  min-height: 0;
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-}
-
-.xgc-data-table[data-body-scroll='true'] > table > thead {
-  /* Keep full-width chrome while giving the header row the same usable width
-   * as the body. A full-width display:table redistributes the body's reserved
-   * scrollbar gutter over the measured column widths and misaligns every cell. */
-  width: 100%;
-  box-sizing: border-box;
-  flex: 0 0 auto;
-  display: block;
-  overflow: hidden;
-  scrollbar-gutter: stable;
-  background: var(--color-bg-subtle);
-}
-
-.xgc-data-table[data-body-scroll='true'] > table > tbody {
-  min-height: 0;
-  flex: 1 1 auto;
-  display: block;
-  overflow-y: auto;
+  /* One table, one scroll viewport: the wrapper scrolls both axes and the
+     sticky header keeps sharing the body's column widths, so header and body
+     can never drift apart. */
+  overflow: auto;
   overscroll-behavior: contain;
-  scrollbar-gutter: stable;
-  background: var(--color-bg-surface);
 }
 
-.xgc-data-table[data-body-scroll='true'] > table > thead > tr,
-.xgc-data-table[data-body-scroll='true'] > table > tbody > tr {
-  width: 100%;
-  display: table;
-  table-layout: fixed;
-}
-
-.xgc-data-table[data-body-scroll='true'] > table > tbody:focus-visible {
+.xgc-data-table[data-body-scroll='true']:focus-visible {
   outline: 0; box-shadow: var(--shadow-focus);
 }
 

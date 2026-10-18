@@ -16,21 +16,18 @@ describe('data table visual contract', () => {
     expect(dataTableStyles).not.toMatch(/(?:background|color|border(?:-color)?):\s*(?:#|rgb\(|hsl\()/i);
   });
 
-  it('assigns the vertical gutter only to the bounded row viewport', () => {
+  it('makes the bounded table wrapper the single scroll viewport', () => {
     const boundedTable = dataTableStyles.slice(
       dataTableStyles.indexOf(".xgc-data-table[data-body-scroll='true'] {"),
-      dataTableStyles.indexOf(".xgc-data-table[data-sticky-header='true'] th {"),
-    );
-    const rowViewport = dataTableStyles.slice(
-      dataTableStyles.indexOf(".xgc-data-table[data-body-scroll='true'] > table > tbody {"),
-      dataTableStyles.indexOf(".xgc-data-table[data-body-scroll='true'] > table > tbody > tr {"),
+      dataTableStyles.indexOf(".xgc-data-table[data-body-scroll='true']:focus-visible {"),
     );
 
-    expect(boundedTable).toContain('overflow-x: auto');
-    expect(boundedTable).toContain('overflow-y: hidden');
-    expect(boundedTable).toContain('scrollbar-gutter: auto');
-    expect(rowViewport).toContain('overflow-y: auto');
-    expect(rowViewport).toContain('scrollbar-gutter: stable');
+    expect(boundedTable).toContain('overflow: auto');
+    // No split-axis plumbing or per-section block boxes: one table owns all
+    // column geometry and the sticky header never drifts from the body.
+    expect(boundedTable).not.toContain('overflow-y: hidden');
+    expect(boundedTable).not.toContain('display: block');
+    expect(boundedTable).not.toContain('table-layout: fixed');
   });
 
   it('keeps sticky header chrome above the row viewport without a mask or offset', () => {

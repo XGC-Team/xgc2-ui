@@ -245,7 +245,7 @@ export function SegmentedControl({
             type="button"
           >
             {option.icon ? <span className="xgc-tab-icon" aria-hidden="true">{option.icon}</span> : null}
-            <span>{option.label}</span>
+            <span className="xgc-tab-label">{option.label}</span>
           </button>
         );
       })}

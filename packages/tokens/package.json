@@ -3,14 +3,22 @@
   "version": "0.11.0",
   "description": "Shared XGC2 design tokens and theme contract",
   "type": "module",
-  "sideEffects": ["*.css"],
-  "files": ["dist"],
+  "sideEffects": [
+    "*.css"
+  ],
+  "files": [
+    "dist"
+  ],
   "exports": {
     ".": "./dist/index.css",
     "./base.css": "./dist/base.css",
     "./typography.css": "./dist/typography.css",
     "./v016.css": "./dist/v016.css",
-    "./v016-monochrome.css": "./dist/v016-monochrome.css"
+    "./v016-monochrome.css": "./dist/v016-monochrome.css",
+    "./geometry": {
+      "types": "./dist/geometry.d.ts",
+      "default": "./dist/geometry.mjs"
+    }
   },
   "scripts": {
     "build": "node scripts/build.mjs",
