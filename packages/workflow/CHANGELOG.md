@@ -1,5 +1,19 @@
 # @xgc2/ui-workflow
 
+## 0.4.3
+
+### Patch Changes
+
+- bbb5437: Replace implicit browser theme persistence with an explicit product-owned SkinStore. Share initialized snapshots through initializeSkin/useSkin, expose async commit failures, and provide an explicit memory-only store. Preserve the shared DOM policy and align the workflow React peer floor with the 0.17 family.
+- Updated dependencies [bbb5437]
+- Updated dependencies [6c947e8]
+- Updated dependencies [2ace3a2]
+- Updated dependencies [7270461]
+- Updated dependencies [650da8f]
+- Updated dependencies
+- Updated dependencies [606cd25]
+  - @xgc2/ui-react@0.18.0
+
 ## 0.4.2
 
 ### Patch Changes

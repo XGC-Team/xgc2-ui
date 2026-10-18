@@ -1,5 +1,11 @@
 # @xgc2/ui-tokens
 
+## 0.12.0
+
+### Minor Changes
+
+- Give shared controls one geometry owner per family. Generate the panel-header JS constant from the v016 `--size-header-panel` token (38px, replacing the drifted 35) via a new `@xgc2/ui-tokens/geometry` module; cap Select trigger floors at `min(100%, 180/190px)`; truncate Tabs/SegmentedControl labels and clip the strip horizontally instead of squeeze-spilling; clip button overflow with ellipsis for plain string labels; cap list-item meta at `min(190px, 40%)`; rebuild SortableDataTable bodyScroll as one scroll viewport with a sticky header inside a single table, deleting the measure-to-state column-width sync.
+
 ## 0.11.0
 
 ### Minor Changes

@@ -1,5 +1,20 @@
 # @xgc2/ui-react
 
+## 0.18.0
+
+### Minor Changes
+
+- bbb5437: Replace implicit browser theme persistence with an explicit product-owned SkinStore. Share initialized snapshots through initializeSkin/useSkin, expose async commit failures, and provide an explicit memory-only store. Preserve the shared DOM policy and align the workflow React peer floor with the 0.17 family.
+- Give shared controls one geometry owner per family. Generate the panel-header JS constant from the v016 `--size-header-panel` token (38px, replacing the drifted 35) via a new `@xgc2/ui-tokens/geometry` module; cap Select trigger floors at `min(100%, 180/190px)`; truncate Tabs/SegmentedControl labels and clip the strip horizontally instead of squeeze-spilling; clip button overflow with ellipsis for plain string labels; cap list-item meta at `min(190px, 40%)`; rebuild SortableDataTable bodyScroll as one scroll viewport with a sticky header inside a single table, deleting the measure-to-state column-width sync.
+
+### Patch Changes
+
+- 6c947e8: Present a confirmed measured terminal receipt once in WorkflowStatusCard. Keep execution state and callbacks independent of token-based playback, honor the reduced-motion floor, and consume paused receipts without replay. Pair policy with the React patch.
+- 2ace3a2: Animate overlay presence in Drawer, Modal, Popover, and SelectMenu. Enter runs once on mount; a closing surface stays mounted through its exit animation via the new shared `usePresence` hook, which waits for the surface's running animations and always releases the node through a leak-guard timer. Overlay stack registration, focus restore, and trigger aria still observe the close immediately. Reduced-motion operators and environments without matchMedia keep the historical instant mount/unmount path. Durations, easings, travel distances, and opacity endpoints are shared tokens only. Pair policy with the React patch.
+- 7270461: Add optional accessible option descriptions to the shared SelectMenu, keeping trigger labels and keyboard behavior unchanged. Pair the policy release without changing its rules.
+- 650da8f: Align the sidebar brand and navigation icon axes while retaining width motion and reduced-motion behavior.
+- 606cd25: Measure Tooltip placement from the rendered child of the transparent event host. Cancel paired pointer/mouse hover timers on leave, disable and scroll so dismissed help cannot reopen. Preserve the explicit product-owned SkinStore contract and pair policy with the React patch.
+
 ## 0.17.6
 
 ### Patch Changes
