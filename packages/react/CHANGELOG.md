@@ -1,5 +1,11 @@
 # @xgc2/ui-react
 
+## 0.18.4
+
+### Patch Changes
+
+- WorkspaceTabs renders a hidden combobox fallback (same items, switch-only) so owning layouts can swap the scroll strip for a combobox inside their own container-query breakpoint instead of growing a horizontal scrollbar.
+
 ## 0.18.3
 
 ### Patch Changes
