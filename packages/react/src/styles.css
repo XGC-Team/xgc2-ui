@@ -3863,14 +3863,6 @@ button.xgc-workflow-status-card[data-xgc-layout='tile'][data-xgc-appearance='sol
   container-type: inline-size;
 }
 
-/* Two comfortable field columns need roughly 2 x 280px; below that the body
-   stacks, wherever the section happens to live. */
-@container (max-width: 600px) {
-  .xgc-form-section-body {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
 .xgc-form-section:last-child {
   padding-block-end: 0;
   border-block-end: 0;
@@ -3893,6 +3885,15 @@ button.xgc-workflow-status-card[data-xgc-layout='tile'][data-xgc-appearance='sol
 
 .xgc-form-section[data-columns='1'] > .xgc-form-section-body {
   grid-template-columns: minmax(0, 1fr);
+}
+
+/* Two comfortable field columns need roughly 2 x 280px; below that the body
+   stacks, wherever the section happens to live. Declared after the base grid
+   so the container contract wins at equal specificity. */
+@container (max-width: 600px) {
+  .xgc-form-section-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .xgc-form-section-span,

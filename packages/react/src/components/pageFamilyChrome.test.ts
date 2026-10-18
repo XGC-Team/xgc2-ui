@@ -193,9 +193,11 @@ describe('page-family visual geometry', () => {
 
     // The section measures itself; the body stacks inside the space it is
     // actually drawn in (narrow drawer, docked pane), so no viewport media
-    // query may carry this contract.
+    // query may carry this contract. The collapse must follow the base grid
+    // rule so it wins at equal specificity.
     expect(section.get('container-type')).toBe('inline-size');
     expect(collapseStart).toBeGreaterThan(-1);
+    expect(collapseStart).toBeGreaterThan(css.indexOf('\n.xgc-form-section-body {'));
     expect(css.slice(collapseStart, css.indexOf('}', collapseStart + 1))).toContain('.xgc-form-section-body');
     expect(css).not.toMatch(/@media[^{]*\{[^@]*\.xgc-form-section-body/);
   });
