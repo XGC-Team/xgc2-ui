@@ -16,15 +16,18 @@ describe('data table visual contract', () => {
     expect(dataTableStyles).not.toMatch(/(?:background|color|border(?:-color)?):\s*(?:#|rgb\(|hsl\()/i);
   });
 
-  it('makes the bounded table wrapper the single scroll viewport', () => {
+  it('keeps one scroll viewport inside the bounded table chrome', () => {
     const boundedTable = dataTableStyles.slice(
       dataTableStyles.indexOf(".xgc-data-table[data-body-scroll='true'] {"),
-      dataTableStyles.indexOf(".xgc-data-table[data-body-scroll='true']:focus-visible {"),
+      dataTableStyles.indexOf(".xgc-data-table[data-sticky-header='true'] th {"),
     );
 
+    // The chrome shell clips but never scrolls; the inner viewport scrolls
+    // both axes. No split-axis plumbing or per-section block boxes: one table
+    // owns all column geometry and the sticky header never drifts.
+    expect(boundedTable).toContain('overflow: clip');
+    expect(boundedTable).toContain('.xgc-data-table-viewport');
     expect(boundedTable).toContain('overflow: auto');
-    // No split-axis plumbing or per-section block boxes: one table owns all
-    // column geometry and the sticky header never drifts from the body.
     expect(boundedTable).not.toContain('overflow-y: hidden');
     expect(boundedTable).not.toContain('display: block');
     expect(boundedTable).not.toContain('table-layout: fixed');

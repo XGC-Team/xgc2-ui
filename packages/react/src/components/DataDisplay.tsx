@@ -10,7 +10,6 @@ import {
   type HTMLAttributes,
   type InputHTMLAttributes,
   type ReactNode,
-  type Ref,
   type TableHTMLAttributes,
 } from 'react';
 import { classNames } from '../utils';
@@ -67,8 +66,6 @@ export type DataTableProps = HTMLAttributes<HTMLDivElement> & {
   children: ReactNode;
   empty?: boolean;
   emptyMessage?: ReactNode;
-  /** React 19 ref-as-prop: forwarded to the wrapper, the body-scroll viewport. */
-  ref?: Ref<HTMLDivElement>;
 };
 
 export function DataTable({
@@ -318,20 +315,11 @@ export function SortableDataTable<Row>({
 
   const messageEmpty = rows.length === 0 && emptyMode !== 'table';
   const viewportNamed = !messageEmpty && (bodyScroll || emptyTable);
-  return (
-    <DataTable
-      {...props}
-      ref={bodyViewportRef}
-      aria-label={viewportNamed ? bodyScrollLabel : undefined}
-      data-body-scroll={bodyScroll || undefined}
-      data-sticky-header={stickyHeader ? 'true' : undefined}
-      data-virtualized={virtualized || undefined}
-      data-xgc-role={viewportNamed ? 'data-table-row-viewport' : undefined}
-      empty={messageEmpty}
-      emptyMessage={emptyMessage}
-      tabIndex={viewportNamed ? 0 : undefined}
-      onScroll={virtualized ? (event) => setScrollTop(event.currentTarget.scrollTop) : undefined}
-    >
+  // The consumer's entity id rides the row viewport (role + id on one
+  // element, the markable contract); any consumer data-xgc-role stays on the
+  // chrome shell, whose CSS hooks keep working.
+  const { 'data-xgc-id': dataXgcId, ...chromeProps } = props as typeof props & DataTableDataAttributes;
+  const renderedTable = (
       <table {...tableProps} className={classNames('xgc-sortable-data-table', tableProps?.className)}>
         <thead>
           <tr>
@@ -444,6 +432,32 @@ export function SortableDataTable<Row>({
           ) : null}
         </tbody>
       </table>
+  );
+  return (
+    <DataTable
+      {...chromeProps}
+      data-body-scroll={bodyScroll || undefined}
+      data-sticky-header={stickyHeader ? 'true' : undefined}
+      data-virtualized={virtualized || undefined}
+      data-xgc-id={viewportNamed ? undefined : dataXgcId}
+      empty={messageEmpty}
+      emptyMessage={emptyMessage}
+    >
+      {viewportNamed ? (
+        <div
+          ref={bodyViewportRef}
+          aria-label={bodyScrollLabel}
+          className="xgc-data-table-viewport"
+          data-xgc-id={dataXgcId}
+          data-xgc-role="data-table-row-viewport"
+          tabIndex={0}
+          onScroll={virtualized ? (event) => setScrollTop(event.currentTarget.scrollTop) : undefined}
+        >
+          {renderedTable}
+        </div>
+      ) : (
+        renderedTable
+      )}
     </DataTable>
   );
 }

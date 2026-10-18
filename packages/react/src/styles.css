@@ -2815,15 +2815,28 @@ button.xgc-stat-card:disabled {
   box-sizing: border-box;
   width: 100%;
   min-height: 0;
-  /* One table, one scroll viewport: the wrapper scrolls both axes and the
-     sticky header keeps sharing the body's column widths, so header and body
-     can never drift apart. */
-  overflow: auto;
-  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  /* Chrome shell: keeps the border/radius and the consumer's entity role,
+     clips nothing scrollable itself. One table inside owns all column
+     geometry, so header and body can never drift apart. */
+  overflow: clip;
 }
 
-.xgc-data-table[data-body-scroll='true']:focus-visible {
-  outline: 0; box-shadow: var(--shadow-focus);
+.xgc-data-table[data-body-scroll='true'] > .xgc-data-table-viewport {
+  flex: 1 1 auto;
+  min-height: 0;
+  /* The single scroll viewport: both axes here, the sticky th rides along. */
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+/* The focus halo must paint outside the shell, so it lives on the chrome
+   rather than inside the clipped viewport. */
+.xgc-data-table[data-body-scroll='true']:has(> .xgc-data-table-viewport:focus-visible) {
+  outline: 0;
+  box-shadow: var(--shadow-focus);
 }
 
 /* Empty-state message rendered inside the kept-rendered table (emptyMode="table").

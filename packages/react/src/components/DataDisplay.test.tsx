@@ -108,9 +108,9 @@ describe('data display primitives', () => {
     expect(rowViewport).toHaveAttribute('aria-label', 'Table rows');
     expect(rowViewport).toHaveAttribute('tabindex', '0');
     expect(rowViewport).toContainElement(screen.getByRole('cell', { name: 'alpha' }));
-    // One scroll viewport: the sticky header rides inside it, nothing measured.
+    // One scroll viewport inside the chrome: the sticky header rides in it.
     expect(rowViewport).toContainElement(header);
-    expect(rowViewport).toBe(tableContainer);
+    expect(rowViewport?.parentElement).toBe(tableContainer);
     expect(container.querySelector('thead')).not.toHaveAttribute('style');
     expect(header).not.toHaveAttribute('style');
     expect(container.querySelector('.xgc-pagination')).toBeNull();
