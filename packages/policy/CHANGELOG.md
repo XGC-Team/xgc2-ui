@@ -1,5 +1,13 @@
 # @xgc2/ui-policy
 
+## 0.18.2
+
+### Patch Changes
+
+- FormSection collapses its field grid by its own container width (600px container query) instead of the viewport, and modal titles truncate with the shared header-label ellipsis contract.
+- Updated dependencies
+  - @xgc2/ui-react@0.18.2
+
 ## 0.18.1
 
 ### Patch Changes
