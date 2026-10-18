@@ -1,5 +1,13 @@
 # @xgc2/ui-policy
 
+## 0.18.6
+
+### Patch Changes
+
+- Keep confirmation actions in two equal tracks, wrap long content, and stack actions in narrow dialogs.
+- Updated dependencies
+  - @xgc2/ui-react@0.18.6
+
 ## 0.18.5
 
 ### Patch Changes

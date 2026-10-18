@@ -2032,6 +2032,40 @@ button.xgc-list-tag:disabled { cursor: not-allowed; opacity: var(--opacity-deemp
   justify-content: flex-end;
 }
 
+.xgc-confirmation-dialog {
+  container-type: inline-size;
+  gap: var(--space-lg);
+}
+
+.xgc-confirmation-dialog .xgc-modal-header {
+  align-items: start;
+}
+
+.xgc-confirmation-dialog .xgc-modal-body {
+  overflow-wrap: anywhere;
+}
+
+.xgc-confirmation-actions {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-sm);
+}
+
+.xgc-confirmation-action {
+  width: 100%;
+  min-width: 0;
+  justify-content: center;
+  text-align: center;
+  white-space: normal;
+}
+
+@container (max-width: 22rem) {
+  .xgc-confirmation-actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .xgc-status-text {
   width: max-content;
   max-width: 100%;

@@ -20,14 +20,15 @@ export function ConfirmationDialog({ request, onCancel, onConfirm }: Confirmatio
   return (
     <Modal
       actions={(
-        <>
-          <Button onClick={onCancel}>{request.cancelLabel ?? 'Cancel'}</Button>
-          <Button appearance="solid" tone={request.tone ?? 'danger'} onClick={onConfirm}>
+        <div className="xgc-confirmation-actions">
+          <Button className="xgc-confirmation-action" onClick={onCancel}>{request.cancelLabel ?? 'Cancel'}</Button>
+          <Button className="xgc-confirmation-action" appearance="solid" tone={request.tone ?? 'danger'} onClick={onConfirm}>
             {request.confirmLabel ?? 'Confirm'}
           </Button>
-        </>
+        </div>
       )}
       alert
+      className="xgc-confirmation-dialog"
       onClose={onCancel}
       size="small"
       title={request.title}
