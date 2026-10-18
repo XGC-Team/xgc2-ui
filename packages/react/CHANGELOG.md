@@ -1,5 +1,11 @@
 # @xgc2/ui-react
 
+## 0.18.3
+
+### Patch Changes
+
+- Fix the FormSection container collapse losing the cascade to the base two-column rule; the container query now follows the base grid so narrow containers actually stack their fields.
+
 ## 0.18.2
 
 ### Patch Changes
