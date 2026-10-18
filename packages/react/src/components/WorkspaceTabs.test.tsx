@@ -110,4 +110,54 @@ describe('WorkspaceTabs', () => {
     expect(screen.queryByRole('button', { name: 'Delete workspace' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Add workspace' })).not.toBeInTheDocument();
   });
+
+  it('renders a hidden combobox fallback that mirrors the tabs without marker collisions', () => {
+    const onValueChange = vi.fn();
+    const { container } = render(
+      <WorkspaceTabs
+        ariaLabel="Dashboards"
+        dataXgcId="experiment-dashboard-tabs"
+        dataXgcRole="experiment-dashboard-tabs"
+        itemDataXgcRole="experiment-dashboard-tab"
+        items={items}
+        onValueChange={onValueChange}
+        value="gcs"
+      />,
+    );
+
+    const combobox = container.querySelector('[data-xgc-role="experiment-dashboard-tabs-combobox"]')!;
+    expect(combobox).toHaveClass('xgc-workspace-tabs-combobox');
+    expect(combobox).toHaveAttribute('data-xgc-id', 'experiment-dashboard-tabs');
+    const trigger = combobox.querySelector('[data-xgc-role="experiment-dashboard-tabs-combobox-trigger"]')!;
+    expect(trigger).toHaveAttribute('aria-label', 'Dashboards');
+    expect(trigger).toHaveTextContent('GCS');
+    // The strip keeps [tab][id] and the combobox popup uses select-option with
+    // a prefixed id, so no [role][id] pair ever lands on two nodes.
+    const tabIds = [...container.querySelectorAll('[data-xgc-role="experiment-dashboard-tab"]')]
+      .map((node) => `${node.getAttribute('data-xgc-role')}:${node.getAttribute('data-xgc-id')}`);
+    expect(new Set(tabIds).size).toBe(tabIds.length);
+    expect(container.querySelectorAll('[data-xgc-id="gcs"]').length).toBeGreaterThan(0);
+    expect(container.querySelectorAll('[data-xgc-role="select-option"]')).toHaveLength(0);
+  });
+
+  it('switches tabs from the combobox fallback', async () => {
+    const onValueChange = vi.fn();
+    render(
+      <WorkspaceTabs
+        ariaLabel="Dashboards"
+        dataXgcId="experiment-dashboard-tabs"
+        dataXgcRole="experiment-dashboard-tabs"
+        items={items}
+        onValueChange={onValueChange}
+        value="gcs"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dashboards' }));
+    const option = await screen.findByRole('option', { name: 'Operations' });
+    expect(option).toHaveAttribute('data-xgc-role', 'select-option');
+    expect(option).toHaveAttribute('data-xgc-id', 'experiment-dashboard-tabs:ops');
+    fireEvent.click(option);
+    expect(onValueChange).toHaveBeenCalledWith('ops');
+  });
 });

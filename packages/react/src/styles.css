@@ -1086,6 +1086,15 @@ button.xgc-workflow-status-card[data-xgc-layout='tile'][data-xgc-appearance='sol
   color: var(--color-text-muted);
 }
 
+/* Hidden narrow-track fallback. The owning layout swaps it in for the scroll
+ * strip inside its own container-query breakpoint; the strip itself never
+ * grows a horizontal scrollbar there. */
+.xgc-workspace-tabs-combobox {
+  display: none;
+  min-width: 0;
+  max-width: 100%;
+}
+
 .xgc-workspace-tab-delete {
   --xgc-control-height: var(--size-workspace-tab-action);
   flex: 0 0 var(--size-workspace-tab-action);

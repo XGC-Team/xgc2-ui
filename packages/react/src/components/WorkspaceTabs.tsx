@@ -2,6 +2,7 @@ import { useState, type KeyboardEvent, type ReactNode } from 'react';
 import { classNames } from '../utils';
 import { Button } from './Button';
 import { Input } from './Input';
+import { SelectMenu } from './SelectMenu';
 
 const WORKSPACE_TAB_MIME = 'application/x-xgc-workspace-tab-id';
 
@@ -251,6 +252,24 @@ export function WorkspaceTabs({
           {createIcon}
         </Button>
       ) : null}
+      {/*
+       * Narrow-track fallback: a combobox carrying the same items stays in the
+       * DOM, hidden by default. Owning layouts swap `.xgc-workspace-tabs-scroll`
+       * for `.xgc-workspace-tabs-combobox` inside their own container-query
+       * breakpoint, so no tab strip ever needs a horizontal scrollbar. Rename,
+       * delete and reorder stay on the wide strip; the combobox only switches.
+       */}
+      <SelectMenu
+        ariaLabel={ariaLabel}
+        className="xgc-workspace-tabs-combobox"
+        compact
+        dataXgcId={dataXgcId}
+        dataXgcRole={`${dataXgcRole}-combobox`}
+        fill
+        onValueChange={onValueChange}
+        options={items.map((item) => ({ value: item.id, label: item.label, disabled: item.disabled }))}
+        value={value}
+      />
     </nav>
   );
 }
