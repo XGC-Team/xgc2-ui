@@ -1,6 +1,6 @@
 {
   "name": "@xgc2/ui-policy",
-  "version": "0.18.7",
+  "version": "0.18.8",
   "description": "Fail-closed visual and interaction policy for XGC2 product frontends",
   "type": "module",
   "engines": {

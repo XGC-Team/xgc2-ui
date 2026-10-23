@@ -1,5 +1,13 @@
 # @xgc2/ui-policy
 
+## 0.18.8
+
+### Patch Changes
+
+- Keep native tables inside the shared scrolling viewport full width, including single-row and empty file lists. Preserve the existing table typography, column alignment, and ordinary non-scrolling tables. Pair the policy with the React release.
+- Updated dependencies
+  - @xgc2/ui-react@0.18.8
+
 ## 0.18.7
 
 ### Patch Changes

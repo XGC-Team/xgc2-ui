@@ -2858,7 +2858,8 @@ button.xgc-stat-card:disabled {
   background: transparent;
 }
 
-.xgc-data-table > table {
+.xgc-data-table > table,
+.xgc-data-table > .xgc-data-table-viewport > table {
   width: 100%;
   border-collapse: collapse;
   color: var(--color-text);
