@@ -2852,6 +2852,12 @@ button.xgc-stat-card:disabled {
   scrollbar-gutter: stable;
 }
 
+.xgc-data-table[data-chrome='flat'] {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
 .xgc-data-table > table {
   width: 100%;
   border-collapse: collapse;

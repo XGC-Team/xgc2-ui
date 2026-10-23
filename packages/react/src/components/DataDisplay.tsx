@@ -64,19 +64,21 @@ export function StatCardButton({ className, detail, label, value, ...props }: St
 
 export type DataTableProps = HTMLAttributes<HTMLDivElement> & {
   children: ReactNode;
+  chrome?: 'framed' | 'flat';
   empty?: boolean;
   emptyMessage?: ReactNode;
 };
 
 export function DataTable({
   children,
+  chrome = 'framed',
   className,
   empty = false,
   emptyMessage = 'No data',
   ...props
 }: DataTableProps) {
   return (
-    <div {...props} className={classNames('xgc-data-table', className)}>
+    <div {...props} className={classNames('xgc-data-table', className)} data-chrome={chrome}>
       {empty ? <div className="xgc-data-table-empty">{emptyMessage}</div> : children}
     </div>
   );

@@ -7,6 +7,16 @@ const tokens = readFileSync(resolve(process.cwd(), '../tokens/src/index.css'), '
 const dataTableStyles = styles.slice(styles.indexOf('.xgc-data-table {'), styles.indexOf('.xgc-pagination {'));
 
 describe('data table visual contract', () => {
+  it('flattens only the outer shell while preserving the viewport focus halo', () => {
+    const flatShell = dataTableStyles.match(/\.xgc-data-table\[data-chrome='flat'\]\s*\{([^}]+)\}/)?.[1] ?? '';
+    expect(flatShell).toMatch(/border:\s*0\s*;/);
+    expect(flatShell).toMatch(/border-radius:\s*0\s*;/);
+    expect(flatShell).toMatch(/background:\s*transparent\s*;/);
+    expect(flatShell.split(';').map((declaration) => declaration.trim().split(':')[0]).filter(Boolean))
+      .toEqual(['border', 'border-radius', 'background']);
+    expect(dataTableStyles).toMatch(/\.xgc-data-table\[data-body-scroll='true'\]:has\(> \.xgc-data-table-viewport:focus-visible\)\s*\{[^}]*box-shadow:\s*var\(--shadow-focus\)/);
+  });
+
   it.each(['dark', 'light'])('keeps %s table chrome theme-tokenized', (skin) => {
     const skinBlock = tokens.match(new RegExp(`:root\\[data-skin="${skin}"\\]\\s*\\{[\\s\\S]*?\\n\\}`))?.[0] ?? '';
     expect(skinBlock).toMatch(/--color-bg-surface:/);

@@ -9,12 +9,16 @@ describe('data display primitives', () => {
   });
 
   it('preserves native table semantics inside the shared container', () => {
-    render(
+    const { rerender } = render(
       <DataTable>
         <table><tbody><tr><td>package-a</td></tr></tbody></table>
       </DataTable>,
     );
     expect(screen.getByRole('table')).toHaveTextContent('package-a');
+    expect(screen.getByRole('table').parentElement).toHaveAttribute('data-chrome', 'framed');
+    rerender(<DataTable chrome="flat"><table><tbody><tr><td>package-a</td></tr></tbody></table></DataTable>);
+    expect(screen.getByRole('table')).toHaveTextContent('package-a');
+    expect(screen.getByRole('table').parentElement).toHaveAttribute('data-chrome', 'flat');
   });
 
   it('shows a deliberate empty state without an empty table', () => {
@@ -95,6 +99,7 @@ describe('data display primitives', () => {
     const { container } = render(
       <SortableDataTable
         bodyScroll
+        chrome="flat"
         columns={[{ id: 'package', header: 'Package', cell: (row) => row.name }]}
         rowKey={(row) => row.id}
         rows={[{ id: 'a', name: 'alpha' }, { id: 'b', name: 'beta' }]}
@@ -103,6 +108,7 @@ describe('data display primitives', () => {
     const tableContainer = container.querySelector('.xgc-data-table');
     const rowViewport = container.querySelector('[data-xgc-role="data-table-row-viewport"]');
     const header = screen.getByRole('columnheader', { name: 'Package' });
+    expect(tableContainer).toHaveAttribute('data-chrome', 'flat');
     expect(tableContainer).toHaveAttribute('data-body-scroll', 'true');
     expect(tableContainer).toHaveAttribute('data-sticky-header', 'true');
     expect(rowViewport).toHaveAttribute('aria-label', 'Table rows');

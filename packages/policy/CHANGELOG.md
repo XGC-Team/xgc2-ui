@@ -1,5 +1,13 @@
 # @xgc2/ui-policy
 
+## 0.18.7
+
+### Patch Changes
+
+- Add explicit flat DataTable chrome for embedded file views while preserving default frames, row dividers and keyboard focus feedback. Pair the policy with the React release.
+- Updated dependencies
+  - @xgc2/ui-react@0.18.7
+
 ## 0.18.6
 
 ### Patch Changes
