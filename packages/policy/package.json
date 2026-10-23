@@ -22,7 +22,7 @@
     "typecheck": "node scripts/validate.mjs"
   },
   "peerDependencies": {
-    "@xgc2/ui-react": "0.18.7"
+    "@xgc2/ui-react": "0.18.8"
   },
   "devDependencies": {
     "@xgc2/ui-react": "workspace:^"
