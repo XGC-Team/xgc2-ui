@@ -1,5 +1,11 @@
 # @xgc2/ui-react
 
+## 0.18.15
+
+### Patch Changes
+
+- Continue the sticky table header surface and bottom divider through its reserved scrollbar gutter, eliminating the white slot above an inset native track.
+
 ## 0.18.14
 
 ### Patch Changes

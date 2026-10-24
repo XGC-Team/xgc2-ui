@@ -2900,6 +2900,15 @@ button.xgc-stat-card:disabled {
   overflow: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
+  /* Paint the sticky header through its reserved scrollbar gutter. The
+     vertical track begins below it, but its transparent upper slot still
+     belongs visually to the header, including the bottom divider. */
+  background:
+    linear-gradient(var(--color-border), var(--color-border))
+      0 calc(var(--xgc-data-table-header-height, var(--size-control-default)) - var(--stroke-thin)) /
+      100% var(--stroke-thin) no-repeat,
+    linear-gradient(var(--color-bg-subtle), var(--color-bg-subtle))
+      0 0 / 100% var(--xgc-data-table-header-height, var(--size-control-default)) no-repeat;
 }
 
 /* Native Chromium/WebKit tracks begin below the measured sticky header.
