@@ -1,5 +1,12 @@
 # @xgc2/ui-policy
 
+## 0.18.13
+
+### Patch Changes
+
+- Inset bounded data-table vertical scrollbar tracks below the measured sticky header, preserving the single native table, sorting and shared column geometry.
+- Updated dependencies: @xgc2/ui-react@0.18.13
+
 ## 0.18.12
 
 ### Patch Changes

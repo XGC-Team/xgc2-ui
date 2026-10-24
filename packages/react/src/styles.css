@@ -2902,6 +2902,12 @@ button.xgc-stat-card:disabled {
   scrollbar-gutter: stable;
 }
 
+/* Native Chromium/WebKit tracks begin below the measured sticky header.
+   Keep header and rows in one table; do not split or independently size columns. */
+.xgc-data-table[data-body-scroll='true'] > .xgc-data-table-viewport::-webkit-scrollbar-track:vertical {
+  margin-top: var(--xgc-data-table-header-height, var(--size-control-default));
+}
+
 /* The focus halo must paint outside the shell, so it lives on the chrome
    rather than inside the clipped viewport. */
 .xgc-data-table[data-body-scroll='true']:has(> .xgc-data-table-viewport:focus-visible) {

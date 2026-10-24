@@ -139,7 +139,7 @@ export type DataTableSelection<Row> = {
 export type DataTableEmptyMode = 'message' | 'table';
 
 export type SortableDataTableProps<Row> = Omit<DataTableProps, 'children' | 'empty'> & {
-  /** Keep the table header outside the bounded vertical row viewport. */
+  /** Keep a bounded row viewport with a sticky header and an inset vertical scrollbar track. */
   bodyScroll?: boolean;
   /** Accessible name for the keyboard-scrollable row viewport. */
   bodyScrollLabel?: string;
@@ -317,6 +317,24 @@ export function SortableDataTable<Row>({
 
   const messageEmpty = rows.length === 0 && emptyMode !== 'table';
   const viewportNamed = !messageEmpty && (bodyScroll || emptyTable);
+  // Preserve one native table for column sizing. Only the scrollbar track is
+  // inset: it must not paint over the sticky header's sorting controls.
+  useLayoutEffect(() => {
+    if (!bodyScroll || messageEmpty) return undefined;
+    const viewport = bodyViewportRef.current;
+    const header = viewport?.querySelector('thead');
+    if (!viewport || !header) return undefined;
+    const measureHeader = () => {
+      const height = header.getBoundingClientRect().height;
+      if (height > 0) viewport.style.setProperty('--xgc-data-table-header-height', `${height}px`);
+    };
+    measureHeader();
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    const observer = new ResizeObserver(measureHeader);
+    observer.observe(header);
+    return () => observer.disconnect();
+  }, [bodyScroll, messageEmpty, columns]);
+
   // The consumer's entity id rides the row viewport (role + id on one
   // element, the markable contract); any consumer data-xgc-role stays on the
   // chrome shell, whose CSS hooks keep working.

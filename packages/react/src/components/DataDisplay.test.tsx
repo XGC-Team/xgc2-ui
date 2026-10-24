@@ -95,7 +95,7 @@ describe('data display primitives', () => {
     expect(screen.getAllByRole('row')[1]).toHaveTextContent('1.10.0');
   });
 
-  it('keeps the header outside the bounded vertical row viewport', () => {
+  it('keeps one table with its sticky header in the bounded viewport', () => {
     const { container } = render(
       <SortableDataTable
         bodyScroll
@@ -120,6 +120,31 @@ describe('data display primitives', () => {
     expect(container.querySelector('thead')).not.toHaveAttribute('style');
     expect(header).not.toHaveAttribute('style');
     expect(container.querySelector('.xgc-pagination')).toBeNull();
+  });
+
+  it('tracks changing header height for the native scrollbar inset without splitting the table', () => {
+    let headerHeight = 36;
+    vi.spyOn(Element.prototype,'getBoundingClientRect').mockImplementation(function(this: Element) {
+      return new DOMRect(0,0,100,this.tagName === 'THEAD' ? headerHeight : 0);
+    });
+    let resize: (() => void) | undefined;
+    const disconnect = vi.fn();
+    vi.stubGlobal('ResizeObserver',class {
+      constructor(callback: () => void) { resize=callback; }
+      observe() {}
+      disconnect=disconnect;
+    });
+    const {container,unmount}=render(<SortableDataTable bodyScroll
+      columns={[{id:'name',header:'Name',cell:(row:{id:string})=>row.id}]}
+      rowKey={row=>row.id} rows={[{id:'one'}]} />);
+    const viewport=container.querySelector<HTMLElement>('[data-xgc-role="data-table-row-viewport"]')!;
+    expect(viewport.style.getPropertyValue('--xgc-data-table-header-height')).toBe('36px');
+    headerHeight=52;
+    act(()=>resize?.());
+    expect(viewport.style.getPropertyValue('--xgc-data-table-header-height')).toBe('52px');
+    expect(container.querySelectorAll('table')).toHaveLength(1);
+    expect(viewport.querySelector('thead')).not.toBeNull();
+    unmount();expect(disconnect).toHaveBeenCalledOnce();
   });
 
   it('keeps sticky table chrome when a bounded table changes between empty and overflowing rows', () => {
