@@ -2909,6 +2909,7 @@ button.xgc-stat-card:disabled {
       100% var(--stroke-thin) no-repeat,
     linear-gradient(var(--color-bg-subtle), var(--color-bg-subtle))
       0 0 / 100% var(--xgc-data-table-header-height, var(--size-control-default)) no-repeat;
+  background-origin: border-box;
 }
 
 /* Native Chromium/WebKit tracks begin below the measured sticky header.
