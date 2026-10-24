@@ -118,6 +118,7 @@ export const Controls: Story = {
     <div className="xgc-gallery-form">
       <div className="xgc-gallery-stack">
         <Button>Default</Button>
+        <Button appearance="flat">Flat</Button>
         <Button tone="primary">Primary</Button>
         <Button tone="success">Success</Button>
         <Button tone="danger">Danger</Button>

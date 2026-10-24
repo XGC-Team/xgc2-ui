@@ -164,6 +164,20 @@ button.xgc-workflow-status-card[data-xgc-layout='tile'][data-xgc-appearance='sol
   border-color: transparent;
 }
 
+/* Flat actions compose into a dock/section edge instead of drawing a second
+ * framed control. Tone, size, native behavior and the shared focus ring remain. */
+.xgc-button[data-appearance='flat'] {
+  border-width: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.xgc-button[data-appearance='flat']:hover:not(:disabled):not([aria-disabled='true']),
+.xgc-button[data-appearance='flat']:active:not(:disabled):not([aria-disabled='true']) {
+  box-shadow: none;
+  translate: none;
+}
+
 .xgc-button:disabled,
 .xgc-button[aria-disabled='true'] {
   cursor: not-allowed;

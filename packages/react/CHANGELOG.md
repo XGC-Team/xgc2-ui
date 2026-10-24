@@ -1,5 +1,11 @@
 # @xgc2/ui-react
 
+## 0.18.12
+
+### Patch Changes
+
+- Add the flat Button/ButtonLink appearance for docked and section-edge actions, preserving shared tone, focus, disabled and native interaction behavior without a second frame or rounded corners.
+
 ## 0.18.11
 
 ### Patch Changes
