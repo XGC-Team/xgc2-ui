@@ -2904,7 +2904,7 @@ button.xgc-stat-card:disabled {
 
 /* Native Chromium/WebKit tracks begin below the measured sticky header.
    Keep header and rows in one table; do not split or independently size columns. */
-.xgc-data-table[data-body-scroll='true'] > .xgc-data-table-viewport::-webkit-scrollbar-track:vertical {
+.xgc-data-table[data-body-scroll='true'] > .xgc-data-table-viewport::-webkit-scrollbar-track {
   margin-top: var(--xgc-data-table-header-height, var(--size-control-default));
 }
 

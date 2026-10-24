@@ -1,5 +1,12 @@
 # @xgc2/ui-policy
 
+## 0.18.14
+
+### Patch Changes
+
+- Apply the bounded table header inset to the native scrollbar track without a directional pseudo-class; the browser applies top margins on the vertical axis.
+- Updated dependencies: @xgc2/ui-react@0.18.14
+
 ## 0.18.13
 
 ### Patch Changes
