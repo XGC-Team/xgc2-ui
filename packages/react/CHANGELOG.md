@@ -1,5 +1,11 @@
 # @xgc2/ui-react
 
+## 0.18.9
+
+### Patch Changes
+
+- Support optional hover help on select options through the shared Tooltip component, preserving option labels and selection behavior.
+
 ## 0.18.8
 
 ### Patch Changes

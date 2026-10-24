@@ -35,6 +35,20 @@ describe('SelectMenu', () => {
     expect(onValueChange).toHaveBeenCalledWith('name');
   });
 
+  it('shows optional help on hover without adding it to the option label', async () => {
+    render(<SelectMenu ariaLabel="Target" value="robot" onValueChange={vi.fn()}
+      options={[{ value: 'robot', label: 'Robot', tooltip: <><strong>Experiment</strong><p>Experiment description</p></> }]} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Target' }));
+    const option = screen.getByRole('option', { name: 'Robot' });
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+    fireEvent.mouseEnter(option.parentElement!);
+    const tooltip = await screen.findByRole('tooltip');
+    expect(tooltip).toHaveTextContent('Experiment');
+    expect(tooltip).toHaveTextContent('Experiment description');
+    expect(option).toHaveTextContent('Robot');
+    expect(option).not.toHaveTextContent('Experiment');
+  });
+
   it('keeps a one-line option description out of the selected trigger name', () => {
     const onValueChange = vi.fn();
     render(
