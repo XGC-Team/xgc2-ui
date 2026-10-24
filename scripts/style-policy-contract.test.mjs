@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
 import {
   PRODUCT_CONTROL_GEOMETRY_HOOKS,
   edgeMarkerViolations,
@@ -401,4 +402,21 @@ test('fixed-geometry instrument stylesheets keep measured literals but not fallb
     'font-family outside the shared family tokens: "Courier New"',
     'fallback on shared type token --font-sm',
   ]);
+});
+
+test('tooltip help stays above portaled controls and other shared surfaces in every theme', () => {
+  const styles = readFileSync(new URL('../packages/react/src/styles.css', import.meta.url), 'utf8');
+  const tooltip = styles.match(/\.xgc-tooltip\s*\{([^}]+)\}/)?.[1];
+  assert.match(tooltip, /z-index:\s*var\(--z-tooltip\)/);
+  for (const theme of ['index.css', 'v016.css']) {
+    const tokens = readFileSync(new URL(`../packages/tokens/src/${theme}`, import.meta.url), 'utf8');
+    const layer = (name) => {
+      const value = tokens.match(new RegExp(`--z-${name}:\\s*(\\d+)\\s*;`))?.[1];
+      assert.ok(value, `${theme} must define the ${name} layer`);
+      return Number(value);
+    };
+    for (const surface of ['modal', 'portaled-control', 'notification']) {
+      assert.ok(layer('tooltip') > layer(surface), `${theme}: Tooltip must be above ${surface}`);
+    }
+  }
 });

@@ -1,5 +1,11 @@
 # @xgc2/ui-tokens
 
+## 0.12.1
+
+### Patch Changes
+
+- Give tooltips a semantic layer above portaled controls and shared notifications so option help remains visible over open menus.
+
 ## 0.12.0
 
 ### Minor Changes

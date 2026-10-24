@@ -138,6 +138,7 @@
   --z-modal: 80;
   --z-portaled-control: 85;
   --z-notification: 90;
+  --z-tooltip: 100;
 
   --color-terminal-scrollbar-track: color-mix(in srgb, var(--color-terminal-surface) 78%, transparent);
   --color-terminal-scrollbar-thumb: color-mix(in srgb, var(--color-terminal-muted) 82%, transparent);

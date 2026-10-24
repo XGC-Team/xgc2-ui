@@ -1,5 +1,11 @@
 # @xgc2/ui-react
 
+## 0.18.10
+
+### Patch Changes
+
+- Give tooltips a semantic layer above portaled controls and shared notifications so option help remains visible over open menus.
+
 ## 0.18.9
 
 ### Patch Changes

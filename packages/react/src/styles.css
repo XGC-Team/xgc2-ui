@@ -672,7 +672,7 @@ button.xgc-workflow-status-card[data-xgc-layout='tile'][data-xgc-appearance='sol
 
 .xgc-tooltip {
   position: fixed;
-  z-index: var(--z-modal);
+  z-index: var(--z-tooltip);
   box-sizing: border-box;
   max-width: min(36ch, calc(100vw - var(--space-xl)));
   padding: var(--space-sm) var(--space-md);
