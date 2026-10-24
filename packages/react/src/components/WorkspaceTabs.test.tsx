@@ -21,6 +21,20 @@ describe('WorkspaceTabs', () => {
     expect(ops).toHaveFocus();
   });
 
+  it('protects individual tabs without disabling selection or rename', () => {
+    const remove=vi.fn();const select=vi.fn();const rename=vi.fn();
+    render(<WorkspaceTabs ariaLabel="Pages" value="native" onValueChange={select} onDelete={remove} onRename={rename}
+      deleteLabel={item=>`Delete ${item.label}`} renameLabel={item=>`Rename ${item.label}`}
+      items={[{id:'native',label:'Native',deletable:false},{id:'custom',label:'Custom'}]} />);
+    expect(screen.queryByRole('button',{name:'Delete Native'})).toBeNull();
+    fireEvent.click(screen.getByRole('tab',{name:'Native'}));expect(select).toHaveBeenCalledWith('native');
+    fireEvent.doubleClick(screen.getByRole('tab',{name:'Native'}));
+    fireEvent.change(screen.getByRole('textbox',{name:'Rename Native'}),{target:{value:'Renamed'}});
+    fireEvent.keyDown(screen.getByRole('textbox',{name:'Rename Native'}),{key:'Enter'});
+    expect(rename).toHaveBeenCalledWith('native','Renamed');
+    fireEvent.click(screen.getByRole('button',{name:'Delete Custom'}));expect(remove).toHaveBeenCalledExactlyOnceWith('custom');
+  });
+
   it('owns rename, delete, and create interactions', () => {
     const onRename = vi.fn();
     const onDelete = vi.fn();

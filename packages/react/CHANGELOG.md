@@ -1,5 +1,11 @@
 # @xgc2/ui-react
 
+## 0.18.11
+
+### Patch Changes
+
+- Allow each workspace tab to opt out of deletion while preserving selection, rename, reorder and existing default behavior.
+
 ## 0.18.10
 
 ### Patch Changes

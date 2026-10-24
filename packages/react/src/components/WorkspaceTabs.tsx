@@ -8,6 +8,7 @@ const WORKSPACE_TAB_MIME = 'application/x-xgc-workspace-tab-id';
 
 export type WorkspaceTabItem = {
   disabled?: boolean;
+  deletable?: boolean;
   icon?: ReactNode;
   id: string;
   label: string;
@@ -214,7 +215,7 @@ export function WorkspaceTabs({
                 {item.icon ? <span className="xgc-workspace-tab-icon" aria-hidden="true">{item.icon}</span> : null}
                 <span className="xgc-workspace-tab-label">{item.label}</span>
               </button>
-              {canDelete ? (
+              {canDelete && item.deletable !== false ? (
                 <Button
                   appearance="ghost"
                   aria-label={deleteLabel(item)}
