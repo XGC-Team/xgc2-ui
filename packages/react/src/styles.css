@@ -2912,6 +2912,15 @@ button.xgc-stat-card:disabled {
   background-origin: border-box;
 }
 
+/* Collapsed table borders paint outside the measured header box and snap
+   differently from the gutter background at integer/half-pixel origins.
+   Keep the native divider inside that box, using the same geometry as the
+   gutter stripe. Zero spacing preserves the single table's column sizing. */
+.xgc-data-table[data-body-scroll='true'] > .xgc-data-table-viewport > table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
 /* Native Chromium/WebKit tracks begin below the measured sticky header.
    Keep header and rows in one table; do not split or independently size columns. */
 .xgc-data-table[data-body-scroll='true'] > .xgc-data-table-viewport::-webkit-scrollbar-track {

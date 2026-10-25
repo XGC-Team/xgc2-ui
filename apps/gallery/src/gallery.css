@@ -39,7 +39,9 @@ body {
 }
 
 .xgc-gallery-table-scroll-edges {
-  grid-template-rows: minmax(0, 300px);
+  /* The second row starts on a half pixel: collapsed border snapping used
+     to hide the header/gutter mismatch there while the first row failed. */
+  grid-template-rows: repeat(2, minmax(0, 300.5px));
 }
 
 .xgc-gallery-data-display {

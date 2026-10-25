@@ -1,5 +1,12 @@
 # @xgc2/ui-policy
 
+## 0.18.17
+
+### Patch Changes
+
+- Keep bounded table borders inside their measured cells with zero border spacing, aligning the native header divider and scrollbar gutter at integer and half-pixel layout origins.
+- Updated dependencies: @xgc2/ui-react@0.18.17
+
 ## 0.18.16
 
 ### Patch Changes
