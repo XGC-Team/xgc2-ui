@@ -38,6 +38,10 @@ body {
   height: 300px;
 }
 
+.xgc-gallery-table-scroll-edges {
+  grid-template-rows: minmax(0, 300px);
+}
+
 .xgc-gallery-data-display {
   grid-template-rows: auto auto minmax(0, 300px) auto;
 }

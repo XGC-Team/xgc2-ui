@@ -405,6 +405,25 @@ export const DataDisplay: Story = {
   ),
 };
 
+export const BoundedTableScrollEdges: Story = {
+  render: () => (
+    <div className="xgc-gallery-data xgc-gallery-content-grid xgc-gallery-table-scroll-edges">
+      {[200, 16].map((count) => (
+        <Panel key={count} bodyLayout="column" className="xgc-gallery-table-panel" fill
+          title={`${count} fields`} padding="none">
+          <SortableDataTable<{ id: string }>
+            bodyScroll virtualizeRows data-xgc-id={`scroll-edges-${count}`}
+            bodyScrollLabel={`${count} fields`}
+            columns={[{ id: 'field',header: 'Field',sortable: true,sortValue: row => row.id,cell: row => row.id }]}
+            rowKey={row => row.id}
+            rows={Array.from({ length: count }, (_, index) => ({ id: `field-${String(index).padStart(3, '0')}` }))}
+          />
+        </Panel>
+      ))}
+    </div>
+  ),
+};
+
 function SharedContentExample() {
   const [selected, setSelected] = useState('one');
   return (

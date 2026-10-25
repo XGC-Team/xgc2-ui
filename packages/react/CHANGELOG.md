@@ -1,5 +1,11 @@
 # @xgc2/ui-react
 
+## 0.18.16
+
+### Patch Changes
+
+- Remove transparent native scrollbar end-button slots from bounded tables so the track starts at the sticky header divider for both long and short row lists.
+
 ## 0.18.15
 
 ### Patch Changes

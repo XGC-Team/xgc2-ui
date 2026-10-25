@@ -2918,6 +2918,15 @@ button.xgc-stat-card:disabled {
   margin-top: var(--xgc-data-table-header-height, var(--size-control-default));
 }
 
+/* The global scrollbar end buttons reserve transparent slots. Their height
+   would be added to the header inset, leaving the first thumb below the
+   header divider. Bounded tables already own that start edge. */
+.xgc-data-table[data-body-scroll='true'] > .xgc-data-table-viewport::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
 /* The focus halo must paint outside the shell, so it lives on the chrome
    rather than inside the clipped viewport. */
 .xgc-data-table[data-body-scroll='true']:has(> .xgc-data-table-viewport:focus-visible) {

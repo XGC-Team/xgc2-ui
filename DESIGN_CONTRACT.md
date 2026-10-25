@@ -152,7 +152,7 @@ Typography is chosen by text role, never by container or HTML element. The roles
 
 ## Data tables
 
-- Sortable lists use the shared `SortableDataTable`, including its sort indicators, `aria-sort` state, keyboard-operable buttons, stable value comparison, and empty state. Bounded list panels use `bodyScroll`, which keeps the header outside the vertical row viewport while one horizontal viewport keeps header and data columns aligned.
+- Sortable lists use the shared `SortableDataTable`, including its sort indicators, `aria-sort` state, keyboard-operable buttons, stable value comparison, and empty state. Bounded list panels use `bodyScroll`: one native table owns column sizing and a sticky header inside the single scroll viewport. The native vertical track starts at the header's bottom divider without additional scrollbar end-button slots; the header surface and divider continue through the reserved gutter. Verify the painted start edge at Home with both short and long row lists, as well as End and sorting.
 - Selectable tables use the shared `selection` contract. The first header cell provides select-all and partial-selection state; selected rows use a complete background and enclosing border.
 - Audit, task, and runtime log views use `LogTablePage` when they need the standard search/filter/refresh/table/pagination composition. Its data region scrolls internally while the toolbar and pagination remain visible.
 
