@@ -17,7 +17,6 @@
   --color-workflow-tone-teal: #69a99b;
   --color-workflow-tone-indigo: #8c91c8;
   --color-workflow-tone-pink: #bd86a4;
-  --xgc-node-running-color: var(--color-workflow-tone-blue);
 }
 
 :root[data-skin='light'] {
@@ -31,7 +30,6 @@
   --color-workflow-tone-teal: #2b7568;
   --color-workflow-tone-indigo: #545b9c;
   --color-workflow-tone-pink: #8e496c;
-  --xgc-node-running-color: var(--color-workflow-tone-blue);
 }
 
 .xgc-workflow-canvas {
@@ -128,8 +126,7 @@
 
 /* Running indicator: a single accent highlight travelling clockwise along
  * the border ring. Functional execution feedback, not decoration; the
- * readable status text inside the node remains the source of truth.
- * Uses the existing blue workflow tone, never a success or category fill. */
+ * readable status text inside the node remains the source of truth. */
 @property --xgc-node-running-angle {
   syntax: '<angle>';
   initial-value: 0deg;
@@ -137,7 +134,7 @@
 }
 
 .xgc-workflow-node-surface[data-running='true'] {
-  border-color: color-mix(in srgb, var(--xgc-node-running-color) 40%, var(--color-border));
+  border-color: color-mix(in srgb, var(--color-border-accent) 40%, var(--color-border));
 }
 
 .xgc-workflow-node-surface[data-running='true']::before {
@@ -149,7 +146,7 @@
   background: conic-gradient(
     from var(--xgc-node-running-angle),
     transparent 0deg 250deg,
-    var(--xgc-node-running-color) 330deg,
+    var(--color-border-accent) 330deg,
     transparent 360deg
   );
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
@@ -167,7 +164,7 @@
 @media (prefers-reduced-motion: reduce) {
   .xgc-workflow-node-surface[data-running='true']::before {
     animation: none;
-    background: var(--xgc-node-running-color);
+    background: var(--color-border-accent);
   }
 }
 

@@ -1,5 +1,13 @@
 # @xgc2/ui-workflow
 
+## 0.4.5
+
+### Patch Changes
+
+- Restore the established border accent for the running node indicator.
+- Updated dependencies
+  - @xgc2/ui-react@0.18.19
+
 ## 0.4.4
 
 ### Patch Changes

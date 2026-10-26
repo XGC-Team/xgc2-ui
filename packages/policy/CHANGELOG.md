@@ -1,5 +1,12 @@
 # @xgc2/ui-policy
 
+## 0.18.19
+
+### Patch Changes
+
+- Advance the immutable family tag for the workflow running-highlight correction.
+- Updated dependencies: @xgc2/ui-react@0.18.19
+
 ## 0.18.18
 
 ### Patch Changes
