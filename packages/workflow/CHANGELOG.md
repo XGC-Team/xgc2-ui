@@ -1,5 +1,13 @@
 # @xgc2/ui-workflow
 
+## 0.4.4
+
+### Patch Changes
+
+- Use the existing blue workflow tone for running node borders so execution remains readable with monochrome skins.
+- Updated dependencies
+  - @xgc2/ui-react@0.18.18
+
 ## 0.4.3
 
 ### Patch Changes

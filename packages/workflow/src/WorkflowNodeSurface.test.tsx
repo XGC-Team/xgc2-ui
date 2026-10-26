@@ -72,4 +72,17 @@ describe('WorkflowNodeSurface', () => {
     expect(styles).not.toContain('--color-automation-');
     expect(styles).not.toMatch(/--color-workflow-(?:run|node)-/);
   });
+
+  it('keeps the running highlight blue with monochrome skins', () => {
+    const rules = [
+      styles.match(/\.xgc-workflow-node-surface\[data-running='true'\]\s*\{[^}]+\}/)?.[0],
+      styles.match(/\.xgc-workflow-node-surface\[data-running='true'\]::before\s*\{[^}]+\}/)?.[0],
+      styles.match(/@media \(prefers-reduced-motion: reduce\)\s*\{\s*\.xgc-workflow-node-surface\[data-running='true'\]::before\s*\{[^}]+\}/)?.[0],
+    ];
+    for (const rule of rules) {
+      expect(rule).toContain('var(--xgc-node-running-color)');
+      expect(rule).not.toContain('var(--color-border-accent)');
+    }
+    expect([...styles.matchAll(/--xgc-node-running-color: var\(--color-workflow-tone-blue\);/g)]).toHaveLength(2);
+  });
 });
