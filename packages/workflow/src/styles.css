@@ -124,15 +124,6 @@
   inherits: false;
 }
 
-/* Running indicator: a single accent highlight travelling clockwise along
- * the border ring. Functional execution feedback, not decoration; the
- * readable status text inside the node remains the source of truth. */
-@property --xgc-node-running-angle {
-  syntax: '<angle>';
-  initial-value: 0deg;
-  inherits: false;
-}
-
 .xgc-workflow-node-surface[data-running='true'] {
   border-color: color-mix(in srgb, var(--color-border-accent) 40%, var(--color-border));
 }
