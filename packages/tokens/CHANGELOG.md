@@ -1,5 +1,11 @@
 # @xgc2/ui-tokens
 
+## 0.13.0
+
+### Minor Changes
+
+- Export the generic control, space and stroke geometry constants from the generated token module so product layout owners can derive panel floors from the same values as CSS without DOM reads or local fallbacks.
+
 ## 0.12.1
 
 ### Patch Changes

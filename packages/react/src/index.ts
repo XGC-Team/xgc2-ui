@@ -156,6 +156,20 @@ export {
   WORKSPACE_PANEL_HEADER_HEIGHT_PX,
 } from './components/WorkspacePanel';
 export type { WorkspacePanelProps } from './components/WorkspacePanel';
+import {
+  SIZE_CONTROL_COMPACT_PX as TOKEN_SIZE_CONTROL_COMPACT_PX,
+  SIZE_CONTROL_DEFAULT_PX as TOKEN_SIZE_CONTROL_DEFAULT_PX,
+  SPACE_LG_PX as TOKEN_SPACE_LG_PX,
+  SPACE_SM_PX as TOKEN_SPACE_SM_PX,
+  STROKE_THIN_PX as TOKEN_STROKE_THIN_PX,
+} from '@xgc2/ui-tokens/geometry';
+
+/** Generic layout geometry generated from the same v016 CSS tokens. */
+export const SIZE_CONTROL_DEFAULT_PX = TOKEN_SIZE_CONTROL_DEFAULT_PX;
+export const SIZE_CONTROL_COMPACT_PX = TOKEN_SIZE_CONTROL_COMPACT_PX;
+export const SPACE_SM_PX = TOKEN_SPACE_SM_PX;
+export const SPACE_LG_PX = TOKEN_SPACE_LG_PX;
+export const STROKE_THIN_PX = TOKEN_STROKE_THIN_PX;
 export { ComposableWorkspace, clampWorkspacePosition, resolveWorkspaceBreakpoint } from './components/ComposableWorkspace';
 export type {
   ComposableWorkspaceAdapterProps,

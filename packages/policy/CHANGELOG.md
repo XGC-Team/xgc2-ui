@@ -1,5 +1,11 @@
 # @xgc2/ui-policy
 
+## 0.18.20
+
+### Patch Changes
+
+- Keep the policy package in the shared React family version so the immutable package release remains internally coherent.
+
 ## 0.18.19
 
 ### Patch Changes
