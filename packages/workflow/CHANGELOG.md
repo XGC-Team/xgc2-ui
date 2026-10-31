@@ -1,5 +1,11 @@
 # @xgc2/ui-workflow
 
+## 0.4.6
+
+### Patch Changes
+
+- Release the reviewed workflow highlight/fix set with the shared package family.
+
 ## 0.4.5
 
 ### Patch Changes
