@@ -1,5 +1,13 @@
 # @xgc2/ui-policy
 
+## 0.18.21
+
+### Patch Changes
+
+- 3271771: Give narrow catalog rows a second line for metadata so the resource title and actions remain reachable.
+- Updated dependencies [3271771]
+  - @xgc2/ui-react@0.18.21
+
 ## 0.18.20
 
 ### Patch Changes
