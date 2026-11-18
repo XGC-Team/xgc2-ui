@@ -16,6 +16,19 @@ function ItemIcon(props: { className?: string; size?: number | string; 'aria-hid
 }
 
 describe('ListPage', () => {
+  it('puts the row identity on the title and description when their roles are supplied', () => {
+    const content = { icon: ItemIcon, onOpen: vi.fn(), openLabel: 'Open A', title: 'A' };
+    const { container, rerender } = render(
+      <ListPageItemMain {...content} dataXgcId="resource-a" titleRole="robot-open" descriptionRole="robot-description" />,
+    );
+    const main = container.firstElementChild;
+    expect(main).toHaveAttribute('data-xgc-id', 'resource-a');
+    expect(main?.querySelector('[data-xgc-role="robot-open"]')).toBe(screen.getByRole('button', { name: 'Open A' }));
+    expect(main?.querySelector('[data-xgc-role="robot-description"]')).toHaveAttribute('data-xgc-id', 'resource-a');
+    rerender(<ListPageItemMain {...content} titleRole="robot-open" />);
+    expect(container.querySelector('[data-xgc-id], [data-xgc-role="robot-open"], [data-xgc-role="robot-description"]')).toBeNull();
+  });
+
   it('owns the catalog item structure and isolates its open action', () => {
     const onOpen = vi.fn();
     const onRowClick = vi.fn();

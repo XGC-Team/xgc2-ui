@@ -65,7 +65,9 @@ export type ListPageProps<T> = {
 export function ListPageItemMain({
   children,
   current = false,
+  dataXgcId,
   description,
+  descriptionRole,
   icon: Icon,
   onOpen,
   openLabel,
@@ -73,10 +75,13 @@ export function ListPageItemMain({
   tagRowId,
   tagRowRole,
   title,
+  titleRole,
 }: {
   children?: ReactNode;
   current?: boolean;
+  dataXgcId?: string;
   description?: string;
+  descriptionRole?: string;
   icon: ListPageItemIcon;
   onOpen: () => void;
   openLabel: string;
@@ -84,14 +89,17 @@ export function ListPageItemMain({
   tagRowId?: string;
   tagRowRole?: string;
   title: string;
+  titleRole?: string;
 }) {
   return (
-    <div className="xgc-list-item-main" data-xgc-role="list-page-item-main">
+    <div className="xgc-list-item-main" data-xgc-id={dataXgcId || undefined} data-xgc-role="list-page-item-main">
       <div className="xgc-list-item-title">
         <button
           aria-current={current ? 'page' : undefined}
           aria-label={openLabel}
           className="xgc-list-row-open"
+          data-xgc-id={titleRole && dataXgcId || undefined}
+          data-xgc-role={dataXgcId && titleRole || undefined}
           onClick={(event) => {
             event.stopPropagation();
             onOpen();
@@ -102,7 +110,11 @@ export function ListPageItemMain({
           <strong>{title}</strong>
         </button>
       </div>
-      <span className="xgc-list-item-subtitle">{description?.trim() || 'No description'}</span>
+      <span
+        className="xgc-list-item-subtitle"
+        data-xgc-id={descriptionRole && dataXgcId || undefined}
+        data-xgc-role={dataXgcId && descriptionRole || undefined}
+      >{description?.trim() || 'No description'}</span>
       {children == null || children === false ? null : (
         <ListPageTagRow
           className={classNames('xgc-list-item-tags', tagRowClassName)}
