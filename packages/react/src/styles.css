@@ -1425,6 +1425,7 @@ button.xgc-workflow-status-card[data-xgc-layout='tile'][data-xgc-appearance='sol
 
 .xgc-list-shell {
   width: min(var(--xgc-list-content-max), 100%);
+  container: xgc-list-items / inline-size;
   min-height: 380px;
   display: grid;
   justify-self: center;
@@ -1561,6 +1562,25 @@ button.xgc-list-tag:disabled { cursor: not-allowed; opacity: var(--opacity-deemp
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+@container xgc-list-items (max-width: 600px) {
+  .xgc-list-row[data-xgc-layout='catalog'] {
+    height: auto;
+    grid-template-columns: minmax(0, 1fr) auto;
+    row-gap: var(--space-sm);
+    column-gap: var(--space-md);
+  }
+
+  .xgc-list-row[data-xgc-layout='catalog'] > .xgc-list-item-meta {
+    grid-area: 2 / 1 / auto / -1;
+    min-width: 0;
+    justify-items: start;
+  }
+
+  .xgc-list-row[data-xgc-layout='catalog'] > .xgc-list-item-actions {
+    grid-area: 1 / 2;
+  }
 }
 
 .xgc-list-folder { display: grid; gap: var(--xgc-list-folder-gap, var(--space-md)); border-radius: var(--radius-surface); }
