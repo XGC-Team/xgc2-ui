@@ -1,5 +1,12 @@
 # @xgc2/ui-react
 
+## 0.18.21
+
+### Patch Changes
+
+- 3271771: Give narrow catalog rows a second line for metadata so the resource title and actions remain reachable.
+- Render optional resource and action identifiers directly on the catalog content, title and description.
+
 ## 0.18.20
 
 ### Patch Changes
