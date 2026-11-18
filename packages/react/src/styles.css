@@ -1364,6 +1364,7 @@ button.xgc-workflow-status-card[data-xgc-layout='tile'][data-xgc-appearance='sol
 .xgc-list-page-host:has(> .xgc-list-page) > .xgc-list-page {
   min-height: 0;
   flex: 1 1 0;
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto minmax(0, 1fr);
   align-content: stretch;
 }
@@ -1381,6 +1382,25 @@ button.xgc-workflow-status-card[data-xgc-layout='tile'][data-xgc-appearance='sol
 .xgc-list-page-host:has(> .xgc-list-page) > .xgc-list-page > .xgc-list-shell > * {
   width: min(var(--xgc-list-content-max), 100%);
   justify-self: center;
+}
+
+/* With little vertical space the filters can occupy the entire viewport.
+   Let the heading, controls and rows travel together. A document-layout
+   shell can then scroll the page, while a bounded workspace scrolls its host. */
+@media (max-height: 27rem) {
+  .xgc-list-page-host:has(> .xgc-list-page) {
+    overflow: auto;
+  }
+
+  .xgc-list-page-host:has(> .xgc-list-page) > .xgc-list-page {
+    flex: 0 0 auto;
+    grid-template-rows: auto auto;
+  }
+
+  .xgc-list-page-host:has(> .xgc-list-page) > .xgc-list-page > .xgc-list-shell {
+    overflow: visible;
+    scrollbar-gutter: auto;
+  }
 }
 
 .xgc-list-controls,
