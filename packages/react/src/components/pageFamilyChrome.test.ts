@@ -29,6 +29,22 @@ describe('page-family visual geometry', () => {
     expect(listHost.get('overflow-clip-margin')).toBe('var(--stroke-strong)');
   });
 
+  it('gives a short directory one scroll owner for its controls and rows', () => {
+    const css = readFileSync(stylesPath, 'utf8');
+    const host = '.xgc-list-page-host:has(> .xgc-list-page)';
+    const page = `${host} > .xgc-list-page`;
+    const items = `${page} > .xgc-list-shell`;
+    const short = css.match(/@media \(max-height: 27rem\) \{([\s\S]*?)\n\}/)?.[1];
+    expect(short).toBeDefined();
+    const rules = short!.replace(/^  /gm, '');
+
+    expect(ruleDeclarations(css, page).get('grid-template-columns')).toBe('minmax(0, 1fr)');
+    expect(ruleDeclarations(css, items).get('overflow-y')).toBe('auto');
+    expect(ruleDeclarations(rules, host).get('overflow')).toBe('auto');
+    expect(ruleDeclarations(rules, page).get('grid-template-rows')).toBe('auto auto');
+    expect(ruleDeclarations(rules, items).get('overflow')).toBe('visible');
+  });
+
   it('keeps compact settings geometry independently owned from resource directories', () => {
     const css = readFileSync(stylesPath, 'utf8');
     const configToggle = ruleDeclarations(css, '.xgc-config-section-toggle');

@@ -1,5 +1,11 @@
 # @xgc2/ui-react
 
+## 0.18.22
+
+### Patch Changes
+
+- 1e8625a: Keep resource directory rows and menus reachable when a short viewport would otherwise give all its height to the filters.
+
 ## 0.18.21
 
 ### Patch Changes

@@ -1,5 +1,13 @@
 # @xgc2/ui-policy
 
+## 0.18.22
+
+### Patch Changes
+
+- 1e8625a: Keep resource directory rows and menus reachable when a short viewport would otherwise give all its height to the filters.
+- Updated dependencies [1e8625a]
+  - @xgc2/ui-react@0.18.22
+
 ## 0.18.21
 
 ### Patch Changes
